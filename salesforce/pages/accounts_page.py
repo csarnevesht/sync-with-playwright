@@ -319,58 +319,232 @@ class AccountsPage:
             logging.info("Waiting for new account form...")
             self.page.wait_for_selector('div.slds-modal__content', timeout=30000)
             
-            # Wait for the form to be fully loaded
-            logging.info("Waiting for form to be fully loaded...")
-            self.page.wait_for_load_state('networkidle', timeout=30000)
-            
-            # Wait for the first name field to be visible
+            # Wait for the first name field to be visible (try multiple selectors)
             logging.info("Waiting for first name field...")
-            self.page.wait_for_selector('//label[contains(text(), "First Name")]/following-sibling::input', timeout=30000)
+            first_name_selectors = [
+                '//label[contains(text(), "First Name")]/following-sibling::input',
+                '//input[contains(@placeholder, "First Name")]',
+                'input[name="firstName"]',
+                'input[id*="FirstName"]',
+                'input[aria-label="First Name"]',
+                'input'
+            ]
+            found = False
+            for selector in first_name_selectors:
+                try:
+                    logging.info(f"Trying selector for First Name: {selector}")
+                    el = self.page.wait_for_selector(selector, timeout=5000)
+                    if el and el.is_visible():
+                        logging.info(f"Found First Name field with selector: {selector}")
+                        found = True
+                        break
+                except Exception as e:
+                    logging.info(f"Selector {selector} failed: {str(e)}")
+            if not found:
+                # Log the form content for debugging
+                try:
+                    form_content = self.page.content()
+                    with open("form-content.html", "w") as f:
+                        f.write(form_content)
+                    logging.error("Could not find First Name field. Form content saved as form-content.html")
+                except Exception as e:
+                    logging.error(f"Failed to save form content: {str(e)}")
+                raise Exception("Could not find First Name field on the new account form.")
 
-            # Fill in basic information
-            logging.info("Filling in basic information...")
-            self.page.fill('//label[contains(text(), "First Name")]/following-sibling::input', first_name)
-            self.page.fill('//label[contains(text(), "Last Name")]/following-sibling::input', last_name)
+            # Fill in basic information (use the first working selector)
+            self.page.fill(selector, first_name)
+
+            # Robust selector logic for Last Name
+            last_name_selectors = [
+                '//label[contains(text(), "Last Name")]/following-sibling::input',
+                '//input[contains(@placeholder, "Last Name")]',
+                'input[name="lastName"]',
+                'input[id*="LastName"]',
+                'input[aria-label="Last Name"]',
+                'input'
+            ]
+            found_last = False
+            for last_selector in last_name_selectors:
+                try:
+                    logging.info(f"Trying selector for Last Name: {last_selector}")
+                    el = self.page.wait_for_selector(last_selector, timeout=5000)
+                    if el and el.is_visible():
+                        logging.info(f"Found Last Name field with selector: {last_selector}")
+                        found_last = True
+                        break
+                except Exception as e:
+                    logging.info(f"Selector {last_selector} failed: {str(e)}")
+            if not found_last:
+                # Log the form content for debugging
+                try:
+                    form_content = self.page.content()
+                    with open("form-content.html", "w") as f:
+                        f.write(form_content)
+                    logging.error("Could not find Last Name field. Form content saved as form-content.html")
+                except Exception as e:
+                    logging.error(f"Failed to save form content: {str(e)}")
+                raise Exception("Could not find Last Name field on the new account form.")
+
+            self.page.fill(last_selector, last_name)
+
             if middle_name:
                 self.page.fill('//label[contains(text(), "Middle Name")]/following-sibling::input', middle_name)
 
             # Fill in additional information if available
             if account_info:
                 logging.info("Filling in additional information...")
+                def fill_field(field_name, value, selectors):
+                    found = False
+                    for sel in selectors:
+                        try:
+                            logging.info(f"Trying selector for {field_name}: {sel}")
+                            el = self.page.wait_for_selector(sel, timeout=3000)
+                            if el and el.is_visible():
+                                logging.info(f"Found {field_name} field with selector: {sel}")
+                                self.page.fill(sel, value)
+                                found = True
+                                break
+                        except Exception as e:
+                            logging.info(f"Selector {sel} failed: {str(e)}")
+                    if not found:
+                        try:
+                            form_content = self.page.content()
+                            with open("form-content.html", "w") as f:
+                                f.write(form_content)
+                            logging.error(f"Could not find {field_name} field. Form content saved as form-content.html")
+                        except Exception as e:
+                            logging.error(f"Failed to save form content: {str(e)}")
+                        raise Exception(f"Could not find {field_name} field on the new account form.")
+
+                def select_field(field_name, value, selectors):
+                    found = False
+                    for sel in selectors:
+                        try:
+                            logging.info(f"Trying selector for {field_name}: {sel}")
+                            el = self.page.wait_for_selector(sel, timeout=3000)
+                            if el and el.is_visible():
+                                logging.info(f"Found {field_name} field with selector: {sel}")
+                                self.page.select_option(sel, value)
+                                found = True
+                                break
+                        except Exception as e:
+                            logging.info(f"Selector {sel} failed: {str(e)}")
+                    if not found:
+                        try:
+                            form_content = self.page.content()
+                            with open("form-content.html", "w") as f:
+                                f.write(form_content)
+                            logging.error(f"Could not find {field_name} field. Form content saved as form-content.html")
+                        except Exception as e:
+                            logging.error(f"Failed to save form content: {str(e)}")
+                        raise Exception(f"Could not find {field_name} field on the new account form.")
+
                 # Date of Birth
                 if 'date_of_birth' in account_info:
-                    self.page.fill('//label[contains(text(), "Date of Birth")]/following-sibling::input', account_info['date_of_birth'])
+                    fill_field('Date of Birth', account_info['date_of_birth'], [
+                        '//label[contains(text(), "Date of Birth")]/following-sibling::input',
+                        '//input[contains(@placeholder, "Date of Birth")]',
+                        'input[name="dateOfBirth"]',
+                        'input[id*="DateOfBirth"]',
+                        'input[aria-label="Date of Birth"]',
+                        'input[type="date"]',
+                        'input'
+                    ])
 
                 # Age
                 if 'age' in account_info:
-                    self.page.fill('//label[contains(text(), "Age")]/following-sibling::input', account_info['age'])
+                    fill_field('Age', account_info['age'], [
+                        '//label[contains(text(), "Age")]/following-sibling::input',
+                        '//input[contains(@placeholder, "Age")]',
+                        'input[name="age"]',
+                        'input[id*="Age"]',
+                        'input[aria-label="Age"]',
+                        'input[type="number"]',
+                        'input'
+                    ])
 
                 # Sex
                 if 'sex' in account_info:
-                    self.page.select_option('//label[contains(text(), "Sex")]/following-sibling::select', account_info['sex'])
+                    select_field('Sex', account_info['sex'], [
+                        '//label[contains(text(), "Sex")]/following-sibling::select',
+                        'select[name="sex"]',
+                        'select[id*="Sex"]',
+                        'select[aria-label="Sex"]',
+                        'select'
+                    ])
 
                 # SSN
                 if 'ssn' in account_info:
-                    self.page.fill('//label[contains(text(), "SSN")]/following-sibling::input', account_info['ssn'])
+                    fill_field('SSN', account_info['ssn'], [
+                        '//label[contains(text(), "SSN")]/following-sibling::input',
+                        '//input[contains(@placeholder, "SSN")]',
+                        'input[name="ssn"]',
+                        'input[id*="SSN"]',
+                        'input[aria-label="SSN"]',
+                        'input'
+                    ])
 
                 # Contact Information
                 if 'email' in account_info:
-                    self.page.fill('//label[contains(text(), "Email")]/following-sibling::input', account_info['email'])
+                    fill_field('Email', account_info['email'], [
+                        '//label[contains(text(), "Email")]/following-sibling::input',
+                        '//input[contains(@placeholder, "Email")]',
+                        'input[name="email"]',
+                        'input[id*="Email"]',
+                        'input[aria-label="Email"]',
+                        'input[type="email"]',
+                        'input'
+                    ])
 
                 if 'phone' in account_info:
-                    self.page.fill('//label[contains(text(), "Phone")]/following-sibling::input', account_info['phone'])
+                    fill_field('Phone', account_info['phone'], [
+                        '//label[contains(text(), "Phone")]/following-sibling::input',
+                        '//input[contains(@placeholder, "Phone")]',
+                        'input[name="phone"]',
+                        'input[id*="Phone"]',
+                        'input[aria-label="Phone"]',
+                        'input[type="tel"]',
+                        'input'
+                    ])
 
                 if 'address' in account_info:
-                    self.page.fill('//label[contains(text(), "Address")]/following-sibling::input', account_info['address'])
+                    fill_field('Address', account_info['address'], [
+                        '//label[contains(text(), "Address")]/following-sibling::input',
+                        '//input[contains(@placeholder, "Address")]',
+                        'input[name="address"]',
+                        'input[id*="Address"]',
+                        'input[aria-label="Address"]',
+                        'input'
+                    ])
 
                 if 'city' in account_info:
-                    self.page.fill('//label[contains(text(), "City")]/following-sibling::input', account_info['city'])
+                    fill_field('City', account_info['city'], [
+                        '//label[contains(text(), "City")]/following-sibling::input',
+                        '//input[contains(@placeholder, "City")]',
+                        'input[name="city"]',
+                        'input[id*="City"]',
+                        'input[aria-label="City"]',
+                        'input'
+                    ])
 
                 if 'state' in account_info:
-                    self.page.select_option('//label[contains(text(), "State")]/following-sibling::select', account_info['state'])
+                    select_field('State', account_info['state'], [
+                        '//label[contains(text(), "State")]/following-sibling::select',
+                        'select[name="state"]',
+                        'select[id*="State"]',
+                        'select[aria-label="State"]',
+                        'select'
+                    ])
 
                 if 'zip' in account_info:
-                    self.page.fill('//label[contains(text(), "Zip")]/following-sibling::input', account_info['zip'])
+                    fill_field('Zip', account_info['zip'], [
+                        '//label[contains(text(), "Zip")]/following-sibling::input',
+                        '//input[contains(@placeholder, "Zip")]',
+                        'input[name="zip"]',
+                        'input[id*="Zip"]',
+                        'input[aria-label="Zip"]',
+                        'input'
+                    ])
 
             # Debug prompt before saving
             if not self._debug_prompt(f"\nAccount information to be saved:\nFirst Name: {first_name}\nLast Name: {last_name}\nMiddle Name: {middle_name}\nAdditional Info: {account_info}\n\nContinue with saving?"):
