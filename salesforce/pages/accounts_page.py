@@ -193,7 +193,40 @@ class AccountsPage:
 
     def navigate_to_files(self):
         """Navigate to the Files tab of the current account."""
-        self.page.click('text=Files')
+        logging.info("Attempting to navigate to Files tab...")
+        try:
+            # Try different selectors for the Files tab
+            selectors = [
+                'text=Files',
+                'a:has-text("Files")',
+                'button:has-text("Files")',
+                'div[role="tab"]:has-text("Files")',
+                'li[role="presentation"]:has-text("Files")',
+                '//span[contains(text(), "Files")]',
+                '//a[contains(text(), "Files")]'
+            ]
+            
+            for selector in selectors:
+                try:
+                    logging.info(f"Trying Files tab selector: {selector}")
+                    element = self.page.wait_for_selector(selector, timeout=5000)
+                    if element and element.is_visible():
+                        element.click()
+                        logging.info(f"Successfully clicked Files tab using selector: {selector}")
+                        # Wait for the Files tab content to load
+                        self.page.wait_for_load_state('networkidle')
+                        return
+                except Exception as e:
+                    logging.info(f"Selector {selector} failed: {str(e)}")
+                    continue
+            
+            raise Exception("Could not find or click Files tab")
+        except Exception as e:
+            logging.error(f"Error navigating to Files tab: {str(e)}")
+            # Take a screenshot for debugging
+            self.page.screenshot(path="files-tab-error.png")
+            logging.info("Error screenshot saved as files-tab-error.png")
+            raise
 
     def get_number_of_files(self) -> int:
         """Get the number of files in the account."""
@@ -214,6 +247,40 @@ class AccountsPage:
         self.page.wait_for_selector('table[role="grid"]')
         # Check if any results are found
         return self.page.locator('table[role="grid"] >> tr').count() > 0
+
+    def _get_available_form_fields(self) -> List[str]:
+        """
+        Get a list of field names that are actually available in the form.
+        Returns a list of field names that can be found in the form.
+        """
+        available_fields = []
+        
+        # Common field patterns to check
+        field_patterns = {
+            'First Name': ['//label[contains(text(), "First Name")]', 'input[placeholder*="First Name"]'],
+            'Last Name': ['//label[contains(text(), "Last Name")]', 'input[placeholder*="Last Name"]'],
+            'Middle Name': ['//label[contains(text(), "Middle Name")]', 'input[placeholder*="Middle Name"]'],
+            'Email': ['//label[contains(text(), "Email")]', 'input[placeholder*="Email"]'],
+            'Phone': ['//label[contains(text(), "Phone")]', 'input[placeholder*="Phone"]'],
+            'Address': ['//label[contains(text(), "Address")]', 'input[placeholder*="Address"]'],
+            'City': ['//label[contains(text(), "City")]', 'input[placeholder*="City"]'],
+            'State': ['//label[contains(text(), "State")]', 'select[placeholder*="State"]'],
+            'Zip': ['//label[contains(text(), "Zip")]', 'input[placeholder*="Zip"]']
+        }
+        
+        # Check each field pattern
+        for field_name, selectors in field_patterns.items():
+            for selector in selectors:
+                try:
+                    element = self.page.locator(selector).first
+                    if element and element.is_visible():
+                        available_fields.append(field_name)
+                        break
+                except Exception:
+                    continue
+        
+        logging.info(f"Available form fields: {available_fields}")
+        return available_fields
 
     def create_new_account(self, first_name: str, last_name: str, middle_name: Optional[str] = None, account_info: Optional[Dict[str, str]] = None):
         """
@@ -319,245 +386,277 @@ class AccountsPage:
             logging.info("Waiting for new account form...")
             self.page.wait_for_selector('div.slds-modal__content', timeout=30000)
             
-            # Wait for the first name field to be visible (try multiple selectors)
-            logging.info("Waiting for first name field...")
+            # Log the form content for debugging
+            form_content = self.page.content()
+            with open("form-content.html", "w") as f:
+                f.write(form_content)
+            logging.info("Form content saved as form-content.html")
+            
+            # Wait for and fill First Name
+            logging.info("Attempting to fill First Name...")
             first_name_selectors = [
                 '//label[contains(text(), "First Name")]/following-sibling::input',
                 '//input[contains(@placeholder, "First Name")]',
                 'input[name="firstName"]',
                 'input[id*="FirstName"]',
                 'input[aria-label="First Name"]',
+                'input[data-field="FirstName"]',
+                'input[data-id="firstName"]',
+                'input[data-element-id="firstName"]',
                 'input'
             ]
-            found = False
+            
+            first_name_filled = False
             for selector in first_name_selectors:
                 try:
-                    logging.info(f"Trying selector for First Name: {selector}")
-                    el = self.page.wait_for_selector(selector, timeout=5000)
-                    if el and el.is_visible():
+                    logging.info(f"Trying First Name selector: {selector}")
+                    element = self.page.wait_for_selector(selector, timeout=5000)
+                    if element and element.is_visible():
                         logging.info(f"Found First Name field with selector: {selector}")
-                        found = True
+                        element.fill(first_name)
+                        first_name_filled = True
+                        logging.info(f"Successfully filled First Name with: {first_name}")
                         break
                 except Exception as e:
-                    logging.info(f"Selector {selector} failed: {str(e)}")
-            if not found:
-                # Log the form content for debugging
-                try:
-                    form_content = self.page.content()
-                    with open("form-content.html", "w") as f:
-                        f.write(form_content)
-                    logging.error("Could not find First Name field. Form content saved as form-content.html")
-                except Exception as e:
-                    logging.error(f"Failed to save form content: {str(e)}")
-                raise Exception("Could not find First Name field on the new account form.")
-
-            # Fill in basic information (use the first working selector)
-            self.page.fill(selector, first_name)
-
-            # Robust selector logic for Last Name
+                    logging.info(f"First Name selector {selector} failed: {str(e)}")
+            
+            if not first_name_filled:
+                logging.error("Could not fill First Name field")
+                raise Exception("Could not fill First Name field")
+            
+            # Wait for and fill Last Name
+            logging.info("Attempting to fill Last Name...")
             last_name_selectors = [
                 '//label[contains(text(), "Last Name")]/following-sibling::input',
                 '//input[contains(@placeholder, "Last Name")]',
                 'input[name="lastName"]',
                 'input[id*="LastName"]',
                 'input[aria-label="Last Name"]',
+                'input[data-field="LastName"]',
+                'input[data-id="lastName"]',
+                'input[data-element-id="lastName"]',
                 'input'
             ]
-            found_last = False
-            for last_selector in last_name_selectors:
+            
+            last_name_filled = False
+            for selector in last_name_selectors:
                 try:
-                    logging.info(f"Trying selector for Last Name: {last_selector}")
-                    el = self.page.wait_for_selector(last_selector, timeout=5000)
-                    if el and el.is_visible():
-                        logging.info(f"Found Last Name field with selector: {last_selector}")
-                        found_last = True
+                    logging.info(f"Trying Last Name selector: {selector}")
+                    element = self.page.wait_for_selector(selector, timeout=5000)
+                    if element and element.is_visible():
+                        logging.info(f"Found Last Name field with selector: {selector}")
+                        element.fill(last_name)
+                        last_name_filled = True
+                        logging.info(f"Successfully filled Last Name with: {last_name}")
                         break
                 except Exception as e:
-                    logging.info(f"Selector {last_selector} failed: {str(e)}")
-            if not found_last:
-                # Log the form content for debugging
-                try:
-                    form_content = self.page.content()
-                    with open("form-content.html", "w") as f:
-                        f.write(form_content)
-                    logging.error("Could not find Last Name field. Form content saved as form-content.html")
-                except Exception as e:
-                    logging.error(f"Failed to save form content: {str(e)}")
-                raise Exception("Could not find Last Name field on the new account form.")
-
-            self.page.fill(last_selector, last_name)
-
+                    logging.info(f"Last Name selector {selector} failed: {str(e)}")
+            
+            if not last_name_filled:
+                logging.error("Could not fill Last Name field")
+                raise Exception("Could not fill Last Name field")
+            
+            # Fill Middle Name if provided
             if middle_name:
-                self.page.fill('//label[contains(text(), "Middle Name")]/following-sibling::input', middle_name)
+                logging.info("Attempting to fill Middle Name...")
+                middle_name_selectors = [
+                    '//label[contains(text(), "Middle Name")]/following-sibling::input',
+                    '//input[contains(@placeholder, "Middle Name")]',
+                    'input[name="middleName"]',
+                    'input[id*="MiddleName"]',
+                    'input[aria-label="Middle Name"]',
+                    'input[data-field="MiddleName"]',
+                    'input[data-id="middleName"]',
+                    'input[data-element-id="middleName"]',
+                    'input'
+                ]
+                
+                middle_name_filled = False
+                for selector in middle_name_selectors:
+                    try:
+                        logging.info(f"Trying Middle Name selector: {selector}")
+                        element = self.page.wait_for_selector(selector, timeout=5000)
+                        if element and element.is_visible():
+                            logging.info(f"Found Middle Name field with selector: {selector}")
+                            element.fill(middle_name)
+                            middle_name_filled = True
+                            logging.info(f"Successfully filled Middle Name with: {middle_name}")
+                            break
+                    except Exception as e:
+                        logging.info(f"Middle Name selector {selector} failed: {str(e)}")
+                
+                if not middle_name_filled:
+                    logging.warning("Could not fill Middle Name field, continuing without it")
 
+            # Get available form fields
+            available_fields = self._get_available_form_fields()
+            logging.info(f"Available form fields: {available_fields}")
+            
             # Fill in additional information if available
             if account_info:
                 logging.info("Filling in additional information...")
-                def fill_field(field_name, value, selectors):
-                    found = False
-                    for sel in selectors:
-                        try:
-                            logging.info(f"Trying selector for {field_name}: {sel}")
-                            el = self.page.wait_for_selector(sel, timeout=3000)
-                            if el and el.is_visible():
-                                logging.info(f"Found {field_name} field with selector: {sel}")
-                                self.page.fill(sel, value)
-                                found = True
-                                break
-                        except Exception as e:
-                            logging.info(f"Selector {sel} failed: {str(e)}")
-                    if not found:
-                        try:
-                            form_content = self.page.content()
-                            with open("form-content.html", "w") as f:
-                                f.write(form_content)
-                            logging.error(f"Could not find {field_name} field. Form content saved as form-content.html")
-                        except Exception as e:
-                            logging.error(f"Failed to save form content: {str(e)}")
-                        raise Exception(f"Could not find {field_name} field on the new account form.")
-
-                def select_field(field_name, value, selectors):
-                    found = False
-                    for sel in selectors:
-                        try:
-                            logging.info(f"Trying selector for {field_name}: {sel}")
-                            el = self.page.wait_for_selector(sel, timeout=3000)
-                            if el and el.is_visible():
-                                logging.info(f"Found {field_name} field with selector: {sel}")
-                                self.page.select_option(sel, value)
-                                found = True
-                                break
-                        except Exception as e:
-                            logging.info(f"Selector {sel} failed: {str(e)}")
-                    if not found:
-                        try:
-                            form_content = self.page.content()
-                            with open("form-content.html", "w") as f:
-                                f.write(form_content)
-                            logging.error(f"Could not find {field_name} field. Form content saved as form-content.html")
-                        except Exception as e:
-                            logging.error(f"Failed to save form content: {str(e)}")
-                        raise Exception(f"Could not find {field_name} field on the new account form.")
-
-                # Date of Birth
-                if 'date_of_birth' in account_info:
-                    fill_field('Date of Birth', account_info['date_of_birth'], [
-                        '//label[contains(text(), "Date of Birth")]/following-sibling::input',
-                        '//input[contains(@placeholder, "Date of Birth")]',
-                        'input[name="dateOfBirth"]',
-                        'input[id*="DateOfBirth"]',
-                        'input[aria-label="Date of Birth"]',
-                        'input[type="date"]',
-                        'input'
-                    ])
-
-                # Age
-                if 'age' in account_info:
-                    fill_field('Age', account_info['age'], [
-                        '//label[contains(text(), "Age")]/following-sibling::input',
-                        '//input[contains(@placeholder, "Age")]',
-                        'input[name="age"]',
-                        'input[id*="Age"]',
-                        'input[aria-label="Age"]',
-                        'input[type="number"]',
-                        'input'
-                    ])
-
-                # Sex
-                if 'sex' in account_info:
-                    select_field('Sex', account_info['sex'], [
-                        '//label[contains(text(), "Sex")]/following-sibling::select',
-                        'select[name="sex"]',
-                        'select[id*="Sex"]',
-                        'select[aria-label="Sex"]',
-                        'select'
-                    ])
-
-                # SSN
-                if 'ssn' in account_info:
-                    fill_field('SSN', account_info['ssn'], [
-                        '//label[contains(text(), "SSN")]/following-sibling::input',
-                        '//input[contains(@placeholder, "SSN")]',
-                        'input[name="ssn"]',
-                        'input[id*="SSN"]',
-                        'input[aria-label="SSN"]',
-                        'input'
-                    ])
-
-                # Contact Information
-                if 'email' in account_info:
-                    fill_field('Email', account_info['email'], [
-                        '//label[contains(text(), "Email")]/following-sibling::input',
-                        '//input[contains(@placeholder, "Email")]',
-                        'input[name="email"]',
-                        'input[id*="Email"]',
-                        'input[aria-label="Email"]',
-                        'input[type="email"]',
-                        'input'
-                    ])
-
-                if 'phone' in account_info:
-                    fill_field('Phone', account_info['phone'], [
-                        '//label[contains(text(), "Phone")]/following-sibling::input',
-                        '//input[contains(@placeholder, "Phone")]',
-                        'input[name="phone"]',
-                        'input[id*="Phone"]',
-                        'input[aria-label="Phone"]',
-                        'input[type="tel"]',
-                        'input'
-                    ])
-
-                if 'address' in account_info:
-                    fill_field('Address', account_info['address'], [
-                        '//label[contains(text(), "Address")]/following-sibling::input',
-                        '//input[contains(@placeholder, "Address")]',
-                        'input[name="address"]',
-                        'input[id*="Address"]',
-                        'input[aria-label="Address"]',
-                        'input'
-                    ])
-
-                if 'city' in account_info:
-                    fill_field('City', account_info['city'], [
-                        '//label[contains(text(), "City")]/following-sibling::input',
-                        '//input[contains(@placeholder, "City")]',
-                        'input[name="city"]',
-                        'input[id*="City"]',
-                        'input[aria-label="City"]',
-                        'input'
-                    ])
-
-                if 'state' in account_info:
-                    select_field('State', account_info['state'], [
-                        '//label[contains(text(), "State")]/following-sibling::select',
-                        'select[name="state"]',
-                        'select[id*="State"]',
-                        'select[aria-label="State"]',
-                        'select'
-                    ])
-
-                if 'zip' in account_info:
-                    fill_field('Zip', account_info['zip'], [
-                        '//label[contains(text(), "Zip")]/following-sibling::input',
-                        '//input[contains(@placeholder, "Zip")]',
-                        'input[name="zip"]',
-                        'input[id*="Zip"]',
-                        'input[aria-label="Zip"]',
-                        'input'
-                    ])
-
-            # Debug prompt before saving
-            if not self._debug_prompt(f"\nAccount information to be saved:\nFirst Name: {first_name}\nLast Name: {last_name}\nMiddle Name: {middle_name}\nAdditional Info: {account_info}\n\nContinue with saving?"):
-                logging.info("User chose to stop account creation")
-                return
+                
+                # Only handle phone number for now
+                if 'Phone' in available_fields and 'phone' in account_info:
+                    try:
+                        phone_selectors = [
+                            '#input-226',  # Dynamic selector for phone input
+                            '#input-251',  # Dynamic selector for phone input
+                            'input[name="Phone"]',  # Generic selector for phone input
+                            '#input-300',  # Previous static selector
+                            '//label[contains(text(), "Phone")]/following-sibling::input',
+                            '//input[contains(@placeholder, "Phone")]',
+                            'input[type="tel"]',
+                            'input[name="phone"]',
+                            'input[id*="Phone"]',
+                            'input[aria-label="Phone"]',
+                            'input[data-field="Phone"]',
+                            'input[data-id="phone"]',
+                            'input[data-element-id="phone"]'
+                        ]
+                        phone_filled = False
+                        for selector in phone_selectors:
+                            try:
+                                logging.info(f"Trying Phone selector: {selector}")
+                                element = self.page.wait_for_selector(selector, timeout=5000)
+                                if element and element.is_visible():
+                                    logging.info(f"Found Phone field with selector: {selector}")
+                                    element.fill(account_info['phone'])
+                                    phone_filled = True
+                                    logging.info(f"Successfully filled Phone with: {account_info['phone']}")
+                                    break
+                            except Exception as e:
+                                logging.info(f"Phone selector {selector} failed: {str(e)}")
+                        if not phone_filled:
+                            logging.warning("Could not fill Phone field. Saving form HTML for inspection.")
+                            with open("phone-field-form.html", "w") as f:
+                                f.write(self.page.content())
+                            logging.info("Form HTML saved as phone-field-form.html")
+                    except Exception as e:
+                        logging.warning(f"Error filling phone number: {str(e)}")
 
             # Save the account
             logging.info("Clicking Save button...")
-            self.page.click('button:has-text("Save")')
+            try:
+                # Find all Save buttons
+                save_buttons = self.page.locator('button').all()
+                found = False
+                for idx, button in enumerate(save_buttons):
+                    try:
+                        text = button.text_content()
+                        visible = button.is_visible()
+                        enabled = button.is_enabled()
+                        aria_label = button.get_attribute('aria-label')
+                        class_attr = button.get_attribute('class')
+                        logging.info(f"Button {idx}: text='{text}', visible={visible}, enabled={enabled}, aria-label={aria_label}, class={class_attr}")
+                        if text and text.strip() == "Save" and enabled:
+                            # Try normal click if visible
+                            if visible:
+                                button.scroll_into_view_if_needed()
+                                self.page.wait_for_timeout(500)
+                                button.click()
+                                logging.info("Successfully clicked visible Save button")
+                                found = True
+                                break
+                            else:
+                                # Try JS click if not visible
+                                self.page.evaluate('(btn) => btn.click()', button)
+                                logging.info("Successfully clicked hidden Save button using JS")
+                                found = True
+                                break
+                    except Exception as e:
+                        logging.info(f"Error inspecting/clicking button {idx}: {str(e)}")
+                if not found:
+                    raise Exception("Could not find an enabled Save button to click")
+            except Exception as e:
+                logging.error(f"Error clicking Save button: {str(e)}")
+                self.page.screenshot(path="save-button-error.png")
+                logging.info("Error screenshot saved as save-button-error.png")
+                raise Exception("Could not click Save button")
 
-            # Wait for save to complete
-            logging.info("Waiting for save to complete...")
-            self.page.wait_for_selector('text=Account saved successfully', timeout=10000)
+            # Wait for navigation to account detail page or toast message
+            try:
+                self.page.wait_for_url(lambda url: '/view' in url or '/detail' in url, timeout=10000)
+                current_url = self.page.url
+                logging.info(f"Landed on URL after Save: {current_url}")
+                # First, look for a Salesforce toast message
+                try:
+                    toast = self.page.wait_for_selector('div.slds-notify_toast, div.slds-notify--toast', timeout=5000)
+                    if toast and toast.is_visible():
+                        toast_text = toast.text_content()
+                        logging.info(f"Found toast message after Save: {toast_text}")
+                        if 'success' in toast_text.lower() or 'was created' in toast_text.lower():
+                            logging.info("Successfully confirmed account creation by toast message.")
+                            # Navigate back to accounts list
+                            logging.info("Navigating back to accounts list...")
+                            self.navigate_to_accounts()
+                            # Search for the newly created account
+                            account_name = f"{first_name} {last_name}"
+                            logging.info(f"Searching for newly created account: {account_name}")
+                            if self.search_account(account_name):
+                                logging.info("Found newly created account in the list")
+                                # Click on the account in the search results
+                                logging.info("Clicking on the account in search results...")
+                                try:
+                                    # Try different selectors for the account link
+                                    selectors = [
+                                        'table[role="grid"] >> tr >> td:first-child',
+                                        f'text={account_name}',
+                                        f'a:has-text("{account_name}")',
+                                        f'span:has-text("{account_name}")'
+                                    ]
+                                    for selector in selectors:
+                                        try:
+                                            element = self.page.wait_for_selector(selector, timeout=5000)
+                                            if element and element.is_visible():
+                                                element.click()
+                                                logging.info(f"Successfully clicked account using selector: {selector}")
+                                                # Wait for the account detail page to load
+                                                self.page.wait_for_load_state('networkidle')
+                                                # Now navigate to Files tab
+                                                logging.info("Navigating to Files tab...")
+                                                self.navigate_to_files()
+                                                return True
+                                        except Exception as e:
+                                            logging.info(f"Selector {selector} failed: {str(e)}")
+                                            continue
+                                    raise Exception("Could not click on account in search results")
+                                except Exception as e:
+                                    logging.error(f"Error clicking account: {str(e)}")
+                                    raise
+                            else:
+                                logging.error("Could not find newly created account in the list")
+                                raise Exception("Could not find newly created account in the list")
+                except Exception as e:
+                    logging.info(f"No toast message found: {str(e)}")
+                # Fallback: Try to find the Account Name on the page
+                account_name = f"{first_name} {last_name}"
+                name_found = False
+                name_selectors = [
+                    f"h1:has-text('{account_name}')",
+                    f"span:has-text('{account_name}')",
+                    f"div:has-text('{account_name}')",
+                    f"text={account_name}"
+                ]
+                for selector in name_selectors:
+                    try:
+                        if self.page.locator(selector).first.is_visible():
+                            logging.info(f"Account name '{account_name}' is visible on the page (selector: {selector})")
+                            name_found = True
+                            break
+                    except Exception as e:
+                        logging.info(f"Account name selector {selector} failed: {str(e)}")
+                if name_found:
+                    logging.info("Successfully confirmed account creation by Account Name match.")
+                    return True
+                else:
+                    logging.error(f"Could not find account name '{account_name}' on the page after Save.")
+                    self.page.screenshot(path="account-name-not-found.png")
+                    raise Exception("Could not confirm account was saved: Account Name not found")
+            except Exception as e:
+                logging.error(f"Error confirming account save: {str(e)}")
+                self.page.screenshot(path="save-confirmation-error.png")
+                raise Exception("Could not confirm account was saved")
 
         except Exception as e:
             logging.error(f"Error creating account: {e}")
