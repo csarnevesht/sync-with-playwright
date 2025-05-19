@@ -54,7 +54,11 @@ def main():
     with sync_playwright() as p:
         # Connect to existing Chrome browser
         browser = p.chromium.connect_over_cdp("http://localhost:9222")
-        # Get the first page instead of creating a new one
+        # Print URLs of all open pages for debugging
+        for i, context in enumerate(browser.contexts):
+            for j, pg in enumerate(context.pages):
+                print(f"Context {i}, Page {j}, URL: {pg.url}")
+        # Use the first page from the first context
         page = browser.contexts[0].pages[0]
         
         # Navigate to Salesforce
