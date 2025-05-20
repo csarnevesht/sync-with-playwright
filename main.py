@@ -109,8 +109,12 @@ def main():
             accounts_page.navigate_to_accounts()
             
             # Search for account
-            if accounts_page.search_account(account_name):
-                print(f"Found existing account: {account_name}")
+            item_count = accounts_page.search_account(account_name)
+            if item_count > 0:
+                print(f"\nFound {item_count} existing account(s) matching '{account_name}'")
+                if not accounts_page._debug_prompt("Do you want to proceed with these accounts?"):
+                    print("Skipping this account as requested.")
+                    continue
                 accounts_page.click_first_account()
             else:
                 print(f"Creating new account: {account_name}")
@@ -176,8 +180,14 @@ def main():
                         print(f"Uploading {len(files_to_upload)} files to Salesforce...")
                         if not accounts_page.upload_files(files_to_upload):
                             print("Failed to upload files")
+                            if not input("Do you want to continue with the next account? (y/n): ").lower().startswith('y'):
+                                print("Stopping further processing as requested.")
+                                sys.exit(0)
                         elif not accounts_page.verify_files_uploaded([os.path.basename(f) for f in files_to_upload]):
                             print("Not all files were verified after upload")
+                            if not input("Do you want to continue with the next account? (y/n): ").lower().startswith('y'):
+                                print("Stopping further processing as requested.")
+                                sys.exit(0)
                         else:
                             print("All files uploaded and verified successfully")
                 else:
@@ -213,8 +223,14 @@ def main():
                             print(f"Uploading {len(local_files)} files to Salesforce...")
                             if not accounts_page.upload_files(local_files):
                                 print("Failed to upload files")
+                                if not input("Do you want to continue with the next account? (y/n): ").lower().startswith('y'):
+                                    print("Stopping further processing as requested.")
+                                    sys.exit(0)
                             elif not accounts_page.verify_files_uploaded([os.path.basename(f) for f in local_files]):
                                 print("Not all files were verified after upload")
+                                if not input("Do you want to continue with the next account? (y/n): ").lower().startswith('y'):
+                                    print("Stopping further processing as requested.")
+                                    sys.exit(0)
                             else:
                                 print("All files uploaded and verified successfully")
                     else:
