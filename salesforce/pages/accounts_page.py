@@ -254,7 +254,31 @@ class AccountsPage:
             # Wait for the tab bar to be visible
             logging.info("Waiting for tab bar...")
             self.page.wait_for_selector('div.slds-tabs_default', timeout=30000)
-            # Try different selectors for the Files tab
+
+            # Try the most specific selector first: span[title="Files"]
+            try:
+                logging.info("Trying span[title='Files'] selector...")
+                files_span = self.page.wait_for_selector('span[title="Files"]', timeout=5000)
+                if files_span and files_span.is_visible():
+                    # Try to click the parent element (often the tab itself)
+                    parent = files_span.evaluate_handle('el => el.closest("a,button,li,div[role=\'tab\']")')
+                    if parent:
+                        parent.as_element().click()
+                        logging.info("Clicked Files tab using span[title='Files'] parent.")
+                        self.page.wait_for_selector('div.slds-tabs_default__content', timeout=30000)
+                        logging.info("Files tab content loaded")
+                        return
+                    else:
+                        # If no parent found, try clicking the span directly
+                        files_span.click()
+                        logging.info("Clicked Files tab using span[title='Files'] directly.")
+                        self.page.wait_for_selector('div.slds-tabs_default__content', timeout=30000)
+                        logging.info("Files tab content loaded")
+                        return
+            except Exception as e:
+                logging.info(f"span[title='Files'] selector failed: {str(e)}")
+
+            # Fallback: Try different selectors for the Files tab
             selectors = [
                 'div.slds-tabs_default__nav >> text=Files',
                 'div.slds-tabs_default__nav >> a:has-text("Files")',
@@ -268,9 +292,6 @@ class AccountsPage:
                 'div.slds-tabs_default__nav >> div[role="tab"] >> a:has-text("Files")',
                 'div.slds-tabs_default__nav >> div[role="tab"] >> button:has-text("Files")'
             ]
-            # Log the current page content for debugging
-            logging.info("Current page content:")
-            logging.info(self.page.content())
             for selector in selectors:
                 try:
                     logging.info(f"Trying Files tab selector: {selector}")
