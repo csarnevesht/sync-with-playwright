@@ -5,6 +5,7 @@ import os
 import time
 import logging
 from config import SALESFORCE_URL
+import sys
 
 class AccountsPage:
     def __init__(self, page: Page, debug_mode: bool = False):
@@ -123,14 +124,14 @@ class AccountsPage:
                 
                 # Check the item count in the status message
                 try:
-                    status_message = self.page.wait_for_selector('span.countSortedByFilteredBy', timeout=5000)
+                    status_message = self.page.wait_for_selector('span[aria-label="Files"]', timeout=5000)
                     if status_message:
                         status_text = status_message.text_content()
                         logging.info(f"Status message: {status_text}")
                         
                         # Extract the number of items
-                        import re
-                        match = re.search(r'(\d+)\s+item', status_text)
+                        logging.info("Extracting the number of items...")
+                        match = re.search(r'(\d+)\s+items?\s+•', status_text)
                         if match:
                             item_count = int(match.group(1))
                             logging.info(f"Found {item_count} items in search results")
@@ -216,13 +217,25 @@ class AccountsPage:
             logger.error(f"Error clicking first account: {str(e)}")
             return False
 
-    def navigate_to_files(self):
-        """Navigate to the Files tab of the current account. Assumes you are already on the account detail page."""
+    def navigate_to_files(self) -> int:
+        """Navigate to the Files page of the current account. Assumes you are already on the account detail page.
+        
+        Returns:
+            int: Number of files found in the account, or 0 if there was an error
+        """
         logging.info("Attempting to navigate to Files tab...")
+        
+        # # Prompt user to continue
+        # if not input("Ready to proceed with Files page. Continue? (y/n): ").lower().startswith('y'):
+        #     print("Stopping as requested.")
+        #     sys.exit(0)
+
+        print("***Navigating to Files page...")
+
         try:
             # Wait for the tab bar to be visible
-            logging.info("Waiting for tab bar...")
-            self.page.wait_for_selector('div.slds-tabs_default', timeout=30000)
+            # logging.info("Waiting for tab bar...")
+            # self.page.wait_for_selector('div.slds-tabs_default', timeout=30000)
 
             # Try the most specific selector first: span[title="Files"]
             try:
@@ -253,29 +266,31 @@ class AccountsPage:
                         
                         # Wait for and check the items count
                         try:
-                            status_message = self.page.wait_for_selector('span.countSortedByFilteredBy', timeout=5000)
+                            status_message = self.page.wait_for_selector('span[aria-label="Files"]', timeout=5000)
                             if status_message:
                                 status_text = status_message.text_content()
                                 logging.info(f"Files status message: {status_text}")
                                 
                                 # Extract the number of items
-                                match = re.search(r'(\d+)\s+items', status_text)
+                                logging.info("Extracting the number of items...")
+                                match = re.search(r'(\d+)\s+items?\s+•', status_text)
                                 if match:
                                     item_count = int(match.group(1))
                                     logging.info(f"Found {item_count} files in the account")
+                                    return item_count
                                 else:
                                     logging.info("No items found or count not in expected format")
                         except Exception as e:
                             logging.info(f"Error checking files count: {str(e)}")
                         
-                        return
+                        return 0
                     else:
                         # If no parent found, try clicking the span directly
                         files_span.click()
                         logging.info("Clicked Files tab using span[title='Files'] directly.")
                         self.page.wait_for_selector('div.slds-tabs_default__content', timeout=30000)
                         logging.info("Files tab content loaded")
-                        return
+                        return 0
             except Exception as e:
                 logging.info(f"span[title='Files'] selector failed: {str(e)}")
 
@@ -294,9 +309,16 @@ class AccountsPage:
 
     def get_number_of_files(self) -> int:
         """Get the number of files in the account."""
-        text = self.page.locator('text=items').first.text_content()
-        match = re.search(r'(\d+)\s+items', text)
+        status_message = self.page.wait_for_selector('span[aria-label="Files"]', timeout=5000)
+        if not status_message:
+            print("Could not find files status message")
+            return 0
+            
+        text = status_message.text_content()
+        print(f"***Number of files in get_number_of_files: {text}")
+        match = re.search(r'(\d+)\s+items?\s+•', text)
         return int(match.group(1)) if match else 0
+    
 
     def add_files(self):
         """Click the Add Files button and then the Upload Files button in the dialog."""
@@ -925,7 +947,7 @@ class AccountsPage:
             logging.info(f"Items text: {items_text}")
 
             # Extract the number of items
-            match = re.search(r'(\d+)\s+items', items_text)
+            match = re.search(r'(\d+)\s+items?\s+•', items_text)
             if not match:
                 logging.error("Could not find number of items in the text")
                 return False
