@@ -233,6 +233,7 @@ def upload_files_for_account(page, account, debug_mode=True, max_tries=3):
 def main():
     # Enable debug mode
     debug_mode = True
+    max_tries = 3  # Number of retry attempts per file
     logging.basicConfig(level=logging.INFO)
     
     # Get mock account data
@@ -270,7 +271,7 @@ def main():
         accounts_page = AccountsPage(page, debug_mode=debug_mode)
         
         # Upload files for the account
-        upload_success = upload_files_for_account(page, test_account, debug_mode)
+        upload_success = upload_files_for_account(page, test_account, debug_mode=debug_mode, max_tries=max_tries)
         
         if not upload_success:
             print("File upload process completed with errors")
