@@ -10,6 +10,7 @@ import logging
 from typing import List, Dict, Optional, Tuple
 from datetime import datetime
 from mock_data import get_mock_accounts
+import time
 
 def get_dropbox_token():
     """Get Dropbox token from token.txt or prompt user."""
@@ -58,11 +59,23 @@ def main():
         for i, context in enumerate(browser.contexts):
             for j, pg in enumerate(context.pages):
                 print(f"Context {i}, Page {j}, URL: {pg.url}")
-        # Use the first page from the first context
-        page = browser.contexts[0].pages[0]
         
-        # Navigate to Salesforce
-        page.goto(SALESFORCE_URL)
+        # Find the Salesforce page
+        salesforce_page = None
+        for context in browser.contexts:
+            for pg in context.pages:
+                if "lightning.force.com" in pg.url:
+                    salesforce_page = pg
+                    break
+            if salesforce_page:
+                break
+        
+        if not salesforce_page:
+            print("Error: No Salesforce page found. Please make sure you have a Salesforce page open.")
+            sys.exit(1)
+            
+        # Use the Salesforce page
+        page = salesforce_page
         
         # Initialize Salesforce page objects
         accounts_page = AccountsPage(page, debug_mode=debug_mode)
@@ -113,7 +126,28 @@ def main():
                     middle_name=account['middle_name'],
                     account_info=account['account_info']
                 )
-                accounts_page.click_first_account()
+                
+                # Wait a moment for the account to be available in the system
+                print("Waiting for account to be available in the system...")
+                time.sleep(5)
+                
+                # Navigate back to Accounts page
+                print("Navigating back to Accounts page...")
+                accounts_page.navigate_to_accounts()
+                
+                # Clear any existing search and search specifically for the new account
+                print(f"Searching for newly created account: {account_name}")
+                if not accounts_page.search_account(account_name):
+                    print(f"Error: Could not find newly created account: {account_name}")
+                    print("Stopping further processing due to account verification failure.")
+                    sys.exit(1)  # Exit with error code
+                
+                # Click on the account name
+                print(f"Clicking on account name: {account_name}")
+                if not accounts_page.click_account_name(account_name):
+                    print(f"Error: Could not click on account name: {account_name}")
+                    print("Stopping further processing due to account navigation failure.")
+                    sys.exit(1)  # Exit with error code
             
             # Navigate to Files
             accounts_page.navigate_to_files()

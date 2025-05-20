@@ -79,3 +79,6 @@ For each Dropbox account folder with 'account name'
 
 
 
+
+
+NEVER NEVER NEVER kill the browser!!!!
