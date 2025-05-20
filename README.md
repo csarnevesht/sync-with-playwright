@@ -23,12 +23,20 @@ playwright install chromium
 
 3. Create a `token.txt` file with your Dropbox API token, or the script will prompt you for it.
 
-4. Start Chrome with remote debugging enabled:
+4. First-time setup: Start Chrome with remote debugging enabled and log in to Salesforce CRM:
 ```bash
-/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir=./chrome-debug-profile
 ```
+Then:
+- Log in to Salesforce CRM in this Chrome instance
+- Your login session, cookies, and other data will be saved in the `chrome-debug-profile` directory
+- You can close this Chrome window after logging in
 
-5. Log in to Salesforce CRM in the Chrome browser that was just started.
+5. For subsequent runs: Start Chrome with the same user data directory:
+```bash
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir=./chrome-debug-profile
+```
+The script will use this Chrome instance with your saved session.
 
 ## Configuration
 
@@ -55,6 +63,7 @@ cp env.example .env
 
 #### Browser Configuration
 - `CHROME_DEBUG_PORT`: Chrome debugging port (default: 9222)
+- `CHROME_USER_DATA_DIR`: Path to Chrome user data directory (default: "./chrome-debug-profile")
 
 #### Logging Configuration
 - `LOG_LEVEL`: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
@@ -70,18 +79,32 @@ cp env.example .env
 
 ## Usage
 
-1. Make sure Chrome is running with remote debugging enabled and you're logged into Salesforce CRM.
+1. Start Chrome with remote debugging and your saved profile:
+```bash
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir=./chrome-debug-profile
+```
+⚠️ Important: Keep this Chrome window running while using the script.
 
-2. Run the synchronization script:
+2. In a new terminal window, run the synchronization script:
 ```bash
 python main.py
 ```
 
 The script will:
+- Connect to the running Chrome instance using the debugging port
+- Use the saved session data from `./chrome-debug-profile` (cookies, login state, etc.)
 - Connect to Dropbox using the provided token
 - Process each account folder in the root folder
 - Create or update accounts in Salesforce CRM
 - Synchronize files between Dropbox and Salesforce
+
+## Troubleshooting
+
+If you see an error like `connect ECONNREFUSED ::1:9222`:
+1. Make sure Chrome is running with remote debugging enabled (step 1 above)
+2. Verify Chrome is running on port 9222 by visiting `http://localhost:9222` in another browser
+3. Check that you're using the correct user data directory path
+4. Ensure no other Chrome instances are using the same debugging port
 
 ## File Structure
 

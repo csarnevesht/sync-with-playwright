@@ -10,6 +10,7 @@ class AccountsPage:
     def __init__(self, page: Page, debug_mode: bool = False):
         self.page = page
         self.debug_mode = debug_mode
+        self.last_created_account_id = None  # Store the ID of the last created account
         if debug_mode:
             logging.info("Debug mode is enabled for AccountsPage")
 
@@ -55,72 +56,19 @@ class AccountsPage:
             self.page.goto(url)
             logging.info("Page navigation initiated")
             
-            # Check if we need to log in
-            if "login.salesforce.com" in self.page.url:
-                logging.info("Detected login page, waiting for login to complete...")
-                self.page.wait_for_url(lambda url: "login.salesforce.com" not in url, timeout=60000)
-                logging.info("Login completed, redirecting to Accounts page...")
-                self.page.goto(url)
-            
             # Wait for the page to be ready
             logging.info("Waiting for page to load...")
-            
-            # First wait for the page to be in a stable state
             self.page.wait_for_load_state('domcontentloaded')
             logging.info("DOM content loaded")
             
-            # Try to find any of these elements that indicate the page is loaded
-            selectors = [
-                'div.slds-template_default',
-                'div.slds-page-header',
-                'div.slds-global-header',
-                'div.slds-global-navigation',
-                'div.slds-scrollable',
-                'div.slds-page-header__title'
-            ]
-            
-            logging.info("Checking for page elements...")
-            found_selector = False
-            for selector in selectors:
-                try:
-                    logging.info(f"Trying selector: {selector}")
-                    element = self.page.wait_for_selector(selector, timeout=10000)
-                    if element:
-                        logging.info(f"Found selector: {selector}")
-                        found_selector = True
-                        break
-                except Exception as e:
-                    logging.info(f"Selector {selector} not found: {str(e)}")
-                    continue
-            
-            if not found_selector:
-                logging.warning("No standard selectors found, checking page content...")
-                # Take a screenshot for debugging
-                self.page.screenshot(path="page-state.png")
-                logging.info("Page state screenshot saved as page-state.png")
-                
-                # Check if we can find any Salesforce-related content
-                page_content = self.page.content()
-                if "salesforce" in page_content.lower():
-                    logging.info("Found Salesforce content in page")
-                else:
-                    logging.warning("No Salesforce content found in page")
-            
             # Wait for the search input with a longer timeout
             logging.info("Waiting for search input...")
-            try:
-                search_input = self.page.wait_for_selector('input[placeholder="Search this list..."]', timeout=30000)
-                if search_input:
-                    logging.info("Search input found")
-                else:
-                    logging.error("Search input not found")
-                    raise Exception("Search input not found")
-            except Exception as e:
-                logging.error(f"Error waiting for search input: {str(e)}")
-                # Take a screenshot for debugging
-                self.page.screenshot(path="search-input-error.png")
-                logging.info("Error screenshot saved as search-input-error.png")
-                raise
+            search_input = self.page.wait_for_selector('input[placeholder="Search this list..."]', timeout=30000)
+            if search_input:
+                logging.info("Search input found")
+            else:
+                logging.error("Search input not found")
+                raise Exception("Search input not found")
             
             # Additional check for the table
             logging.info("Checking for accounts table...")
@@ -166,60 +114,188 @@ class AccountsPage:
             # Wait for search results with a more specific check
             logging.info("Waiting for search results...")
             try:
-                # First wait for the loading spinner to disappear (short timeout)
-                self.page.wait_for_selector('div.slds-spinner_container', state='hidden', timeout=5000)
+                # First wait for the loading spinner to disappear
+                self.page.wait_for_selector('div.slds-spinner_container', state='hidden', timeout=30000)
                 logging.info("Loading spinner disappeared")
                 
-                # Then wait for either results or no results message (short timeout)
-                self.page.wait_for_selector('table[role="grid"], div.slds-text-align_center', timeout=5000)
-                logging.info("Search results loaded")
+                # Wait a moment for results to appear
+                self.page.wait_for_timeout(2000)
                 
-                # Check if we found any results
-                has_results = self.page.locator('table[role="grid"]').is_visible()
-                logging.info(f"Search results found: {has_results}")
-                return has_results
+                # Check for results in multiple ways
+                # 1. Check for the account name directly
+                account_selector = f'a[data-refid="recordId"][data-special-link="true"][title="{account_name}"]'
+                try:
+                    account_element = self.page.wait_for_selector(account_selector, timeout=5000)
+                    if account_element and account_element.is_visible():
+                        logging.info(f"Found account name '{account_name}' in search results")
+                        return True
+                except Exception as e:
+                    logging.info(f"Account name not found with specific selector: {str(e)}")
+                
+                # 2. Check for the table with results
+                try:
+                    table = self.page.wait_for_selector('table[role="grid"]', timeout=5000)
+                    if table and table.is_visible():
+                        # Check if the account name is in the table
+                        account_in_table = self.page.locator(f'table[role="grid"] >> text="{account_name}"').is_visible()
+                        if account_in_table:
+                            logging.info(f"Found account name '{account_name}' in table")
+                            return True
+                except Exception as e:
+                    logging.info(f"Table check failed: {str(e)}")
+                
+                # 3. Check for any element containing the account name
+                try:
+                    any_element = self.page.wait_for_selector(f':text("{account_name}")', timeout=5000)
+                    if any_element and any_element.is_visible():
+                        logging.info(f"Found account name '{account_name}' in page")
+                        return True
+                except Exception as e:
+                    logging.info(f"General text search failed: {str(e)}")
+                
+                logging.info("No results found for account")
+                return False
                 
             except Exception as e:
-                logging.info(f"No results found or timeout: {str(e)}")
+                logging.info(f"Error waiting for search results: {str(e)}")
                 return False
             
         except Exception as e:
             logging.error(f"Error searching for account: {e}")
             return False
 
+    def click_account_name(self, account_name: str) -> bool:
+        """Click on the account name in the search results."""
+        try:
+            # Wait for the account name link to be visible
+            # Using a more specific selector that matches the exact element structure
+            account_link = self.page.wait_for_selector(
+                f'a[data-refid="recordId"][data-special-link="true"][title="{account_name}"]',
+                state="visible",
+                timeout=10000
+            )
+            
+            if not account_link:
+                print(f"Could not find account link for: {account_name}")
+                return False
+            
+            # Click the account name
+            account_link.click()
+            
+            # Wait for navigation to complete
+            self.page.wait_for_load_state("networkidle")
+            
+            # Verify we're on the account view page
+            if not self.page.url.endswith("/view"):
+                print("Failed to navigate to account view page")
+                return False
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error clicking account name: {str(e)}")
+            return False
+
     def click_first_account(self):
         """Click on the first account in the search results."""
-        self.page.click('table[role="grid"] >> tr >> td:first-child')
-
-    def navigate_to_files(self):
-        """Navigate to the Files tab of the current account."""
-        logging.info("Attempting to navigate to Files tab...")
         try:
-            # Try different selectors for the Files tab
+            logging.info("Attempting to click first account in search results...")
+            
+            # Wait for the table to be visible
+            logging.info("Waiting for accounts table...")
+            self.page.wait_for_selector('table[role="grid"]', timeout=30000)
+            
+            # Try multiple selectors for the account name cell
             selectors = [
-                'text=Files',
-                'a:has-text("Files")',
-                'button:has-text("Files")',
-                'div[role="tab"]:has-text("Files")',
-                'li[role="presentation"]:has-text("Files")',
-                '//span[contains(text(), "Files")]',
-                '//a[contains(text(), "Files")]'
+                'table[role="grid"] >> tr >> td:first-child >> a',
+                'table[role="grid"] >> tr >> td:first-child >> span >> a',
+                'table[role="grid"] >> tr >> td:first-child >> div >> a',
+                'table[role="grid"] >> tr >> td:first-child >> div >> span >> a'
             ]
             
             for selector in selectors:
                 try:
-                    logging.info(f"Trying Files tab selector: {selector}")
+                    logging.info(f"Trying selector: {selector}")
                     element = self.page.wait_for_selector(selector, timeout=5000)
                     if element and element.is_visible():
+                        # Log element details for debugging
+                        logging.info(f"Found element with selector {selector}:")
+                        logging.info(f"Tag name: {element.evaluate('el => el.tagName')}")
+                        logging.info(f"Class: {element.evaluate('el => el.className')}")
+                        logging.info(f"Text content: {element.text_content()}")
+                        
+                        # Click the element
                         element.click()
-                        logging.info(f"Successfully clicked Files tab using selector: {selector}")
-                        # Wait for the Files tab content to load
-                        self.page.wait_for_load_state('networkidle')
+                        logging.info(f"Successfully clicked account using selector: {selector}")
+                        
+                        # Wait for navigation to complete
+                        self.page.wait_for_load_state('networkidle', timeout=30000)
+                        logging.info("Navigation to account details completed")
                         return
                 except Exception as e:
                     logging.info(f"Selector {selector} failed: {str(e)}")
                     continue
             
+            # If we get here, none of the selectors worked
+            logging.error("Could not find clickable account element with any of the selectors")
+            # Take a screenshot for debugging
+            self.page.screenshot(path="account-click-error.png")
+            logging.info("Error screenshot saved as account-click-error.png")
+            raise Exception("Could not find clickable account element")
+            
+        except Exception as e:
+            logging.error(f"Error clicking first account: {str(e)}")
+            raise
+
+    def navigate_to_files(self):
+        """Navigate to the Files tab of the current account. Assumes you are already on the account detail page."""
+        logging.info("Attempting to navigate to Files tab...")
+        try:
+            # Wait for the tab bar to be visible
+            logging.info("Waiting for tab bar...")
+            self.page.wait_for_selector('div.slds-tabs_default', timeout=30000)
+            # Try different selectors for the Files tab
+            selectors = [
+                'div.slds-tabs_default__nav >> text=Files',
+                'div.slds-tabs_default__nav >> a:has-text("Files")',
+                'div.slds-tabs_default__nav >> button:has-text("Files")',
+                'div.slds-tabs_default__nav >> div[role="tab"]:has-text("Files")',
+                'div.slds-tabs_default__nav >> li[role="presentation"]:has-text("Files")',
+                'div.slds-tabs_default__nav >> span:has-text("Files")',
+                'div.slds-tabs_default__nav >> a:has-text("Files")',
+                'div.slds-tabs_default__nav >> button:has-text("Files")',
+                'div.slds-tabs_default__nav >> div[role="tab"] >> span:has-text("Files")',
+                'div.slds-tabs_default__nav >> div[role="tab"] >> a:has-text("Files")',
+                'div.slds-tabs_default__nav >> div[role="tab"] >> button:has-text("Files")'
+            ]
+            # Log the current page content for debugging
+            logging.info("Current page content:")
+            logging.info(self.page.content())
+            for selector in selectors:
+                try:
+                    logging.info(f"Trying Files tab selector: {selector}")
+                    element = self.page.wait_for_selector(selector, timeout=5000)
+                    if element and element.is_visible():
+                        # Log element details for debugging
+                        logging.info(f"Found element with selector {selector}:")
+                        logging.info(f"Tag name: {element.evaluate('el => el.tagName')}")
+                        logging.info(f"Class: {element.evaluate('el => el.className')}")
+                        logging.info(f"Text content: {element.text_content()}")
+                        # Click the element
+                        element.click()
+                        logging.info(f"Successfully clicked Files tab using selector: {selector}")
+                        # Wait for the Files tab content to load
+                        self.page.wait_for_selector('div.slds-tabs_default__content', timeout=30000)
+                        logging.info("Files tab content loaded")
+                        return
+                except Exception as e:
+                    logging.info(f"Selector {selector} failed: {str(e)}")
+                    continue
+            # If we get here, none of the selectors worked
+            logging.error("Could not find Files tab with any of the selectors")
+            # Take a screenshot for debugging
+            self.page.screenshot(path="files-tab-error.png")
+            logging.info("Error screenshot saved as files-tab-error.png")
             raise Exception("Could not find or click Files tab")
         except Exception as e:
             logging.error(f"Error navigating to Files tab: {str(e)}")
@@ -235,9 +311,29 @@ class AccountsPage:
         return int(match.group(1)) if match else 0
 
     def add_files(self):
-        """Click the Add Files button."""
-        self.page.click('button:has-text("Add Files")')
-        self.page.click('button:has-text("Upload Files")')
+        """Click the Add Files button and then the Upload Files button in the dialog."""
+        try:
+            # Click Add Files button
+            add_files_button = self.page.wait_for_selector('button:has-text("Add Files")', timeout=5000)
+            if not add_files_button:
+                raise Exception("Add Files button not found")
+            add_files_button.click()
+            logging.info("Clicked Add Files button")
+
+            # Wait for and click Upload Files button in the dialog
+            upload_files_button = self.page.wait_for_selector('button:has-text("Upload Files")', timeout=5000)
+            if not upload_files_button:
+                raise Exception("Upload Files button not found in dialog")
+            upload_files_button.click()
+            logging.info("Clicked Upload Files button in dialog")
+
+            # Wait for the file input to be visible
+            self.page.wait_for_selector('input[type="file"]', timeout=5000)
+            logging.info("File input is visible")
+        except Exception as e:
+            logging.error(f"Error in add_files: {str(e)}")
+            self.page.screenshot(path="add-files-error.png")
+            raise
 
     def search_file(self, file_pattern: str) -> bool:
         """Search for a file using a pattern."""
@@ -574,11 +670,8 @@ class AccountsPage:
                 logging.info("Error screenshot saved as save-button-error.png")
                 raise Exception("Could not click Save button")
 
-            # Wait for navigation to account detail page or toast message
+            # Wait for navigation or toast message
             try:
-                self.page.wait_for_url(lambda url: '/view' in url or '/detail' in url, timeout=10000)
-                current_url = self.page.url
-                logging.info(f"Landed on URL after Save: {current_url}")
                 # First, look for a Salesforce toast message
                 try:
                     toast = self.page.wait_for_selector('div.slds-notify_toast, div.slds-notify--toast', timeout=5000)
@@ -587,46 +680,86 @@ class AccountsPage:
                         logging.info(f"Found toast message after Save: {toast_text}")
                         if 'success' in toast_text.lower() or 'was created' in toast_text.lower():
                             logging.info("Successfully confirmed account creation by toast message.")
-                            # Navigate back to accounts list
+                            # After successful save, navigate back to accounts list and search for the account
                             logging.info("Navigating back to accounts list...")
                             self.navigate_to_accounts()
-                            # Search for the newly created account
+                            
+                            # Wait for the page to fully load
+                            self.page.wait_for_load_state('networkidle')
+                            self.page.wait_for_timeout(5000)  # Additional wait for list to refresh
+                            
+                            # Always search for the account by name
                             account_name = f"{first_name} {last_name}"
                             logging.info(f"Searching for newly created account: {account_name}")
-                            if self.search_account(account_name):
-                                logging.info("Found newly created account in the list")
-                                # Click on the account in the search results
-                                logging.info("Clicking on the account in search results...")
+                            found = self.search_account(account_name)
+                            if not found:
+                                raise Exception(f"Could not find newly created account '{account_name}' in list.")
+                            
+                            # Wait for the search results table with a longer timeout
+                            self.page.wait_for_selector("table[role='grid']", timeout=20000)
+                            self.page.wait_for_timeout(2000)  # Additional wait for table to populate
+                            
+                            # Verify that there is at least one result
+                            rows = self.page.query_selector_all("table[role='grid'] tr")
+                            data_rows = [row for row in rows if row.query_selector('td')]
+                            if len(data_rows) < 1:
+                                raise Exception(f"Expected at least 1 result row, found {len(data_rows)}. Aborting.")
+                            
+                            # Click on the first item
+                            first_cell = data_rows[0].query_selector("td:first-child a, td:first-child span, td:first-child")
+                            if first_cell:
+                                first_cell.click()
+                                logging.info("Clicked on the first account in search results to go to detail page")
+                                
+                                # Wait for page load
+                                self.page.wait_for_load_state('domcontentloaded')
+                                
+                                # Verify we're on the account view page by checking multiple indicators
                                 try:
-                                    # Try different selectors for the account link
-                                    selectors = [
-                                        'table[role="grid"] >> tr >> td:first-child',
-                                        f'text={account_name}',
-                                        f'a:has-text("{account_name}")',
-                                        f'span:has-text("{account_name}")'
+                                    # Wait for the account header
+                                    self.page.wait_for_selector('h1.slds-page-header__title, [data-aura-class*="pageHeader"]', timeout=30000)
+                                    
+                                    # Verify URL contains /view and extract account ID
+                                    current_url = self.page.url
+                                    if '/view' not in current_url:
+                                        raise Exception(f"Not on account view page. Current URL: {current_url}")
+                                    
+                                    # Extract account ID from URL
+                                    account_id_match = re.search(r'/Account/([^/]+)/view', current_url)
+                                    if not account_id_match:
+                                        raise Exception(f"Could not extract account ID from URL: {current_url}")
+                                    
+                                    account_id = account_id_match.group(1)
+                                    logging.info(f"Extracted account ID from URL: {account_id}")
+                                    
+                                    # If this is after account creation, store the ID
+                                    if self.last_created_account_id is None:
+                                        self.last_created_account_id = account_id
+                                        logging.info(f"Stored created account ID: {account_id}")
+                                    # If we're viewing an existing account, verify it matches the created account
+                                    elif self.last_created_account_id != account_id:
+                                        raise Exception(f"Account ID mismatch. Expected: {self.last_created_account_id}, Got: {account_id}")
+                                    
+                                    # Verify we have the standard Salesforce account view elements
+                                    view_selectors = [
+                                        'div.slds-tabs_default',  # Tab bar
+                                        'div.slds-page-header__detail-row',  # Account details row
+                                        'div.slds-page-header__meta-text'  # Account metadata
                                     ]
-                                    for selector in selectors:
-                                        try:
-                                            element = self.page.wait_for_selector(selector, timeout=5000)
-                                            if element and element.is_visible():
-                                                element.click()
-                                                logging.info(f"Successfully clicked account using selector: {selector}")
-                                                # Wait for the account detail page to load
-                                                self.page.wait_for_load_state('networkidle')
-                                                # Now navigate to Files tab
-                                                logging.info("Navigating to Files tab...")
-                                                self.navigate_to_files()
-                                                return True
-                                        except Exception as e:
-                                            logging.info(f"Selector {selector} failed: {str(e)}")
-                                            continue
-                                    raise Exception("Could not click on account in search results")
+                                    
+                                    for selector in view_selectors:
+                                        if not self.page.locator(selector).is_visible():
+                                            raise Exception(f"Account view element not found: {selector}")
+                                    
+                                    logging.info("Successfully verified we're on the correct account view page")
+                                    return True
                                 except Exception as e:
-                                    logging.error(f"Error clicking account: {str(e)}")
-                                    raise
+                                    logging.error(f"Failed to verify account view page: {str(e)}")
+                                    self.page.screenshot(path="account-view-verification-error.png")
+                                    raise Exception("Could not verify we're on the account view page")
                             else:
-                                logging.error("Could not find newly created account in the list")
-                                raise Exception("Could not find newly created account in the list")
+                                logging.error("Could not find clickable cell in the result row")
+                                raise Exception("Could not find clickable cell in the result row")
                 except Exception as e:
                     logging.info(f"No toast message found: {str(e)}")
                 # Fallback: Try to find the Account Name on the page
@@ -647,8 +780,21 @@ class AccountsPage:
                     except Exception as e:
                         logging.info(f"Account name selector {selector} failed: {str(e)}")
                 if name_found:
-                    logging.info("Successfully confirmed account creation by Account Name match.")
-                    return True
+                    logging.info("Account name is visible, clicking the visible element to go to detail page.")
+                    # Click the first visible account name element directly
+                    for selector in name_selectors:
+                        try:
+                            locator = self.page.locator(selector).first
+                            if locator.is_visible():
+                                locator.click()
+                                logging.info(f"Clicked on account name using selector: {selector}")
+                                self.page.wait_for_load_state('domcontentloaded')
+                                self.page.wait_for_selector('h1, h1.slds-page-header__title, [data-aura-class*="pageHeader"]', timeout=30000)
+                                return True
+                        except Exception as e:
+                            logging.info(f"Failed to click account name with selector {selector}: {str(e)}")
+                    logging.error("Could not click any visible account name element.")
+                    raise Exception("Could not click any visible account name element.")
                 else:
                     logging.error(f"Could not find account name '{account_name}' on the page after Save.")
                     self.page.screenshot(path="account-name-not-found.png")
