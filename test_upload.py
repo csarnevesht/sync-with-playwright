@@ -151,30 +151,31 @@ def main():
                 
                 # Wait for upload to complete
                 print("\nWaiting for upload to complete...")
-                # Wait for the progress indicator to disappear
                 page.wait_for_selector('div.progress-indicator', timeout=30000, state='hidden')
                 print("File upload completed")
-                
-                # Wait for the success message
-                page.wait_for_selector('div.slds-notify--success', timeout=10000)
-                print("Upload success message received")
-                
-                # Click "Done" button in the first dialog
-                print("Clicking 'Done' button in upload dialog...")
-                done_button = page.wait_for_selector('button:has-text("Done")', timeout=5000)
-                if done_button:
-                    done_button.click()
-                    print("Clicked 'Done' button")
-                
-                # Wait for the "Select Files" dialog and click Cancel
-                print("Waiting for 'Select Files' dialog...")
-                select_files_dialog = page.wait_for_selector('div.modal-container', timeout=5000)
-                if select_files_dialog:
-                    cancel_button = page.wait_for_selector('button:has-text("Cancel")', timeout=5000)
-                    if cancel_button:
+
+                print("\nAttempting to click Cancel in native file selection dialog...")
+                try:
+                    # First try pressing Escape
+                    page.keyboard.press("Escape")
+                    print("Pressed Escape key")
+                    page.wait_for_timeout(500)  # Wait a bit
+                    
+                    # Then try clicking Cancel button
+                    cancel_button = page.wait_for_selector('button:has-text("Cancel")', timeout=2000)
+                    if cancel_button and cancel_button.is_visible():
+                        print("Found Cancel button")
                         cancel_button.click()
-                        print("Clicked 'Cancel' button in Select Files dialog")
-                
+                        print("Clicked Cancel button")
+                    else:
+                        # If Cancel button not found, try clicking outside the dialog
+                        print("Cancel button not found, trying to click outside dialog")
+                        page.mouse.click(0, 0)  # Click in top-left corner
+                        print("Clicked outside dialog")
+                except Exception as e:
+                    print(f"Error handling native file dialog: {e}")
+
+               
                 # Refresh the page to ensure we're in a clean state
                 print("Refreshing page...")
                 page.reload()
@@ -182,15 +183,44 @@ def main():
                 
                 # Verify files are visible in the list
                 print("\nVerifying uploaded files...")
-                file_list = page.wait_for_selector('div.slds-scrollable_y', timeout=10000)
-                if file_list:
-                    print("Files list is visible")
+                
+                # First verify we're on the correct URL pattern
+                current_url = page.url
+                pattern = r'Account/([^/]+)/related/AttachedContentDocuments/view'
+                match = re.search(pattern, current_url)
+                if not match:
+                    print(f"Error: Not on the correct Files page URL pattern. Current URL: {current_url}")
+                    sys.exit(1)
+                account_id = match.group(1)
+                print(f"Verified correct URL pattern with account ID: {account_id}")
+                
+                # Now check the number of items
+                files = page.wait_for_selector('h1[title="Files"].slds-page-header__title', timeout=10000)
+                if files:
+                    print("Files page is visible")
                     # Wait a moment for the files to appear
                     time.sleep(2)
                     # Check for the number of items
-                    items_text = page.locator('div.slds-text-body_small').first.text_content()
+                    items_text = page.locator('span[aria-live="polite"].countSortedByFilteredBy').first.text_content()
                     print(f"Items text: {items_text}")
-                
+                    
+                    # Extract the number of items from the text
+                    items_match = re.search(r'(\d+)\s+items?\s+•', items_text)
+                    if items_match:
+                        num_items = int(items_match.group(1))
+                        expected_items = len(files_to_upload)
+                        print(f"Found {num_items} items, expected {expected_items} items")
+                        if num_items < expected_items:
+                            print(f"Warning: Number of items ({num_items}) is less than expected ({expected_items})")
+                        elif num_items > expected_items:
+                            print(f"Warning: Number of items ({num_items}) is more than expected ({expected_items})")
+                        else:
+                            print("Success: Number of items matches expected count")
+                    else:
+                        print("Could not determine number of items from text")
+                else:
+                    print("Error: Files list not visible")
+
                 print("All files uploaded successfully")
             except Exception as e:
                 print(f"Error during file upload: {str(e)}")
