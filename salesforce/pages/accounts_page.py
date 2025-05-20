@@ -233,10 +233,6 @@ class AccountsPage:
         print("***Navigating to Files page...")
 
         try:
-            # Wait for the tab bar to be visible
-            # logging.info("Waiting for tab bar...")
-            # self.page.wait_for_selector('div.slds-tabs_default', timeout=30000)
-
             # Try the most specific selector first: span[title="Files"]
             try:
                 logging.info("Trying span[title='Files'] selector...")
