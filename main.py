@@ -3,6 +3,7 @@ import sys
 from playwright.sync_api import sync_playwright
 from dropbox_client import DropboxClient
 from salesforce.pages.accounts_page import AccountsPage
+from file_upload import upload_files_for_account
 from config import SALESFORCE_URL
 import tempfile
 import shutil
@@ -159,6 +160,14 @@ def main():
             # Check number of files
             num_files = accounts_page.get_number_of_files()
             print(f"Number of files in account: {num_files}")
+
+
+            # Navigate back to the original account page
+            print("\nNavigating back to account page...")
+            account_id = accounts_page.get_account_id()
+            page.goto(f"{os.getenv('SALESFORCE_URL')}/lightning/r/Account/{account_id}/view")
+            page.wait_for_load_state('networkidle')
+            print("Back on account page")   
             
             # Create temporary directory for downloads
             with tempfile.TemporaryDirectory() as temp_dir:
@@ -178,18 +187,18 @@ def main():
                     
                     if files_to_upload:
                         print(f"Uploading {len(files_to_upload)} files to Salesforce...")
-                        if not accounts_page.upload_files(files_to_upload):
+                        # Create a temporary account dictionary for upload_files_for_account
+                        temp_account = {
+                            'name': account_name,
+                            'files': [{'name': os.path.basename(f), 'content': open(f, 'rb').read()} for f in files_to_upload]
+                        }
+                        if not upload_files_for_account(page, temp_account, debug_mode=debug_mode, max_tries=3):
                             print("Failed to upload files")
                             if not input("Do you want to continue with the next account? (y/n): ").lower().startswith('y'):
                                 print("Stopping further processing as requested.")
                                 sys.exit(0)
-                        elif not accounts_page.verify_files_uploaded([os.path.basename(f) for f in files_to_upload]):
-                            print("Not all files were verified after upload")
-                            if not input("Do you want to continue with the next account? (y/n): ").lower().startswith('y'):
-                                print("Stopping further processing as requested.")
-                                sys.exit(0)
                         else:
-                            print("All files uploaded and verified successfully")
+                            print("All files uploaded successfully")
                 else:
                     # Search for each file
                     found_files = []
@@ -221,18 +230,18 @@ def main():
                         
                         if local_files:
                             print(f"Uploading {len(local_files)} files to Salesforce...")
-                            if not accounts_page.upload_files(local_files):
+                            # Create a temporary account dictionary for upload_files_for_account
+                            temp_account = {
+                                'name': account_name,
+                                'files': [{'name': os.path.basename(f), 'content': open(f, 'rb').read()} for f in local_files]
+                            }
+                            if not upload_files_for_account(page, temp_account, debug_mode=debug_mode, max_tries=3):
                                 print("Failed to upload files")
                                 if not input("Do you want to continue with the next account? (y/n): ").lower().startswith('y'):
                                     print("Stopping further processing as requested.")
                                     sys.exit(0)
-                            elif not accounts_page.verify_files_uploaded([os.path.basename(f) for f in local_files]):
-                                print("Not all files were verified after upload")
-                                if not input("Do you want to continue with the next account? (y/n): ").lower().startswith('y'):
-                                    print("Stopping further processing as requested.")
-                                    sys.exit(0)
                             else:
-                                print("All files uploaded and verified successfully")
+                                print("All files uploaded successfully")
                     else:
                         print("No new files to upload")
 

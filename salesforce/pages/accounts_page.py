@@ -12,6 +12,7 @@ class AccountsPage:
         self.page = page
         self.debug_mode = debug_mode
         self.last_created_account_id = None  # Store the ID of the last created account
+        self.current_account_id = None  # Store the ID of the current account being viewed
         if debug_mode:
             logging.info("Debug mode is enabled for AccountsPage")
 
@@ -124,18 +125,36 @@ class AccountsPage:
                 
                 # Check the item count in the status message
                 try:
-                    status_message = self.page.wait_for_selector('span[aria-label="Files"]', timeout=5000)
-                    if status_message:
-                        status_text = status_message.text_content()
-                        logging.info(f"Status message: {status_text}")
-                        
-                        # Extract the number of items
-                        logging.info("Extracting the number of items...")
-                        match = re.search(r'(\d+)\s+items?\s+•', status_text)
-                        if match:
-                            item_count = int(match.group(1))
-                            logging.info(f"Found {item_count} items in search results")
-                            return item_count
+                    # Try multiple selectors for the status message
+                    status_selectors = [
+                        'span.countSortedByFilteredBy',
+                        'span.slds-text-body_small',
+                        'div.slds-text-body_small',
+                        'span[class*="count"]'
+                    ]
+                    
+                    for selector in status_selectors:
+                        try:
+                            status_message = self.page.wait_for_selector(selector, timeout=5000)
+                            if status_message:
+                                status_text = status_message.text_content()
+                                logging.info(f"Status message: {status_text}")
+                                
+                                # Extract the number of items
+                                logging.info("Extracting the number of items...")
+                                match = re.search(r'(\d+)\s+items?\s+•', status_text)
+                                if match:
+                                    item_count = int(match.group(1))
+                                    logging.info(f"Found {item_count} items in search results")
+                                    return item_count
+                        except Exception as e:
+                            logging.info(f"Selector {selector} failed: {str(e)}")
+                            continue
+                    
+                    # If we get here, none of the selectors worked
+                    logging.info("Could not find status message with any selector")
+                    return 0
+                    
                 except Exception as e:
                     logging.info(f"Error checking status message: {str(e)}")
                     return 0
@@ -151,33 +170,91 @@ class AccountsPage:
     def click_account_name(self, account_name: str) -> bool:
         """Click on the account name in the search results."""
         try:
-            # Wait for the account name link to be visible
-            # Using a more specific selector that matches the exact element structure
-            account_link = self.page.wait_for_selector(
+            # Try the specific selector first
+            try:
+                logging.info(f"Trying specific selector: a[title='{account_name}']")
+                account_link = self.page.wait_for_selector(f"a[title='{account_name}']", timeout=5000)
+                if account_link and account_link.is_visible():
+                    # Scroll the element into view
+                    account_link.scroll_into_view_if_needed()
+                    # Wait a bit for any animations to complete
+                    self.page.wait_for_timeout(1000)
+                    # Click the element
+                    account_link.click()
+                    logging.info(f"Clicked account link using specific selector")
+                    
+                    # Wait for navigation to complete
+                    self.page.wait_for_load_state("networkidle")
+                    self.page.wait_for_timeout(2000)  # Additional wait for page to stabilize
+                    
+                    # Verify we're on the account view page
+                    current_url = self.page.url
+                    if '/view' not in current_url:
+                        logging.error(f"Not on account view page. Current URL: {current_url}")
+                        return False
+                        
+                    # Extract account ID from URL
+                    account_id_match = re.search(r'/Account/([^/]+)/view', current_url)
+                    if not account_id_match:
+                        logging.error(f"Could not extract account ID from URL: {current_url}")
+                        return False
+                    
+                    # Store the account ID
+                    self.current_account_id = account_id_match.group(1)
+                    logging.info(f"Stored account ID: {self.current_account_id}")
+                    return True
+            except Exception as e:
+                logging.info(f"Specific selector failed: {str(e)}")
+            
+            # If specific selector fails, try other selectors
+            selectors = [
                 f'a[data-refid="recordId"][data-special-link="true"][title="{account_name}"]',
-                state="visible",
-                timeout=10000
-            )
+                f'td:first-child a[title="{account_name}"]',
+                f'table[role="grid"] tr:first-child td:first-child a',
+                f'table[role="grid"] tr:first-child a[data-refid="recordLink"]'
+            ]
             
-            if not account_link:
-                print(f"Could not find account link for: {account_name}")
-                return False
+            for selector in selectors:
+                try:
+                    logging.info(f"Trying selector: {selector}")
+                    account_link = self.page.wait_for_selector(selector, timeout=5000)
+                    if account_link and account_link.is_visible():
+                        # Scroll the element into view
+                        account_link.scroll_into_view_if_needed()
+                        # Wait a bit for any animations to complete
+                        self.page.wait_for_timeout(1000)
+                        # Click the element
+                        account_link.click()
+                        logging.info(f"Clicked account link using selector: {selector}")
+                        
+                        # Wait for navigation to complete
+                        self.page.wait_for_load_state("networkidle")
+                        self.page.wait_for_timeout(2000)  # Additional wait for page to stabilize
+                        
+                        # Verify we're on the account view page
+                        current_url = self.page.url
+                        if '/view' not in current_url:
+                            logging.error(f"Not on account view page. Current URL: {current_url}")
+                            continue
+                            
+                        # Extract account ID from URL
+                        account_id_match = re.search(r'/Account/([^/]+)/view', current_url)
+                        if not account_id_match:
+                            logging.error(f"Could not extract account ID from URL: {current_url}")
+                            continue
+                            
+                        account_id = account_id_match.group(1)
+                        logging.info(f"Successfully navigated to account view page. Account ID: {account_id}")
+                        return True
+                except Exception as e:
+                    logging.info(f"Selector {selector} failed: {str(e)}")
+                    continue
             
-            # Click the account name
-            account_link.click()
-            
-            # Wait for navigation to complete
-            self.page.wait_for_load_state("networkidle")
-            
-            # Verify we're on the account view page
-            if not self.page.url.endswith("/view"):
-                print("Failed to navigate to account view page")
-                return False
-            
-            return True
+            logging.error("Could not find or click account link with any selector")
+            return False
             
         except Exception as e:
-            print(f"Error clicking account name: {str(e)}")
+            logging.error(f"Error clicking account name: {str(e)}")
             return False
 
     def click_first_account(self):
@@ -711,14 +788,31 @@ class AccountsPage:
                             if len(data_rows) < 1:
                                 raise Exception(f"Expected at least 1 result row, found {len(data_rows)}. Aborting.")
                             
-                            # Click on the first item
-                            first_cell = data_rows[0].query_selector("td:first-child a, td:first-child span, td:first-child")
-                            if first_cell:
-                                first_cell.click()
-                                logging.info("Clicked on the first account in search results to go to detail page")
+                            # Click on the first item - using a more specific selector and wait_for_selector
+                            try:
+                                # First try to find the account name link
+                                account_link = self.page.wait_for_selector(
+                                    f'a[data-refid="recordId"][data-special-link="true"][title="{account_name}"]',
+                                    timeout=10000
+                                )
+                                if account_link:
+                                    account_link.click()
+                                    logging.info(f"Clicked on account link for: {account_name}")
+                                else:
+                                    # Fallback to first cell if specific link not found
+                                    first_cell = self.page.wait_for_selector(
+                                        "table[role='grid'] tr:first-child td:first-child a",
+                                        timeout=10000
+                                    )
+                                    if first_cell:
+                                        first_cell.click()
+                                        logging.info("Clicked on the first account in search results")
+                                    else:
+                                        raise Exception("Could not find clickable account link")
                                 
                                 # Wait for page load
-                                self.page.wait_for_load_state('domcontentloaded')
+                                self.page.wait_for_load_state('networkidle')
+                                self.page.wait_for_timeout(2000)  # Additional wait for page to stabilize
                                 
                                 # Verify we're on the account view page by checking multiple indicators
                                 try:
@@ -768,9 +862,10 @@ class AccountsPage:
                                     logging.error(f"Failed to verify account view page: {str(e)}")
                                     self.page.screenshot(path="account-view-verification-error.png")
                                     raise Exception("Could not verify we're on the account view page")
-                            else:
-                                logging.error("Could not find clickable cell in the result row")
-                                raise Exception("Could not find clickable cell in the result row")
+                            except Exception as e:
+                                logging.error(f"Error clicking account link: {str(e)}")
+                                self.page.screenshot(path="account-link-click-error.png")
+                                raise Exception("Could not click on account link")
                 except Exception as e:
                     logging.info(f"No toast message found: {str(e)}")
                 # Fallback: Try to find the Account Name on the page
@@ -983,4 +1078,23 @@ class AccountsPage:
                 logging.info("Error screenshot saved as verify-files-error.png")
             except Exception as screenshot_error:
                 logging.error(f"Failed to take screenshot: {str(screenshot_error)}")
-            return False 
+            return False
+
+    def get_account_id(self) -> Optional[str]:
+        """
+        Get the ID of the current account being viewed.
+        
+        Returns:
+            Optional[str]: The account ID if available, None otherwise
+        """
+        if self.current_account_id:
+            return self.current_account_id
+            
+        # Try to extract from current URL if not stored
+        current_url = self.page.url
+        account_id_match = re.search(r'/Account/([^/]+)/view', current_url)
+        if account_id_match:
+            self.current_account_id = account_id_match.group(1)
+            return self.current_account_id
+            
+        return None 
