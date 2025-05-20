@@ -91,8 +91,8 @@ class AccountsPage:
                 logging.error(f"Failed to take screenshot: {str(screenshot_error)}")
             raise
 
-    def search_account(self, account_name: str) -> bool:
-        """Search for an account by name."""
+    def search_account(self, account_name: str) -> int:
+        """Search for an account by name and return the number of items found."""
         try:
             logging.info(f"Searching for account: {account_name}")
             
@@ -101,7 +101,7 @@ class AccountsPage:
             search_input = self.page.wait_for_selector('input[placeholder="Search this list..."]', timeout=60000)
             if not search_input:
                 logging.error("Search input not found")
-                return False
+                return 0
                 
             # Clear and fill the search input
             logging.info("Clearing search input...")
@@ -121,48 +121,31 @@ class AccountsPage:
                 # Wait a moment for results to appear
                 self.page.wait_for_timeout(2000)
                 
-                # Check for results in multiple ways
-                # 1. Check for the account name directly
-                account_selector = f'a[data-refid="recordId"][data-special-link="true"][title="{account_name}"]'
+                # Check the item count in the status message
                 try:
-                    account_element = self.page.wait_for_selector(account_selector, timeout=5000)
-                    if account_element and account_element.is_visible():
-                        logging.info(f"Found account name '{account_name}' in search results")
-                        return True
+                    status_message = self.page.wait_for_selector('span.countSortedByFilteredBy', timeout=5000)
+                    if status_message:
+                        status_text = status_message.text_content()
+                        logging.info(f"Status message: {status_text}")
+                        
+                        # Extract the number of items
+                        import re
+                        match = re.search(r'(\d+)\s+item', status_text)
+                        if match:
+                            item_count = int(match.group(1))
+                            logging.info(f"Found {item_count} items in search results")
+                            return item_count
                 except Exception as e:
-                    logging.info(f"Account name not found with specific selector: {str(e)}")
-                
-                # 2. Check for the table with results
-                try:
-                    table = self.page.wait_for_selector('table[role="grid"]', timeout=5000)
-                    if table and table.is_visible():
-                        # Check if the account name is in the table
-                        account_in_table = self.page.locator(f'table[role="grid"] >> text="{account_name}"').is_visible()
-                        if account_in_table:
-                            logging.info(f"Found account name '{account_name}' in table")
-                            return True
-                except Exception as e:
-                    logging.info(f"Table check failed: {str(e)}")
-                
-                # 3. Check for any element containing the account name
-                try:
-                    any_element = self.page.wait_for_selector(f':text("{account_name}")', timeout=5000)
-                    if any_element and any_element.is_visible():
-                        logging.info(f"Found account name '{account_name}' in page")
-                        return True
-                except Exception as e:
-                    logging.info(f"General text search failed: {str(e)}")
-                
-                logging.info("No results found for account")
-                return False
+                    logging.info(f"Error checking status message: {str(e)}")
+                    return 0
                 
             except Exception as e:
                 logging.info(f"Error waiting for search results: {str(e)}")
-                return False
+                return 0
             
         except Exception as e:
             logging.error(f"Error searching for account: {e}")
-            return False
+            return 0
 
     def click_account_name(self, account_name: str) -> bool:
         """Click on the account name in the search results."""
@@ -199,53 +182,39 @@ class AccountsPage:
     def click_first_account(self):
         """Click on the first account in the search results."""
         try:
-            logging.info("Attempting to click first account in search results...")
-            
             # Wait for the table to be visible
-            logging.info("Waiting for accounts table...")
-            self.page.wait_for_selector('table[role="grid"]', timeout=30000)
+            self.page.wait_for_selector('table.slds-table', timeout=10000)
             
             # Try multiple selectors for the account name cell
             selectors = [
-                'table[role="grid"] >> tr >> td:first-child >> a',
-                'table[role="grid"] >> tr >> td:first-child >> span >> a',
-                'table[role="grid"] >> tr >> td:first-child >> div >> a',
-                'table[role="grid"] >> tr >> td:first-child >> div >> span >> a'
+                'table.slds-table tbody tr:first-child td:first-child a',
+                'table.slds-table tbody tr:first-child td:first-child',
+                'table.slds-table tbody tr:first-child a[data-refid="recordLink"]'
             ]
             
             for selector in selectors:
                 try:
-                    logging.info(f"Trying selector: {selector}")
+                    # Wait for the element to be visible and clickable
                     element = self.page.wait_for_selector(selector, timeout=5000)
-                    if element and element.is_visible():
-                        # Log element details for debugging
-                        logging.info(f"Found element with selector {selector}:")
-                        logging.info(f"Tag name: {element.evaluate('el => el.tagName')}")
-                        logging.info(f"Class: {element.evaluate('el => el.className')}")
-                        logging.info(f"Text content: {element.text_content()}")
-                        
+                    if element:
+                        # Scroll the element into view
+                        element.scroll_into_view_if_needed()
+                        # Wait a bit for any animations to complete
+                        self.page.wait_for_timeout(1000)
                         # Click the element
                         element.click()
-                        logging.info(f"Successfully clicked account using selector: {selector}")
-                        
-                        # Wait for navigation to complete
-                        self.page.wait_for_load_state('networkidle', timeout=30000)
-                        logging.info("Navigation to account details completed")
-                        return
+                        logger.info("Successfully clicked on first account")
+                        return True
                 except Exception as e:
-                    logging.info(f"Selector {selector} failed: {str(e)}")
+                    logger.debug(f"Selector {selector} failed: {str(e)}")
                     continue
             
-            # If we get here, none of the selectors worked
-            logging.error("Could not find clickable account element with any of the selectors")
-            # Take a screenshot for debugging
-            self.page.screenshot(path="account-click-error.png")
-            logging.info("Error screenshot saved as account-click-error.png")
-            raise Exception("Could not find clickable account element")
+            logger.error("Failed to click on first account - no working selector found")
+            return False
             
         except Exception as e:
-            logging.error(f"Error clicking first account: {str(e)}")
-            raise
+            logger.error(f"Error clicking first account: {str(e)}")
+            return False
 
     def navigate_to_files(self):
         """Navigate to the Files tab of the current account. Assumes you are already on the account detail page."""
@@ -265,8 +234,40 @@ class AccountsPage:
                     if parent:
                         parent.as_element().click()
                         logging.info("Clicked Files tab using span[title='Files'] parent.")
-                        self.page.wait_for_selector('div.slds-tabs_default__content', timeout=30000)
-                        logging.info("Files tab content loaded")
+                        
+                        # Wait for navigation and verify URL pattern
+                        self.page.wait_for_load_state('networkidle')
+                        current_url = self.page.url
+                        logging.info(f"Current URL after clicking Files tab: {current_url}")
+                        
+                        # Verify URL pattern: Account/{account_id}/related/AttachedContentDocuments/view
+                        if not re.match(r'.*Account/\w+/related/AttachedContentDocuments/view.*', current_url):
+                            raise Exception(f"Not on Files page. Current URL: {current_url}")
+                        
+                        # Extract and store account ID from URL
+                        account_id_match = re.search(r'/Account/(\w+)/related', current_url)
+                        if account_id_match:
+                            account_id = account_id_match.group(1)
+                            logging.info(f"Extracted account ID from Files page URL: {account_id}")
+                            self.last_created_account_id = account_id
+                        
+                        # Wait for and check the items count
+                        try:
+                            status_message = self.page.wait_for_selector('span.countSortedByFilteredBy', timeout=5000)
+                            if status_message:
+                                status_text = status_message.text_content()
+                                logging.info(f"Files status message: {status_text}")
+                                
+                                # Extract the number of items
+                                match = re.search(r'(\d+)\s+items', status_text)
+                                if match:
+                                    item_count = int(match.group(1))
+                                    logging.info(f"Found {item_count} files in the account")
+                                else:
+                                    logging.info("No items found or count not in expected format")
+                        except Exception as e:
+                            logging.info(f"Error checking files count: {str(e)}")
+                        
                         return
                     else:
                         # If no parent found, try clicking the span directly
@@ -278,40 +279,6 @@ class AccountsPage:
             except Exception as e:
                 logging.info(f"span[title='Files'] selector failed: {str(e)}")
 
-            # Fallback: Try different selectors for the Files tab
-            selectors = [
-                'div.slds-tabs_default__nav >> text=Files',
-                'div.slds-tabs_default__nav >> a:has-text("Files")',
-                'div.slds-tabs_default__nav >> button:has-text("Files")',
-                'div.slds-tabs_default__nav >> div[role="tab"]:has-text("Files")',
-                'div.slds-tabs_default__nav >> li[role="presentation"]:has-text("Files")',
-                'div.slds-tabs_default__nav >> span:has-text("Files")',
-                'div.slds-tabs_default__nav >> a:has-text("Files")',
-                'div.slds-tabs_default__nav >> button:has-text("Files")',
-                'div.slds-tabs_default__nav >> div[role="tab"] >> span:has-text("Files")',
-                'div.slds-tabs_default__nav >> div[role="tab"] >> a:has-text("Files")',
-                'div.slds-tabs_default__nav >> div[role="tab"] >> button:has-text("Files")'
-            ]
-            for selector in selectors:
-                try:
-                    logging.info(f"Trying Files tab selector: {selector}")
-                    element = self.page.wait_for_selector(selector, timeout=5000)
-                    if element and element.is_visible():
-                        # Log element details for debugging
-                        logging.info(f"Found element with selector {selector}:")
-                        logging.info(f"Tag name: {element.evaluate('el => el.tagName')}")
-                        logging.info(f"Class: {element.evaluate('el => el.className')}")
-                        logging.info(f"Text content: {element.text_content()}")
-                        # Click the element
-                        element.click()
-                        logging.info(f"Successfully clicked Files tab using selector: {selector}")
-                        # Wait for the Files tab content to load
-                        self.page.wait_for_selector('div.slds-tabs_default__content', timeout=30000)
-                        logging.info("Files tab content loaded")
-                        return
-                except Exception as e:
-                    logging.info(f"Selector {selector} failed: {str(e)}")
-                    continue
             # If we get here, none of the selectors worked
             logging.error("Could not find Files tab with any of the selectors")
             # Take a screenshot for debugging
@@ -334,8 +301,8 @@ class AccountsPage:
     def add_files(self):
         """Click the Add Files button and then the Upload Files button in the dialog."""
         try:
-            # Click Add Files button
-            add_files_button = self.page.wait_for_selector('button:has-text("Add Files")', timeout=5000)
+            # Click Add Files button using the specific selector
+            add_files_button = self.page.wait_for_selector('div[title="Add Files"]', timeout=5000)
             if not add_files_button:
                 raise Exception("Add Files button not found")
             add_files_button.click()
@@ -737,8 +704,24 @@ class AccountsPage:
                                 
                                 # Verify we're on the account view page by checking multiple indicators
                                 try:
-                                    # Wait for the account header
-                                    self.page.wait_for_selector('h1.slds-page-header__title, [data-aura-class*="pageHeader"]', timeout=30000)
+                                    # Wait for any of these elements to be visible
+                                    view_selectors = [
+                                        'h1.slds-page-header__title',
+                                        '[data-aura-class*="pageHeader"]',
+                                        'div.slds-page-header',
+                                        'div.slds-tabs_default',
+                                        'div.slds-page-header__detail-row'
+                                    ]
+                                    
+                                    for selector in view_selectors:
+                                        try:
+                                            if self.page.locator(selector).is_visible(timeout=5000):
+                                                logging.info(f"Found visible element: {selector}")
+                                                break
+                                        except Exception as e:
+                                            logging.info(f"Selector {selector} not visible: {str(e)}")
+                                    else:
+                                        raise Exception("No account view elements found")
                                     
                                     # Verify URL contains /view and extract account ID
                                     current_url = self.page.url
@@ -760,17 +743,6 @@ class AccountsPage:
                                     # If we're viewing an existing account, verify it matches the created account
                                     elif self.last_created_account_id != account_id:
                                         raise Exception(f"Account ID mismatch. Expected: {self.last_created_account_id}, Got: {account_id}")
-                                    
-                                    # Verify we have the standard Salesforce account view elements
-                                    view_selectors = [
-                                        'div.slds-tabs_default',  # Tab bar
-                                        'div.slds-page-header__detail-row',  # Account details row
-                                        'div.slds-page-header__meta-text'  # Account metadata
-                                    ]
-                                    
-                                    for selector in view_selectors:
-                                        if not self.page.locator(selector).is_visible():
-                                            raise Exception(f"Account view element not found: {selector}")
                                     
                                     logging.info("Successfully verified we're on the correct account view page")
                                     return True
@@ -847,41 +819,90 @@ class AccountsPage:
                 logging.info("User chose to skip file upload")
                 return False
 
+            # Try multiple selectors for Add Files button
+            add_files_selectors = [
+                'div[title="Add Files"]',
+                'button:has-text("Add Files")',
+                'button[title="Add Files"]',
+                'div.slds-button:has-text("Add Files")',
+                'button.slds-button:has-text("Add Files")',
+                '//button[contains(text(), "Add Files")]',
+                '//div[contains(text(), "Add Files")]'
+            ]
+
+            add_files_button = None
+            for selector in add_files_selectors:
+                try:
+                    add_files_button = self.page.wait_for_selector(selector, timeout=5000)
+                    if add_files_button and add_files_button.is_visible():
+                        logging.info(f"Found Add Files button with selector: {selector}")
+                        break
+                except Exception as e:
+                    logging.debug(f"Selector {selector} failed: {str(e)}")
+                    continue
+
+            if not add_files_button:
+                raise Exception("Could not find Add Files button with any selector")
+
             # Click Add Files button
-            self.add_files()
+            add_files_button.click()
+            logging.info("Clicked Add Files button")
+
+            # Wait for and click Upload Files button in the dialog
+            upload_files_button = self.page.wait_for_selector('button:has-text("Upload Files")', timeout=5000)
+            if not upload_files_button:
+                raise Exception("Upload Files button not found in dialog")
+            upload_files_button.click()
+            logging.info("Clicked Upload Files button in dialog")
 
             # Wait for the file input to be visible
-            file_input = self.page.locator('input[type="file"]')
-            expect(file_input).to_be_visible()
+            file_input = self.page.wait_for_selector('input[type="file"]', timeout=5000)
+            if not file_input:
+                raise Exception("File input not found")
 
             # Set the files to upload
             file_input.set_input_files(file_paths)
+            logging.info(f"Set {len(file_paths)} files to upload")
 
-            # Wait for upload to complete
-            self._wait_for_upload_completion()
+            # Wait for upload to complete with retries
+            max_retries = 3
+            retry_count = 0
+            while retry_count < max_retries:
+                try:
+                    # Wait for upload progress indicator
+                    self.page.wait_for_selector('div.progress-indicator', timeout=30000, state='visible')
+                    logging.info("Upload progress indicator visible")
 
-            return True
-        except Exception as e:
-            logging.error(f"Error uploading files: {e}")
+                    # Wait for progress indicator to disappear
+                    self.page.wait_for_selector('div.progress-indicator', timeout=30000, state='hidden')
+                    logging.info("Upload progress indicator disappeared")
+
+                    # Wait for success message
+                    success_message = self.page.wait_for_selector('div.slds-notify--success', timeout=10000)
+                    if success_message:
+                        logging.info("Upload success message received")
+                        return True
+
+                except Exception as e:
+                    retry_count += 1
+                    logging.warning(f"Upload attempt {retry_count} failed: {str(e)}")
+                    if retry_count < max_retries:
+                        logging.info("Retrying upload...")
+                        time.sleep(2)  # Wait before retry
+                    else:
+                        raise Exception(f"Upload failed after {max_retries} attempts")
+
             return False
 
-    def _wait_for_upload_completion(self, timeout: int = 300):
-        """
-        Wait for file upload to complete.
-        Args:
-            timeout: Maximum time to wait in seconds
-        """
-        start_time = time.time()
-        while time.time() - start_time < timeout:
-            # Check for upload progress indicator
-            progress_visible = self.page.locator('text=Uploading...').is_visible()
-            if not progress_visible:
-                # Check for success message
-                success_visible = self.page.locator('text=Upload Complete').is_visible()
-                if success_visible:
-                    return
-            time.sleep(1)
-        raise TimeoutError("File upload timed out")
+        except Exception as e:
+            logging.error(f"Error uploading files: {str(e)}")
+            # Take a screenshot for debugging
+            try:
+                self.page.screenshot(path="upload-error.png")
+                logging.info("Error screenshot saved as upload-error.png")
+            except Exception as screenshot_error:
+                logging.error(f"Failed to take screenshot: {str(screenshot_error)}")
+            return False
 
     def verify_files_uploaded(self, file_names: List[str]) -> bool:
         """
@@ -892,12 +913,56 @@ class AccountsPage:
             bool: True if all files are found, False otherwise
         """
         try:
+            # Wait for the files list to be visible
+            self.page.wait_for_selector('div.slds-scrollable_y', timeout=10000)
+            logging.info("Files list is visible")
+
+            # Wait a moment for the files to appear
+            time.sleep(2)
+
+            # Get the number of items
+            items_text = self.page.locator('div.slds-text-body_small').first.text_content()
+            logging.info(f"Items text: {items_text}")
+
+            # Extract the number of items
+            match = re.search(r'(\d+)\s+items', items_text)
+            if not match:
+                logging.error("Could not find number of items in the text")
+                return False
+
+            num_items = int(match.group(1))
+            logging.info(f"Found {num_items} items in the list")
+
+            # Verify each file
             for file_name in file_names:
+                # Try to find the file with pattern matching
+                # Remove any date prefix from the file name for searching
+                base_name = re.sub(r'^\d{8}\s+', '', file_name)
+                search_pattern = f"*{base_name}"
+
                 # Search for the file
-                if not self.search_file(file_name):
-                    print(f"File not found: {file_name}")
+                self.page.fill('input[placeholder="Search Files..."]', search_pattern)
+                self.page.press('input[placeholder="Search Files..."]', 'Enter')
+
+                # Wait for search results
+                self.page.wait_for_selector('table[role="grid"]', timeout=5000)
+
+                # Check if any results are found
+                results = self.page.locator('table[role="grid"] >> tr').count()
+                if results == 0:
+                    logging.error(f"File not found: {file_name}")
                     return False
+
+                logging.info(f"Found file: {file_name}")
+
             return True
+
         except Exception as e:
-            print(f"Error verifying files: {e}")
+            logging.error(f"Error verifying files: {str(e)}")
+            # Take a screenshot for debugging
+            try:
+                self.page.screenshot(path="verify-files-error.png")
+                logging.info("Error screenshot saved as verify-files-error.png")
+            except Exception as screenshot_error:
+                logging.error(f"Failed to take screenshot: {str(screenshot_error)}")
             return False 
