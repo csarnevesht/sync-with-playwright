@@ -17,16 +17,6 @@ class AccountsPage:
         if debug_mode:
             logging.info("Debug mode is enabled for AccountsPage")
 
-    def _debug_prompt(self, message: str) -> bool:
-        """Prompt the user for input in debug mode."""
-        if not self.debug_mode:
-            return True
-            
-        while True:
-            response = input(f"{message} (y/n): ").lower()
-            if response in ['y', 'Y']:
-                return response == 'y'
-            logging.info("Please enter 'y' or 'n'")
 
     def navigate_to_accounts(self) -> bool:
         """Navigate to the Accounts page."""

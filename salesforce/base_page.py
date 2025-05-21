@@ -63,19 +63,6 @@ class BasePage:
             self.logger.error(f"Failed to fill input: {str(e)}")
             return False
             
-    def _debug_prompt(self, message: str) -> bool:
-        """Prompt the user for confirmation in debug mode."""
-        if not self.debug_mode:
-            return True
-            
-        while True:
-            response = input(f"\n{message} (y/n): ").lower().strip()
-            if response in ['y', 'yes']:
-                return True
-            elif response in ['n', 'no']:
-                return False
-            print("Please enter 'y' or 'n'")
-            
     def _take_screenshot(self, name: str) -> None:
         """Take a screenshot for debugging purposes."""
         try:

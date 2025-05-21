@@ -5,6 +5,7 @@ from ..base_page import BasePage
 from playwright.sync_api import Page
 import re
 import sys
+from ..utils.debug_utils import debug_prompt
 
 class FileManager(BasePage):
     """Handles file-related operations in Salesforce."""
@@ -45,6 +46,7 @@ class FileManager(BasePage):
             int: Number of files found in the account, -1 if there was an error
         """
         self.logger.info("****Attempting to navigate to Files...")
+        self.logger.info(f"Current URL: {self.page.url}")
         
         try:
             # Try the most specific selector first: span[title="Files"]
@@ -88,6 +90,12 @@ class FileManager(BasePage):
 
             # If we get here, none of the selectors worked
             self.logger.error("Could not find Files tab with any of the selectors")
+            
+            if self.debug_mode:
+                if not debug_prompt("Do you want to proceed with navigating to Files?"):
+                    self.logger.info("Skipping navigation to Files. Exiting...")
+                    sys.exit(1)
+            
             # Take a screenshot for debugging
             self.page.screenshot(path="files-tab-error.png")
             self.logger.info("Error screenshot saved as files-tab-error.png")
