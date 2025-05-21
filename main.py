@@ -196,7 +196,7 @@ def main():
                         logger.log_account_creation(
                             account_name=full_name,
                             account_id=account_id,
-                            files=[f.name for f in account['files']]
+                            files=[f['name'] for f in account['files']]
                         )
                         
                     except Exception as e:
@@ -208,7 +208,7 @@ def main():
                             'middle_name': account['middle_name'],
                             'account_info': account['account_info'],
                             'full_name': full_name,
-                            'files': [f.name for f in account['files']],
+                            'files': [f['name'] for f in account['files']],
                             'error': str(e)
                         })
                         continue
@@ -236,7 +236,7 @@ def main():
                             files_to_upload = []
                             for file in account['files']:
                                 local_path = dbx.download_file(
-                                    f"/{dbx.root_folder}/{account['folder_name']}/{file.name}",
+                                    f"/{dbx.root_folder}/{account['folder_name']}/{file['name']}",
                                     temp_dir
                                 )
                                 if local_path:
@@ -246,7 +246,7 @@ def main():
                             print(f"Uploading {len(files_to_upload)} files to Salesforce...")
                             # Create a temporary account dictionary for upload_files_for_account
                             temp_account = {
-                                'name': account_name,
+                                'name': full_name,
                                 'files': [{'name': os.path.basename(f), 'content': open(f, 'rb').read()} for f in files_to_upload]
                             }
                             try:
@@ -290,10 +290,10 @@ def main():
                         
                         for file in account['files']:
                             # Create search pattern
-                            search_pattern = f"*{os.path.splitext(file.name)[0]}"
+                            search_pattern = f"*{os.path.splitext(file['name'])[0]}"
                             
                             if accounts_page.search_file(search_pattern):
-                                found_files.append(file.name)
+                                found_files.append(file['name'])
                             else:
                                 files_to_add.append(file)
                         
@@ -306,7 +306,7 @@ def main():
                                 local_files = []
                                 for file in files_to_add:
                                     local_path = dbx.download_file(
-                                        f"/{dbx.root_folder}/{account['folder_name']}/{file.name}",
+                                        f"/{dbx.root_folder}/{account['folder_name']}/{file['name']}",
                                         temp_dir
                                     )
                                     if local_path:
@@ -316,7 +316,7 @@ def main():
                                 print(f"Uploading {len(local_files)} files to Salesforce...")
                                 # Create a temporary account dictionary for upload_files_for_account
                                 temp_account = {
-                                    'name': account_name,
+                                    'name': full_name,
                                     'files': [{'name': os.path.basename(f), 'content': open(f, 'rb').read()} for f in local_files]
                                 }
                                 try:

@@ -2,6 +2,8 @@ import json
 import os
 from datetime import datetime
 from typing import Dict, List, Optional
+import traceback
+import sys
 
 class OperationLogger:
     def __init__(self, log_file: str = "operations.log"):
@@ -52,11 +54,23 @@ class OperationLogger:
     
     def log_failed_step(self, step_type: str, details: Dict):
         """Log a failed operation step."""
+        frame = sys._getframe(1)  # Get the caller's frame
+        # Try to get the current exception's stack trace, else fallback to current stack
+        exc_type, exc_value, exc_tb = sys.exc_info()
+        if exc_type is not None:
+            stack_trace = traceback.format_exc()
+        else:
+            stack_trace = ''.join(traceback.format_stack())
         failed_step = {
             "step_type": step_type,
             "details": details,
             "timestamp": datetime.now().isoformat(),
-            "status": "failed"
+            "status": "failed",
+            "error_location": {
+                "file": frame.f_code.co_filename,
+                "line": frame.f_lineno
+            },
+            "stack_trace": stack_trace
         }
         self.operations["failed_steps"].append(failed_step)
         self._save_operations()
