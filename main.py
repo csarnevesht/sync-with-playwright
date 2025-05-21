@@ -8,6 +8,7 @@ from salesforce.logger import OperationLogger
 from dropbox_client import DropboxClient
 from mock_data import get_mock_accounts
 from file_upload import upload_files_for_account
+from get_salesforce_page import get_salesforce_page
 
 def setup_logging():
     """Set up logging configuration."""
@@ -67,27 +68,9 @@ def main():
         sys.exit(1)
         
     with sync_playwright() as p:
+        browser, page = get_salesforce_page(p)
+        
         try:
-            # Connect to existing Chrome browser
-            browser = p.chromium.connect_over_cdp("http://localhost:9222")
-            
-            # Find the Salesforce page
-            salesforce_page = None
-            for context in browser.contexts:
-                for pg in context.pages:
-                    if "lightning.force.com" in pg.url:
-                        salesforce_page = pg
-                        break
-                if salesforce_page:
-                    break
-            
-            if not salesforce_page:
-                logging.error("No Salesforce page found. Please make sure you have a Salesforce page open.")
-                sys.exit(1)
-                
-            # Use the Salesforce page
-            page = salesforce_page
-            
             # Initialize page objects
             logging.info(f"****Initializing page objects")
             logging.info(f"setting account_manager")
