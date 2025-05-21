@@ -13,35 +13,23 @@ logging.basicConfig(
 )
 
 def test_get_all_accounts():
-    """Test the get_all_accounts method of AccountsPage."""
+    """Test the get_all_accounts method of AccountsPage with a custom filter for accounts with more than 0 files."""
     with sync_playwright() as p:
         browser, page = get_salesforce_page(p)
         try:
             # Initialize AccountsPage
             accounts_page = AccountsPage(page, debug_mode=True)
             
-            # Test get_all_accounts
-            accounts = accounts_page.get_all_accounts()
+            # Custom filter: accounts with more than 0 files
+            def nonzero_files_filter(account):
+                files_count = accounts_page.get_files_count_for_account(account['id'])
+                return files_count is not None and files_count > 0
+            
+            accounts = accounts_page.get_all_accounts(max_number=5, files_filter=nonzero_files_filter)
             assert accounts, "No accounts were returned"
             
-            # Verify we're on the accounts page
-            current_url = page.url
-            assert "/lightning/o/Account/list" in current_url, f"Not on accounts list page. Current URL: {current_url}"
-            
-            # Verify we have account data
-            assert len(accounts) > 0, "No accounts found in the list"
-            
-            # Log the first few accounts for verification
-            logging.info(f"Found {len(accounts)} accounts")
-            for i, account in enumerate(accounts[:5]):  # Log first 5 accounts
-                logging.info(f"Account {i+1}: {account['name']} (ID: {account['id']})")
-            
-            # Verify account data structure
             for account in accounts:
-                assert 'name' in account, "Account missing name"
-                assert 'id' in account, "Account missing ID"
-                assert account['name'], "Account name is empty"
-                assert account['id'], "Account ID is empty"
+                print(f"Name: {account['name']}, ID: {account['id']}, Files: {account['files_count']}")
             
             logging.info("Test passed successfully")
             

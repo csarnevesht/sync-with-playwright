@@ -1,5 +1,5 @@
 from playwright.sync_api import Page, expect
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Callable
 import re
 import os
 import time
@@ -96,13 +96,11 @@ class AccountsPage:
             self.page.screenshot(path="accounts-navigation-error.png")
             return False
 
-    def get_all_accounts(self) -> List[Dict[str, str]]:
+    def _get_all_accounts_base(self) -> List[Dict[str, str]]:
         """
-        Navigate to accounts, select the "All Accounts" list view, and return the list of accounts.
-        
-        Returns:
-            List[Dict[str, str]]: List of accounts with their details, or empty list if failed
+        Extract all accounts from the current list view (name and id only, no filtering).
         """
+        accounts = []
         try:
             # Navigate to accounts page
             if not self.navigate_to_accounts():
@@ -173,7 +171,6 @@ class AccountsPage:
             row_count = self.page.locator('table[role="grid"] tbody tr').count()
             logging.info(f"Found {row_count} rows in the table using nth-child.")
             logging.info(f"Getting all account rows using nth-child...")
-            accounts = []
             for i in range(row_count):
                 row = self.page.locator(f'table[role=\"grid\"] tbody tr:nth-child({i+1})')
                 # Diagnostic: log all cell texts for the first MAX_LOGGED_ROWS
@@ -242,25 +239,64 @@ class AccountsPage:
             self.page.screenshot(path="get-all-accounts-error.png")
             return []
 
-
-
     def get_files_count_for_account(self, account_id: str) -> int:
         """
         Navigate to the account view page for the given account_id and extract the Files count.
         Returns the files count as an integer, or None if not found.
         """
-        # Go directly to the account view page
         account_url = f"{SALESFORCE_URL}/lightning/r/{account_id}/view"
         logging.info(f"Navigating to account view page: {account_url}")
         self.page.goto(account_url)
         self.page.wait_for_load_state('networkidle', timeout=10000)
         try:
-            files_header = self.page.wait_for_selector('a.slds-card__header-link span[title="Files"]', timeout=10000)
-            files_number_span = files_header.locator('xpath=following-sibling::span[1]')
-            files_number_text = files_number_span.text_content(timeout=1000)
-            files_number = int(re.search(r'\((\d+)\)', files_number_text).group(1))
-            logging.info(f"Account {account_id} Files count: {files_number}")
-            return files_number
-        except Exception:
-            logging.warning(f"Could not extract files count for account {account_id}")
-            return None 
+            # Find all matching <a> elements
+            files_links = self.page.locator('a.slds-card__header-link.baseCard__header-title-container')
+            found = False
+            for i in range(files_links.count()):
+                a = files_links.nth(i)
+                href = a.get_attribute('href')
+                outer_html = a.evaluate('el => el.outerHTML')
+                logging.info(f"Account {account_id} a[{i}] href: {href}")
+                logging.info(f"Account {account_id} a[{i}] outer HTML: {outer_html}")
+                if href and 'AttachedContentDocuments' in href:
+                    # This is the Files card
+                    files_number_span = a.locator('span').nth(1)
+                    files_number_text = files_number_span.text_content(timeout=1000)
+                    files_number = int(re.search(r'\((\d+)\)', files_number_text).group(1))
+                    logging.info(f"Account {account_id} Files count: {files_number}")
+                    found = True
+                    return files_number
+            if not found:
+                logging.warning(f"Files card not found for account {account_id}")
+                return None
+        except Exception as e:
+            logging.warning(f"Could not extract files count for account {account_id}: {e}")
+            return None
+
+    def get_files_count_for_account_greater_than_or_equal_to(self, num_files: int):
+        def filter_func(account):
+            files_count = self.get_files_count_for_account(account['id'])
+            return files_count is not None and files_count >= num_files
+        return filter_func
+
+    def get_all_accounts(
+        self,
+        max_number: int = 10,
+        files_filter: Callable[[Dict[str, str]], bool] = None
+    ) -> List[Dict[str, str]]:
+        """
+        Keep iterating through all accounts until max_number matches are found for files_filter.
+        By default, returns accounts with files_count >= 5.
+        """
+        accounts = []
+        all_accounts = self._get_all_accounts_base()
+        if files_filter is None:
+            files_filter = self.get_files_count_for_account_greater_than_or_equal_to(5)
+        for account in all_accounts:
+            if files_filter(account):
+                files_count = self.get_files_count_for_account(account['id'])
+                account['files_count'] = files_count
+                accounts.append(account)
+                if len(accounts) >= max_number:
+                    break
+        return accounts 
