@@ -176,11 +176,12 @@ def main():
                 
                 if item_count > 0:
                     print(f"\nFound {item_count} existing account(s) matching '{full_name}'")
+                    print(f"current url: {accounts_page.page.url}")
                     if not accounts_page._debug_prompt("Do you want to proceed with these accounts?"):
                         print("Skipping this account as requested.")
                         continue
                 
-                    if accounts_page.click_account_name(account_name):
+                    if accounts_page.click_account_name(full_name):
                         print(f"Successfully navigated to account view page for: {account_name}")
                     else:
                         print(f"Failed to navigate to account view page for: {account_name}") 
@@ -304,8 +305,6 @@ def main():
                             num_files = accounts_page.get_number_of_files()
                             print(f"Number of files in account: {num_files}")
 
-
-
                             # Create search pattern
                             search_pattern = f"{os.path.splitext(file['name'])[0]}"
                 
@@ -314,12 +313,15 @@ def main():
                             else:
                                 files_to_add.append(file)
 
-                        # Navigate back to the original account page
-                        print("\nNavigating back to account page...")
-                        account_id = accounts_page.get_account_id()
-                        accounts_page.navigate_to_account_by_id(account_id)
-                        print("Back on account page")
-                        
+                            print(f"****Found files: {found_files}")
+                            print(f"****Files to add: {files_to_add}")
+
+                            # Navigate back to the original account page
+                            print("\nNavigating back to account page...")
+                            account_id = accounts_page.get_account_id()
+                            accounts_page.navigate_to_account_by_id(account_id)
+                            print("Back on account page")
+                            
                         # Upload new files
                         if files_to_add:
                             print(f"Found {len(files_to_add)} new files to upload")
