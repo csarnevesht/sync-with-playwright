@@ -11,8 +11,7 @@ class AccountsPage:
     def __init__(self, page: Page, debug_mode: bool = False):
         self.page = page
         self.debug_mode = debug_mode
-        self.last_created_account_id = None  # Store the ID of the last created account
-        self.current_account_id = None  # Store the ID of the current account being viewed
+        self.current_account_id = None  # Store the ID of the last created account
         if debug_mode:
             logging.info("Debug mode is enabled for AccountsPage")
 
@@ -335,7 +334,7 @@ class AccountsPage:
                         if account_id_match:
                             account_id = account_id_match.group(1)
                             logging.info(f"Extracted account ID from Files page URL: {account_id}")
-                            self.last_created_account_id = account_id
+                            self.current_account_id = account_id
                         
                         # Wait for and check the items count
                         try:
@@ -763,108 +762,44 @@ class AccountsPage:
                         logging.info(f"Found toast message after Save: {toast_text}")
                         if 'success' in toast_text.lower() or 'was created' in toast_text.lower():
                             logging.info("Successfully confirmed account creation by toast message.")
-                            # After successful save, navigate back to accounts list and search for the account
-                            logging.info("Navigating back to accounts list...")
-                            self.navigate_to_accounts()
-                            
-                            # Wait for the page to fully load
-                            self.page.wait_for_load_state('networkidle')
-                            self.page.wait_for_timeout(5000)  # Additional wait for list to refresh
-                            
-                            # Always search for the account by name
-                            account_name = f"{first_name} {middle_name} {last_name}" if middle_name else f"{first_name} {last_name}"
-                            logging.info(f"Searching for newly created account: {account_name}")
-                            found = self.search_account(account_name)
-                            if not found:
-                                raise Exception(f"Could not find newly created account '{account_name}' in list.")
-                            
-                            # Wait for the search results table with a longer timeout
-                            self.page.wait_for_selector("table[role='grid']", timeout=20000)
-                            self.page.wait_for_timeout(2000)  # Additional wait for table to populate
-                            
-                            # Verify that there is at least one result
-                            rows = self.page.query_selector_all("table[role='grid'] tr")
-                            data_rows = [row for row in rows if row.query_selector('td')]
-                            if len(data_rows) < 1:
-                                raise Exception(f"Expected at least 1 result row, found {len(data_rows)}. Aborting.")
-                            
-                            # Click on the first item - using a more specific selector and wait_for_selector
+                                
                             try:
-                                # First try to find the account name link
-                                account_link = self.page.wait_for_selector(
-                                    f'a[data-refid="recordId"][data-special-link="true"][title="{account_name}"]',
-                                    timeout=10000
-                                )
-                                if account_link:
-                                    account_link.click()
-                                    logging.info(f"Clicked on account link for: {account_name}")
-                                else:
-                                    # Fallback to first cell if specific link not found
-                                    first_cell = self.page.wait_for_selector(
-                                        "table[role='grid'] tr:first-child td:first-child a",
-                                        timeout=10000
-                                    )
-                                    if first_cell:
-                                        first_cell.click()
-                                        logging.info("Clicked on the first account in search results")
-                                    else:
-                                        raise Exception("Could not find clickable account link")
-                                
-                                # Wait for page load
+                                # Wait for the page to fully load
                                 self.page.wait_for_load_state('networkidle')
-                                self.page.wait_for_timeout(2000)  # Additional wait for page to stabilize
+                                self.page.wait_for_timeout(5000)  # Additional wait for list to refresh
                                 
-                                # Verify we're on the account view page by checking multiple indicators
-                                try:
-                                    # Wait for any of these elements to be visible
-                                    view_selectors = [
-                                        'h1.slds-page-header__title',
-                                        '[data-aura-class*="pageHeader"]',
-                                        'div.slds-tabs_default',
-                                        'div.slds-page-header__detail-row'
-                                    ]
-                                    
-                                    for selector in view_selectors:
-                                        try:
-                                            if self.page.locator(selector).is_visible(timeout=5000):
-                                                logging.info(f"Found visible element: {selector}")
-                                                break
-                                        except Exception as e:
-                                            logging.info(f"Selector {selector} not visible: {str(e)}")
-                                    else:
-                                        raise Exception("No account view elements found")
-                                    
-                                    # Verify URL contains /view and extract account ID
-                                    current_url = self.page.url
-                                    if '/view' not in current_url:
-                                        raise Exception(f"Not on account view page. Current URL: {current_url}")
-                                    
-                                    # Extract account ID from URL
-                                    account_id_match = re.search(r'/Account/([^/]+)/view', current_url)
-                                    if not account_id_match:
-                                        raise Exception(f"Could not extract account ID from URL: {current_url}")
-                                    
-                                    account_id = account_id_match.group(1)
-                                    logging.info(f"Extracted account ID from URL: {account_id}")
-                                    
-                                    # If this is after account creation, store the ID
-                                    if self.last_created_account_id is None:
-                                        self.last_created_account_id = account_id
-                                        logging.info(f"Stored created account ID: {account_id}")
-                                    # If we're viewing an existing account, verify it matches the created account
-                                    elif self.last_created_account_id != account_id:
-                                        raise Exception(f"Account ID mismatch. Expected: {self.last_created_account_id}, Got: {account_id}")
-                                    
-                                    logging.info("Successfully verified we're on the correct account view page")
-                                    return True
-                                except Exception as e:
-                                    logging.error(f"Failed to verify account view page: {str(e)}")
-                                    self.page.screenshot(path="account-view-verification-error.png")
-                                    raise Exception("Could not verify we're on the account view page")
+                                # Verify URL contains /view and extract account ID
+                                current_url = self.page.url
+                                print(f"***Current URL: {current_url}")
+                                if '/view' not in current_url:
+                                    raise Exception(f"Not on account view page. Current URL: {current_url}")
+                                
+                                # Extract account ID from URL
+                                account_id_match = re.search(r'/Account/([^/]+)/view', current_url)
+                                if not account_id_match:
+                                    raise Exception(f"Could not extract account ID from URL: {current_url}")
+                                
+                                account_id = account_id_match.group(1)
+                                logging.info(f"Extracted account ID from URL: {account_id}")
+                                
+                                # If this is after account creation, store the ID
+                                if self.current_account_id is None:
+                                    self.current_account_id = account_id
+                                    logging.info(f"Stored created account ID: {account_id}")
+                                # If we're viewing an existing account, verify it matches the created account
+                                elif self.current_account_id != account_id:
+                                    raise Exception(f"Account ID mismatch. Expected: {self.current_account_id}, Got: {account_id}")
+                                
+                                logging.info("Successfully verified we're on the correct account view page")
+                                return True
                             except Exception as e:
-                                logging.error(f"Error clicking account link: {str(e)}")
-                                self.page.screenshot(path="account-link-click-error.png")
-                                raise Exception("Could not click on account link")
+                                logging.error(f"Failed to verify account view page: {str(e)}")
+                                self.page.screenshot(path="account-view-verification-error.png")
+                                raise Exception("Could not verify we're on the account view page")
+                            # except Exception as e:
+                            #     logging.error(f"Error clicking account link: {str(e)}")
+                            #     self.page.screenshot(path="account-link-click-error.png")
+                            #     raise Exception("Could not click on account link")
                 except Exception as e:
                     logging.info(f"No toast message found: {str(e)}")
                 # Fallback: Try to find the Account Name on the page
@@ -1079,14 +1014,18 @@ class AccountsPage:
                 logging.error(f"Failed to take screenshot: {str(screenshot_error)}")
             return False
 
-    def get_account_id(self) -> Optional[str]:
+    def get_account_id(self) -> str:
         """
         Get the ID of the current account being viewed.
         
         Returns:
-            Optional[str]: The account ID if available, None otherwise
+            str: The account ID.
+            
+        Raises:
+            Exception: If the account ID is not available.
         """
         if self.current_account_id:
+            print(f"*****Current account ID: {self.current_account_id}")
             return self.current_account_id
             
         # Try to extract from current URL if not stored
@@ -1096,7 +1035,7 @@ class AccountsPage:
             self.current_account_id = account_id_match.group(1)
             return self.current_account_id
             
-        return None
+        raise Exception("No account ID available.")
 
     def navigate_back_to_account_page(self):
         """Navigate back to the original account page using the current account ID."""
@@ -1114,4 +1053,24 @@ class AccountsPage:
         print(f"\nNavigating to account page for ID: {account_id}...")
         self.page.goto(f"{os.getenv('SALESFORCE_URL')}/lightning/r/Account/{account_id}/view")
         self.page.wait_for_load_state('networkidle')
-        print("Successfully navigated to account page.") 
+        print("Successfully navigated to account page.")
+
+    def get_current_url(self) -> str:
+        """Get the current URL of the page."""
+        return self.page.url 
+
+    def iterate_through_accounts(self, account_names: List[str]):
+        """
+        Iterate through a list of account names, search for each account, and navigate to the account view page.
+        
+        Args:
+            account_names: List of account names to iterate through.
+        """
+        for account_name in account_names:
+            print(f"\nSearching for account: {account_name}")
+            self.navigate_to_accounts()
+            self.search_account(account_name)
+            if self.click_account_name(account_name):
+                print(f"Successfully navigated to account view page for: {account_name}")
+            else:
+                print(f"Failed to navigate to account view page for: {account_name}") 

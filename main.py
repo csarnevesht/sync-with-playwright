@@ -143,27 +143,28 @@ def main():
                 
                 # Wait a moment for the account to be available in the system
                 print("Waiting for account to be available in the system...")
-                time.sleep(5)
+                time.sleep(2)
                 
-                # Navigate back to Accounts page
-                print("Navigating back to Accounts page...")
-                accounts_page.navigate_to_accounts()
+                # CAROLINA HERE 2
+                # # Navigate back to Accounts page
+                # print("Navigating back to Accounts page...")
+                # accounts_page.navigate_to_accounts()
                 
-                # Search for the newly created account
-                print(f"\nSearching for newly created account: {full_name}")
-                num_items = accounts_page.search_account(full_name)
+                # # Search for the newly created account
+                # print(f"\nSearching for newly created account: {full_name}")
+                # num_items = accounts_page.search_account(full_name)
                 
-                if num_items == 0:
-                    print(f"Error: Could not find newly created account: {full_name}")
-                    print("Stopping further processing due to account verification failure.")
-                    sys.exit(1)  # Exit with error code
+                # if num_items == 0:
+                #     print(f"Error: Could not find newly created account: {full_name}")
+                #     print("Stopping further processing due to account verification failure.")
+                #     sys.exit(1)  # Exit with error code
                 
-                # Click on the account name
-                print(f"Clicking on account name: {full_name}")
-                if not accounts_page.click_account_name(full_name):
-                    print(f"Error: Could not click on account name: {full_name}")
-                    print("Stopping further processing due to account navigation failure.")
-                    sys.exit(1)  # Exit with error code
+                # # Click on the account name
+                # print(f"Clicking on account name: {full_name}")
+                # if not accounts_page.click_account_name(full_name):
+                #     print(f"Error: Could not click on account name: {full_name}")
+                #     print("Stopping further processing due to account navigation failure.")
+                #     sys.exit(1)  # Exit with error code
             
             # Navigate to Files
             accounts_page.navigate_to_files()
@@ -254,6 +255,10 @@ def main():
                                 print("All files uploaded successfully")
                     else:
                         print("No new files to upload")
+
+        # After all accounts are created and files are loaded successfully
+        account_names = ["John Smith", "Jane Marie Doe"]
+        accounts_page.iterate_through_accounts(account_names)
 
         # Close browser
         browser.close()
