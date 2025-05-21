@@ -96,9 +96,10 @@ class AccountsPage:
             self.page.screenshot(path="accounts-navigation-error.png")
             return False
 
-    def _get_all_accounts_base(self) -> List[Dict[str, str]]:
+    def _get_accounts_base(self, drop_down_option_text: str = "All Clients") -> List[Dict[str, str]]:
         """
         Extract all accounts from the current list view (name and id only, no filtering).
+        Optionally select a different list view by drop_down_option_text.
         """
         accounts = []
         try:
@@ -106,71 +107,41 @@ class AccountsPage:
             if not self.navigate_to_accounts():
                 logging.error("Failed to navigate to Accounts page")
                 return []
-                
+
             # Click the list view selector
             logging.info("Clicking list view selector...")
             list_view_button = self.page.wait_for_selector('button[title="Select a List View: Accounts"]', timeout=10000)
             if not list_view_button:
                 logging.error("Could not find list view selector button")
                 return []
-                
             list_view_button.click()
             logging.info("Clicked list view selector")
-            
+
             # Wait for the dropdown content to appear
-            logging.info("Selecting 'All Accounts' from list view...")
+            logging.info(f"Selecting '{drop_down_option_text}' from list view...")
             self.page.wait_for_timeout(1000)  # Give time for dropdown animation
-            
-            # Find and click the All Accounts option
-            all_accounts_option = self.page.locator('text="All Accounts"').first
-            if not all_accounts_option.is_visible():
-                logging.error("Could not find visible 'All Accounts' option")
-                self.page.screenshot(path="all-accounts-not-found.png")
+
+            # Find and click the desired option
+            option = self.page.locator(f'text="{drop_down_option_text}"').first
+            if not option.is_visible():
+                logging.error(f"Could not find visible '{drop_down_option_text}' option")
+                self.page.screenshot(path=f"{drop_down_option_text.replace(' ', '_').lower()}-not-found.png")
                 return []
-            all_accounts_option.click()
-            logging.info("Selected 'All Accounts' list view")
-            
+            option.click()
+            logging.info(f"Selected '{drop_down_option_text}' list view")
+
             # Wait for the table to update and stabilize
             self.page.wait_for_load_state('networkidle', timeout=10000)
             table = self.page.wait_for_selector('table[role="grid"]', timeout=10000)
             if not table:
-                logging.error("Accounts table not found after selecting All Accounts")
+                logging.error("Accounts table not found after selecting list view")
                 return []
-            
-            # Wait for the table to be populated
-            logging.info("Waiting for table to be populated...")
             self.page.wait_for_timeout(2000)
-            
-            # Wait for the summary span to appear
-            logging.info("Waiting for summary span to appear...")
-            summary_span = self.page.wait_for_selector("span[aria-label='All Accounts']", timeout=10000)
-            if not summary_span:
-                logging.error("Could not find summary span for 'All Accounts'")
-                return []
 
-            summary_text = summary_span.text_content().strip()
-            logging.info(f"Summary text: {summary_text}")
-
-            # Extract number of items (allow for "50 items" or "50+ items")
-            items_match = re.search(r'(\d+\+?)\s+items?\s+•', summary_text)
-            if not items_match:
-                logging.error("Could not extract number of items from summary text")
-                return []
-
-            num_items = items_match.group(1)
-            logging.info(f"Number of items: {num_items}")
-
-            # Verify the filter
-            logging.info(f"Verifying filter: {summary_text}")
-            if "Filtered by All accounts" not in summary_text:
-                logging.error("Summary text does not indicate 'Filtered by All accounts'")
-                return []
-            
             # Get all account rows using nth-child
-            logging.info("Getting all account rows using nth-child...")
             row_count = self.page.locator('table[role="grid"] tbody tr').count()
             logging.info(f"Found {row_count} rows in the table using nth-child.")
-            logging.info(f"Getting all account rows using nth-child...")
+            accounts = []
             for i in range(row_count):
                 row = self.page.locator(f'table[role=\"grid\"] tbody tr:nth-child({i+1})')
                 # Diagnostic: log all cell texts for the first MAX_LOGGED_ROWS
@@ -235,8 +206,8 @@ class AccountsPage:
             return accounts
 
         except Exception as e:
-            logging.error(f"Error getting all accounts: {str(e)}")
-            self.page.screenshot(path="get-all-accounts-error.png")
+            logging.error(f"Error getting accounts: {str(e)}")
+            self.page.screenshot(path="get-accounts-error.png")
             return []
 
     def get_files_count_for_account(self, account_id: str) -> int:
@@ -262,7 +233,12 @@ class AccountsPage:
                     # This is the Files card
                     files_number_span = a.locator('span').nth(1)
                     files_number_text = files_number_span.text_content(timeout=1000)
-                    files_number = int(re.search(r'\((\d+)\)', files_number_text).group(1))
+                    files_number_match = re.search(r'\((\d+\+?)\)', files_number_text)
+                    if files_number_match:
+                        files_number_str = files_number_match.group(1)
+                        files_number = int(files_number_str.rstrip('+'))
+                    else:
+                        files_number = 0
                     logging.info(f"Account {account_id} Files count: {files_number}")
                     found = True
                     return files_number
@@ -279,24 +255,30 @@ class AccountsPage:
             return files_count is not None and files_count >= num_files
         return filter_func
 
-    def get_all_accounts(
+    def get_accounts_matching(
         self,
         max_number: int = 10,
-        files_filter: Callable[[Dict[str, str]], bool] = None
+        files_filter: Callable[[Dict[str, str]], bool] = None,
+        drop_down_option_text: str = "All Clients"
     ) -> List[Dict[str, str]]:
         """
-        Keep iterating through all accounts until max_number matches are found for files_filter.
+        Keep iterating through all accounts until max_number accounts are found for files_filter.
         By default, returns accounts with files_count >= 5.
         """
         accounts = []
-        all_accounts = self._get_all_accounts_base()
+        all_accounts = self._get_accounts_base(drop_down_option_text=drop_down_option_text)
+        processed_accounts = []
         if files_filter is None:
             files_filter = self.get_files_count_for_account_greater_than_or_equal_to(5)
         for account in all_accounts:
+            files_count = self.get_files_count_for_account(account['id'])
+            account['files_count'] = files_count
+            processed_accounts.append(account)
             if files_filter(account):
-                files_count = self.get_files_count_for_account(account['id'])
-                account['files_count'] = files_count
                 accounts.append(account)
                 if len(accounts) >= max_number:
                     break
+        logging.info(f"Total accounts processed: {len(processed_accounts)}")
+        for acc in processed_accounts:
+            logging.info(f"Processed account: Name={acc['name']}, ID={acc['id']}, Files={acc['files_count']}")
         return accounts 
