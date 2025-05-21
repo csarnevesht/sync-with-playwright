@@ -110,15 +110,24 @@ def main():
             accounts_page.navigate_to_accounts()
             
             # Search for account
-            item_count = accounts_page.search_account(account_name)
+            name_parts = [
+                account['first_name'],
+                account.get('middle_name'),
+                account['last_name']
+            ]
+            full_name = ' '.join(
+                part for part in name_parts 
+                if part and str(part).strip().lower() not in ['none', '']
+            )
+            item_count = accounts_page.search_account(full_name)
             if item_count > 0:
-                print(f"\nFound {item_count} existing account(s) matching '{account_name}'")
+                print(f"\nFound {item_count} existing account(s) matching '{full_name}'")
                 if not accounts_page._debug_prompt("Do you want to proceed with these accounts?"):
                     print("Skipping this account as requested.")
                     continue
                 accounts_page.click_first_account()
             else:
-                print(f"Creating new account: {account_name}")
+                print(f"Creating new account: {full_name}")
                 if account['account_info']:
                     print("Found account information")
                 else:
@@ -140,17 +149,19 @@ def main():
                 print("Navigating back to Accounts page...")
                 accounts_page.navigate_to_accounts()
                 
-                # Clear any existing search and search specifically for the new account
-                print(f"Searching for newly created account: {account_name}")
-                if not accounts_page.search_account(account_name):
-                    print(f"Error: Could not find newly created account: {account_name}")
+                # Search for the newly created account
+                print(f"\nSearching for newly created account: {full_name}")
+                num_items = accounts_page.search_account(full_name)
+                
+                if num_items == 0:
+                    print(f"Error: Could not find newly created account: {full_name}")
                     print("Stopping further processing due to account verification failure.")
                     sys.exit(1)  # Exit with error code
                 
                 # Click on the account name
-                print(f"Clicking on account name: {account_name}")
-                if not accounts_page.click_account_name(account_name):
-                    print(f"Error: Could not click on account name: {account_name}")
+                print(f"Clicking on account name: {full_name}")
+                if not accounts_page.click_account_name(full_name):
+                    print(f"Error: Could not click on account name: {full_name}")
                     print("Stopping further processing due to account navigation failure.")
                     sys.exit(1)  # Exit with error code
             

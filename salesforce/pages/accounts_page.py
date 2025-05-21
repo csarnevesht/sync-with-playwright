@@ -281,17 +281,17 @@ class AccountsPage:
                         self.page.wait_for_timeout(1000)
                         # Click the element
                         element.click()
-                        logger.info("Successfully clicked on first account")
+                        logging.info("Successfully clicked on first account")
                         return True
                 except Exception as e:
-                    logger.debug(f"Selector {selector} failed: {str(e)}")
+                    logging.debug(f"Selector {selector} failed: {str(e)}")
                     continue
             
-            logger.error("Failed to click on first account - no working selector found")
+            logging.error("Failed to click on first account - no working selector found")
             return False
             
         except Exception as e:
-            logger.error(f"Error clicking first account: {str(e)}")
+            logging.error(f"Error clicking first account: {str(e)}")
             return False
 
     def navigate_to_files(self) -> int:
@@ -772,7 +772,7 @@ class AccountsPage:
                             self.page.wait_for_timeout(5000)  # Additional wait for list to refresh
                             
                             # Always search for the account by name
-                            account_name = f"{first_name} {last_name}"
+                            account_name = f"{first_name} {middle_name} {last_name}" if middle_name else f"{first_name} {last_name}"
                             logging.info(f"Searching for newly created account: {account_name}")
                             found = self.search_account(account_name)
                             if not found:
@@ -869,7 +869,7 @@ class AccountsPage:
                 except Exception as e:
                     logging.info(f"No toast message found: {str(e)}")
                 # Fallback: Try to find the Account Name on the page
-                account_name = f"{first_name} {last_name}"
+                account_name = f"{first_name} {middle_name} {last_name}" if middle_name else f"{first_name} {last_name}"
                 name_found = False
                 name_selectors = [
                     f"h1:has-text('{account_name}')",
