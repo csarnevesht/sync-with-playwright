@@ -4,7 +4,7 @@ def upload_files(self, files_to_add):
         logger.info(f"Attempting to upload {len(files_to_add)} files")
         
         # Click "Add Files" button
-        add_files_button = self.page.wait_for_selector('button:has-text("Add Files")', timeout=10000)
+        add_files_button = self.page.wait_for_selector('button:has-text("Add Files")', timeout=4000)
         if not add_files_button:
             logger.error("Could not find 'Add Files' button")
             return False
@@ -12,10 +12,10 @@ def upload_files(self, files_to_add):
         logger.info("Clicked 'Add Files' button")
         
         # Wait for the upload dialog
-        self.page.wait_for_selector('div.modal-container', timeout=10000)
+        self.page.wait_for_selector('div.modal-container', timeout=4000)
         
         # Click "Upload Files" button in the dialog
-        upload_button = self.page.wait_for_selector('button:has-text("Upload Files")', timeout=5000)
+        upload_button = self.page.wait_for_selector('button:has-text("Upload Files")', timeout=4000)
         if not upload_button:
             logger.error("Could not find 'Upload Files' button in dialog")
             return False
@@ -23,7 +23,7 @@ def upload_files(self, files_to_add):
         logger.info("Clicked 'Upload Files' button in dialog")
         
         # Wait for file input to be ready
-        file_input = self.page.wait_for_selector('input[type="file"]', timeout=5000)
+        file_input = self.page.wait_for_selector('input[type="file"]', timeout=4000)
         if not file_input:
             logger.error("Could not find file input element")
             return False
@@ -35,15 +35,15 @@ def upload_files(self, files_to_add):
         # Wait for upload to complete
         try:
             # Wait for the progress indicator to disappear
-            self.page.wait_for_selector('div.progress-indicator', timeout=30000, state='hidden')
+            self.page.wait_for_selector('div.progress-indicator', timeout=2000, state='hidden')
             logger.info("File upload completed")
             
             # Wait for the success message
-            self.page.wait_for_selector('div.slds-notify--success', timeout=10000)
+            self.page.wait_for_selector('div.slds-notify--success', timeout=4000)
             logger.info("Upload success message received")
             
             # Click "Done" button
-            done_button = self.page.wait_for_selector('button:has-text("Done")', timeout=5000)
+            done_button = self.page.wait_for_selector('button:has-text("Done")', timeout=4000)
             if done_button:
                 done_button.click()
                 logger.info("Clicked 'Done' button")
