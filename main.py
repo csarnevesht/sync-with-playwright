@@ -132,9 +132,7 @@ def main():
                     # Check if account exists
                     if account_manager.account_exists(full_name):
                         logging.info(f"Account already exists: {full_name}")
-                        # if not account_manager._debug_prompt("Do you want to proceed with this account?"):
-                        #     logging.info("Skipping this account as requested.")
-                        #     continue
+            
                             
                         if not account_manager.click_account_name(full_name):
                             logging.error(f"Failed to navigate to account view page for: {full_name}")

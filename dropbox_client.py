@@ -12,6 +12,9 @@ import tempfile
 import PyPDF2
 import logging
 
+from salesforce.base_page import BasePage
+from salesforce.utils.debug_utils import debug_prompt
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -31,21 +34,6 @@ class DropboxClient:
         if debug_mode:
             logging.info("Debug mode is enabled")
 
-    def _debug_prompt(self, message: str) -> bool:
-        """
-        Prompt the user for confirmation in debug mode.
-        Returns True if the user wants to continue, False otherwise.
-        """
-        if not self.debug_mode:
-            return True
-            
-        while True:
-            response = input(f"\n{message} (y/n): ").lower().strip()
-            if response in ['y', 'yes']:
-                return True
-            elif response in ['n', 'no']:
-                return False
-            print("Please enter 'y' or 'n'")
 
     def _debug_show_files(self, files: List[FileMetadata], skip_patterns: List[str] = None) -> List[FileMetadata]:
         """
@@ -340,10 +328,10 @@ class DropboxClient:
 
             logging.info(f"Completed account information extraction. Found {len(account_info)} total fields")
             
-            # Debug prompt after account information extraction
-            if not self._debug_prompt(f"\nAccount information extracted for {account_folder}:\n{account_info}\n\nContinue with this information?"):
+            _debug_prompt = debug_prompt(f"\nAccount information extracted for {account_folder}:\n{account_info}\n\nContinue with this information?")
+            if not _debug_prompt:
                 logging.info("User chose to stop processing after account information extraction")
-                return {}
+                return {}   
 
             return account_info
 

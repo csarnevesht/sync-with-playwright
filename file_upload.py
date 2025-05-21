@@ -203,7 +203,6 @@ def upload_files_for_account(page: Page, account: dict, debug_mode: bool = True,
             
             # Check if file exists in the account
             logging.info(f"Checking if file {os.path.basename(file_path)} already exists in the account")
-            logging.info(f"Navigating to Files page")
             num_files = file_manager.navigate_to_files()
             if num_files > 0:
                 search_pattern = f"{os.path.splitext(os.path.basename(file_path))[0]}"
@@ -211,6 +210,7 @@ def upload_files_for_account(page: Page, account: dict, debug_mode: bool = True,
                 if file_manager.search_file(search_pattern):
                     logging.info(f"File {os.path.basename(file_path)} already exists, skipping upload")
                     logging.info(f"Skipping file: {file_path}")
+                    account_manager.navigate_back_to_account_page()
                     continue
             
             account_manager.navigate_back_to_account_page()
