@@ -235,36 +235,33 @@ class AccountManager(BasePage):
         # Save the account
         logging.info("Clicking Save button...")
         try:
-            # Find all Save buttons
+            # First try to find and click the visible Save button directly
+            save_button = self.page.locator('button:has-text("Save")').first
+            if save_button and save_button.is_visible():
+                save_button.scroll_into_view_if_needed()
+                self.page.wait_for_timeout(500)
+                save_button.click()
+                logging.info("Successfully clicked visible Save button")
+                return True
+
+            # If no visible Save button found, try finding it through all buttons
             save_buttons = self.page.locator('button').all()
-            found = False
             for idx, button in enumerate(save_buttons):
                 try:
                     text = button.text_content()
                     visible = button.is_visible()
                     enabled = button.is_enabled()
-                    aria_label = button.get_attribute('aria-label')
-                    class_attr = button.get_attribute('class')
-                    logging.info(f"Button {idx}: text='{text}', visible={visible}, enabled={enabled}, aria-label={aria_label}, class={class_attr}")
                     if text and text.strip() == "Save" and enabled:
-                        # Try normal click if visible
                         if visible:
                             button.scroll_into_view_if_needed()
                             self.page.wait_for_timeout(500)
                             button.click()
                             logging.info("Successfully clicked visible Save button")
-                            found = True
-                            break
-                        else:
-                            # Try JS click if not visible
-                            self.page.evaluate('(btn) => btn.click()', button)
-                            logging.info("Successfully clicked hidden Save button using JS")
-                            found = True
-                            break
-                except Exception as e:
-                    logging.info(f"Error inspecting/clicking button {idx}: {str(e)}")
-            if not found:
-                raise Exception("Could not find an enabled Save button to click")
+                            return True
+                except Exception:
+                    continue
+
+            raise Exception("Could not find an enabled Save button to click")
         except Exception as e:
             logging.error(f"Error clicking Save button: {str(e)}")
             self.page.screenshot(path="save-button-error.png")
