@@ -7,8 +7,17 @@ from salesforce.pages.file_manager import FileManager
 from salesforce.logger import OperationLogger
 from dropbox_client import DropboxClient
 from mock_data import get_mock_accounts
-from file_upload import upload_files_for_account
+from file_upload import upload_files_for_account, verify_account_page_url
 from get_salesforce_page import get_salesforce_page
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("operations.log"),
+        logging.StreamHandler()
+    ]
+)
 
 def setup_logging():
     """Set up logging configuration."""
@@ -141,7 +150,18 @@ def main():
                         ):
                             logging.error(f"Failed to create account for: {full_name}")
                             continue
-                            
+
+                    current_url = page.url
+                    logging.info(f"\nCurrent page URL: {current_url}")
+
+                    is_valid, account_id = verify_account_page_url(page)
+                    if not is_valid:
+                        logging.error(f"Failed to verify account page URL for: {full_name}")
+                        continue
+                    if not account_id:
+                        logging.error(f"Failed to get account id for: {full_name}")
+                        continue
+
                     # Process files
                     logging.info(f"****Processing files for account: {full_name}")
                     logging.info(f"****Files: {account['files']}")
@@ -149,7 +169,7 @@ def main():
                         try:
                             # Navigate to Files
                             logging.info(f"****Navigating to Files")
-                            num_files = file_manager.navigate_to_files()
+                            num_files = account_manager.navigate_to_files_for_account_id(account_id)
                             if num_files == -1:
                                 logging.error("Failed to navigate to Files")
                                 account_manager.navigate_back_to_account_page()

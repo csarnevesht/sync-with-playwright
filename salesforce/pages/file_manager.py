@@ -14,6 +14,30 @@ class FileManager(BasePage):
         super().__init__(page, debug_mode)
         self.current_account_id = None
         
+    def extract_files_count_from_status(self) -> int:
+        """
+        Extract the number of files from the Files status message on the page.
+        Returns the item count, or 0 if not found.
+        """
+        try:
+            status_message = self.page.wait_for_selector('span[aria-label="Files"]', timeout=4000)
+            if status_message:
+                status_text = status_message.text_content()
+                self.logger.info(f"Files status message: {status_text}")
+
+                # Extract the number of items
+                self.logger.info("Extracting the number of items...")
+                match = re.search(r'(\d+)\s+items?\s+•', status_text)
+                if match:
+                    item_count = int(match.group(1))
+                    self.logger.info(f"Found {item_count} files in the account")
+                    return item_count
+                else:
+                    self.logger.info("No items found or count not in expected format")
+        except Exception as e:
+            self.logger.info(f"Error checking files count: {str(e)}")
+        return 0
+
     def navigate_to_files(self) -> int:
         """Navigate to the Files page of the current account. Assumes you are already on the account detail page.
         
@@ -49,26 +73,9 @@ class FileManager(BasePage):
                             self.logger.info(f"Extracted account ID from Files page URL: {account_id}")
                             self.current_account_id = account_id
                         
-                        # Wait for and check the items count
-                        try:
-                            status_message = self.page.wait_for_selector('span[aria-label="Files"]', timeout=4000)
-                            if status_message:
-                                status_text = status_message.text_content()
-                                self.logger.info(f"Files status message: {status_text}")
-                                
-                                # Extract the number of items
-                                self.logger.info("Extracting the number of items...")
-                                match = re.search(r'(\d+)\s+items?\s+•', status_text)
-                                if match:
-                                    item_count = int(match.group(1))
-                                    self.logger.info(f"Found {item_count} files in the account")
-                                    return item_count
-                                else:
-                                    self.logger.info("No items found or count not in expected format")
-                        except Exception as e:
-                            self.logger.info(f"Error checking files count: {str(e)}")
-                        
-                        return 0
+                        # Use the new reusable method
+                        item_count = self.extract_files_count_from_status()
+                        return item_count
                     else:
                         # If no parent found, try clicking the span directly
                         files_span.click()

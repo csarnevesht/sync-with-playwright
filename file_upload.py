@@ -149,7 +149,7 @@ def upload_single_file(page: Page, file_to_upload: str, expected_items: int = 1)
         logging.info(f"Error during file upload: {str(e)}")
         return False
 
-def upload_files_for_account(page: Page, account: dict, debug_mode: bool = True, max_tries: int = 3) -> bool:
+def upload_files_for_account(page: Page, account: dict, debug_mode: bool = True, max_tries: int = 10) -> bool:
     """
     Upload files for a specific account, handling the entire process from setup to verification.
     
@@ -157,7 +157,7 @@ def upload_files_for_account(page: Page, account: dict, debug_mode: bool = True,
         page: Playwright page object
         account: Dictionary containing account information including files to upload
         debug_mode: Whether to enable debug mode (default: True)
-        max_tries: Maximum number of retry attempts per file (default: 3)
+        max_tries: Maximum number of retry attempts per file (default: 10)
     
     Returns:
         bool: True if all files were uploaded successfully, False otherwise
@@ -247,12 +247,12 @@ def upload_files_for_account(page: Page, account: dict, debug_mode: bool = True,
                     if current_try < max_tries:
                         current_try += 1
                         continue
-                    else:
-                        logging.error("Maximum retry attempts reached. Upload may be incomplete.")
-                        upload_success = False
-                        if not input("Do you want to try again? (y/n): ").lower().startswith('y'):
-                            logging.info("Stopping as requested.")
-                            sys.exit(0)
+                    # else:
+                    #     logging.error("Maximum retry attempts reached. Upload may be incomplete.")
+                    #     upload_success = False
+                    #     if not input("Do you want to try again? (y/n): ").lower().startswith('y'):
+                    #         logging.info("Stopping as requested.")
+                    #         sys.exit(0)
         
         logging.info("File upload process completed successfully")
         return upload_success 
