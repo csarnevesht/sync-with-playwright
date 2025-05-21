@@ -19,16 +19,16 @@ logging.basicConfig(
     ]
 )
 
-def setup_logging():
-    """Set up logging configuration."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.StreamHandler(),
-            logging.FileHandler('automation.log')
-        ]
-    )
+# def setup_logging():
+#     """Set up logging configuration."""
+#     logging.basicConfig(
+#         level=logging.INFO,
+#         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+#         handlers=[
+#             logging.StreamHandler(),
+#             logging.FileHandler('operations.log')
+#         ]
+#     )
 
 def process_failed_steps(account_manager: AccountManager, file_manager: FileManager, page):
     """Process any failed steps from previous runs."""
@@ -65,7 +65,7 @@ def process_failed_steps(account_manager: AccountManager, file_manager: FileMana
 
 def main():
     """Main function to run the automation."""
-    setup_logging()
+    # setup_logging()
     
     # Get configuration
     token = os.getenv('DROPBOX_TOKEN')

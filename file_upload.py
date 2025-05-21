@@ -118,7 +118,7 @@ def upload_single_file(page: Page, file_to_upload: str, expected_items: int = 1)
         if files:
             logging.info("Files page is visible")
             # Wait a moment for the files to appear
-            time.sleep(2)
+            time.sleep(1)
             # Check for the number of items
             items_text = page.locator('span[aria-live="polite"].countSortedByFilteredBy').first.text_content()
             logging.info(f"Items text: {items_text}")
@@ -228,7 +228,7 @@ def upload_files_for_account(page: Page, account: dict, debug_mode: bool = True,
                 logging.info(f"***Number of files in account: {num_files}")
                 
                 # Update expected items count
-                expected_items = num_files + 1
+                expected_items = num_files + 1 if current_try == 1 else num_files
                 logging.info(f"***Number of files: {num_files}")
                 logging.info(f"***Expected number of items: {expected_items}")
 
