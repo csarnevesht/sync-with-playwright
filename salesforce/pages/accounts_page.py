@@ -226,7 +226,7 @@ class AccountsPage:
                 # Extract account ID from href
                 account_id = None
                 if href:
-                    match = re.search(r'/Account/([a-zA-Z0-9]{15,18})/', href)
+                    match = re.search(r'/r/([a-zA-Z0-9]{15,18})/view', href)
                     if i < MAX_LOGGED_ROWS:
                         logging.info(f"Row {i+1}: ID match: {match}")
                     if match:
