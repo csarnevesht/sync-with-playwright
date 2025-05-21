@@ -418,13 +418,17 @@ class AccountsPage:
             raise
 
     def search_file(self, file_pattern: str) -> bool:
+        print(f"****Searching for file: {file_pattern}")
         """Search for a file using a pattern."""
-        self.page.fill('input[placeholder="Search Files..."]', file_pattern)
-        self.page.press('input[placeholder="Search Files..."]', 'Enter')
-        # Wait for search results
-        self.page.wait_for_selector('table[role="grid"]')
-        # Check if any results are found
-        return self.page.locator('table[role="grid"] >> tr').count() > 0
+        try:
+            print(f"Looking for the file name using the correct class and title attribute")
+            # Look for the file name using the correct class and title attribute
+            file_selector = f"span.itemTitle[title='{file_pattern}']"
+            file_element = self.page.wait_for_selector(file_selector)
+            return file_element is not None
+        except Exception as e:
+            logging.error(f"Error searching for file: {str(e)}")
+            return False
 
     def _get_available_form_fields(self) -> List[str]:
         """
