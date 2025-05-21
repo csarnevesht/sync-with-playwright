@@ -421,14 +421,30 @@ class AccountsPage:
         print(f"****Searching for file: {file_pattern}")
         """Search for a file using a pattern."""
         try:
-            print(f"Looking for the file name using the correct class and title attribute")
             # Look for the file name using the correct class and title attribute
+            print("Looking for the file name using the correct class and title attribute")
+            # First wait for the table to be visible
+            self.page.wait_for_selector('table[role="grid"]', timeout=30000)
+            
+            # Then look for the file name in the table
             file_selector = f"span.itemTitle[title='{file_pattern}']"
-            file_element = self.page.wait_for_selector(file_selector)
-            return file_element is not None
+            # Use evaluate to check if the element exists and is visible
+            is_visible = self.page.evaluate("""(selector) => {
+                const elements = document.querySelectorAll(selector);
+                for (const element of elements) {
+                    if (window.getComputedStyle(element).display !== 'none') {
+                        return true;
+                    }
+                }
+                return false;
+            }""", file_selector)
+            
+            print(f"File search result: {'Found' if is_visible else 'Not found'}")
+            return is_visible
         except Exception as e:
             logging.error(f"Error searching for file: {str(e)}")
-            return False
+            print(f"Error searching for file: {str(e)}")
+            sys.exit(1)  # Stop execution after error
 
     def _get_available_form_fields(self) -> List[str]:
         """
