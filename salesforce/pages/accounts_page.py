@@ -240,4 +240,27 @@ class AccountsPage:
         except Exception as e:
             logging.error(f"Error getting all accounts: {str(e)}")
             self.page.screenshot(path="get-all-accounts-error.png")
-            return [] 
+            return []
+
+
+
+    def get_files_count_for_account(self, account_id: str) -> int:
+        """
+        Navigate to the account view page for the given account_id and extract the Files count.
+        Returns the files count as an integer, or None if not found.
+        """
+        # Go directly to the account view page
+        account_url = f"{SALESFORCE_URL}/lightning/r/{account_id}/view"
+        logging.info(f"Navigating to account view page: {account_url}")
+        self.page.goto(account_url)
+        self.page.wait_for_load_state('networkidle', timeout=10000)
+        try:
+            files_header = self.page.wait_for_selector('a.slds-card__header-link span[title="Files"]', timeout=10000)
+            files_number_span = files_header.locator('xpath=following-sibling::span[1]')
+            files_number_text = files_number_span.text_content(timeout=1000)
+            files_number = int(re.search(r'\((\d+)\)', files_number_text).group(1))
+            logging.info(f"Account {account_id} Files count: {files_number}")
+            return files_number
+        except Exception:
+            logging.warning(f"Could not extract files count for account {account_id}")
+            return None 
