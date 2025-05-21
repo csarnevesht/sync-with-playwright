@@ -566,3 +566,23 @@ class AccountManager(BasePage):
             logging.error(f"Error navigating back to account page: {str(e)}")
             self._take_screenshot("account-navigation-error")
             sys.exit(1) 
+
+    def navigate_to_files_for_account_id(self, account_id: str) -> None:
+        """
+        Navigate to the Files related list for the given account_id.
+        """
+        files_url = f"{SALESFORCE_URL}/lightning/r/Account/{account_id}/related/AttachedContentDocuments/view"
+        logging.info(f"Navigating to Files page for account {account_id}: {files_url}")
+        self.page.goto(files_url)
+        self.page.wait_for_load_state('networkidle', timeout=10000)  
+        return self.get_number_of_files()
+
+    def get_number_of_files(self) -> int:
+        """
+        Get the number of files for the current account.
+        """
+        return self.page.locator('a.slds-card__header-link.baseCard__header-title-container').count() 
+    
+
+
+

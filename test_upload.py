@@ -64,7 +64,7 @@ def main():
         
         # Verify we're on the correct account page
         if not verify_account_page_url(page):
-            print("Please navigate to the account page first.")
+            logging.error("Please navigate to the account page first.")
             sys.exit(1)
         
         # Initialize Salesforce page objects

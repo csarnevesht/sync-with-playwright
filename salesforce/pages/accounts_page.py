@@ -249,7 +249,7 @@ class AccountsPage:
             logging.warning(f"Could not extract files count for account {account_id}: {e}")
             return None
 
-    def get_files_count_for_account_greater_than_or_equal_to(self, num_files: int):
+    def get_default_files_filter(self, num_files: int):
         def filter_func(account):
             files_count = self.get_files_count_for_account(account['id'])
             return files_count is not None and files_count >= num_files
@@ -269,7 +269,7 @@ class AccountsPage:
         all_accounts = self._get_accounts_base(drop_down_option_text=drop_down_option_text)
         processed_accounts = []
         if files_filter is None:
-            files_filter = self.get_files_count_for_account_greater_than_or_equal_to(5)
+            files_filter = self.get_default_files_filter(3)
         for account in all_accounts:
             files_count = self.get_files_count_for_account(account['id'])
             account['files_count'] = files_count
@@ -282,3 +282,18 @@ class AccountsPage:
         for acc in processed_accounts:
             logging.info(f"Processed account: Name={acc['name']}, ID={acc['id']}, Files={acc['files_count']}")
         return accounts 
+
+    def navigate_to_files_for_account_id(self, account_id: str) -> int:
+        """
+        Navigate to the Files related list for the given account_id.
+        """
+        files_url = f"{SALESFORCE_URL}/lightning/r/Account/{account_id}/related/AttachedContentDocuments/view"
+        logging.info(f"Navigating to Files page for account {account_id}: {files_url}")
+        self.page.goto(files_url)
+        self.page.wait_for_load_state('networkidle', timeout=10000)
+
+        item_count = self.extract_files_count_from_status()
+        return item_count
+
+
+    
