@@ -820,7 +820,6 @@ class AccountsPage:
                                     view_selectors = [
                                         'h1.slds-page-header__title',
                                         '[data-aura-class*="pageHeader"]',
-                                        'div.slds-page-header',
                                         'div.slds-tabs_default',
                                         'div.slds-page-header__detail-row'
                                     ]
@@ -1097,4 +1096,22 @@ class AccountsPage:
             self.current_account_id = account_id_match.group(1)
             return self.current_account_id
             
-        return None 
+        return None
+
+    def navigate_back_to_account_page(self):
+        """Navigate back to the original account page using the current account ID."""
+        print("\nNavigating back to account page...")
+        account_id = self.get_account_id()
+        if account_id:
+            self.page.goto(f"{os.getenv('SALESFORCE_URL')}/lightning/r/Account/{account_id}/view")
+            self.page.wait_for_load_state('networkidle')
+            print("Back on account page")
+        else:
+            print("Error: No account ID available to navigate back to account page.")
+
+    def navigate_to_account_by_id(self, account_id: str):
+        """Navigate to the account page using the provided account ID."""
+        print(f"\nNavigating to account page for ID: {account_id}...")
+        self.page.goto(f"{os.getenv('SALESFORCE_URL')}/lightning/r/Account/{account_id}/view")
+        self.page.wait_for_load_state('networkidle')
+        print("Successfully navigated to account page.") 
