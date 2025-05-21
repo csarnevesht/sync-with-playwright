@@ -179,7 +179,11 @@ def main():
                     if not accounts_page._debug_prompt("Do you want to proceed with these accounts?"):
                         print("Skipping this account as requested.")
                         continue
-                    accounts_page.click_first_account()
+                
+                    if accounts_page.click_account_name(account_name):
+                        print(f"Successfully navigated to account view page for: {account_name}")
+                    else:
+                        print(f"Failed to navigate to account view page for: {account_name}") 
                 else:
                     print(f"Creating new account: {full_name}")
                     try:
@@ -213,6 +217,7 @@ def main():
                         })
                         continue
                 
+                print(f"****Navigating to Files")
                 # Navigate to Files
                 accounts_page.navigate_to_files()
                 
@@ -284,18 +289,36 @@ def main():
                                     print("Stopping further processing as requested.")
                                     sys.exit(0)
                     else:
+
+                       
                         # Search for each file
                         found_files = []
                         files_to_add = []
                         
                         for file in account['files']:
+
+                             # Navigate to Files
+                            accounts_page.navigate_to_files()
+                
+                            # Check number of files
+                            num_files = accounts_page.get_number_of_files()
+                            print(f"Number of files in account: {num_files}")
+
+
+
                             # Create search pattern
-                            search_pattern = f"*{os.path.splitext(file['name'])[0]}"
-                            
+                            search_pattern = f"{os.path.splitext(file['name'])[0]}"
+                
                             if accounts_page.search_file(search_pattern):
                                 found_files.append(file['name'])
                             else:
                                 files_to_add.append(file)
+
+                        # Navigate back to the original account page
+                        print("\nNavigating back to account page...")
+                        account_id = accounts_page.get_account_id()
+                        accounts_page.navigate_to_account_by_id(account_id)
+                        print("Back on account page")
                         
                         # Upload new files
                         if files_to_add:
