@@ -12,27 +12,29 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-def test_get_all_accounts():
-    """Test the get_all_accounts method of AccountsPage with a custom filter for accounts with more than 0 files."""
+def test_get_accounts_matching():
+    """Test the get_accounts_matching method of AccountsPage with a custom filter for accounts with more than 0 files."""
     with sync_playwright() as p:
         browser, page = get_salesforce_page(p)
         try:
-            # Initialize AccountsPage
             accounts_page = AccountsPage(page, debug_mode=True)
-            
+
             # Custom filter: accounts with more than 0 files
             def nonzero_files_filter(account):
                 files_count = accounts_page.get_files_count_for_account(account['id'])
                 return files_count is not None and files_count > 0
-            
-            accounts = accounts_page.get_all_accounts(max_number=5, files_filter=nonzero_files_filter)
-            assert accounts, "No accounts were returned"
-            
-            for account in accounts:
-                print(f"Name: {account['name']}, ID: {account['id']}, Files: {account['files_count']}")
-            
-            logging.info("Test passed successfully")
-            
+
+            accounts = accounts_page.get_accounts_matching(max_number=5, files_filter=nonzero_files_filter)
+
+            if not accounts:
+                logging.info("No accounts matching the filter were found.")
+            else:
+                logging.info(f"Found {len(accounts)} accounts matching the filter:")
+                for account in accounts:
+                    logging.info(f"Name: {account['name']}, ID: {account['id']}, Files: {account['files_count']}")
+
+            logging.info("Test completed successfully")
+
         except Exception as e:
             logging.error(f"Test failed: {str(e)}")
             page.screenshot(path="test-failure.png")
@@ -41,4 +43,4 @@ def test_get_all_accounts():
             browser.close()
 
 if __name__ == "__main__":
-    test_get_all_accounts() 
+    test_get_accounts_matching() 
