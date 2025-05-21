@@ -168,6 +168,7 @@ class AccountsPage:
 
     def click_account_name(self, account_name: str) -> bool:
         """Click on the account name in the search results."""
+        print(f"****Clicking account name: {account_name}")
         try:
             # Try the specific selector first
             try:
@@ -381,13 +382,14 @@ class AccountsPage:
 
     def get_number_of_files(self) -> int:
         """Get the number of files in the account."""
+        print(f"****Getting number of files")
         status_message = self.page.wait_for_selector('span[aria-label="Files"]', timeout=5000)
         if not status_message:
             print("Could not find files status message")
             return 0
             
         text = status_message.text_content()
-        print(f"***Number of files in get_number_of_files: {text}")
+        print(f"***Number of files in account: {text}")
         match = re.search(r'(\d+)\s+items?\s+•', text)
         return int(match.group(1)) if match else 0
     
@@ -423,8 +425,8 @@ class AccountsPage:
         try:
             # Look for the file name using the correct class and title attribute
             print("Looking for the file name using the correct class and title attribute")
-            # First wait for the table to be visible
-            self.page.wait_for_selector('table[role="grid"]', timeout=30000)
+            # # First wait for the table to be visible
+            # self.page.wait_for_selector('table[role="grid"]')
             
             # Then look for the file name in the table
             file_selector = f"span.itemTitle[title='{file_pattern}']"
