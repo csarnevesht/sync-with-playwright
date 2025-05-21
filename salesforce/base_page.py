@@ -12,7 +12,7 @@ class BasePage:
         self.debug_mode = debug_mode
         self.logger = logging.getLogger(self.__class__.__name__)
         
-    def _wait_for_selector(self, category: str, key: str, timeout: int = 30000) -> Optional[Any]:
+    def _wait_for_selector(self, category: str, key: str, timeout: int = 3000) -> Optional[Any]:
         """Wait for a selector to be visible and return the element."""
         selectors = Selectors.get_selectors(category, key)
         for selector in selectors:
@@ -24,7 +24,7 @@ class BasePage:
                 continue
         return None
         
-    def _click_element(self, category: str, key: str, timeout: int = 30000) -> bool:
+    def _click_element(self, category: str, key: str, timeout: int = 3000) -> bool:
         """Click an element using various strategies."""
         element = self._wait_for_selector(category, key, timeout)
         if not element:
@@ -50,7 +50,7 @@ class BasePage:
                     self.logger.error(f"Failed to click element: {str(e)}")
                     return False
                     
-    def _fill_input(self, category: str, key: str, value: str, timeout: int = 30000) -> bool:
+    def _fill_input(self, category: str, key: str, value: str, timeout: int = 3000) -> bool:
         """Fill an input field with a value."""
         element = self._wait_for_selector(category, key, timeout)
         if not element:

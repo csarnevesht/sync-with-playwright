@@ -10,6 +10,7 @@ class FileManager(BasePage):
     """Handles file-related operations in Salesforce."""
     
     def __init__(self, page: Page, debug_mode: bool = False):
+        logging.info(f"****Initializing FileManager")
         super().__init__(page, debug_mode)
         self.current_account_id = None
         
@@ -17,15 +18,15 @@ class FileManager(BasePage):
         """Navigate to the Files page of the current account. Assumes you are already on the account detail page.
         
         Returns:
-            int: Number of files found in the account, or 0 if there was an error
+            int: Number of files found in the account, -1 if there was an error
         """
-        self.logger.info("****Attempting to navigate to Files tab...")
+        self.logger.info("****Attempting to navigate to Files...")
         
         try:
             # Try the most specific selector first: span[title="Files"]
             try:
                 self.logger.info("Trying span[title='Files'] selector...")
-                files_span = self.page.wait_for_selector('span[title="Files"]', timeout=5000)
+                files_span = self.page.wait_for_selector('span[title="Files"]', timeout=4000)
                 if files_span and files_span.is_visible():
                     # Try to click the parent element (often the tab itself)
                     parent = files_span.evaluate_handle('el => el.closest("a,button,li,div[role=\'tab\']")')
@@ -50,7 +51,7 @@ class FileManager(BasePage):
                         
                         # Wait for and check the items count
                         try:
-                            status_message = self.page.wait_for_selector('span[aria-label="Files"]', timeout=5000)
+                            status_message = self.page.wait_for_selector('span[aria-label="Files"]', timeout=4000)
                             if status_message:
                                 status_text = status_message.text_content()
                                 self.logger.info(f"Files status message: {status_text}")
@@ -72,7 +73,7 @@ class FileManager(BasePage):
                         # If no parent found, try clicking the span directly
                         files_span.click()
                         self.logger.info("Clicked Files tab using span[title='Files'] directly.")
-                        self.page.wait_for_selector('div.slds-tabs_default__content', timeout=30000)
+                        self.page.wait_for_selector('div.slds-tabs_default__content', timeout=2000)
                         self.logger.info("Files tab content loaded")
                         return 0
             except Exception as e:
@@ -83,18 +84,19 @@ class FileManager(BasePage):
             # Take a screenshot for debugging
             self.page.screenshot(path="files-tab-error.png")
             self.logger.info("Error screenshot saved as files-tab-error.png")
-            raise Exception("Could not find or click Files tab")
+            return -1
+            
         except Exception as e:
             self.logger.error(f"Error navigating to Files tab: {str(e)}")
             # Take a screenshot for debugging
             self.page.screenshot(path="files-tab-error.png")
             self.logger.info("Error screenshot saved as files-tab-error.png")
-            raise
+            return -1
             
     def get_number_of_files(self) -> int:
         """Get the number of files in the account."""
         try:
-            status_message = self.page.wait_for_selector('span[aria-label="Files"]', timeout=5000)
+            status_message = self.page.wait_for_selector('span[aria-label="Files"]', timeout=4000)
             if not status_message:
                 self.logger.error("Could not find files status message")
                 return 0
@@ -116,8 +118,9 @@ class FileManager(BasePage):
         try:
             # Look for the file name using the correct class and title attribute
             self.logger.info("Looking for the file name using the correct class and title attribute")
-            # First wait for the table to be visible
-            self.page.wait_for_selector('table[role="grid"]', timeout=30000)
+            self.logger.info("First wait for the table to be visible using span[title='Title']")
+            # First wait for the table to be visible using span[title='Title']
+            self.page.wait_for_selector('span[title="Title"]', timeout=2000)
             
             # Then look for the file name in the table
             file_selector = f"span.itemTitle[title='{file_pattern}']"

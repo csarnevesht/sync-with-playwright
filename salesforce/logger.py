@@ -75,6 +75,23 @@ class OperationLogger:
         self.operations["failed_steps"].append(failed_step)
         self._save_operations()
     
+    def mark_step_failure(self, step: Dict, error_message: str):
+        """Mark a step as failed and log the error message."""
+        step["status"] = "failed"
+        step["error_message"] = error_message
+        step["timestamp"] = datetime.now().isoformat()
+        self.operations["failed_steps"].append(step)
+        self._save_operations()
+    
+    def mark_step_success(self, step: Dict):
+        """Mark a step as successful and remove it from failed steps."""
+        # Remove the step from failed_steps if it exists
+        self.operations["failed_steps"] = [
+            s for s in self.operations["failed_steps"] 
+            if s.get("step_type") != step.get("type")
+        ]
+        self._save_operations()
+    
     def get_failed_steps(self) -> List[Dict]:
         """Get all failed steps."""
         return self.operations.get("failed_steps", [])
