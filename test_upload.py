@@ -66,7 +66,7 @@ def upload_single_file(page, file_to_upload, expected_items=1):
     
     try:
         # Click Add Files button for each file
-        add_files_button = page.wait_for_selector('div[title="Add Files"]', timeout=5000)
+        add_files_button = page.wait_for_selector('div[title="Add Files"]', timeout=4000)
         if add_files_button and add_files_button.is_visible():
             print("Found 'Add Files' button")
             add_files_button.click()
@@ -74,7 +74,7 @@ def upload_single_file(page, file_to_upload, expected_items=1):
         
         # Wait for the upload dialog
         print("Waiting for upload dialog...")
-        page.wait_for_selector('div.modal-container', timeout=10000)
+        page.wait_for_selector('div.modal-container', timeout=4000)
         
         # Set single file to upload
         print(f"\nSetting file to upload: {file_name}")
@@ -83,7 +83,7 @@ def upload_single_file(page, file_to_upload, expected_items=1):
         
         # Wait for upload to complete
         print("\nWaiting for upload to complete...")
-        page.wait_for_selector('div.progress-indicator', timeout=30000, state='hidden')
+        page.wait_for_selector('div.progress-indicator', timeout=2000, state='hidden')
         print("File upload completed")
         
         # Refresh the page to ensure we're in a clean state
@@ -105,7 +105,7 @@ def upload_single_file(page, file_to_upload, expected_items=1):
         print(f"Verified correct URL pattern with account ID: {account_id}")
         
         # Now check the number of items
-        files = page.wait_for_selector('h1[title="Files"].slds-page-header__title', timeout=10000)
+        files = page.wait_for_selector('h1[title="Files"].slds-page-header__title', timeout=4000)
         if files:
             print("Files page is visible")
             # Wait a moment for the files to appear

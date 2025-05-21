@@ -16,7 +16,14 @@ class Selectors:
             'button[title="New"]',
             '//button[contains(text(), "New")]'
         ],
-        'save_button': 'button:has-text("Save")',
+        'save_button': [
+            'button:has-text("Save")',
+            'button.slds-button:has-text("Save")',
+            'button.test-saveButton',
+            'button[title="Save"]',
+            'button[aria-label="Save"]',
+            '//button[contains(text(), "Save")]'
+        ],
         'toast_message': 'div.slds-notify_toast'
     }
     
@@ -33,16 +40,15 @@ class Selectors:
     # Form selectors
     FORM = {
         'client_radio': [
-            'input[type="radio"][name="RecordType"][value="012000000000000AAA"]',
-            'input[type="radio"][name="RecordType"][value="012000000000000"]',
-            'input[type="radio"][name="RecordType"]'
+            'input[type="radio"][name="changeRecordTypeRadio1213:0"]',
+            'input[type="radio"][value="012Dn000000e0fZIAQ"]',
+            'input[type="radio"]:first-of-type',
+            'input[type="radio"][name^="changeRecordTypeRadio"]'
         ],
         'next_button': 'button:has-text("Next")',
-        'name_fields': {
-            'first_name': 'input[placeholder="First Name"]',
-            'last_name': 'input[placeholder="Last Name"]',
-            'middle_name': 'input[placeholder="Middle Name"]'
-        },
+        'first_name': 'input[placeholder="First Name"]',
+        'last_name': 'input[placeholder="Last Name"]',
+        'middle_name': 'input[placeholder="Middle Name"]',
         'phone_field': [
             'input[placeholder="Phone"]',
             'input[type="tel"]',

@@ -7,6 +7,7 @@ from salesforce.pages.file_manager import FileManager
 from salesforce.logger import OperationLogger
 from dropbox_client import DropboxClient
 from mock_data import get_mock_accounts
+from file_upload import upload_files_for_account
 
 def setup_logging():
     """Set up logging configuration."""
@@ -88,7 +89,10 @@ def main():
             page = salesforce_page
             
             # Initialize page objects
+            logging.info(f"****Initializing page objects")
+            logging.info(f"setting account_manager")
             account_manager = AccountManager(page, debug_mode)
+            logging.info(f"setting file_manager")
             file_manager = FileManager(page, debug_mode)
             
             # Process failed steps from previous runs
@@ -156,28 +160,44 @@ def main():
                             continue
                             
                     # Process files
+                    logging.info(f"****Processing files for account: {full_name}")
+                    logging.info(f"****Files: {account['files']}")
                     for file in account['files']:
                         try:
                             # Navigate to Files
-                            if not file_manager.navigate_to_files():
-                                logging.error("Failed to navigate to Files tab")
+                            logging.info(f"****Navigating to Files")
+                            num_files = file_manager.navigate_to_files()
+                            if num_files == -1:
+                                logging.error("Failed to navigate to Files")
+                                account_manager.navigate_back_to_account_page()
                                 continue
                                 
                             # Check number of files
-                            num_files = file_manager.get_number_of_files()
                             logging.info(f"Number of files in account: {num_files}")
                             
-                            # Search for file
-                            search_pattern = f"{os.path.splitext(file['name'])[0]}"
-                            if file_manager.search_file(search_pattern):
-                                logging.info(f"File already exists: {file['name']}")
-                            else:
-                                logging.info(f"File not found, will be uploaded: {file['name']}")
+                            if num_files == 0:
+                                logging.info(f"No files exist, will upload: {file['name']}")
                                 
-                            # Navigate back to account page
-                            account_id = account_manager.current_account_id
-                            if account_id:
-                                account_manager.navigate_to_account_by_id(account_id)
+                                account_manager.navigate_back_to_account_page()
+
+                                # Upload files for the account
+                                logging.info(f"****Uploading files for account: {full_name}")
+                                upload_success = upload_files_for_account(page, account, debug_mode=debug_mode, max_tries=1)
+                                if not upload_success:
+                                    logging.error("File upload process completed with errors")
+                                    sys.exit(1)
+                            else:
+                                # Search for file only if there are existing files
+                                search_pattern = f"{os.path.splitext(file['name'])[0]}"
+                                if file_manager.search_file(search_pattern):
+                                    logging.info(f"File already exists: {file['name']}")
+                                else:
+                                    logging.info(f"File not found, will be uploaded: {file['name']}")
+
+                                
+                            account_manager.navigate_back_to_account_page()
+
+                        
                                 
                         except Exception as e:
                             logging.error(f"Error processing file {file['name']}: {str(e)}")
@@ -196,5 +216,6 @@ def main():
             if 'browser' in locals():
                 browser.close()
 
+                                
 if __name__ == "__main__":
     main() 
