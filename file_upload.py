@@ -88,7 +88,7 @@ def upload_single_file(page: Page, file_to_upload: str, expected_items: int = 1)
         
         # Wait for upload to complete
         logging.info("\nWaiting for upload to complete...")
-        page.wait_for_selector('div.progress-indicator', timeout=2000, state='hidden')
+        page.wait_for_selector('div.progress-indicator', timeout=3000, state='hidden')
         logging.info("File upload completed")
         
         # Refresh the page to ensure we're in a clean state

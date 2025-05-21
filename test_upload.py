@@ -1,6 +1,7 @@
 import os
 import sys
 from playwright.sync_api import sync_playwright
+from salesforce.pages import account_manager
 from salesforce.pages.accounts_page import AccountsPage
 import tempfile
 import logging
@@ -46,7 +47,7 @@ def verify_account_page_url(page, account_id=None) -> tuple[bool, str]:
     print(f"Verified correct URL pattern with account ID: {found_account_id}")
     return True, found_account_id
 
-def upload_single_file(page, file_to_upload, expected_items=1):
+def deprecated_upload_single_file(page, file_to_upload, expected_items=1):
     """
     Upload a single file and verify the upload.
     
@@ -206,7 +207,7 @@ def upload_files_for_account(page, account, debug_mode=True, max_tries=3):
                 print(f"***Number of files: {num_files}")
                 print(f"***Expected number of items: {expected_items}")
 
-                if upload_single_file(page, file_path, expected_items):
+                if account_manager.upload_single_file(page, file_path, expected_items):
                     file_success = True
 
                 # Navigate back to the original account page
