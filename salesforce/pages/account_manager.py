@@ -307,8 +307,8 @@ class AccountManager(BasePage):
             # Select Client radio button
             self.logger.info("Step 2: Attempting to select Client radio button...")
             # Log the page content for debugging
-            self.logger.info("Current page content:")
-            self.logger.info(self.page.content())
+            # self.logger.info("Current page content:")
+            # self.logger.info(self.page.content())
             
             # Click Next button
             self.logger.info("Step 3: Attempting to click Next button...")
@@ -381,8 +381,10 @@ class AccountManager(BasePage):
                 
                 logging.info(f"Method 2: Check URL change")
                 # Method 2: Check URL change
+                logging.info(f"confirmation_found: {confirmation_found}")
                 if not confirmation_found:
                     try:
+                        logging.info(f"Waiting for URL lambda url: '/view' in url") 
                         self.page.wait_for_url(lambda url: '/view' in url, timeout=4000)
                         self.logger.info("URL changed to view page")
                         confirmation_found = True
