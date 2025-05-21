@@ -1,7 +1,8 @@
 import os
 import sys
 from playwright.sync_api import sync_playwright
-from salesforce.pages import account_manager
+from file_upload import upload_files_for_account
+from salesforce.pages import account_manager, file_manager
 from salesforce.pages.accounts_page import AccountsPage
 import tempfile
 import logging
@@ -71,7 +72,7 @@ def main():
         accounts_page = AccountsPage(page, debug_mode=debug_mode)
         
         # Upload files for the account
-        upload_success = account_manager.upload_files_for_account(page, test_account, debug_mode=debug_mode, max_tries=max_tries)
+        upload_success = upload_files_for_account(page, test_account, debug_mode=debug_mode, max_tries=max_tries)
         
         if not upload_success:
             print("File upload process completed with errors")

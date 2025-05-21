@@ -189,7 +189,6 @@ def upload_files_for_account(page: Page, account: dict, debug_mode: bool = True,
             logging.info(f"  + {os.path.basename(file)}")
         
         # Initialize Salesforce page objects
-        accounts_page = AccountsPage(page, debug_mode=debug_mode)
         file_manager = FileManager(page, debug_mode=debug_mode)
         account_manager = AccountManager(page, debug_mode=debug_mode)
         account_manager.current_account_id = account_id
@@ -203,7 +202,7 @@ def upload_files_for_account(page: Page, account: dict, debug_mode: bool = True,
             
             # Check if file exists in the account
             logging.info(f"Checking if file {os.path.basename(file_path)} already exists in the account")
-            num_files = file_manager.navigate_to_files()
+            num_files = account_manager.navigate_to_files_for_account_id(account_id)
             if num_files > 0:
                 search_pattern = f"{os.path.splitext(os.path.basename(file_path))[0]}"
                 logging.info(f"search_pattern: {search_pattern}")
@@ -225,6 +224,8 @@ def upload_files_for_account(page: Page, account: dict, debug_mode: bool = True,
                 # Navigate to Files page before each upload
                 logging.info("Navigating to Files page...")
                 num_files = file_manager.navigate_to_files()
+                # num_files = account_manager.navigate_to_files_for_account_id(account_id)
+
                 logging.info(f"***Number of files in account: {num_files}")
                 
                 # Update expected items count
