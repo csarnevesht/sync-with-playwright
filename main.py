@@ -176,9 +176,8 @@ def main():
             # Navigate back to the original account page
             print("\nNavigating back to account page...")
             account_id = accounts_page.get_account_id()
-            page.goto(f"{os.getenv('SALESFORCE_URL')}/lightning/r/Account/{account_id}/view")
-            page.wait_for_load_state('networkidle')
-            print("Back on account page")   
+            accounts_page.navigate_to_account_by_id(account_id)
+            print("Back on account page")
             
             # Create temporary directory for downloads
             with tempfile.TemporaryDirectory() as temp_dir:
