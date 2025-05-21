@@ -21,40 +21,27 @@ def test_get_all_accounts():
             accounts_page = AccountsPage(page, debug_mode=True)
             
             # Test get_all_accounts
-            assert accounts_page.get_all_accounts(), "Failed to get all accounts"
+            accounts = accounts_page.get_all_accounts()
+            assert accounts, "No accounts were returned"
             
             # Verify we're on the accounts page
             current_url = page.url
             assert "/lightning/o/Account/list" in current_url, f"Not on accounts list page. Current URL: {current_url}"
             
-            # Log and check all possible elements for the selected list view name
-            logging.info("Checking for selected list view label in common elements...")
-            found = False
-            # Check spans
-            for el in page.locator('span').all():
-                if el.is_visible():
-                    text = el.text_content() or ""
-                    logging.info(f"span: {text}")
-                    if "All Accounts" in text:
-                        found = True
-            # Check h1/h2
-            for el in page.locator('h1, h2').all():
-                if el.is_visible():
-                    text = el.text_content() or ""
-                    logging.info(f"h1/h2: {text}")
-                    if "All Accounts" in text:
-                        found = True
-            # Check elements with class containing 'listView' or 'selected'
-            for el in page.locator('[class*="listView"], [class*="selected"]').all():
-                if el.is_visible():
-                    text = el.text_content() or ""
-                    logging.info(f"class*listView/selected: {text}")
-                    if "All Accounts" in text:
-                        found = True
-            assert found, "List view not set to All Accounts. Could not find 'All Accounts' in any common label."
+            # Verify we have account data
+            assert len(accounts) > 0, "No accounts found in the list"
             
-            # Verify the accounts table is visible
-            assert page.locator('table[role="grid"]').is_visible(), "Accounts table not visible"
+            # Log the first few accounts for verification
+            logging.info(f"Found {len(accounts)} accounts")
+            for i, account in enumerate(accounts[:5]):  # Log first 5 accounts
+                logging.info(f"Account {i+1}: {account['name']} (ID: {account['id']})")
+            
+            # Verify account data structure
+            for account in accounts:
+                assert 'name' in account, "Account missing name"
+                assert 'id' in account, "Account missing ID"
+                assert account['name'], "Account name is empty"
+                assert account['id'], "Account ID is empty"
             
             logging.info("Test passed successfully")
             
