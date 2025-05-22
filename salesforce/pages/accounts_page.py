@@ -121,8 +121,9 @@ class AccountsPage:
             logging.info(f"Selected '{drop_down_option_text}' list view")
 
             # Wait for the table to update and stabilize
-            self.page.wait_for_load_state('networkidle', timeout=10000)
-            table = self.page.wait_for_selector('table[role="grid"]', timeout=10000)
+            logging.info(f"Waiting for the table to update and stabilize")
+            self.page.wait_for_load_state('networkidle', timeout=60000)
+            table = self.page.wait_for_selector('table[role="grid"]', timeout=60000)
             if not table:
                 logging.error("Accounts table not found after selecting list view")
                 return []
@@ -278,7 +279,7 @@ class AccountsPage:
         account_url = f"{SALESFORCE_URL}/lightning/r/{account_id}/view"
         logging.info(f"Navigating to account view page: {account_url}")
         self.page.goto(account_url)
-        self.page.wait_for_load_state('networkidle', timeout=10000)
+        self.page.wait_for_load_state('networkidle', timeout=30000)
         try:
             # Find all matching <a> elements
             files_links = self.page.locator('a.slds-card__header-link.baseCard__header-title-container')
