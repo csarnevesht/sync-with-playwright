@@ -210,7 +210,7 @@ def upload_files_for_account(page: Page, account: dict, debug_mode: bool = True,
                     # Check if file exists in the account
                     logging.info(f"Checking if file {os.path.basename(file_path)} already exists in the account")
                     num_files = account_manager.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
-                    if num_files > 0:
+                    if isinstance(num_files, str) or num_files > 0:
                         file_name_of_file_to_upload = f"{os.path.splitext(os.path.basename(file_path))[0]}"
                         logging.info(f"file_name_of_file_to_upload: {file_name_of_file_to_upload}")
                         if file_manager.search_file(file_name_of_file_to_upload):
@@ -234,7 +234,12 @@ def upload_files_for_account(page: Page, account: dict, debug_mode: bool = True,
                             logging.info(f"***Number of files in account: {num_files}")
                             
                             # Update expected items count
-                            expected_items = num_files + 1 if current_try == 1 else num_files
+                            if isinstance(num_files, str):
+                                # If we have a string like "50+", use 50 as the base count
+                                base_count = 50
+                            else:
+                                base_count = num_files
+                            expected_items = base_count + 1 if current_try == 1 else base_count
                             logging.info(f"***Number of files: {num_files}")
                             logging.info(f"***Expected number of items: {expected_items}")
 
