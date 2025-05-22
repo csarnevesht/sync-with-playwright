@@ -1,4 +1,6 @@
+import json
 import os
+from pprint import pprint
 import sys
 import logging
 from playwright.sync_api import sync_playwright
@@ -51,10 +53,10 @@ def process_failed_steps(account_manager: AccountManager, file_manager: FileMana
                     step.get('account_info')
                 )
             elif step['type'] == 'file_upload':
-                file_manager.navigate_to_files()
+                file_manager.navigate_to_files_click_on_files_card_to_facilitate_upload()
                 file_manager.upload_file(step['file_path'])
             elif step['type'] == 'file_search':
-                file_manager.navigate_to_files()
+                file_manager.navigate_to_files_click_on_files_card_to_facilitate_upload()
                 file_manager.search_file(step['file_pattern'])
                 
             logger.mark_step_success(step)
@@ -114,7 +116,7 @@ def main():
                 
                 try:
                     # Navigate to Accounts page
-                    if not account_manager.navigate_to_accounts():
+                    if not account_manager.navigate_to_accounts_list_page():
                         logging.error("Failed to navigate to Accounts page")
                         continue
                         
@@ -167,7 +169,7 @@ def main():
                         try:
                             # Navigate to Files
                             logging.info(f"****Navigating to Files")
-                            num_files = account_manager.navigate_to_files_for_account_id(account_id)
+                            num_files = account_manager.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
                             if num_files == -1:
                                 logging.error("Failed to navigate to Files")
                                 account_manager.navigate_back_to_account_page()
@@ -194,12 +196,25 @@ def main():
                                     logging.info(f"File already exists: {file['name']}")
                                 else:
                                     logging.info(f"File not found, will be uploaded: {file['name']}")
+                                    #  CAROLINA HERE
+                                    account_manager.navigate_back_to_account_page()
+                                    # Upload single file for the account
+                                    logging.info(f"****Uploading file: {file['name']} for account: {full_name}")
+                                    files = account['files']
+                                    file = [f for f in files if f['name'] == file['name']]
+                                    if not file:
+                                        logging.error(f"Could not find file {file['name']} in files list")
+                                        continue
+                                    account_copy = account.copy()
+                                    if 'files' in account_copy:
+                                        account_copy['files'] = [file[0]]  # Get the first (and only) matching file
+                                    upload_success = upload_files_for_account(page, account_copy, debug_mode=debug_mode, max_tries=1)
+                                    if not upload_success:
+                                        logging.error("File upload process completed with errors")
+                                        sys.exit(1)
 
-                                
                             account_manager.navigate_back_to_account_page()
-
-                        
-                                
+  
                         except Exception as e:
                             logging.error(f"Error processing file {file['name']}: {str(e)}")
                             continue
