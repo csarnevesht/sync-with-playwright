@@ -10,6 +10,7 @@ from mock_data import get_mock_accounts
 import re
 import time
 from get_salesforce_page import get_salesforce_page
+from salesforce.pages.account_manager import AccountManager
 
 def verify_account_page_url(page, account_id=None) -> tuple[bool, str]:
     """
@@ -62,9 +63,9 @@ def main():
     
     with sync_playwright() as p:
         browser, page = get_salesforce_page(p)
-        
+        account_manager = AccountManager(page, debug_mode=debug_mode)
         # Verify we're on the correct account page
-        if not verify_account_page_url(page):
+        if not account_manager.verify_account_page_url():
             logging.error("Please navigate to the account page first.")
             sys.exit(1)
         

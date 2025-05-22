@@ -9,8 +9,9 @@ from salesforce.pages.file_manager import FileManager
 from salesforce.logger import OperationLogger
 from dropbox_client import DropboxClient
 from mock_data import get_mock_accounts
-from file_upload import upload_files_for_account, verify_account_page_url
+from file_upload import upload_files_for_account
 from get_salesforce_page import get_salesforce_page
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -80,13 +81,10 @@ def main():
         
     with sync_playwright() as p:
         browser, page = get_salesforce_page(p)
-        
         try:
             # Initialize page objects
             logging.info(f"****Initializing page objects")
-            logging.info(f"setting account_manager")
             account_manager = AccountManager(page, debug_mode)
-            logging.info(f"setting file_manager")
             file_manager = FileManager(page, debug_mode)
             
             # Process failed steps from previous runs
@@ -154,7 +152,7 @@ def main():
                     current_url = page.url
                     logging.info(f"\nCurrent page URL: {current_url}")
 
-                    is_valid, account_id = verify_account_page_url(page)
+                    is_valid, account_id = account_manager.verify_account_page_url()
                     if not is_valid:
                         logging.error(f"Failed to verify account page URL for: {full_name}")
                         continue

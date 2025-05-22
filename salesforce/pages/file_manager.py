@@ -35,93 +35,92 @@ class FileManager(BasePage):
             last_scroll_height = 0
             
             while attempt < max_attempts:
-                # Debug: Log all table-related elements
+                # Debug: Log all table-related elements with focus on grid view
                 table_info = self.page.evaluate("""() => {
                     const elements = {
-                        // File items
+                        // Grid view elements (prioritized)
+                        gridViewContainer: document.querySelector('div.slds-grid') ? 'found' : 'not found',
+                        gridViewItems: document.querySelectorAll('div.slds-grid div.slds-card').length,
+                        gridViewLinks: document.querySelectorAll('div.slds-grid a').length,
+                        gridViewTitles: document.querySelectorAll('div.slds-grid span[title]').length,
+                        gridViewCards: document.querySelectorAll('div.slds-grid div.slds-card').length,
+                        gridViewFileCards: document.querySelectorAll('div.slds-grid div[data-aura-class="forceFileCard"]').length,
+                        gridViewFileLinks: document.querySelectorAll('div.slds-grid a[data-aura-class="forceFileCard"]').length,
+                        gridViewFileTitles: document.querySelectorAll('div.slds-grid span[title]').length,
+                        
+                        // Grid view structure
+                        gridViewRows: document.querySelectorAll('div.slds-grid div[role="row"]').length,
+                        gridViewCells: document.querySelectorAll('div.slds-grid div[role="gridcell"]').length,
+                        gridViewHeaders: document.querySelectorAll('div.slds-grid div[role="columnheader"]').length,
+                        
+                        // Grid view scrollable containers
+                        gridViewScrollable: document.querySelector('div.slds-grid div.slds-scrollable') ? 'found' : 'not found',
+                        gridViewScrollableY: document.querySelector('div.slds-grid div.slds-scrollable_y') ? 'found' : 'not found',
+                        gridViewScrollableX: document.querySelector('div.slds-grid div.slds-scrollable_x') ? 'found' : 'not found',
+                        
+                        // Legacy selectors (kept for compatibility)
                         fileTitles: document.querySelectorAll('span[title]').length,
                         fileLinks: document.querySelectorAll('a[title]').length,
                         fileRows: document.querySelectorAll('tr[data-row-id]').length,
                         fileCards: document.querySelectorAll('div.slds-card').length,
-                        
-                        // Table structure
                         tables: document.querySelectorAll('table').length,
-                        rows: document.querySelectorAll('tr').length,
-                        
-                        // Specific file list elements
-                        fileListItems: document.querySelectorAll('li.slds-hint-parent').length,
-                        fileGridItems: document.querySelectorAll('div[role="grid"] div[role="row"]').length,
-                        fileListRows: document.querySelectorAll('div.slds-scrollable_y li').length,
-                        
-                        // Container elements
-                        scrollableContainers: document.querySelectorAll('div.slds-scrollable_y').length,
-                        gridContainers: document.querySelectorAll('div[role="grid"]').length,
-                        cardContainers: document.querySelectorAll('div.slds-card__body').length,
-                        
-                        // Additional selectors
-                        fileItems: document.querySelectorAll('div[data-aura-class="forceFileCard"]').length,
-                        fileLinksInTable: document.querySelectorAll('tr a[data-aura-class="forceFileCard"]').length,
-                        fileTitlesInTable: document.querySelectorAll('tr span[title]').length,
-                        fileTitlesInBody: document.querySelectorAll('div.slds-table_body tr span[title]').length,
-                        fileLinksInBody: document.querySelectorAll('div.slds-table_body tr a[data-aura-class="forceFileCard"]').length,
-                        fileRowsInBody: document.querySelectorAll('div.slds-table_body tr').length,
-                        fileCellsInBody: document.querySelectorAll('div.slds-table_body td').length,
-                        headerTitles: document.querySelectorAll('div.slds-table_header tr span[title]').length,
-                        headerRows: document.querySelectorAll('div.slds-table_header tr').length,
-                        tableContainer: document.querySelector('div.slds-table_container') ? 'found' : 'not found',
-                        tableBody: document.querySelector('div.slds-table_body') ? 'found' : 'not found',
-                        tableHeader: document.querySelector('div.slds-table_header') ? 'found' : 'not found',
-                        
-                        // New selectors for file list
-                        fileListContainer: document.querySelector('div.slds-file-list') ? 'found' : 'not found',
-                        fileListItems: document.querySelectorAll('div.slds-file-list li').length,
-                        fileListCards: document.querySelectorAll('div.slds-file-list div.slds-card').length,
-                        fileListLinks: document.querySelectorAll('div.slds-file-list a').length,
-                        fileListTitles: document.querySelectorAll('div.slds-file-list span[title]').length,
-                        
-                        // New selectors for grid view
-                        gridViewContainer: document.querySelector('div.slds-grid') ? 'found' : 'not found',
-                        gridViewItems: document.querySelectorAll('div.slds-grid div.slds-card').length,
-                        gridViewLinks: document.querySelectorAll('div.slds-grid a').length,
-                        gridViewTitles: document.querySelectorAll('div.slds-grid span[title]').length
+                        rows: document.querySelectorAll('tr').length
                     };
                     return elements;
                 }""")
                 logging.info(f"Table elements found: {table_info}")
                 
-                # Count actual items using multiple selectors
+                # Count actual items using a more precise method
                 actual_items = self.page.evaluate("""() => {
-                    const selectors = [
-                        'div.slds-file-list li',  // File list items
-                        'div.slds-file-list div.slds-card',  // File list cards
-                        'div.slds-file-list a',  // File list links
-                        'div.slds-file-list span[title]',  // File list titles
-                        'div.slds-grid div.slds-card',  // Grid view items
-                        'div.slds-grid a',  // Grid view links
-                        'div.slds-grid span[title]',  // Grid view titles
-                        'span[title]',  // File titles
-                        'a[title]',  // File links
-                        'tr[data-row-id]',  // Table rows
-                        'div[role="grid"] div[role="row"]',  // Grid rows
-                        'li.slds-hint-parent',  // List items
-                        'div.slds-scrollable_y li',  // Scrollable list items
-                        'div[data-aura-class="forceFileCard"]',  // File cards
-                        'tr a[data-aura-class="forceFileCard"]',  // File links in table
-                        'tr span[title]',  // File titles in table
-                        'div.slds-table_body tr span[title]',  // File titles in table body
-                        'div.slds-table_body tr a[data-aura-class="forceFileCard"]',  // File links in table body
-                        'div.slds-table_body tr',  // All rows in table body
-                        'td[data-aura-class="forceFileCard"]',  // File cells
-                        'li[data-aura-class="forceFileCard"]',  // File list items
-                        'div.slds-card'  // Card containers
-                    ];
-                    
-                    for (const selector of selectors) {
-                        const elements = document.querySelectorAll(selector);
-                        if (elements.length > 0) {
-                            return elements.length;
+                    // First try to count all file links in the grid
+                    const fileLinks = new Set();
+                    const linkElements = document.querySelectorAll('div.slds-grid a');
+                    linkElements.forEach(el => {
+                        const href = el.getAttribute('href');
+                        const title = el.getAttribute('title');
+                        // Count links that either have a title or point to a file view
+                        if ((title && !title.includes('Edit') && !title.includes('Sort')) || 
+                            (href && (href.includes('/view') || href.includes('/file')))) {
+                            fileLinks.add(href || title);
                         }
+                    });
+                    
+                    if (fileLinks.size > 0) {
+                        return fileLinks.size;
                     }
+                    
+                    // If no links found, try counting file cards
+                    const fileCards = document.querySelectorAll('div.slds-grid div[data-aura-class="forceFileCard"]');
+                    if (fileCards.length > 0) {
+                        return fileCards.length;
+                    }
+                    
+                    // If still no count, try counting unique file titles
+                    const fileTitles = new Set();
+                    const titleElements = document.querySelectorAll('div.slds-grid span[title]');
+                    titleElements.forEach(el => {
+                        const title = el.getAttribute('title');
+                        if (title && !title.includes('Edit') && !title.includes('Sort')) {
+                            fileTitles.add(title);
+                        }
+                    });
+                    
+                    if (fileTitles.size > 0) {
+                        return fileTitles.size;
+                    }
+                    
+                    // Fallback to counting grid cells
+                    const gridCells = document.querySelectorAll('div.slds-grid div[role="gridcell"]');
+                    if (gridCells.length > 0) {
+                        return gridCells.length;
+                    }
+                    
+                    // Last resort: count all cards in the grid
+                    const gridCards = document.querySelectorAll('div.slds-grid div.slds-card');
+                    if (gridCards.length > 0) {
+                        return gridCards.length;
+                    }
+                    
                     return 0;
                 }""")
                 logging.info(f"Actual items found: {actual_items}")
@@ -136,8 +135,12 @@ class FileManager(BasePage):
                     let scrolled = false;
                     let maxScrollHeight = 0;
                     
-                    // Try different scrollable containers
+                    // Prioritize grid view containers
                     const containers = [
+                        'div.slds-grid div.slds-scrollable',
+                        'div.slds-grid div.slds-scrollable_y',
+                        'div.slds-grid div.slds-scrollable_x',
+                        'div.slds-grid',
                         'div.slds-scrollable_y',
                         'div[role="grid"]',
                         'div.slds-card__body',
@@ -149,7 +152,6 @@ class FileManager(BasePage):
                         'div.slds-table_body',
                         'div.slds-scrollable',
                         'div.slds-file-list',
-                        'div.slds-grid',
                         'div.slds-scrollable_x',
                         'div.slds-scrollable_y',
                         'div.slds-scrollable_xy'
