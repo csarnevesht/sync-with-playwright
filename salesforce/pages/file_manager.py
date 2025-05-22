@@ -28,9 +28,11 @@ class FileManager(BasePage):
 
                 # Extract the number of items
                 self.logger.info("Extracting the number of items...")
-                match = re.search(r'(\d+)\s+items?\s+•', status_text)
+                match = re.search(r'(\d+\+?)\s+items?\s+•', status_text)
                 if match:
-                    item_count = int(match.group(1))
+                    item_count_str = match.group(1)
+                    # Remove the plus sign if present and convert to int
+                    item_count = int(item_count_str.rstrip('+'))
                     self.logger.info(f"Found {item_count} files in the account")
                     return item_count
                 else:
@@ -39,7 +41,7 @@ class FileManager(BasePage):
             self.logger.info(f"Error checking files count: {str(e)}")
         return 0
 
-    def navigate_to_files(self) -> int:
+    def navigate_to_files_click_on_files_card_to_facilitate_upload(self) -> int:
         """Navigate to the Files page of the current account. Assumes you are already on the account detail page.
         
         Returns:
@@ -58,7 +60,7 @@ class FileManager(BasePage):
                     parent = files_span.evaluate_handle('el => el.closest("a,button,li,div[role=\'tab\']")')
                     if parent:
                         parent.as_element().click()
-                        self.logger.info("Clicked Files tab using span[title='Files'] parent.")
+                        self.logger.info("Clicked Files card using span[title='Files'] parent.")
                         
                         # Verify URL pattern
                         current_url = self.page.url
@@ -107,24 +109,7 @@ class FileManager(BasePage):
             self.page.screenshot(path="files-tab-error.png")
             self.logger.info("Error screenshot saved as files-tab-error.png")
             return -1
-            
-    def get_number_of_files(self) -> int:
-        """Get the number of files in the account."""
-        try:
-            status_message = self.page.wait_for_selector('span[aria-label="Files"]', timeout=4000)
-            if not status_message:
-                self.logger.error("Could not find files status message")
-                return 0
-                
-            text = status_message.text_content()
-            self.logger.info(f"***Number of files in get_number_of_files: {text}")
-            match = re.search(r'(\d+)\s+items?\s+•', text)
-            return int(match.group(1)) if match else 0
-            
-        except Exception as e:
-            self.logger.error(f"Error getting number of files: {str(e)}")
-            self.page.screenshot(path="get-files-count-error.png")
-            return 0
+    
             
     def search_file(self, file_pattern: str) -> bool:
         """Search for a file using a pattern."""

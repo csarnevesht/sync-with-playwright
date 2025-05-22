@@ -1,6 +1,8 @@
-from typing import Optional, Dict, List
+from typing import Callable, Optional, Dict, List
 import logging
 import re
+
+from salesforce.pages import file_manager
 from ..base_page import BasePage
 from playwright.sync_api import Page
 from config import SALESFORCE_URL
@@ -16,7 +18,7 @@ class AccountManager(BasePage):
         self.current_account_id = None
         self.accounts_page = AccountsPage(page, debug_mode)
         
-    def navigate_to_accounts(self) -> bool:
+    def navigate_to_accounts_list_page(self) -> bool:
         """Navigate to the Accounts page."""
         url = f"{SALESFORCE_URL}/lightning/o/Account/list?filterName=__Recent"
         self.logger.info(f"Navigating to Accounts page: {url}")
@@ -92,10 +94,12 @@ class AccountManager(BasePage):
                                 self.logger.info(f"Status message: {status_text}")
                                 
                                 # Extract the number of items
-                                self.logger.info("Extracting the number of items...")
-                                match = re.search(r'(\d+)\s+items?\s+•', status_text)
+                                self.logger.info("***Extracting the number of items...")
+                                match = re.search(r'(\d+\+?)\s+items?\s+•', status_text)
                                 if match:
-                                    item_count = int(match.group(1))
+                                    item_count_str = match.group(1)
+                                    # Remove the plus sign if present and convert to int
+                                    item_count = int(item_count_str.rstrip('+'))
                                     self.logger.info(f"Found {item_count} items in search results")
                                     return item_count
                         except Exception as e:
@@ -567,22 +571,47 @@ class AccountManager(BasePage):
             self._take_screenshot("account-navigation-error")
             sys.exit(1) 
 
-    def navigate_to_files_for_account_id(self, account_id: str) -> None:
+    def navigate_to_files_and_get_number_of_files_for_this_account(self, account_id: str) -> None:
         """
         Navigate to the Files related list for the given account_id.
         """
         files_url = f"{SALESFORCE_URL}/lightning/r/Account/{account_id}/related/AttachedContentDocuments/view"
         logging.info(f"Navigating to Files page for account {account_id}: {files_url}")
         self.page.goto(files_url)
-        self.page.wait_for_load_state('networkidle', timeout=10000)  
-        return self.get_number_of_files()
+        self.page.wait_for_load_state('networkidle', timeout=10000) 
+        num_files = file_manager.FileManager(self.page).extract_files_count_from_status()
+        logging.info(f"Number of files: {num_files}")
+        return num_files
 
-    def get_number_of_files(self) -> int:
+    def get_default_condition(self):
+        """Get the default condition for filtering accounts."""
+        def condition(account):
+            return self.account_has_files(account['id'])
+        return condition
+
+    def get_accounts_matching_condition(
+        self,
+        max_number: int = 10,
+        condition: Callable[[Dict[str, str]], bool] = None,
+        drop_down_option_text: str = "All Clients"
+    ) -> List[Dict[str, str]]:
         """
-        Get the number of files for the current account.
+        Keep iterating through all accounts until max_number accounts that match a condition.
+        By default, returns accounts that have more than 0 files.
         """
-        return self.page.locator('a.slds-card__header-link.baseCard__header-title-container').count() 
-    
-
-
-
+        accounts = []
+        all_accounts = self.accounts_page._get_accounts_base(drop_down_option_text=drop_down_option_text)
+        processed_accounts = []
+        the_condition = condition if condition is not None else self.get_default_condition()
+        for account in all_accounts:
+            files_count = self.navigate_to_files_and_get_number_of_files_for_this_account(account['id'])
+            account['files_count'] = files_count
+            processed_accounts.append(account)
+            if the_condition(account):
+                accounts.append(account)
+                if len(accounts) >= max_number:
+                    break
+        logging.info(f"Total accounts processed: {len(processed_accounts)}")
+        for acc in processed_accounts:
+            logging.info(f"Processed account: Name={acc['name']}, ID={acc['id']}, Files={acc['files_count']}")
+        return accounts 
