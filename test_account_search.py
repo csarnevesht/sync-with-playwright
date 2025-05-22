@@ -118,13 +118,8 @@ def test_search_account(account_name: str):
                 logging.error("Failed to navigate to files page")
                 return
                 
-            # Get accurate file count by incrementally scrolling until all files are loaded
-            logging.info("Incrementally scrolling to load all files and get accurate file count...")
-            unique_file_hrefs = incremental_scroll_until_all_files_loaded(page)
-            file_count = len(unique_file_hrefs)
-            logging.info(f"Final file count: {file_count}")
-            logging.info(f"Unique file hrefs: {list(unique_file_hrefs)}")
-            assert file_count == 74, f"Expected 74 files, but found {file_count}"
+            logging.info(f"Final file count: {num_files}")
+            assert num_files == 74, f"Expected 74 files, but found {num_files}"
                 
             # Navigate back to account page
             account_manager.navigate_back_to_account_page()

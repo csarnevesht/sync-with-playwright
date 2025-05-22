@@ -581,9 +581,6 @@ class AccountManager(BasePage):
         files_url = f"{SALESFORCE_URL}/lightning/r/Account/{account_id}/related/AttachedContentDocuments/view"
         logging.info(f"Navigating to Files page for account {account_id}: {files_url}")
         self.page.goto(files_url)
-        # # CAROLINA HERE networkidle
-        # logging.info(f"Waiting for networkidle")
-        # self.page.wait_for_load_state('networkidle', timeout=60000) 
         file_manager_instance = file_manager.FileManager(self.page)
         num_files = file_manager_instance.extract_files_count_from_status()
         logging.info(f"Initial number of files: {num_files}")
@@ -591,9 +588,10 @@ class AccountManager(BasePage):
         # Scroll to load all files if we see a "50+" count
         if isinstance(num_files, str) and '+' in str(num_files):
             logging.info("Found '50+' count, scrolling to load all files...")
-            file_manager_instance.scroll_to_bottom_of_page()
-            num_files = file_manager_instance.extract_files_count_from_status()
-            logging.info(f"Final number of files after scrolling: {num_files}")
+            actual_count = file_manager_instance.scroll_to_bottom_of_page()
+            if actual_count > 0:
+                logging.info(f"Final number of files after scrolling: {actual_count}")
+                return actual_count
             
         return num_files
 
