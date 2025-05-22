@@ -183,5 +183,8 @@ def test_create_accounts():
         finally:
             browser.close()
 
+def main():
+    test_create_accounts()
+
 if __name__ == "__main__":
-    test_create_accounts() 
+    main() 

@@ -8,6 +8,8 @@ import pytest
 from get_salesforce_page import get_salesforce_page
 from salesforce.pages.file_manager import FileManager
 import time
+from mock_data import get_mock_accounts
+from file_upload import upload_files_for_account
 
 # Configure logging
 logging.basicConfig(
@@ -79,7 +81,7 @@ def incremental_scroll_until_all_files_loaded(page, max_attempts=20, wait_time=0
     
     return unique_file_hrefs
 
-def test_search_account(account_name: str):
+def test_search_account(account_name: str, expected_files: int = 74):
     """Test searching for an account by name and checking its files."""
     with sync_playwright() as p:
         browser, page = get_salesforce_page(p)
@@ -91,24 +93,55 @@ def test_search_account(account_name: str):
             if not account_manager.navigate_to_accounts_list_page():
                 logging.error("Failed to navigate to accounts page")
                 return
-                
+            
+            # Ensure the account exists (create if not)
+            just_created = False
+            if not account_manager.account_exists(account_name):
+                logging.info(f"Account {account_name} does not exist, creating it...")
+                # Use mock data for creation
+                mock_accounts = get_mock_accounts()
+                mock = next((a for a in mock_accounts if f"{a['first_name']} {a['last_name']}" == account_name), None)
+                if not mock:
+                    logging.error(f"No mock data found for {account_name}")
+                    return
+                created = account_manager.create_new_account(
+                    first_name=mock['first_name'],
+                    last_name=mock['last_name'],
+                    middle_name=mock.get('middle_name'),
+                    account_info=mock.get('account_info', {})
+                )
+                assert created, f"Failed to create account: {account_name}"
+                logging.info(f"Account {account_name} created.")
+                just_created = True
+                # Navigate back to accounts page
+                assert account_manager.navigate_to_accounts_list_page(), "Failed to navigate to Accounts page after creation"
+            
             # Search for the account
             if not account_manager.account_exists(account_name):
-                logging.error(f"Account {account_name} does not exist")
+                logging.error(f"Account {account_name} does not exist after creation")
                 return
-                
+            
             # Click on the account name
             if not account_manager.click_account_name(account_name):
                 logging.error(f"Failed to navigate to account view page for: {account_name}")
                 return
-                
+            
             # Verify we're on the correct account page
             is_valid, account_id = account_manager.verify_account_page_url()
             if not is_valid:
                 logging.error("Not on a valid account page")
                 return
-                
+            
             logging.info(f"Successfully navigated to account {account_name} with ID {account_id}")
+            
+            # If just created, upload files
+            if just_created:
+                mock_accounts = get_mock_accounts()
+                mock = next((a for a in mock_accounts if f"{a['first_name']} {a['last_name']}" == account_name), None)
+                if mock and mock.get('files'):
+                    logging.info(f"Uploading files for newly created account: {account_name}")
+                    upload_success = upload_files_for_account(page, mock, debug_mode=True)
+                    assert upload_success, f"Failed to upload files for account: {account_name}"
             
             # Navigate to files and get count
             logging.info(f"Navigating to files for account {account_name}")
@@ -117,10 +150,10 @@ def test_search_account(account_name: str):
             if num_files == -1:
                 logging.error("Failed to navigate to files page")
                 return
-                
+            
             logging.info(f"Final file count: {num_files}")
-            assert num_files == 74, f"Expected 74 files, but found {num_files}"
-                
+            assert num_files == expected_files, f"Expected {expected_files} files, but found {num_files}"
+            
             # Navigate back to account page
             account_manager.navigate_back_to_account_page()
             
@@ -137,5 +170,16 @@ def test_search_account(account_name: str):
         finally:
             browser.close()
 
+def main():
+    # Use the first mock account with files
+    mock_accounts = get_mock_accounts()
+    # Find a mock account with files
+    account = next((a for a in mock_accounts if a.get('files')), None)
+    if not account:
+        print("No suitable mock account found for test_search_account.")
+        sys.exit(1)
+    expected_files = len(account['files'])
+    test_search_account(f"{account['first_name']} {account['last_name']}", expected_files=expected_files)
+
 if __name__ == "__main__":
-    test_search_account("Beth Albert") 
+    main() 

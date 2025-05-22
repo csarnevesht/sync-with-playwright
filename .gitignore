@@ -44,3 +44,4 @@ chrome-debug-profile/
 chrome-debug-profile/**/
 chrome-debug-profile/Default/**
 chrome-debug-profile/Local State
+data/
