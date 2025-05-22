@@ -21,7 +21,11 @@ def test_get_accounts_matching_condition():
             accounts_page = AccountsPage(page, debug_mode=True)
             account_manager = AccountManager(page, debug_mode=True)
 
-            accounts = account_manager.get_accounts_matching_condition(max_number=5, condition=accounts_page.account_has_files(account['id']))
+            # Custom filter: accounts with more than 0 files
+            def account_has_files(account):
+                return account_manager.account_has_files(account['id'])
+
+            accounts = account_manager.get_accounts_matching_condition(max_number=5, condition=account_has_files)
 
             if not accounts:
                 logging.info("No accounts matching the filter were found.")
