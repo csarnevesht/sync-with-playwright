@@ -709,3 +709,126 @@ class AccountManager(BasePage):
         except Exception as e:
             logging.error(f"Could not extract files count for account {account_id}: {e}")
             sys.exit(1)
+
+    def delete_account(self, full_name: str) -> bool:
+        """
+        Delete an account by name.
+        Args:
+            full_name: Full name of the account to delete
+        Returns:
+            bool: True if deletion was successful, False otherwise
+        """
+        try:
+            # Search for the account
+            if not self.account_exists(full_name):
+                self.logger.error(f"Account {full_name} does not exist")
+                return False
+            # Click on the account name to navigate to it
+            if not self.click_account_name(full_name):
+                self.logger.error(f"Failed to navigate to account view page for: {full_name}")
+                return False
+            # Verify we're on the correct account page
+            is_valid, account_id = self.verify_account_page_url()
+            if not is_valid:
+                self.logger.error("Not on a valid account page")
+                return False
+            self.logger.info(f"Successfully navigated to account {full_name} with ID {account_id}")
+            # Wait for page to load completely and stabilize
+            self.page.wait_for_load_state('networkidle')
+            self.page.wait_for_timeout(2000)
+            # Step 1: Click the left-panel Delete button (try several selectors and log all candidates)
+            delete_selectors = [
+                "button[title='Delete']",
+                "button:has-text('Delete')",
+                "input[value='Delete']",
+                "a[title='Delete']",
+                "a:has-text('Delete')",
+            ]
+            delete_btn = None
+            for selector in delete_selectors:
+                try:
+                    elements = self.page.query_selector_all(selector)
+                    for el in elements:
+                        try:
+                            visible = el.is_visible()
+                            enabled = el.is_enabled()
+                            text = el.text_content()
+                            attrs = el.get_attribute('outerHTML')
+                            self.logger.info(f"Delete button candidate: selector={selector}, visible={visible}, enabled={enabled}, text={text}, outerHTML={attrs}")
+                            if visible and enabled:
+                                delete_btn = el
+                                break
+                        except Exception as e:
+                            self.logger.info(f"Error checking delete button candidate: {e}")
+                    if delete_btn:
+                        self.logger.info(f"Found delete button with selector: {selector}")
+                        break
+                except Exception as e:
+                    self.logger.info(f"Error finding delete button with selector {selector}: {e}")
+                    continue
+            if not delete_btn:
+                self.logger.error("Could not find enabled/visible left-panel Delete button with any selector")
+                self.page.screenshot(path="delete-btn-not-found.png")
+                return False
+            try:
+                delete_btn.click()
+                self.logger.info("Clicked left-panel Delete button.")
+            except Exception as e:
+                self.logger.error(f"Error clicking left-panel Delete button: {e}")
+                self.page.screenshot(path="delete-btn-click-error.png")
+                return False
+            self.page.wait_for_timeout(1000)
+            # Step 2: Wait for the modal and confirm deletion
+            try:
+                self.page.wait_for_selector('button[title="Delete"] span.label.bBody', timeout=5000)
+            except Exception:
+                self.logger.error("Delete confirmation modal did not appear after clicking delete button")
+                self.page.screenshot(path="delete-modal-not-found.png")
+                return False
+            # Log modal text for debugging
+            try:
+                modal = self.page.query_selector('div[role="dialog"]')
+                if modal:
+                    modal_text = modal.text_content()
+                    self.logger.info(f"Delete modal text: {modal_text}")
+            except Exception:
+                pass
+            # Click the modal's Delete button using the provided selector
+            try:
+                modal_delete_btn_span = self.page.wait_for_selector('button[title="Delete"] span.label.bBody', timeout=5000)
+                if not modal_delete_btn_span:
+                    self.logger.error("Could not find modal Delete button span.label.bBody")
+                    self.page.screenshot(path="modal-delete-btn-not-found.png")
+                    return False
+                modal_delete_btn_span.click()
+                self.logger.info("Clicked modal Delete button.")
+            except Exception as e:
+                self.logger.error(f"Error clicking modal Delete button: {e}")
+                self.page.screenshot(path="modal-delete-btn-click-error.png")
+                return False
+            # Wait for the modal to close
+            try:
+                self.page.wait_for_selector('button[title="Delete"] span.label.bBody', state='detached', timeout=8000)
+                self.logger.info("Delete confirmation modal closed.")
+            except Exception:
+                self.logger.warning("Delete confirmation modal did not close in time.")
+            # Wait for deletion confirmation (toast)
+            try:
+                self.page.wait_for_selector('div.slds-notify_toast, div.slds-notify--toast', timeout=15000)
+                self.logger.info(f"Successfully deleted account: {full_name}")
+                return True
+            except Exception as e:
+                self.logger.warning(f"Could not confirm account deletion by toast: {str(e)}. Checking if account still exists.")
+                # Fallback: check if account still exists
+                self.navigate_to_accounts_list_page()
+                if not self.account_exists(full_name):
+                    self.logger.info(f"Account {full_name} no longer exists. Deletion successful.")
+                    return True
+                else:
+                    self.logger.error(f"Account {full_name} still exists after attempted deletion.")
+                    self.page.screenshot(path="delete-toast-not-found.png")
+                    return False
+        except Exception as e:
+            self.logger.error(f"Error deleting account {full_name}: {str(e)}")
+            self.page.screenshot(path="delete-error.png")
+            return False
