@@ -1,4 +1,4 @@
-from typing import Callable, Optional, Dict, List
+from typing import Callable, Optional, Dict, List, Union
 import logging
 import re
 
@@ -571,9 +571,10 @@ class AccountManager(BasePage):
             self._take_screenshot("account-navigation-error")
             sys.exit(1) 
 
-    def navigate_to_files_and_get_number_of_files_for_this_account(self, account_id: str) -> None:
+    def navigate_to_files_and_get_number_of_files_for_this_account(self, account_id: str) -> Union[int, str]:
         """
         Navigate to the Files related list for the given account_id.
+        Returns either an integer or a string (e.g. "50+") representing the number of files.
         """
         files_url = f"{SALESFORCE_URL}/lightning/r/Account/{account_id}/related/AttachedContentDocuments/view"
         logging.info(f"Navigating to Files page for account {account_id}: {files_url}")
@@ -581,8 +582,17 @@ class AccountManager(BasePage):
         # # CAROLINA HERE networkidle
         # logging.info(f"Waiting for networkidle")
         # self.page.wait_for_load_state('networkidle', timeout=60000) 
-        num_files = file_manager.FileManager(self.page).extract_files_count_from_status()
-        logging.info(f"Number of files: {num_files}")
+        file_manager_instance = file_manager.FileManager(self.page)
+        num_files = file_manager_instance.extract_files_count_from_status()
+        logging.info(f"Initial number of files: {num_files}")
+        
+        # Scroll to load all files if we see a "50+" count
+        if isinstance(num_files, str) and '+' in str(num_files):
+            logging.info("Found '50+' count, scrolling to load all files...")
+            file_manager_instance.scroll_to_bottom_of_page()
+            num_files = file_manager_instance.extract_files_count_from_status()
+            logging.info(f"Final number of files after scrolling: {num_files}")
+            
         return num_files
 
     def get_default_condition(self):
@@ -623,7 +633,11 @@ class AccountManager(BasePage):
         """
         Check if the account has files.
         """
-        return self.navigate_to_files_and_get_number_of_files_for_this_account(account_id) > 0
+        num_files = self.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
+        if isinstance(num_files, str):
+            # If we have a string like "50+", we know there are files
+            return True
+        return num_files > 0
     
     
     def deprecated_account_has_files(self, account_id: str) -> bool:

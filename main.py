@@ -178,8 +178,8 @@ def main():
                             # Check number of files
                             logging.info(f"Number of files in account: {num_files}")
                             
-                            if num_files == 0:
-                                logging.info(f"No files exist, will upload: {file['name']}")
+                            if isinstance(num_files, str) or num_files == 0:
+                                logging.info(f"No files exist or count is {num_files}, will upload: {file['name']}")
 
                                 account_manager.navigate_back_to_account_page()
 
