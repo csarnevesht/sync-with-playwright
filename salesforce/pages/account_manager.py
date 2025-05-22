@@ -617,3 +617,47 @@ class AccountManager(BasePage):
         for acc in processed_accounts:
             logging.info(f"Processed account: Name={acc['name']}, ID={acc['id']}, Files={acc['files_count']}")
         return accounts 
+
+
+    def account_has_files(self, account_id: str) -> bool:
+        """
+        Check if the account has files.
+        """
+        return self.navigate_to_files_and_get_number_of_files_for_this_account(account_id) > 0
+    
+    
+    def deprecated_account_has_files(self, account_id: str) -> bool:
+        """
+        Check if the account has files.
+        """
+        account_url = f"{SALESFORCE_URL}/lightning/r/{account_id}/view"
+        logging.info(f"Navigating to account view page: {account_url}")
+        self.page.goto(account_url)
+        # self.page.wait_for_load_state('networkidle', timeout=30000)
+        try:
+            # Find all matching <a> elements
+            files_links = self.page.locator('a.slds-card__header-link.baseCard__header-title-container')
+            found = False
+            for i in range(files_links.count()):
+                a = files_links.nth(i)
+                href = a.get_attribute('href')
+                outer_html = a.evaluate('el => el.outerHTML')
+                if href and 'AttachedContentDocuments' in href:
+                    # This is the Files card
+                    files_number_span = a.locator('span').nth(1)
+                    files_number_text = files_number_span.text_content(timeout=1000)
+                    files_number_match = re.search(r'\((\d+\+?)\)', files_number_text)
+                    if files_number_match:
+                        files_number_str = files_number_match.group(1)
+                        files_number = int(files_number_str.rstrip('+'))
+                    else:
+                        files_number = 0
+                    logging.info(f"Account {account_id} Files count: {files_number}")
+                    found = True
+                    return files_number > 0
+            if not found:
+                logging.error(f"Files card not found for account {account_id}")
+                sys.exit(1)
+        except Exception as e:
+            logging.error(f"Could not extract files count for account {account_id}: {e}")
+            sys.exit(1)

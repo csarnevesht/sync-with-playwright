@@ -121,12 +121,12 @@ class AccountsPage:
             logging.info(f"Selected '{drop_down_option_text}' list view")
 
             # Wait for the table to update and stabilize
-            logging.info(f"Waiting for the table to update and stabilize")
-            self.page.wait_for_load_state('networkidle', timeout=60000)
-            table = self.page.wait_for_selector('table[role="grid"]', timeout=60000)
-            if not table:
-                logging.error("Accounts table not found after selecting list view")
-                return []
+            # logging.info(f"Waiting for the table to update and stabilize")
+            # self.page.wait_for_load_state('networkidle', timeout=10000)
+            # table = self.page.wait_for_selector('table[role="grid"]', timeout=10000)
+            # if not table:
+            #     logging.error("Accounts table not found after selecting list view")
+            #     return []
             self.page.wait_for_timeout(2000)
 
             # Get all account rows using nth-child
@@ -271,44 +271,9 @@ class AccountsPage:
         except Exception as e:
             logging.warning(f"Error parsing files count: {e}")
             return 0
+        
 
-    def account_has_files(self, account_id: str) -> bool:
-        """
-        Check if the account has files.
-        """
-        account_url = f"{SALESFORCE_URL}/lightning/r/{account_id}/view"
-        logging.info(f"Navigating to account view page: {account_url}")
-        self.page.goto(account_url)
-        self.page.wait_for_load_state('networkidle', timeout=30000)
-        try:
-            # Find all matching <a> elements
-            files_links = self.page.locator('a.slds-card__header-link.baseCard__header-title-container')
-            found = False
-            for i in range(files_links.count()):
-                a = files_links.nth(i)
-                href = a.get_attribute('href')
-                outer_html = a.evaluate('el => el.outerHTML')
-                # logging.info(f"Account {account_id} a[{i}] href: {href}")
-                # logging.info(f"Account {account_id} a[{i}] outer HTML: {outer_html}")
-                if href and 'AttachedContentDocuments' in href:
-                    # This is the Files card
-                    files_number_span = a.locator('span').nth(1)
-                    files_number_text = files_number_span.text_content(timeout=1000)
-                    files_number_match = re.search(r'\((\d+\+?)\)', files_number_text)
-                    if files_number_match:
-                        files_number_str = files_number_match.group(1)
-                        files_number = int(files_number_str.rstrip('+'))
-                    else:
-                        files_number = 0
-                    logging.info(f"Account {account_id} Files count: {files_number}")
-                    found = True
-                    return files_number > 0
-            if not found:
-                logging.error(f"Files card not found for account {account_id}")
-                sys.exit(1)
-        except Exception as e:
-            logging.error(f"Could not extract files count for account {account_id}: {e}")
-            sys.exit(1)
+    
 
     
 
