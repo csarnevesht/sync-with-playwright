@@ -63,24 +63,50 @@ def main():
     
     with sync_playwright() as p:
         browser, page = get_salesforce_page(p)
-        account_manager = AccountManager(page, debug_mode=debug_mode)
-        # Verify we're on the correct account page
-        if not account_manager.verify_account_page_url():
-            logging.error("Please navigate to the account page first.")
-            sys.exit(1)
-        
-        # Initialize Salesforce page objects
-        accounts_page = AccountsPage(page, debug_mode=debug_mode)
-        
-        # Upload files for the account
-        upload_success = upload_files_for_account(page, test_account, debug_mode=debug_mode, max_tries=max_tries)
-        
-        if not upload_success:
-            print("File upload process completed with errors")
-            sys.exit(1)
-        
-        # Close the browser
-        browser.close()
+        try:
+            # Initialize managers
+            account_manager = AccountManager(page, debug_mode=debug_mode)
+            
+            # Navigate to Accounts page
+            assert account_manager.navigate_to_accounts_list_page(), "Failed to navigate to Accounts page"
+            
+            # Search for John Smith's account
+            full_name = f"{test_account['first_name']} {test_account['last_name']}"
+            logging.info(f"Searching for account: {full_name}")
+            
+            if not account_manager.account_exists(full_name):
+                logging.error(f"Account {full_name} does not exist")
+                sys.exit(1)
+                
+            # Click on the account name to navigate to it
+            if not account_manager.click_account_name(full_name):
+                logging.error(f"Failed to navigate to account view page for: {full_name}")
+                sys.exit(1)
+                
+            # Verify we're on the correct account page
+            is_valid, account_id = account_manager.verify_account_page_url()
+            if not is_valid:
+                logging.error("Not on a valid account page")
+                sys.exit(1)
+                
+            logging.info(f"Successfully navigated to account {full_name} with ID {account_id}")
+            
+            # Upload files for the account
+            logging.info(f"Uploading files for account: {full_name}")
+            upload_success = upload_files_for_account(page, test_account, debug_mode=debug_mode, max_tries=max_tries)
+            
+            if not upload_success:
+                logging.error("File upload process completed with errors")
+                sys.exit(1)
+                
+            logging.info("Test completed successfully")
+            
+        except Exception as e:
+            logging.error(f"Test failed: {str(e)}")
+            page.screenshot(path="test-failure.png")
+            raise
+        finally:
+            browser.close()
 
 if __name__ == "__main__":
     main() 
