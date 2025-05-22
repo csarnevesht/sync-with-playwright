@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 import os
 import logging
 from ..base_page import BasePage
@@ -14,11 +14,217 @@ class FileManager(BasePage):
         logging.info(f"****Initializing FileManager")
         super().__init__(page, debug_mode)
         self.current_account_id = None
+
+    def scroll_to_bottom_of_page(self):
+        """Scroll the files list to load all items and get actual count instead of 50+."""
+        logging.info(f"****Scrolling files list to load all items")
         
-    def extract_files_count_from_status(self) -> int:
+        try:
+            # Get initial item count
+            initial_count = self.extract_files_count_from_status()
+            logging.info(f"Initial item count: {initial_count}")
+            
+            if not initial_count or initial_count == 0:
+                logging.warning("No initial count found, skipping scroll")
+                return
+                
+            max_attempts = 30
+            attempt = 0
+            last_count = initial_count
+            no_change_count = 0
+            last_scroll_height = 0
+            
+            while attempt < max_attempts:
+                # Debug: Log all table-related elements
+                table_info = self.page.evaluate("""() => {
+                    const elements = {
+                        // File items
+                        fileTitles: document.querySelectorAll('span[title]').length,
+                        fileLinks: document.querySelectorAll('a[title]').length,
+                        fileRows: document.querySelectorAll('tr[data-row-id]').length,
+                        fileCards: document.querySelectorAll('div.slds-card').length,
+                        
+                        // Table structure
+                        tables: document.querySelectorAll('table').length,
+                        rows: document.querySelectorAll('tr').length,
+                        
+                        // Specific file list elements
+                        fileListItems: document.querySelectorAll('li.slds-hint-parent').length,
+                        fileGridItems: document.querySelectorAll('div[role="grid"] div[role="row"]').length,
+                        fileListRows: document.querySelectorAll('div.slds-scrollable_y li').length,
+                        
+                        // Container elements
+                        scrollableContainers: document.querySelectorAll('div.slds-scrollable_y').length,
+                        gridContainers: document.querySelectorAll('div[role="grid"]').length,
+                        cardContainers: document.querySelectorAll('div.slds-card__body').length,
+                        
+                        // Additional selectors
+                        fileItems: document.querySelectorAll('div[data-aura-class="forceFileCard"]').length,
+                        fileLinksInTable: document.querySelectorAll('tr a[data-aura-class="forceFileCard"]').length,
+                        fileTitlesInTable: document.querySelectorAll('tr span[title]').length,
+                        fileTitlesInBody: document.querySelectorAll('div.slds-table_body tr span[title]').length,
+                        fileLinksInBody: document.querySelectorAll('div.slds-table_body tr a[data-aura-class="forceFileCard"]').length,
+                        fileRowsInBody: document.querySelectorAll('div.slds-table_body tr').length,
+                        fileCellsInBody: document.querySelectorAll('div.slds-table_body td').length,
+                        headerTitles: document.querySelectorAll('div.slds-table_header tr span[title]').length,
+                        headerRows: document.querySelectorAll('div.slds-table_header tr').length,
+                        tableContainer: document.querySelector('div.slds-table_container') ? 'found' : 'not found',
+                        tableBody: document.querySelector('div.slds-table_body') ? 'found' : 'not found',
+                        tableHeader: document.querySelector('div.slds-table_header') ? 'found' : 'not found'
+                    };
+                    return elements;
+                }""")
+                logging.info(f"Table elements found: {table_info}")
+                
+                # Count actual items using multiple selectors
+                actual_items = self.page.evaluate("""() => {
+                    const selectors = [
+                        'span[title]',  // File titles
+                        'a[title]',     // File links
+                        'tr[data-row-id]',  // Table rows
+                        'div[role="grid"] div[role="row"]',  // Grid rows
+                        'li.slds-hint-parent',  // List items
+                        'div.slds-scrollable_y li',  // Scrollable list items
+                        'div[data-aura-class="forceFileCard"]',  // File cards
+                        'tr a[data-aura-class="forceFileCard"]',  // File links in table
+                        'tr span[title]',  // File titles in table
+                        'div.slds-table_body tr span[title]',  // File titles in table body
+                        'div.slds-table_body tr a[data-aura-class="forceFileCard"]',  // File links in table body
+                        'div.slds-table_body tr',  // All rows in table body
+                        'td[data-aura-class="forceFileCard"]',  // File cells
+                        'li[data-aura-class="forceFileCard"]',  // File list items
+                        'div.slds-card'  // Card containers
+                    ];
+                    
+                    for (const selector of selectors) {
+                        const elements = document.querySelectorAll(selector);
+                        if (elements.length > 0) {
+                            return elements.length;
+                        }
+                    }
+                    return 0;
+                }""")
+                logging.info(f"Actual items found: {actual_items}")
+                
+                # If we have more than 50 items and no '+', we're done
+                if actual_items > 50 and not str(initial_count).endswith('+'):
+                    logging.info(f"Found {actual_items} items in table")
+                    break
+                
+                # Try to scroll using multiple methods
+                scroll_result = self.page.evaluate("""() => {
+                    let scrolled = false;
+                    let maxScrollHeight = 0;
+                    
+                    // Try different scrollable containers
+                    const containers = [
+                        'div.slds-scrollable_y',
+                        'div[role="grid"]',
+                        'div.slds-card__body',
+                        'div.slds-table_header-fixed_container',
+                        'div.slds-table',
+                        'div.slds-card',
+                        'div.slds-table_container',
+                        'div.slds-table_fixed-layout',
+                        'div.slds-table_body',
+                        'div.slds-scrollable'
+                    ];
+                    
+                    for (const selector of containers) {
+                        const container = document.querySelector(selector);
+                        if (container) {
+                            // Get current scroll height
+                            const scrollHeight = container.scrollHeight;
+                            maxScrollHeight = Math.max(maxScrollHeight, scrollHeight);
+                            
+                            // Scroll to bottom
+                            container.scrollTop = scrollHeight;
+                            
+                            // Try to trigger any lazy loading
+                            setTimeout(() => {
+                                container.scrollTop = 0;
+                                setTimeout(() => {
+                                    container.scrollTop = scrollHeight;
+                                }, 100);
+                            }, 100);
+                            
+                            scrolled = true;
+                        }
+                    }
+                    
+                    return { scrolled, maxScrollHeight };
+                }""")
+                
+                # Wait for content to load
+                self.page.wait_for_timeout(2000)
+                
+                # Try clicking any "Load More" or similar buttons
+                try:
+                    load_more_selectors = [
+                        'button:has-text("Load More")',
+                        'button:has-text("Show More")',
+                        'button:has-text("View More")',
+                        'button.slds-button:has-text("More")',
+                        'button[title="Load More"]',
+                        'button[title="Show More"]',
+                        'button.slds-button_neutral:has-text("More")',
+                        'button.slds-button_brand:has-text("More")',
+                        'button.slds-button:has-text("Load More Files")',
+                        'button.slds-button:has-text("Show More Files")'
+                    ]
+                    
+                    for selector in load_more_selectors:
+                        load_more = self.page.locator(selector).first
+                        if load_more and load_more.is_visible():
+                            load_more.click()
+                            self.page.wait_for_timeout(2000)
+                            break
+                except Exception as e:
+                    logging.info(f"No load more button found: {str(e)}")
+                
+                # Get current count
+                current_count = self.extract_files_count_from_status()
+                logging.info(f"Current item count: {current_count}")
+                
+                # If we've reached a number without '+', we're done
+                if isinstance(current_count, int) or (isinstance(current_count, str) and '+' not in str(current_count)):
+                    logging.info("Reached actual count without '+' symbol")
+                    break
+                
+                # If count hasn't changed for 5 attempts, try a different approach
+                if str(current_count) == str(last_count):
+                    no_change_count += 1
+                    if no_change_count >= 5:
+                        # Try to force a refresh of the table
+                        try:
+                            refresh_button = self.page.locator('button[title="Refresh"]').first
+                            if refresh_button and refresh_button.is_visible():
+                                refresh_button.click()
+                                self.page.wait_for_timeout(2000)
+                        except Exception as e:
+                            logging.info(f"No refresh button found: {str(e)}")
+                        
+                        # If still no change, break
+                        if str(current_count) == str(last_count):
+                            logging.info("Count stabilized, stopping scroll")
+                            break
+                else:
+                    no_change_count = 0
+                
+                last_count = current_count
+                attempt += 1
+                
+            if attempt >= max_attempts:
+                logging.warning("Reached maximum scroll attempts")
+                
+        except Exception as e:
+            logging.error(f"Error during scrolling: {str(e)}")
+            self.page.screenshot(path="scroll-error.png")
+
+    def extract_files_count_from_status(self) -> Union[int, str]:
         """
         Extract the number of files from the Files status message on the page.
-        Returns the item count, or 0 if not found.
+        Returns the item count as either an integer or a string (e.g. "50+"), or 0 if not found.
         """
         try:
             status_message = self.page.wait_for_selector('span[aria-label="Files"]', timeout=4000)
@@ -31,8 +237,12 @@ class FileManager(BasePage):
                 match = re.search(r'(\d+\+?)\s+items?\s+•', status_text)
                 if match:
                     item_count_str = match.group(1)
-                    # Remove the plus sign if present and convert to int
-                    item_count = int(item_count_str.rstrip('+'))
+                    # If the count has a plus sign, return it as a string
+                    if '+' in item_count_str:
+                        self.logger.info(f"Found {item_count_str} files in the account")
+                        return item_count_str
+                    # Otherwise convert to int
+                    item_count = int(item_count_str)
                     self.logger.info(f"Found {item_count} files in the account")
                     return item_count
                 else:
