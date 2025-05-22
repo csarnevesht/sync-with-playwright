@@ -47,7 +47,9 @@ class AccountManager(BasePage):
             return False
             
     def search_account(self, account_name: str) -> int:
-        """Search for an account by name and return the number of items found."""
+        """Search for an account by name and return the number of items found.
+            Returns the number of items found. 
+        """
         try:
             self.logger.info(f"Searching for account: {account_name}")
             
@@ -628,6 +630,36 @@ class AccountManager(BasePage):
             logging.info(f"Processed account: Name={acc['name']}, ID={acc['id']}, Files={acc['files_count']}")
         return accounts 
 
+    def verify_account_page_url(self) -> tuple[bool, Optional[str]]:
+        """Verify that the current URL is a valid account page URL and extract the account ID.
+        
+        Returns:
+            tuple[bool, Optional[str]]: A tuple containing:
+                - bool: True if the URL is valid, False otherwise
+                - Optional[str]: The account ID if found, None otherwise
+        """
+        try:
+            current_url = self.page.url
+            self.logger.info(f"Current URL: {current_url}")
+            
+            # Check if we're on an account page
+            if not re.match(r'.*Account/\w+/view.*', current_url):
+                self.logger.error(f"Not on account page. Current URL: {current_url}")
+                return False, None
+            
+            # Extract account ID from URL
+            account_id_match = re.search(r'/Account/(\w+)/view', current_url)
+            if not account_id_match:
+                self.logger.error(f"Could not extract account ID from URL: {current_url}")
+                return False, None
+            
+            account_id = account_id_match.group(1)
+            self.logger.info(f"Extracted account ID from URL: {account_id}")
+            return True, account_id
+            
+        except Exception as e:
+            self.logger.error(f"Error verifying account page URL: {str(e)}")
+            return False, None
 
     def account_has_files(self, account_id: str) -> bool:
         """

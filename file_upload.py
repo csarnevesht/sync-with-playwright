@@ -9,47 +9,7 @@ import logging
 from salesforce.pages.file_manager import FileManager
 from salesforce.pages.account_manager import AccountManager
 
-def verify_account_page_url(page: Page, account_id=None) -> tuple[bool, str]:
-    """
-    Verify we're on the correct account page URL pattern.
-    
-    Args:
-        page: Playwright page object
-        account_id: Optional specific account ID to verify against. If None, any valid account ID is accepted.
-    
-    Returns:
-        tuple[bool, str]: (is_valid_url, account_id)
-    """
-    logging.info(f"verify_account_page_url")
-    current_url = page.url
-    logging.info(f"\nCurrent URL: {current_url}")
-    
-    # Get Salesforce URL from environment variable
-    salesforce_url = os.getenv('SALESFORCE_URL')
-    if not salesforce_url:
-        logging.error("Error: SALESFORCE_URL environment variable is not set")
-        return False, None
-    
-    # Pattern: SALESFORCE_URL/Account/SOME_ID/view
-    expected_pattern = f"{re.escape(salesforce_url)}.*/Account/([^/]+)/view"
-    logging.info(f"***Expected pattern: {expected_pattern}")
-    logging.info(f"Current URL: {current_url}")
-    match = re.match(expected_pattern, current_url)
-    
-    if not match:
-        logging.error("Error: Not on the correct account page URL pattern")
-        logging.info(f"Current URL: {current_url}")
-        logging.info(f"Expected pattern: {expected_pattern}")
-        return False, None
-    
-    found_account_id = match.group(1)
-    
-    if account_id and found_account_id != account_id:
-        logging.error(f"Error: Account ID mismatch. Found: {found_account_id}, Expected: {account_id}")
-        return False, None
-    
-    logging.info(f"Verified correct URL pattern with account ID: {found_account_id}")
-    return True, found_account_id
+
 
 def upload_single_file(page: Page, file_to_upload: str, expected_items: int = 1) -> bool:
     """
@@ -171,9 +131,10 @@ def upload_files_for_account(page: Page, account: dict, debug_mode: bool = True,
     
     
     try:
+        account_manager = AccountManager(page, debug_mode=debug_mode)
         # Verify we're on the correct account page
         logging.info(f"Verifying account page URL")
-        is_valid, account_id = verify_account_page_url(page)
+        is_valid, account_id = account_manager.verify_account_page_url()
         if not is_valid:
             return False
         
