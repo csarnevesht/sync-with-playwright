@@ -7,6 +7,9 @@ run is as follows:
 
 clear && python main.py 2>&1 | tee output.log
 
+clear && python test_accounts_create.py 2>&1 | tee output.log
+
+
 clear && python test_upload.py 2>&1 | tee output.log
 
 clear && python test_accounts_query.py 2>&1 | tee output.log

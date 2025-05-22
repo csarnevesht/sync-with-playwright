@@ -53,9 +53,13 @@ class AccountManager(BasePage):
         try:
             self.logger.info(f"Searching for account: {account_name}")
             
-            # Wait for the search input to be visible
+            # Wait for the page to be fully loaded
+            self.page.wait_for_load_state('networkidle', timeout=10000)
+            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
+            
+            # Wait for the search input to be visible with increased timeout
             self.logger.info("Waiting for search input...")
-            search_input = self.page.wait_for_selector('input[placeholder="Search this list..."]', timeout=6000)
+            search_input = self.page.wait_for_selector('input[placeholder="Search this list..."]', timeout=20000)
             if not search_input:
                 self.logger.error("Search input not found")
                 return 0
@@ -72,7 +76,7 @@ class AccountManager(BasePage):
             self.logger.info("Waiting for search results...")
             try:
                 # First wait for the loading spinner to disappear
-                self.page.wait_for_selector('div.slds-spinner_container', state='hidden', timeout=2000)
+                self.page.wait_for_selector('div.slds-spinner_container', state='hidden', timeout=5000)
                 self.logger.info("Loading spinner disappeared")
                 
                 # Wait a moment for results to appear
@@ -90,7 +94,7 @@ class AccountManager(BasePage):
                     
                     for selector in status_selectors:
                         try:
-                            status_message = self.page.wait_for_selector(selector, timeout=4000)
+                            status_message = self.page.wait_for_selector(selector, timeout=5000)
                             if status_message:
                                 status_text = status_message.text_content()
                                 self.logger.info(f"Status message: {status_text}")
