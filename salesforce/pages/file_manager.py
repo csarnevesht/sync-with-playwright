@@ -28,228 +28,71 @@ class FileManager(BasePage):
                 logging.warning("No initial count found, skipping scroll")
                 return
                 
-            max_attempts = 30
-            attempt = 0
-            last_count = initial_count
-            no_change_count = 0
-            last_scroll_height = 0
+            max_attempts = 20
+            wait_time = 0.3
+            unique_file_hrefs = set()
+            stable_count = 0
             
-            while attempt < max_attempts:
-                # Debug: Log all table-related elements with focus on grid view
-                table_info = self.page.evaluate("""() => {
-                    const elements = {
-                        // Grid view elements (prioritized)
-                        gridViewContainer: document.querySelector('div.slds-grid') ? 'found' : 'not found',
-                        gridViewItems: document.querySelectorAll('div.slds-grid div.slds-card').length,
-                        gridViewLinks: document.querySelectorAll('div.slds-grid a').length,
-                        gridViewTitles: document.querySelectorAll('div.slds-grid span[title]').length,
-                        gridViewCards: document.querySelectorAll('div.slds-grid div.slds-card').length,
-                        gridViewFileCards: document.querySelectorAll('div.slds-grid div[data-aura-class="forceFileCard"]').length,
-                        gridViewFileLinks: document.querySelectorAll('div.slds-grid a[data-aura-class="forceFileCard"]').length,
-                        gridViewFileTitles: document.querySelectorAll('div.slds-grid span[title]').length,
-                        
-                        // Grid view structure
-                        gridViewRows: document.querySelectorAll('div.slds-grid div[role="row"]').length,
-                        gridViewCells: document.querySelectorAll('div.slds-grid div[role="gridcell"]').length,
-                        gridViewHeaders: document.querySelectorAll('div.slds-grid div[role="columnheader"]').length,
-                        
-                        // Grid view scrollable containers
-                        gridViewScrollable: document.querySelector('div.slds-grid div.slds-scrollable') ? 'found' : 'not found',
-                        gridViewScrollableY: document.querySelector('div.slds-grid div.slds-scrollable_y') ? 'found' : 'not found',
-                        gridViewScrollableX: document.querySelector('div.slds-grid div.slds-scrollable_x') ? 'found' : 'not found',
-                        
-                        // Legacy selectors (kept for compatibility)
-                        fileTitles: document.querySelectorAll('span[title]').length,
-                        fileLinks: document.querySelectorAll('a[title]').length,
-                        fileRows: document.querySelectorAll('tr[data-row-id]').length,
-                        fileCards: document.querySelectorAll('div.slds-card').length,
-                        tables: document.querySelectorAll('table').length,
-                        rows: document.querySelectorAll('tr').length
-                    };
-                    return elements;
-                }""")
-                logging.info(f"Table elements found: {table_info}")
+            # Wait for the file list container to be visible
+            file_list = self.page.locator('div.slds-card__body table, div.slds-scrollable_y table, div[role="main"] table').first
+            file_list.wait_for(state="visible")
+            
+            # Get initial file links
+            all_links = self.page.locator('a[href*="/ContentDocument/"]').all()
+            for link in all_links:
+                href = link.get_attribute('href')
+                if href and '/ContentDocument/' in href:
+                    unique_file_hrefs.add(href)
+            
+            for attempt in range(max_attempts):
+                current_count = len(unique_file_hrefs)
+                logging.info(f"Scroll attempt {attempt+1}: found {current_count} unique file links")
                 
-                # Count actual items using a more precise method
-                actual_items = self.page.evaluate("""() => {
-                    // First try to count all file links in the grid
-                    const fileLinks = new Set();
-                    const linkElements = document.querySelectorAll('div.slds-grid a');
-                    linkElements.forEach(el => {
-                        const href = el.getAttribute('href');
-                        const title = el.getAttribute('title');
-                        // Count links that either have a title or point to a file view
-                        if ((title && !title.includes('Edit') && !title.includes('Sort')) || 
-                            (href && (href.includes('/view') || href.includes('/file')))) {
-                            fileLinks.add(href || title);
-                        }
-                    });
-                    
-                    if (fileLinks.size > 0) {
-                        return fileLinks.size;
-                    }
-                    
-                    // If no links found, try counting file cards
-                    const fileCards = document.querySelectorAll('div.slds-grid div[data-aura-class="forceFileCard"]');
-                    if (fileCards.length > 0) {
-                        return fileCards.length;
-                    }
-                    
-                    // If still no count, try counting unique file titles
-                    const fileTitles = new Set();
-                    const titleElements = document.querySelectorAll('div.slds-grid span[title]');
-                    titleElements.forEach(el => {
-                        const title = el.getAttribute('title');
-                        if (title && !title.includes('Edit') && !title.includes('Sort')) {
-                            fileTitles.add(title);
-                        }
-                    });
-                    
-                    if (fileTitles.size > 0) {
-                        return fileTitles.size;
-                    }
-                    
-                    // Fallback to counting grid cells
-                    const gridCells = document.querySelectorAll('div.slds-grid div[role="gridcell"]');
-                    if (gridCells.length > 0) {
-                        return gridCells.length;
-                    }
-                    
-                    // Last resort: count all cards in the grid
-                    const gridCards = document.querySelectorAll('div.slds-grid div.slds-card');
-                    if (gridCards.length > 0) {
-                        return gridCards.length;
-                    }
-                    
-                    return 0;
-                }""")
-                logging.info(f"Actual items found: {actual_items}")
-                
-                # If we have more than 50 items and no '+', we're done
-                if actual_items > 50 and not str(initial_count).endswith('+'):
-                    logging.info(f"Found {actual_items} items in table")
-                    break
-                
-                # Try to scroll using multiple methods
-                scroll_result = self.page.evaluate("""() => {
-                    let scrolled = false;
-                    let maxScrollHeight = 0;
-                    
-                    // Prioritize grid view containers
-                    const containers = [
-                        'div.slds-grid div.slds-scrollable',
-                        'div.slds-grid div.slds-scrollable_y',
-                        'div.slds-grid div.slds-scrollable_x',
-                        'div.slds-grid',
-                        'div.slds-scrollable_y',
-                        'div[role="grid"]',
-                        'div.slds-card__body',
-                        'div.slds-table_header-fixed_container',
-                        'div.slds-table',
-                        'div.slds-card',
-                        'div.slds-table_container',
-                        'div.slds-table_fixed-layout',
-                        'div.slds-table_body',
-                        'div.slds-scrollable',
-                        'div.slds-file-list',
-                        'div.slds-scrollable_x',
-                        'div.slds-scrollable_y',
-                        'div.slds-scrollable_xy'
-                    ];
-                    
-                    for (const selector of containers) {
-                        const container = document.querySelector(selector);
-                        if (container) {
-                            // Get current scroll height
-                            const scrollHeight = container.scrollHeight;
-                            maxScrollHeight = Math.max(maxScrollHeight, scrollHeight);
-                            
-                            // Scroll to bottom
-                            container.scrollTop = scrollHeight;
-                            
-                            // Try to trigger any lazy loading
-                            setTimeout(() => {
-                                container.scrollTop = 0;
-                                setTimeout(() => {
-                                    container.scrollTop = scrollHeight;
-                                }, 100);
-                            }, 100);
-                            
-                            scrolled = true;
-                        }
-                    }
-                    
-                    return { scrolled, maxScrollHeight };
-                }""")
-                
-                # Wait for content to load
-                self.page.wait_for_timeout(2000)
-                
-                # Try clicking any "Load More" or similar buttons
+                # Try multiple scrolling methods
                 try:
-                    load_more_selectors = [
-                        'button:has-text("Load More")',
-                        'button:has-text("Show More")',
-                        'button:has-text("View More")',
-                        'button.slds-button:has-text("More")',
-                        'button[title="Load More"]',
-                        'button[title="Show More"]',
-                        'button.slds-button_neutral:has-text("More")',
-                        'button.slds-button_brand:has-text("More")',
-                        'button.slds-button:has-text("Load More Files")',
-                        'button.slds-button:has-text("Show More Files")',
-                        'button.slds-button:has-text("Load More Items")',
-                        'button.slds-button:has-text("Show More Items")',
-                        'button.slds-button:has-text("View More Items")'
-                    ]
+                    # Method 1: Scroll the table container
+                    file_list.evaluate('el => el.scrollIntoView({block: "end", behavior: "auto"})')
                     
-                    for selector in load_more_selectors:
-                        load_more = self.page.locator(selector).first
-                        if load_more and load_more.is_visible():
-                            load_more.click()
-                            self.page.wait_for_timeout(2000)
-                            break
+                    # Method 2: Scroll the parent container
+                    parent = file_list.locator('xpath=..')
+                    parent.evaluate('el => el.scrollBy(0, 1000)')
+                    
+                    # Method 3: Use keyboard to scroll
+                    self.page.keyboard.press('PageDown')
+                    
                 except Exception as e:
-                    logging.info(f"No load more button found: {str(e)}")
+                    logging.warning(f"Failed to scroll: {str(e)}")
+                    # Fallback to window scroll
+                    self.page.evaluate('window.scrollBy(0, 1000)')
                 
-                # Get current count
-                current_count = self.extract_files_count_from_status()
-                logging.info(f"Current item count: {current_count}")
+                # Wait for any animations and content to load
+                self.page.wait_for_timeout(int(wait_time * 1000))
                 
-                # If we've reached a number without '+', we're done
-                if isinstance(current_count, int) or (isinstance(current_count, str) and '+' not in str(current_count)):
-                    logging.info("Reached actual count without '+' symbol")
-                    break
+                # Get new file links after scroll
+                all_links = self.page.locator('a[href*="/ContentDocument/"]').all()
+                for link in all_links:
+                    href = link.get_attribute('href')
+                    if href and '/ContentDocument/' in href:
+                        unique_file_hrefs.add(href)
                 
-                # If count hasn't changed for 5 attempts, try a different approach
-                if str(current_count) == str(last_count):
-                    no_change_count += 1
-                    if no_change_count >= 5:
-                        # Try to force a refresh of the table
-                        try:
-                            refresh_button = self.page.locator('button[title="Refresh"]').first
-                            if refresh_button and refresh_button.is_visible():
-                                refresh_button.click()
-                                self.page.wait_for_timeout(2000)
-                        except Exception as e:
-                            logging.info(f"No refresh button found: {str(e)}")
-                        
-                        # If still no change, break
-                        if str(current_count) == str(last_count):
-                            logging.info("Count stabilized, stopping scroll")
-                            break
+                # Check if we found new files
+                if len(unique_file_hrefs) == current_count:
+                    stable_count += 1
+                    logging.info(f"Count stable for {stable_count} attempts")
                 else:
-                    no_change_count = 0
+                    stable_count = 0
+                    logging.info(f"Found new files! Total: {len(unique_file_hrefs)}")
                 
-                last_count = current_count
-                attempt += 1
-                
-            if attempt >= max_attempts:
-                logging.warning("Reached maximum scroll attempts")
+                if stable_count >= 3:
+                    logging.info("File count stabilized, stopping scroll.")
+                    break
+            
+            return len(unique_file_hrefs)
                 
         except Exception as e:
             logging.error(f"Error during scrolling: {str(e)}")
             self.page.screenshot(path="scroll-error.png")
+            return 0
 
     def extract_files_count_from_status(self) -> Union[int, str]:
         """
