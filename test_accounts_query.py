@@ -2,6 +2,7 @@ import os
 import sys
 from playwright.sync_api import sync_playwright
 import logging
+from salesforce.pages.account_manager import AccountManager
 from salesforce.pages.accounts_page import AccountsPage
 import pytest
 from get_salesforce_page import get_salesforce_page
@@ -12,19 +13,19 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-def test_get_accounts_matching():
-    """Test the get_accounts_matching method of AccountsPage with a custom filter for accounts with more than 0 files."""
+def test_get_accounts_matching_condition():
+    """Test the get_accounts_matching_condition method of AccountsPage with a custom filter for accounts with more than 0 files."""
     with sync_playwright() as p:
         browser, page = get_salesforce_page(p)
         try:
             accounts_page = AccountsPage(page, debug_mode=True)
+            account_manager = AccountManager(page, debug_mode=True)
 
             # Custom filter: accounts with more than 0 files
-            def nonzero_files_filter(account):
-                files_count = accounts_page.get_files_count_for_account(account['id'])
-                return files_count is not None and files_count > 0
+            def account_has_files(account):
+                return accounts_page.account_has_files(account['id'])
 
-            accounts = accounts_page.get_accounts_matching(max_number=5, files_filter=nonzero_files_filter)
+            accounts = account_manager.get_accounts_matching_condition(max_number=5, condition=account_has_files)
 
             if not accounts:
                 logging.info("No accounts matching the filter were found.")
@@ -43,4 +44,4 @@ def test_get_accounts_matching():
             browser.close()
 
 if __name__ == "__main__":
-    test_get_accounts_matching() 
+    test_get_accounts_matching_condition() 

@@ -1,5 +1,5 @@
 from playwright.sync_api import Page, expect
-from typing import Optional, List, Dict, Callable
+from typing import Optional, List, Dict, Callable, Any
 import re
 import os
 import time
@@ -18,7 +18,7 @@ class AccountsPage:
             logging.info("Debug mode is enabled for AccountsPage")
 
 
-    def navigate_to_accounts(self) -> bool:
+    def navigate_to_accounts_list_page(self) -> bool:
         """Navigate to the Accounts page."""
         target_url = f"{SALESFORCE_URL}/lightning/o/Account/list?filterName=__Recent"
         logging.info(f"Navigating to Accounts page: {target_url}")
@@ -94,7 +94,7 @@ class AccountsPage:
         accounts = []
         try:
             # Navigate to accounts page
-            if not self.navigate_to_accounts():
+            if not self.navigate_to_accounts_list_page():
                 logging.error("Failed to navigate to Accounts page")
                 return []
 
@@ -200,10 +200,80 @@ class AccountsPage:
             self.page.screenshot(path="get-accounts-error.png")
             return []
 
-    def get_files_count_for_account(self, account_id: str) -> int:
+    def _extract_files_count_from_files_card_in_account(self, account_id: str) -> Optional[int]:
         """
-        Navigate to the account view page for the given account_id and extract the Files count.
-        Returns the files count as an integer, or None if not found.
+        Extract the number of files from the Files card for a given account.
+        
+        Args:
+            account_id (str): The ID of the account to check
+            
+        Returns:
+            Optional[int]: The number of files found, or None if not found
+        """
+        try:
+            files_card = self._find_files_card()
+            if not files_card:
+                logging.warning(f"Files card not found for account {account_id}")
+                return None
+                
+            files_number = self._parse_files_count_from_files_card_in_account(files_card)
+            logging.info(f"Account {account_id} Files count: {files_number}")
+            return files_number
+            
+        except Exception as e:
+            logging.warning(f"Could not extract files count for account {account_id}: {e}")
+            return None
+            
+    def _find_files_card(self) -> Optional[Any]:
+        """
+        Find the Files card in the page.
+        
+        Returns:
+            Optional[Any]: The Files card element if found, None otherwise
+        """
+        files_links = self.page.locator('a.slds-card__header-link.baseCard__header-title-container')
+        
+        for i in range(files_links.count()):
+            link = files_links.nth(i)
+            href = link.get_attribute('href')
+            outer_html = link.evaluate('el => el.outerHTML')
+            
+            logging.debug(f"Checking link[{i}] href: {href}")
+            logging.debug(f"Checking link[{i}] outer HTML: {outer_html}")
+            
+            if href and 'AttachedContentDocuments' in href:
+                return link
+                
+        return None
+        
+    def _parse_files_count_from_files_card_in_account(self, files_card: Any) -> int:
+        """
+        Parse the files count from the Files card element.
+        
+        Args:
+            files_card (Any): The Files card element
+            
+        Returns:
+            int: The number of files found, 0 if not found
+        """
+        try:
+            files_number_span = files_card.locator('span').nth(1)
+            files_number_text = files_number_span.text_content(timeout=1000)
+            
+            files_number_match = re.search(r'\((\d+\+?)\)', files_number_text)
+            if not files_number_match:
+                return 0
+                
+            files_number_str = files_number_match.group(1)
+            return int(files_number_str.rstrip('+'))
+            
+        except Exception as e:
+            logging.warning(f"Error parsing files count: {e}")
+            return 0
+
+    def account_has_files(self, account_id: str) -> bool:
+        """
+        Check if the account has files.
         """
         account_url = f"{SALESFORCE_URL}/lightning/r/{account_id}/view"
         logging.info(f"Navigating to account view page: {account_url}")
@@ -217,8 +287,8 @@ class AccountsPage:
                 a = files_links.nth(i)
                 href = a.get_attribute('href')
                 outer_html = a.evaluate('el => el.outerHTML')
-                logging.info(f"Account {account_id} a[{i}] href: {href}")
-                logging.info(f"Account {account_id} a[{i}] outer HTML: {outer_html}")
+                # logging.info(f"Account {account_id} a[{i}] href: {href}")
+                # logging.info(f"Account {account_id} a[{i}] outer HTML: {outer_html}")
                 if href and 'AttachedContentDocuments' in href:
                     # This is the Files card
                     files_number_span = a.locator('span').nth(1)
@@ -231,59 +301,18 @@ class AccountsPage:
                         files_number = 0
                     logging.info(f"Account {account_id} Files count: {files_number}")
                     found = True
-                    return files_number
+                    return files_number > 0
             if not found:
-                logging.warning(f"Files card not found for account {account_id}")
-                return None
+                logging.error(f"Files card not found for account {account_id}")
+                sys.exit(1)
         except Exception as e:
-            logging.warning(f"Could not extract files count for account {account_id}: {e}")
-            return None
+            logging.error(f"Could not extract files count for account {account_id}: {e}")
+            sys.exit(1)
 
-    def get_default_files_filter(self, num_files: int):
-        def filter_func(account):
-            files_count = self.get_files_count_for_account(account['id'])
-            return files_count is not None and files_count >= num_files
-        return filter_func
+    
 
-    def get_accounts_matching(
-        self,
-        max_number: int = 10,
-        files_filter: Callable[[Dict[str, str]], bool] = None,
-        drop_down_option_text: str = "All Clients"
-    ) -> List[Dict[str, str]]:
-        """
-        Keep iterating through all accounts until max_number accounts are found for files_filter.
-        By default, returns accounts with files_count >= 5.
-        """
-        accounts = []
-        all_accounts = self._get_accounts_base(drop_down_option_text=drop_down_option_text)
-        processed_accounts = []
-        if files_filter is None:
-            files_filter = self.get_default_files_filter(3)
-        for account in all_accounts:
-            files_count = self.get_files_count_for_account(account['id'])
-            account['files_count'] = files_count
-            processed_accounts.append(account)
-            if files_filter(account):
-                accounts.append(account)
-                if len(accounts) >= max_number:
-                    break
-        logging.info(f"Total accounts processed: {len(processed_accounts)}")
-        for acc in processed_accounts:
-            logging.info(f"Processed account: Name={acc['name']}, ID={acc['id']}, Files={acc['files_count']}")
-        return accounts 
+    
 
-    def navigate_to_files_for_account_id(self, account_id: str) -> int:
-        """
-        Navigate to the Files related list for the given account_id.
-        """
-        files_url = f"{SALESFORCE_URL}/lightning/r/Account/{account_id}/related/AttachedContentDocuments/view"
-        logging.info(f"Navigating to Files page for account {account_id}: {files_url}")
-        self.page.goto(files_url)
-        self.page.wait_for_load_state('networkidle', timeout=10000)
-
-        item_count = self.extract_files_count_from_status()
-        return item_count
 
 
     

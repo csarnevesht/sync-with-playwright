@@ -578,7 +578,9 @@ class AccountManager(BasePage):
         files_url = f"{SALESFORCE_URL}/lightning/r/Account/{account_id}/related/AttachedContentDocuments/view"
         logging.info(f"Navigating to Files page for account {account_id}: {files_url}")
         self.page.goto(files_url)
-        self.page.wait_for_load_state('networkidle', timeout=10000) 
+        # # CAROLINA HERE networkidle
+        # logging.info(f"Waiting for networkidle")
+        # self.page.wait_for_load_state('networkidle', timeout=60000) 
         num_files = file_manager.FileManager(self.page).extract_files_count_from_status()
         logging.info(f"Number of files: {num_files}")
         return num_files
