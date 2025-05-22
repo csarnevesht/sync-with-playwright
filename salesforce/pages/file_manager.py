@@ -70,7 +70,20 @@ class FileManager(BasePage):
                         headerRows: document.querySelectorAll('div.slds-table_header tr').length,
                         tableContainer: document.querySelector('div.slds-table_container') ? 'found' : 'not found',
                         tableBody: document.querySelector('div.slds-table_body') ? 'found' : 'not found',
-                        tableHeader: document.querySelector('div.slds-table_header') ? 'found' : 'not found'
+                        tableHeader: document.querySelector('div.slds-table_header') ? 'found' : 'not found',
+                        
+                        // New selectors for file list
+                        fileListContainer: document.querySelector('div.slds-file-list') ? 'found' : 'not found',
+                        fileListItems: document.querySelectorAll('div.slds-file-list li').length,
+                        fileListCards: document.querySelectorAll('div.slds-file-list div.slds-card').length,
+                        fileListLinks: document.querySelectorAll('div.slds-file-list a').length,
+                        fileListTitles: document.querySelectorAll('div.slds-file-list span[title]').length,
+                        
+                        // New selectors for grid view
+                        gridViewContainer: document.querySelector('div.slds-grid') ? 'found' : 'not found',
+                        gridViewItems: document.querySelectorAll('div.slds-grid div.slds-card').length,
+                        gridViewLinks: document.querySelectorAll('div.slds-grid a').length,
+                        gridViewTitles: document.querySelectorAll('div.slds-grid span[title]').length
                     };
                     return elements;
                 }""")
@@ -79,8 +92,15 @@ class FileManager(BasePage):
                 # Count actual items using multiple selectors
                 actual_items = self.page.evaluate("""() => {
                     const selectors = [
+                        'div.slds-file-list li',  // File list items
+                        'div.slds-file-list div.slds-card',  // File list cards
+                        'div.slds-file-list a',  // File list links
+                        'div.slds-file-list span[title]',  // File list titles
+                        'div.slds-grid div.slds-card',  // Grid view items
+                        'div.slds-grid a',  // Grid view links
+                        'div.slds-grid span[title]',  // Grid view titles
                         'span[title]',  // File titles
-                        'a[title]',     // File links
+                        'a[title]',  // File links
                         'tr[data-row-id]',  // Table rows
                         'div[role="grid"] div[role="row"]',  // Grid rows
                         'li.slds-hint-parent',  // List items
@@ -127,7 +147,12 @@ class FileManager(BasePage):
                         'div.slds-table_container',
                         'div.slds-table_fixed-layout',
                         'div.slds-table_body',
-                        'div.slds-scrollable'
+                        'div.slds-scrollable',
+                        'div.slds-file-list',
+                        'div.slds-grid',
+                        'div.slds-scrollable_x',
+                        'div.slds-scrollable_y',
+                        'div.slds-scrollable_xy'
                     ];
                     
                     for (const selector of containers) {
@@ -170,7 +195,10 @@ class FileManager(BasePage):
                         'button.slds-button_neutral:has-text("More")',
                         'button.slds-button_brand:has-text("More")',
                         'button.slds-button:has-text("Load More Files")',
-                        'button.slds-button:has-text("Show More Files")'
+                        'button.slds-button:has-text("Show More Files")',
+                        'button.slds-button:has-text("Load More Items")',
+                        'button.slds-button:has-text("Show More Items")',
+                        'button.slds-button:has-text("View More Items")'
                     ]
                     
                     for selector in load_more_selectors:
