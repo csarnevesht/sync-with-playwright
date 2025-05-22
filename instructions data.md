@@ -1,6 +1,17 @@
 
 
-Write sync code which synchronizes data from Dropbox to Salesforce CRM.
+Write  code which:
+- iterates through account data in data/Principal Protection":
+     - interates through all the files in the account data folder
+        - renames 
+     - searches for account in Salesforce CRM
+     - if account exists:
+          
+- account name existance in Salesforce CRM
+- if account exists, shows difference between files in account data and in Salesforce CRM account.
+
+
+
 
 To get the Dropbox data use the dropbox apis via an api token.
 To access Salesforce CRM we don't have access to the apis so we will use playwright instead. 

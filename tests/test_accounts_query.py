@@ -69,5 +69,8 @@ def test_get_accounts_matching_condition():
         finally:
             browser.close()
 
+def main():
+    test_get_accounts_matching_condition()
+
 if __name__ == "__main__":
-    test_get_accounts_matching_condition() 
+    main() 
