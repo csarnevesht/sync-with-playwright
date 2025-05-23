@@ -208,10 +208,15 @@ def main():
     
     try:
         # Get access token
+        env_file_abs_path = os.path.abspath(args.env_file)
+        print(f"Debug: Loading token from {env_file_abs_path}")
         access_token = get_access_token(args.env_file)
         if not access_token:
             print("Error: Could not get access token")
             return
+        print(f"Debug: Token found: Yes")
+        print(f"Debug: Token length: {len(access_token)}")
+        print(f"Debug: Environment variable used: DROPBOX_ACCESS_TOKEN")
         
         # Initialize Dropbox client with app key and secret
         app_key = os.getenv('DROPBOX_APP_KEY')
