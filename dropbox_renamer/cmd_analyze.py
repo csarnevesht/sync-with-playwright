@@ -216,6 +216,8 @@ def main():
             return
         print(f"Debug: Token found: Yes")
         print(f"Debug: Token length: {len(access_token)}")
+        print(f"Debug: Token first 10 chars: {access_token[:10]}...")
+        print(f"Debug: Token last 10 chars: {access_token[-10:]}...")
         print(f"Debug: Environment variable used: DROPBOX_TOKEN")
         
         # Initialize Dropbox client with app key and secret
