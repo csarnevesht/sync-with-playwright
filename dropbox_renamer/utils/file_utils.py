@@ -64,7 +64,7 @@ def log_processing_time(account_name, start_time, end_time, download_dir):
     with open(log_file, 'a') as f:
         f.write(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {account_name}: {format_duration(seconds)}\n")
 
-def read_allowed_folders(file_path='./account_folders.txt'):
+def read_allowed_folders(file_path='./accounts/main.txt'):
     """Read the list of allowed folder names from dropbox_files.txt."""
     try:
         if not os.path.exists(file_path):
@@ -85,8 +85,8 @@ def read_allowed_folders(file_path='./account_folders.txt'):
         print(f"Error reading {file_path}: {e}")
         return None
 
-def read_ignored_folders(file_path='./dropbox_renamer/dropbox_ignore.txt'):
-    """Read the list of folders to ignore from dropbox_ignore.txt."""
+def read_ignored_folders(file_path='./accounts/ignore.txt'):
+    """Read the list of folders to ignore from ignore.txt."""
     try:
         if not os.path.exists(file_path):
             print(f"Warning: {file_path} not found. No folders will be ignored.")
@@ -104,4 +104,16 @@ def read_ignored_folders(file_path='./dropbox_renamer/dropbox_ignore.txt'):
         return folders
     except Exception as e:
         print(f"Error reading {file_path}: {e}")
-        return set() 
+        return set()
+
+def read_account_folders(accounts_file=None):
+    """Read the list of account folders from the specified file or default to accounts/main.txt."""
+    if accounts_file is None:
+        accounts_file = 'accounts/main.txt'
+    
+    try:
+        with open(accounts_file, 'r') as f:
+            return [line.strip() for line in f if line.strip() and not line.startswith('#')]
+    except FileNotFoundError:
+        print(f"Warning: Account folders file not found: {accounts_file}")
+        return [] 

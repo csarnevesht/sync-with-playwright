@@ -12,3 +12,18 @@ clear && python -m tests.test_all 2>&1 | tee output.log
 
 clear && python -m tests.test_accounts_fuzzy_find 2>&1 | tee output.log
 
+clear && python -m dropbox_renamer.dbx_rename 2>&1 | tee output.log
+
+clear && python -m dropbox_renamer.dbx_analyze 2>&1 | tee output.log
+
+
+
+curl -X POST https://api.dropboxapi.com/2/files/list_folder \
+  --header 'Authorization: Bearer token' \
+  --header 'Content-Type: application/json' \
+  --data '{"path":"/A Work Documents/A WORK Documents/Principal Protection","include_mounted_folders":true}'
+
+curl -X POST https://api.dropboxapi.com/2/files/list_folder/continue \
+  --header 'Authorization: Bearer token' \
+  --header 'Content-Type: application/json' \
+  --data '{"cursor": "cursor from previous api output"}'
