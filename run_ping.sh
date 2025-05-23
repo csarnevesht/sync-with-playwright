@@ -14,4 +14,4 @@ if [ -f ".env" ]; then
 fi
 
 # Run the ping script
-python ping_services.py 
+python sync/ping_services.py 
