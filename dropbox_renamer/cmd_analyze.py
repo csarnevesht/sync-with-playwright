@@ -186,6 +186,8 @@ def main():
     """Main function to analyze Dropbox folder structure."""
     parser = argparse.ArgumentParser(description='Analyze Dropbox folder structure')
     parser.add_argument('--env-file', default='.env', help='Path to .env file')
+    parser.add_argument('--accounts-file', '-a',
+                      help='Path to file containing list of account folders (default: accounts/main.txt)')
     args = parser.parse_args()
     
     # Get absolute path of .env file
