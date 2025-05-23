@@ -85,6 +85,6 @@ NEVER NEVER NEVER kill the browser!!!!
 
 run is as follows:
 
-python main.py 2>&1 | tee output.log
+clear && python main.py 2>&1 | tee output.log
 
-python test_accounts_page.py 2>&1 | tee output.log
+python -m tests.test_all

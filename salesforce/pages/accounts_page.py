@@ -1,5 +1,5 @@
 from playwright.sync_api import Page, expect
-from typing import Optional, List, Dict, Callable
+from typing import Optional, List, Dict, Callable, Any
 import re
 import os
 import time
@@ -17,8 +17,48 @@ class AccountsPage:
         if debug_mode:
             logging.info("Debug mode is enabled for AccountsPage")
 
+    def select_list_view(self, view_name: str) -> bool:
+        """
+        Select a specific list view from the dropdown.
+        
+        Args:
+            view_name: Name of the list view to select (e.g., "All Accounts", "All Clients")
+            
+        Returns:
+            bool: True if selection was successful, False otherwise
+        """
+        try:
+            # Click the list view selector
+            logging.info("Clicking list view selector...")
+            list_view_button = self.page.wait_for_selector('button[title="Select a List View: Accounts"]', timeout=10000)
+            if not list_view_button:
+                logging.error("Could not find list view selector button")
+                return False
+            list_view_button.click()
+            logging.info("Clicked list view selector")
 
-    def navigate_to_accounts(self) -> bool:
+            # Wait for the dropdown content to appear
+            logging.info(f"Selecting '{view_name}' from list view...")
+            self.page.wait_for_timeout(1000)  # Give time for dropdown animation
+
+            # Find and click the desired option
+            option = self.page.locator(f'text="{view_name}"').first
+            if not option.is_visible():
+                logging.error(f"Could not find visible '{view_name}' option")
+                self.page.screenshot(path=f"{view_name.replace(' ', '_').lower()}-not-found.png")
+                return False
+            option.click()
+            logging.info(f"Selected '{view_name}' list view")
+
+            # Wait for the table to update and stabilize
+            self.page.wait_for_timeout(2000)
+            return True
+
+        except Exception as e:
+            logging.error(f"Error selecting list view '{view_name}': {str(e)}")
+            return False
+
+    def navigate_to_accounts_list_page(self) -> bool:
         """Navigate to the Accounts page."""
         target_url = f"{SALESFORCE_URL}/lightning/o/Account/list?filterName=__Recent"
         logging.info(f"Navigating to Accounts page: {target_url}")
@@ -88,202 +128,132 @@ class AccountsPage:
 
     def _get_accounts_base(self, drop_down_option_text: str = "All Clients") -> List[Dict[str, str]]:
         """
-        Extract all accounts from the current list view (name and id only, no filtering).
-        Optionally select a different list view by drop_down_option_text.
+        Get all accounts from the current list view.
+        
+        Args:
+            drop_down_option_text: Name of the list view to select
+            
+        Returns:
+            List[Dict[str, str]]: List of account dictionaries with 'name' and 'id' keys
         """
-        accounts = []
         try:
             # Navigate to accounts page
-            if not self.navigate_to_accounts():
+            if not self.navigate_to_accounts_list_page():
                 logging.error("Failed to navigate to Accounts page")
                 return []
 
-            # Click the list view selector
-            logging.info("Clicking list view selector...")
-            list_view_button = self.page.wait_for_selector('button[title="Select a List View: Accounts"]', timeout=10000)
-            if not list_view_button:
-                logging.error("Could not find list view selector button")
+            # Select the specified list view
+            if not self.select_list_view(drop_down_option_text):
                 return []
-            list_view_button.click()
-            logging.info("Clicked list view selector")
 
-            # Wait for the dropdown content to appear
-            logging.info(f"Selecting '{drop_down_option_text}' from list view...")
-            self.page.wait_for_timeout(1000)  # Give time for dropdown animation
-
-            # Find and click the desired option
-            option = self.page.locator(f'text="{drop_down_option_text}"').first
-            if not option.is_visible():
-                logging.error(f"Could not find visible '{drop_down_option_text}' option")
-                self.page.screenshot(path=f"{drop_down_option_text.replace(' ', '_').lower()}-not-found.png")
-                return []
-            option.click()
-            logging.info(f"Selected '{drop_down_option_text}' list view")
-
-            # Wait for the table to update and stabilize
-            self.page.wait_for_load_state('networkidle', timeout=10000)
-            table = self.page.wait_for_selector('table[role="grid"]', timeout=10000)
-            if not table:
-                logging.error("Accounts table not found after selecting list view")
-                return []
-            self.page.wait_for_timeout(2000)
-
-            # Get all account rows using nth-child
-            row_count = self.page.locator('table[role="grid"] tbody tr').count()
-            logging.info(f"Found {row_count} rows in the table using nth-child.")
+            # Get all account rows
+            account_rows = self.page.locator('table[role="grid"] tr').all()
             accounts = []
-            for i in range(row_count):
-                row = self.page.locator(f'table[role=\"grid\"] tbody tr:nth-child({i+1})')
-                # Diagnostic: log all cell texts for the first MAX_LOGGED_ROWS
-                if i < MAX_LOGGED_ROWS:
-                    cell_count = row.locator('td').count()
-                    cell_texts = []
-                    for j in range(cell_count):
-                        cell = row.locator(f'td:nth-child({j+1})')
-                        try:
-                            cell_texts.append(cell.text_content(timeout=1000))
-                        except Exception:
-                            cell_texts.append(None)
-                    logging.info(f"Row {i+1} cell texts: {cell_texts}")
-                    # Log th text
-                    th = row.locator('th').first
-                    try:
-                        th_text = th.text_content(timeout=1000)
-                    except Exception:
-                        th_text = None
-                    logging.info(f"Row {i+1} th text: {th_text}")
-                # Try to get the account name from th a (link in header cell)
+            
+            for row in account_rows:
                 try:
-                    th_link = row.locator('th a').first
-                    name = th_link.text_content(timeout=1000).strip()
-                    href = th_link.get_attribute('href')
-                except Exception:
-                    # If not a link, try plain text in th
-                    try:
-                        th_cell = row.locator('th').first
-                        name = th_cell.text_content(timeout=1000).strip()
-                        href = None
-                    except Exception:
-                        # Fallback: try td as before
-                        try:
-                            name_cell = row.locator('td:nth-child(2) a').first
-                            name = name_cell.text_content(timeout=1000).strip()
-                            href = name_cell.get_attribute('href')
-                        except Exception:
-                            try:
-                                name_cell = row.locator('td:nth-child(2)').first
-                                name = name_cell.text_content(timeout=1000).strip()
-                                href = None
-                            except Exception:
-                                name = None
-                                href = None
-                                if i < MAX_LOGGED_ROWS:
-                                    logging.warning(f"Row {i+1}: Could not extract name from th, link, or plain text. Row text: {row.text_content(timeout=1000)}")
-                if i < MAX_LOGGED_ROWS:
-                    logging.info(f"Row {i+1}: name={name}, href={href}")
-                # Extract account ID from href
-                account_id = None
-                if href:
-                    match = re.search(r'/r/([a-zA-Z0-9]{15,18})/view', href)
-                    if i < MAX_LOGGED_ROWS:
-                        logging.info(f"Row {i+1}: ID match: {match}")
-                    if match:
-                        account_id = match.group(1)
-                if name and account_id:
-                    accounts.append({'name': name, 'id': account_id})
-
-            logging.info(f"Found {len(accounts)} accounts")
+                    # Get account name and ID
+                    name_cell = row.locator('td:first-child a').first
+                    if not name_cell:
+                        continue
+                        
+                    name = name_cell.text_content().strip()
+                    href = name_cell.get_attribute('href')
+                    account_id = href.split('/')[-1] if href else None
+                    
+                    if name and account_id:
+                        accounts.append({
+                            'name': name,
+                            'id': account_id
+                        })
+                except Exception as e:
+                    logging.warning(f"Error processing account row: {str(e)}")
+                    continue
+            
             return accounts
-
+            
         except Exception as e:
             logging.error(f"Error getting accounts: {str(e)}")
-            self.page.screenshot(path="get-accounts-error.png")
             return []
 
-    def get_files_count_for_account(self, account_id: str) -> int:
+    def _extract_files_count_from_files_card_in_account(self, account_id: str) -> Optional[int]:
         """
-        Navigate to the account view page for the given account_id and extract the Files count.
-        Returns the files count as an integer, or None if not found.
+        Extract the number of files from the Files card for a given account.
+        
+        Args:
+            account_id (str): The ID of the account to check
+            
+        Returns:
+            Optional[int]: The number of files found, or None if not found
         """
-        account_url = f"{SALESFORCE_URL}/lightning/r/{account_id}/view"
-        logging.info(f"Navigating to account view page: {account_url}")
-        self.page.goto(account_url)
-        self.page.wait_for_load_state('networkidle', timeout=10000)
         try:
-            # Find all matching <a> elements
-            files_links = self.page.locator('a.slds-card__header-link.baseCard__header-title-container')
-            found = False
-            for i in range(files_links.count()):
-                a = files_links.nth(i)
-                href = a.get_attribute('href')
-                outer_html = a.evaluate('el => el.outerHTML')
-                logging.info(f"Account {account_id} a[{i}] href: {href}")
-                logging.info(f"Account {account_id} a[{i}] outer HTML: {outer_html}")
-                if href and 'AttachedContentDocuments' in href:
-                    # This is the Files card
-                    files_number_span = a.locator('span').nth(1)
-                    files_number_text = files_number_span.text_content(timeout=1000)
-                    files_number_match = re.search(r'\((\d+\+?)\)', files_number_text)
-                    if files_number_match:
-                        files_number_str = files_number_match.group(1)
-                        files_number = int(files_number_str.rstrip('+'))
-                    else:
-                        files_number = 0
-                    logging.info(f"Account {account_id} Files count: {files_number}")
-                    found = True
-                    return files_number
-            if not found:
+            files_card = self._find_files_card()
+            if not files_card:
                 logging.warning(f"Files card not found for account {account_id}")
                 return None
+                
+            files_number = self._parse_files_count_from_files_card_in_account(files_card)
+            logging.info(f"Account {account_id} Files count: {files_number}")
+            return files_number
+            
         except Exception as e:
             logging.warning(f"Could not extract files count for account {account_id}: {e}")
             return None
-
-    def get_default_files_filter(self, num_files: int):
-        def filter_func(account):
-            files_count = self.get_files_count_for_account(account['id'])
-            return files_count is not None and files_count >= num_files
-        return filter_func
-
-    def get_accounts_matching(
-        self,
-        max_number: int = 10,
-        files_filter: Callable[[Dict[str, str]], bool] = None,
-        drop_down_option_text: str = "All Clients"
-    ) -> List[Dict[str, str]]:
+            
+    def _find_files_card(self) -> Optional[Any]:
         """
-        Keep iterating through all accounts until max_number accounts are found for files_filter.
-        By default, returns accounts with files_count >= 5.
+        Find the Files card in the page.
+        
+        Returns:
+            Optional[Any]: The Files card element if found, None otherwise
         """
-        accounts = []
-        all_accounts = self._get_accounts_base(drop_down_option_text=drop_down_option_text)
-        processed_accounts = []
-        if files_filter is None:
-            files_filter = self.get_default_files_filter(3)
-        for account in all_accounts:
-            files_count = self.get_files_count_for_account(account['id'])
-            account['files_count'] = files_count
-            processed_accounts.append(account)
-            if files_filter(account):
-                accounts.append(account)
-                if len(accounts) >= max_number:
-                    break
-        logging.info(f"Total accounts processed: {len(processed_accounts)}")
-        for acc in processed_accounts:
-            logging.info(f"Processed account: Name={acc['name']}, ID={acc['id']}, Files={acc['files_count']}")
-        return accounts 
+        files_links = self.page.locator('a.slds-card__header-link.baseCard__header-title-container')
+        
+        for i in range(files_links.count()):
+            link = files_links.nth(i)
+            href = link.get_attribute('href')
+            outer_html = link.evaluate('el => el.outerHTML')
+            
+            logging.debug(f"Checking link[{i}] href: {href}")
+            logging.debug(f"Checking link[{i}] outer HTML: {outer_html}")
+            
+            if href and 'AttachedContentDocuments' in href:
+                return link
+                
+        return None
+        
+    def _parse_files_count_from_files_card_in_account(self, files_card: Any) -> int:
+        """
+        Parse the files count from the Files card element.
+        
+        Args:
+            files_card (Any): The Files card element
+            
+        Returns:
+            int: The number of files found, 0 if not found
+        """
+        try:
+            files_number_span = files_card.locator('span').nth(1)
+            files_number_text = files_number_span.text_content(timeout=1000)
+            
+            files_number_match = re.search(r'\((\d+\+?)\)', files_number_text)
+            if not files_number_match:
+                return 0
+                
+            files_number_str = files_number_match.group(1)
+            return int(files_number_str.rstrip('+'))
+            
+        except Exception as e:
+            logging.warning(f"Error parsing files count: {e}")
+            return 0
+        
 
-    def navigate_to_files_for_account_id(self, account_id: str) -> int:
-        """
-        Navigate to the Files related list for the given account_id.
-        """
-        files_url = f"{SALESFORCE_URL}/lightning/r/Account/{account_id}/related/AttachedContentDocuments/view"
-        logging.info(f"Navigating to Files page for account {account_id}: {files_url}")
-        self.page.goto(files_url)
-        self.page.wait_for_load_state('networkidle', timeout=10000)
+    
 
-        item_count = self.extract_files_count_from_status()
-        return item_count
+    
+
+    
+
 
 
     
