@@ -8,7 +8,7 @@ from salesforce.pages.account_manager import AccountManager
 from salesforce.pages.file_manager import FileManager
 from salesforce.logger import OperationLogger
 from dropbox_client import DropboxClient
-from mock_data import get_mock_accounts
+from salesforce.utils.mock_data import get_mock_accounts
 from salesforce.file_upload import upload_files_for_account
 from salesforce.browser import get_salesforce_page
 

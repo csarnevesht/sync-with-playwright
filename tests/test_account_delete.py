@@ -23,7 +23,7 @@ from playwright.sync_api import sync_playwright, TimeoutError
 import logging
 from salesforce.pages.account_manager import AccountManager
 from salesforce.browser import get_salesforce_page
-from mock_data import get_mock_accounts
+from salesforce.utils.mock_data import get_mock_accounts
 import time
 
 # Configure logging

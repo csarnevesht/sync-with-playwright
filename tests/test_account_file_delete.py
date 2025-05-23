@@ -16,7 +16,7 @@ import logging
 from salesforce.pages.account_manager import AccountManager
 from salesforce.pages.file_manager import FileManager
 from salesforce.browser import get_salesforce_page
-from mock_data import get_mock_accounts
+from salesforce.utils.mock_data import get_mock_accounts
 from salesforce.file_upload import upload_files_for_account
 
 # Configure logging
