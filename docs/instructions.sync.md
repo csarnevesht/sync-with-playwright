@@ -7,7 +7,8 @@ using logic from:
  salesforce account fuzzy search (see salesforce/cmd_fuzzy.py)
 
 
-for each dropbox account folder: use 
+for each dropbox account folder: 
+                use 'Dropbox account folders list' 
     uses fuzzy search in salesforce, 
       if it has an exact match:
         navigates to the salesforce account and gets the list of all the salesforce account files
