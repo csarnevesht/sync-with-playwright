@@ -12,17 +12,29 @@ import dropbox
 from dropbox.exceptions import ApiError
 from dotenv import load_dotenv
 import os
+import logging
 
 from dropbox_renamer.utils.dropbox_utils import (
     get_access_token,
     list_folder_contents,
     clean_dropbox_path,
-    get_DROPBOX_FOLDER
+    get_DROPBOX_FOLDER,
+    get_folder_structure,
+    display_summary
 )
 from dropbox_renamer.utils.file_utils import (
     read_account_folders,
     read_ignored_folders
 )
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+logger = logging.getLogger(__name__)
 
 def list_folders_only(dbx, path, account_folders=None, ignored_folders=None):
     """List only folders in the given path, without their contents."""
@@ -187,136 +199,41 @@ def debug_list_folders(dbx, path):
         return
 
 def main():
-    """Main function to run the script."""
-    parser = argparse.ArgumentParser(description='Analyze Dropbox folder structure.')
-    parser.add_argument('--env-file', '-e', default='.env',
-                      help='Path to .env file (default: .env)')
-    parser.add_argument('--analyze-path', '-p',
-                      help='Analyze folder structure starting from this path (relative to DROPBOX_FOLDER)')
-    parser.add_argument('--show-all', action='store_true',
-                      help='Show all folders except ignored ones (ignores account folders list)')
-    parser.add_argument('--folders-only', action='store_true',
-                      help='List only folders without their contents')
-    parser.add_argument('--accounts-file', '-a',
-                      help='Path to file containing list of account folders (default: accounts/main.txt)')
-    parser.add_argument('--debug-list', action='store_true',
-                      help='Debug: List all folders from Dropbox without any filtering')
-    parser.add_argument('--find-folder',
-                      help='Debug: Search for a specific folder recursively')
-    
+    """Main function to analyze Dropbox folder structure."""
+    parser = argparse.ArgumentParser(description='Analyze Dropbox folder structure')
+    parser.add_argument('--env-file', default='.env', help='Path to .env file')
     args = parser.parse_args()
     
+    # Get absolute path of .env file
+    env_file_abs_path = os.path.abspath(args.env_file)
+    logger.info(f"Using .env file at: {env_file_abs_path}")
+    
+    # Get access token
     try:
-        # Load environment variables once at the start
-        env_file_abs_path = os.path.abspath(args.env_file)
-        print(f"Debug: Loading environment from {env_file_abs_path}")
-        load_dotenv(env_file_abs_path)
-        
-        # Get token from environment
-        token = os.getenv('DROPBOX_TOKEN')
-        if not token:
-            print("Error: DROPBOX_TOKEN not found in environment")
-            return
-            
-        # Get access token (passing the token we already have)
-        access_token = get_access_token(args.env_file, token=token)
-        if not access_token:
-            print("Error: Could not get access token")
-            return
-            
-        # Initialize Dropbox client with app key and secret
-        app_key = os.getenv('DROPBOX_APP_KEY')
-        app_secret = os.getenv('DROPBOX_APP_SECRET')
-        if app_key and app_secret:
-            print(f"Debug: Using app key: {app_key[:5]}...")
-            dbx = dropbox.Dropbox(access_token, app_key=app_key, app_secret=app_secret, timeout=30)
-        else:
-            print("Debug: No app key/secret found, using token only")
-            dbx = dropbox.Dropbox(access_token, timeout=30)
-            
-        # Test the connection before proceeding
-        try:
-            dbx.users_get_current_account()
-        except ApiError as e:
-            if e.error.is_expired_access_token():
-                print("\nError: Your Dropbox access token has expired.")
-                print("\nTo fix this:")
-                print("1. Go to https://www.dropbox.com/developers/apps")
-                print("2. Select your app")
-                print("3. Under 'OAuth 2', click 'Generated access token'")
-                print("4. Generate a new access token")
-                print("5. Update your .env file with the new token:")
-                print(f"   DROPBOX_TOKEN=your_new_token")
-                return
-            else:
-                raise
-        
-        # Get the root folder from environment
-        root_folder = get_DROPBOX_FOLDER(args.env_file)
-        if not root_folder:
-            print("Error: Could not get DROPBOX_FOLDER from environment")
-            return
-            
-        print(f"\n=== Analyzing Folder Structure for {root_folder} ===")
-        
-        # If find-folder is enabled, search recursively for the folder
-        if args.find_folder:
-            print(f"\nSearching for folder: {args.find_folder}")
-            if args.analyze_path:
-                full_path = os.path.join(root_folder, args.analyze_path.lstrip('/'))
-                print(f"Starting search from: {args.analyze_path}")
-                found = debug_list_folders(dbx, full_path)
-            else:
-                found = debug_list_folders(dbx, root_folder)
-            if not found:
-                print(f"\nFolder '{args.find_folder}' not found in any subfolder")
-            return
-        
-        # If debug-list is enabled, just list all folders without filtering
-        if args.debug_list:
-            if args.analyze_path:
-                full_path = os.path.join(root_folder, args.analyze_path.lstrip('/'))
-                print(f"Debug listing subfolder: {args.analyze_path}")
-                debug_list_folders(dbx, full_path)
-            else:
-                debug_list_folders(dbx, root_folder)
-            return
-        
-        # Always read ignored folders
-        ignored_folders = read_ignored_folders()
-        
-        # Read account folders based on options
-        account_folders = None if args.show_all else read_account_folders(args.accounts_file)
-        
-        # Display account folders list when not using --show-all
-        if account_folders and not args.show_all:
-            print("\nDropbox Account folders:")
-            for idx, folder in enumerate(account_folders, 1):
-                ignored_mark = " (ignored)" if ignored_folders and folder in ignored_folders else ""
-                print(f"{idx}. {folder}{ignored_mark}")
-        
-        # If a specific path is provided, analyze that path relative to root_folder
-        if args.analyze_path:
-            full_path = os.path.join(root_folder, args.analyze_path.lstrip('/'))
-            print(f"Analyzing subfolder: {args.analyze_path}")
-            if args.folders_only:
-                counts = list_folders_only(dbx, full_path, account_folders=account_folders, ignored_folders=ignored_folders)
-            else:
-                counts = analyze_folder_structure(dbx, full_path, account_folders=account_folders, ignored_folders=ignored_folders)
-        else:
-            # Analyze the root folder
-            if args.folders_only:
-                counts = list_folders_only(dbx, root_folder, account_folders=account_folders, ignored_folders=ignored_folders)
-            else:
-                counts = analyze_folder_structure(dbx, root_folder, account_folders=account_folders, ignored_folders=ignored_folders)
-        
-        # Display summary
-        display_summary(counts, args.folders_only, ignored_folders, account_folders)
-        
+        token = get_access_token()
+        logger.info(f"Token loaded successfully (length: {len(token)})")
+    except ValueError as e:
+        logger.error(f"Failed to get access token: {str(e)}")
+        return
+    
+    # Initialize Dropbox client
+    try:
+        dbx = dropbox.Dropbox(token)
+        logger.info("Successfully initialized Dropbox client")
     except Exception as e:
-        print(f"Error: {e}")
-        if hasattr(e, 'error'):
-            print(f"Error details: {e.error}")
+        logger.error(f"Failed to initialize Dropbox client: {str(e)}")
+        return
+    
+    # Get folder structure
+    try:
+        folder_structure = get_folder_structure(dbx)
+        logger.info("Successfully retrieved folder structure")
+    except Exception as e:
+        logger.error(f"Failed to get folder structure: {str(e)}")
+        return
+    
+    # Display results
+    display_summary(folder_structure)
 
 if __name__ == "__main__":
     main() 
