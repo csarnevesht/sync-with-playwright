@@ -144,13 +144,10 @@ def analyze_folder_structure(dbx, path, indent=0, account_folders=None, ignored_
 def display_summary(counts, folders_only=False, ignored_folders=None):
     """Display a summary of the analysis results."""
     print("\n=== Summary ===")
-    print(f"Total folders found: {counts['total']}")
     if not folders_only:
-        print(f"Total files found: {counts['files']}")
+        print(f"Total account files: {counts['files']}")
     if counts['allowed'] > 0:
         print(f"Account folders: {counts['allowed']}")
-    if counts['not_allowed'] > 0:
-        print(f"Non-account folders: {counts['not_allowed']}")
     if counts['ignored'] > 0:
         print(f"Ignored folders: {counts['ignored']}")
         if ignored_folders:
