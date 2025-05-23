@@ -11,6 +11,7 @@ from PIL import Image
 import tempfile
 import PyPDF2
 import logging
+import urllib.parse
 
 from salesforce.base_page import BasePage
 from salesforce.utils.debug_utils import debug_prompt
@@ -28,8 +29,14 @@ logging.basicConfig(
 class DropboxClient:
     def __init__(self, token: str, debug_mode: bool = False):
         self.dbx = dropbox.Dropbox(token)
-        self.root_folder = DROPBOX_ROOT_FOLDER
-        self.debug_mode = debug_mode
+        # Extract just the folder name from the path if it's a full URL
+        folder = DROPBOX_ROOT_FOLDER
+        if folder.startswith('http'):
+            # Extract the last part of the path
+            folder = folder.split('/')[-1]
+            # URL decode the folder name
+            folder = urllib.parse.unquote(folder)
+        self.root_folder = folder
         logging.info(f"Initialized DropboxClient with root folder: {self.root_folder}")
         if debug_mode:
             logging.info("Debug mode is enabled")

@@ -1,10 +1,22 @@
+"""
+Test Account Query and Filtering
+
+This test verifies the account query and filtering functionality in Salesforce. It:
+1. Queries accounts with specific conditions (e.g., accounts with files)
+2. Filters accounts based on custom criteria
+3. Verifies the filtered accounts meet the specified conditions
+4. Handles pagination and large result sets
+
+The test includes robust error handling and detailed logging of account details
+including file counts and account IDs.
+"""
+
 import os
 import sys
 from playwright.sync_api import sync_playwright
 import logging
 from salesforce.pages.account_manager import AccountManager
 from salesforce.pages.accounts_page import AccountsPage
-import pytest
 from get_salesforce_page import get_salesforce_page
 
 # Configure logging
@@ -22,7 +34,10 @@ def get_accounts_with_files(account_manager: AccountManager, max_number: int = 5
         max_number: Maximum number of accounts to return (default: 5)
     
     Returns:
-        list: List of accounts with files
+        list: List of accounts with files, each containing:
+            - name: Account name
+            - id: Account ID
+            - files_count: Number of files attached
     """
     try:
         accounts = account_manager.get_accounts_matching_condition(
@@ -31,11 +46,15 @@ def get_accounts_with_files(account_manager: AccountManager, max_number: int = 5
         )
         
         if not accounts:
-            logging.info("No accounts with files were found.")
+            logging.info("No accounts with files were found")
         else:
             logging.info(f"Found {len(accounts)} accounts with files:")
             for account in accounts:
-                logging.info(f"Name: {account['name']}, ID: {account['id']}, Files: {account['files_count']}")
+                logging.info(
+                    f"Account: {account['name']}\n"
+                    f"  ID: {account['id']}\n"
+                    f"  Files: {account['files_count']}"
+                )
         
         return accounts
     except Exception as e:
@@ -43,10 +62,19 @@ def get_accounts_with_files(account_manager: AccountManager, max_number: int = 5
         return []
 
 def test_get_accounts_matching_condition():
-    """Test the get_accounts_matching_condition method of AccountsPage with a custom filter for accounts with more than 0 files."""
+    """
+    Test the account query and filtering functionality.
+    
+    This test verifies that:
+    1. We can query accounts with specific conditions
+    2. The returned accounts meet the specified criteria
+    3. The number of accounts returned is within the specified limit
+    4. Each account has the expected properties (files, ID, etc.)
+    """
     with sync_playwright() as p:
         browser, page = get_salesforce_page(p)
         try:
+            # Initialize managers
             accounts_page = AccountsPage(page, debug_mode=True)
             account_manager = AccountManager(page, debug_mode=True)
 
@@ -58,7 +86,17 @@ def test_get_accounts_matching_condition():
             
             # Verify each account has files
             for account in accounts:
-                assert account_manager.account_has_files(account['id']), f"Account {account['name']} should have files"
+                assert account_manager.account_has_files(account['id']), \
+                    f"Account {account['name']} should have files"
+                
+                # Verify account has required properties
+                assert 'name' in account, f"Account missing name property: {account}"
+                assert 'id' in account, f"Account missing ID property: {account}"
+                assert 'files_count' in account, f"Account missing files_count property: {account}"
+                
+                # Verify files count is a valid number
+                assert isinstance(account['files_count'], (int, str)), \
+                    f"Invalid files_count type for account {account['name']}: {type(account['files_count'])}"
             
             logging.info("Test completed successfully")
 
@@ -70,6 +108,7 @@ def test_get_accounts_matching_condition():
             browser.close()
 
 def main():
+    """Run the account query test."""
     test_get_accounts_matching_condition()
 
 if __name__ == "__main__":

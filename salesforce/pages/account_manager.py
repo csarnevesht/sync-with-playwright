@@ -9,6 +9,7 @@ from config import SALESFORCE_URL
 import sys
 import os
 from salesforce.pages.accounts_page import AccountsPage
+from salesforce.utils.file_utils import get_file_type
 
 class AccountManager(BasePage):
     """Handles account-related operations in Salesforce."""
@@ -598,6 +599,74 @@ class AccountManager(BasePage):
                 return actual_count
             
         return num_files
+
+    def get_all_file_names_for_this_account(self, account_id: str) -> List[str]:
+        """
+        Get all file names associated with an account.
+        
+        Args:
+            account_id: The Salesforce account ID
+            
+        Returns:
+            List[str]: List of file names found in the account
+        """
+        self.logger.info(f"Getting all file names for account {account_id}")
+        
+        try:
+            # Navigate to Files page
+            files_url = f"{SALESFORCE_URL}/lightning/r/Account/{account_id}/related/AttachedContentDocuments/view"
+            self.logger.info(f"Navigating to Files page: {files_url}")
+            self.page.goto(files_url)
+            
+            # Initialize FileManager
+            file_manager_instance = file_manager.FileManager(self.page)
+            
+            # Get initial file count
+            num_files = file_manager_instance.extract_files_count_from_status()
+            self.logger.info(f"Initial number of files: {num_files}")
+            
+            # If we have "50+" files, scroll to load all
+            if isinstance(num_files, str) and '+' in str(num_files):
+                self.logger.info("Found '50+' count, scrolling to load all files...")
+                file_manager_instance.scroll_to_bottom_of_page()
+            
+            # Get all file names and types from the page
+            file_names = []
+            
+            # Wait for the table to be visible
+            self.page.wait_for_selector('table.slds-table', timeout=5000)
+            
+            # Get all file rows
+            file_rows = self.page.locator('table.slds-table tbody tr').all()
+            self.logger.info(f"Found {len(file_rows)} file rows")
+            
+            for i, row in enumerate(file_rows, 1):
+                try:
+                    # Get file name from the title span
+                    title_span = row.locator('span.itemTitle').first
+                    if not title_span:
+                        continue
+                    file_name = title_span.text_content().strip()
+                    
+                    # Get file type from the type column
+                    type_cell = row.locator('td:nth-child(2)').first
+                    if type_cell:
+                        file_type = type_cell.text_content().strip()
+                    else:
+                        file_type = 'Unknown'
+                    
+                    if file_name:
+                        file_names.append(f"{i}. {file_name} [{file_type}]")
+                except Exception as e:
+                    self.logger.warning(f"Error getting file info: {str(e)}")
+                    continue
+            
+            self.logger.info(f"Found {len(file_names)} files")
+            return file_names
+            
+        except Exception as e:
+            self.logger.error(f"Error getting file names: {str(e)}")
+            return []
 
     def get_default_condition(self):
         """Get the default condition for filtering accounts."""
