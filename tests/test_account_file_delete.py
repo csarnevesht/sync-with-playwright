@@ -15,7 +15,7 @@ from playwright.sync_api import sync_playwright
 import logging
 from salesforce.pages.account_manager import AccountManager
 from salesforce.pages.file_manager import FileManager
-from get_salesforce_page import get_salesforce_page
+from salesforce.browser import get_salesforce_page
 from mock_data import get_mock_accounts
 from file_upload import upload_files_for_account
 

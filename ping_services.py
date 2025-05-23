@@ -3,7 +3,7 @@ import sys
 import logging
 from playwright.sync_api import sync_playwright
 from dropbox_client import DropboxClient
-from get_salesforce_page import get_salesforce_page
+from salesforce.browser import get_salesforce_page
 from salesforce.pages.account_manager import AccountManager
 from dropbox.exceptions import ApiError
 from dotenv import load_dotenv
