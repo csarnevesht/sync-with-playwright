@@ -145,9 +145,9 @@ def display_summary(counts, folders_only=False, ignored_folders=None, account_fo
     """Display a summary of the analysis results."""
     print("\n=== Summary ===")
     if not folders_only:
-        print(f"Total account files: {counts['files']}")
+        print(f"Total Dropbox account files: {counts['files']}")
     if counts['allowed'] > 0:
-        print(f"Account folders: {counts['allowed']}")
+        print(f"Dropbox account folders: {counts['allowed']}")
     ignored_account_folders = []
     if ignored_folders and account_folders:
         ignored_account_folders = [folder for folder in account_folders if folder in ignored_folders]
