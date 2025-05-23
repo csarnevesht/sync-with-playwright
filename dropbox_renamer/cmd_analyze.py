@@ -214,7 +214,8 @@ def display_summary(counts, folders_only=False, ignored_folders=None, account_fo
         print(f"Total Dropbox account files: {counts['files']}")
     print(f"Dropbox account folders: {counts['allowed']}")
     
-    if 'allowed_folders' in counts and counts['allowed_folders']:
+    # Always show the list of allowed folders
+    if 'allowed_folders' in counts:
         print("\nDropbox account folders list:")
         for idx, folder in enumerate(sorted(counts['allowed_folders']), 1):
             print(f"{idx}. {folder}")
