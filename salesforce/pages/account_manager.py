@@ -5,7 +5,7 @@ import re
 from salesforce.pages import file_manager
 from ..base_page import BasePage
 from playwright.sync_api import Page
-from config import SALESFORCE_URL
+from sync.config import SALESFORCE_URL
 import sys
 import os
 from salesforce.pages.accounts_page import AccountsPage
