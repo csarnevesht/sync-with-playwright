@@ -233,6 +233,23 @@ def main():
         else:
             print("Debug: No app key/secret found, using token only")
             dbx = dropbox.Dropbox(access_token, timeout=30)
+            
+        # Test the connection before proceeding
+        try:
+            dbx.users_get_current_account()
+        except ApiError as e:
+            if e.error.is_expired_access_token():
+                print("\nError: Your Dropbox access token has expired.")
+                print("\nTo fix this:")
+                print("1. Go to https://www.dropbox.com/developers/apps")
+                print("2. Select your app")
+                print("3. Under 'OAuth 2', click 'Generated access token'")
+                print("4. Generate a new access token")
+                print("5. Update your .env file with the new token:")
+                print(f"   DROPBOX_TOKEN=your_new_token")
+                return
+            else:
+                raise
         
         # Get the root folder from environment
         root_folder = get_DROPBOX_FOLDER(args.env_file)
