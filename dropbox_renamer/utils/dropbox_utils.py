@@ -389,7 +389,7 @@ def get_access_token() -> str:
         load_dotenv()
         token = os.getenv('DROPBOX_TOKEN')
         if token:
-            logger.info("Token loaded from .env file")
+            logger.info("Token loaded from .env file (DROPBOX_TOKEN)")
             return token
     except Exception as e:
         logger.warning(f"Failed to load .env file: {str(e)}")
