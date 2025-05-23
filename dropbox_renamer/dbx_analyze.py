@@ -27,13 +27,11 @@ from dropbox_renamer.utils.file_utils import (
 def list_folders_only(dbx, path, account_folders=None, ignored_folders=None):
     """List only folders in the given path, without their contents."""
     try:
-        # Clean and validate the path
         clean_path = clean_dropbox_path(path)
         if not clean_path:
             print(f"Invalid path: {path}")
             return {'total': 0, 'allowed': 0, 'ignored': 0, 'not_allowed': 0}
 
-        # Try to get metadata first to check if path exists
         try:
             dbx.files_get_metadata(clean_path)
         except ApiError as e:
@@ -43,85 +41,55 @@ def list_folders_only(dbx, path, account_folders=None, ignored_folders=None):
             raise
 
         entries = list_folder_contents(dbx, clean_path)
-        
-        # Initialize counters
         counts = {
             'total': 0,
             'allowed': 0,
             'ignored': 0,
             'not_allowed': 0
         }
-        
-        # Print all folder names for debugging
         print("\nAll folders found in Dropbox:")
         for entry in entries:
             if isinstance(entry, dropbox.files.FolderMetadata):
                 print(f"  - {entry.name}")
-        
-        # Filter and print only folders
         print("\nFiltering folders:")
         for entry in entries:
             if isinstance(entry, dropbox.files.FolderMetadata):
                 folder_name = entry.name
                 counts['total'] += 1
-                
-                # Skip ignored folders
                 if ignored_folders and folder_name in ignored_folders:
                     counts['ignored'] += 1
                     print(f"  - {folder_name} (ignored)")
                     continue
-                
-                # Only show folders that are in the account folders list
                 if account_folders:
-                    # Normalize strings for comparison
                     normalized_folder_name = folder_name.strip()
                     normalized_account_folders = [acct.strip() for acct in account_folders]
-                    
-                    # Debug: Print normalized values
-                    print(f"\nComparing folder: {repr(normalized_folder_name)}")
-                    print("Against account folders:")
-                    for acct in normalized_account_folders:
-                        print(f"  {repr(acct)}")
-                    
-                    # Try exact match first
                     if normalized_folder_name in normalized_account_folders:
                         print(f"  + {folder_name} (matched)")
                         counts['allowed'] += 1
                     else:
-                        # Try case-insensitive match
                         normalized_folder_name_lower = normalized_folder_name.lower()
                         normalized_account_folders_lower = [acct.lower() for acct in normalized_account_folders]
-                        
                         if normalized_folder_name_lower in normalized_account_folders_lower:
                             print(f"  + {folder_name} (matched case-insensitive)")
                             counts['allowed'] += 1
                         else:
                             print(f"  - {folder_name} (not in account_folders)")
-                            # Debug: show repr of both Dropbox and account folder names
-                            print(f"    (repr Dropbox) {repr(folder_name)}")
-                            for acct in account_folders:
-                                print(f"    (repr Account) {repr(acct)}")
                             counts['not_allowed'] += 1
                 else:
                     print(f"  + {folder_name}")
                     counts['allowed'] += 1
-                
         return counts
-                
     except ApiError as e:
         print(f"Error listing folders for {path}: {e}")
         return {'total': 0, 'allowed': 0, 'ignored': 0, 'not_allowed': 0}
 
 def analyze_folder_structure(dbx, path, indent=0, account_folders=None, ignored_folders=None):
-    """Recursively analyze and print the folder structure."""
+    """Recursively analyze and print the folder structure, only including files in account folders."""
     try:
-        # Clean and validate the path
         clean_path = clean_dropbox_path(path)
         if not clean_path:
             print(f"Invalid path: {path}")
             return {'total': 0, 'allowed': 0, 'ignored': 0, 'not_allowed': 0, 'files': 0}
-
-        # Try to get metadata first to check if path exists
         try:
             dbx.files_get_metadata(clean_path)
         except ApiError as e:
@@ -129,10 +97,7 @@ def analyze_folder_structure(dbx, path, indent=0, account_folders=None, ignored_
                 print(f"Path not found: {clean_path}")
                 return {'total': 0, 'allowed': 0, 'ignored': 0, 'not_allowed': 0, 'files': 0}
             raise
-
         entries = list_folder_contents(dbx, clean_path)
-        
-        # Initialize counters
         counts = {
             'total': 0,
             'allowed': 0,
@@ -140,38 +105,22 @@ def analyze_folder_structure(dbx, path, indent=0, account_folders=None, ignored_
             'not_allowed': 0,
             'files': 0
         }
-        
         for entry in entries:
-            # Print the current entry with proper indentation
             prefix = "  " * indent
             if isinstance(entry, dropbox.files.FolderMetadata):
                 folder_name = entry.name
                 counts['total'] += 1
-                
-                # Skip ignored folders
                 if ignored_folders and folder_name in ignored_folders:
                     counts['ignored'] += 1
                     continue
-                
-                # Only show folders that are in the account folders list
                 if account_folders:
-                    # Normalize strings for comparison
                     normalized_folder_name = folder_name.strip()
                     normalized_account_folders = [acct.strip() for acct in account_folders]
-                    
-                    # Debug: Print normalized values
-                    print(f"\nComparing folder: {repr(normalized_folder_name)}")
-                    print("Against account folders:")
-                    for acct in normalized_account_folders:
-                        print(f"  {repr(acct)}")
-                    
-                    # Try exact match first
                     if normalized_folder_name in normalized_account_folders:
                         print(f"{prefix}📁 {folder_name}")
                         counts['allowed'] += 1
-                        # Recursively analyze subfolders
+                        # Only recurse and print files for account folders
                         sub_counts = analyze_folder_structure(dbx, entry.path_display, indent + 1, account_folders, ignored_folders)
-                        # Add subfolder counts
                         for key in counts:
                             counts[key] += sub_counts[key]
                     else:
@@ -179,17 +128,15 @@ def analyze_folder_structure(dbx, path, indent=0, account_folders=None, ignored_
                 else:
                     print(f"{prefix}📁 {folder_name}")
                     counts['allowed'] += 1
-                    # Recursively analyze subfolders
                     sub_counts = analyze_folder_structure(dbx, entry.path_display, indent + 1, account_folders, ignored_folders)
-                    # Add subfolder counts
                     for key in counts:
                         counts[key] += sub_counts[key]
             else:
-                print(f"{prefix}📄 {entry.name}")
-                counts['files'] += 1
-                
+                # Only print files if we are inside an account folder (indent > 0 and parent is allowed)
+                if indent > 0:
+                    print(f"{prefix}📄 {entry.name}")
+                    counts['files'] += 1
         return counts
-                
     except ApiError as e:
         print(f"Error analyzing folder {path}: {e}")
         return {'total': 0, 'allowed': 0, 'ignored': 0, 'not_allowed': 0, 'files': 0}
@@ -312,7 +259,9 @@ def main():
         
         # Display account folders list when not using --show-all
         if account_folders and not args.show_all:
-            print(f"\nAccount folders: {', '.join(account_folders)}")
+            print("\nAccount folders:")
+            for folder in account_folders:
+                print(folder)
         
         # If a specific path is provided, analyze that path relative to root_folder
         if args.analyze_path:
