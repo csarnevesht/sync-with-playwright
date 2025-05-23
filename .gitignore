@@ -45,3 +45,5 @@ chrome-debug-profile/**/
 chrome-debug-profile/Default/**
 chrome-debug-profile/Local State
 data/
+account_folders.txt
+account_folders.txt.sv

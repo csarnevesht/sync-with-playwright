@@ -2,7 +2,7 @@
 Test Account Fuzzy Search
 
 This test verifies the fuzzy search functionality for accounts in Salesforce. It:
-1. Takes a list of account folder names
+1. Takes a list of account folder names from a file
 2. Extracts the last name from each folder name
 3. Searches for accounts in Salesforce CRM using the last name
 4. Verifies the search results
@@ -10,7 +10,7 @@ This test verifies the fuzzy search functionality for accounts in Salesforce. It
 
 import os
 import sys
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, TimeoutError
 import logging
 from salesforce.pages.account_manager import AccountManager
 from get_salesforce_page import get_salesforce_page
@@ -22,34 +22,38 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-# List of account folder names
-ACCOUNT_FOLDERS = [
-    "Alexander & Armelia Rolle",
-    "Alvarez, Vilma (Medicaid Mike)",
-    "Amaran Martin & Teresita",
-    "Andrews, Kathleen",
-    "Ayers, Charles nephew Wes Myers",
-    "Barnett, Audrey daughter Susan Stewart",
-    "Bauer Glenn and Brenda",
-    "Bishop, Sonia (Mike)",
-    "Brundage, Arnold (Mike)",
-    "Busto Pina, Rosa Daughter Carolina (Medicaid Mike)",
-    "Campos, Maria",
-    "Cohen, Beverly",
-    "Colon, Noel (Medicaid Mike)",
-    "Dilts, Suetta",
-    "Fitzgerald Bridget daughter Elizabeth Robbert",
-    "Frost, Theresia (Mike)",
-    "Garica, Nicolas & Daughter Marie Chavarri (Medicaid Mike)",
-    "Jones, Elisa son Charles Byron Jones IIIII",
-    "Kazakian, George (Mike)",
-    "Matalon, Dennis",
-    "McNabb, Frances daughter Pam Murphy",
-    "Montesino, Maria",
-    "Strinko Mary sons Greg and Steve",
-    "Whitfield, Paul  daughter Musibay",
-    "Yi, Francisco (Medicaid Mike)"
-]
+def read_account_folders(file_path: str) -> list:
+    """
+    Read account folders from a file.
+    
+    Args:
+        file_path: Path to the file containing account folders
+        
+    Returns:
+        list: List of account folder names
+    """
+    try:
+        with open(file_path, 'r') as f:
+            # Read lines and strip whitespace, skip empty lines
+            folders = [line.strip() for line in f if line.strip()]
+        logging.info(f"Read {len(folders)} account folders from {file_path}")
+        return folders
+    except Exception as e:
+        logging.error(f"Error reading account folders file: {str(e)}")
+        return []
+
+# Get the root directory (parent of tests directory)
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Construct path to account_folders.txt in root directory
+account_folders_file = os.path.join(root_dir, 'account_folders.txt')
+
+# Read account folders from file
+ACCOUNT_FOLDERS = read_account_folders(account_folders_file)
+
+# If no folders were read, use a default for testing
+if not ACCOUNT_FOLDERS:
+    logging.warning("No account folders read from file, using default test folder")
+    ACCOUNT_FOLDERS = ["Andrews, Kathleen"]
 
 def extract_name_parts(folder_name: str) -> dict:
     """
@@ -100,6 +104,7 @@ def extract_name_parts(folder_name: str) -> dict:
         # Split remaining name parts
         name_parts = main_name.split()
         if len(name_parts) >= 2:
+            # Last word is the last name
             result['last_name'] = name_parts[-1]
             result['first_name'] = name_parts[0]
             if len(name_parts) > 2:
@@ -107,7 +112,58 @@ def extract_name_parts(folder_name: str) -> dict:
         else:
             result['last_name'] = main_name
     
+    logging.info(f"Extracted name parts from '{folder_name}': {result}")
     return result
+
+def get_account_names(page) -> list:
+    """
+    Extract account names from the current page.
+    
+    Args:
+        page: The Playwright page object
+        
+    Returns:
+        list: List of account names found on the page
+    """
+    account_names = []
+    try:
+        # Wait for table with timeout
+        page.wait_for_selector('table[role="grid"]', timeout=5000)
+        
+        # Get all account rows
+        rows = page.locator('table[role="grid"] tr').all()
+        logging.info(f"Found {len(rows)} rows in the table")
+        
+        # Skip header row
+        for row in rows[1:]:  # Skip the first row (header)
+            try:
+                # Try different selectors to find the account name
+                selectors = [
+                    'td:first-child a',  # Standard link in first cell
+                    'td:first-child',    # First cell if no link
+                    'td a',              # Any link in the row
+                    'td'                 # Any cell
+                ]
+                
+                for selector in selectors:
+                    element = row.locator(selector).first
+                    if element.count() > 0:
+                        account_name = element.text_content(timeout=1000)
+                        if account_name and account_name.strip():
+                            account_names.append(account_name.strip())
+                            logging.info(f"Found account using selector '{selector}': {account_name.strip()}")
+                            break
+            except Exception as e:
+                logging.warning(f"Error getting account name: {str(e)}")
+                continue
+    except TimeoutError:
+        logging.error("Timeout waiting for account table")
+    except Exception as e:
+        logging.error(f"Error extracting account names: {str(e)}")
+    
+    logging.info(f"Total accounts extracted: {len(account_names)}")
+    logging.info(f"Extracted accounts: {account_names}")
+    return account_names
 
 def test_accounts_fuzzy_find():
     """
@@ -144,162 +200,143 @@ def test_accounts_fuzzy_find():
                     'search_attempts': []
                 }
                 
-                # Select "All Clients" view
-                logging.info("Selecting 'All Clients' view...")
-                accounts_page.select_list_view("All Clients")
-                
-                # Search by last name first
-                logging.info(f"Attempt 1/3: Searching by last name '{name_parts['last_name']}'...")
-                search_result = account_manager.search_account(name_parts['last_name'], view_name="All Clients")
-                
-                # Get matching account names
-                matching_accounts = []
-                if search_result > 0:
-                    logging.info(f"Found {search_result} matches, extracting account names...")
-                    # Get all account rows
-                    account_rows = page.locator('table[role="grid"] tr').all()
-                    for row in account_rows:
-                        try:
-                            name_cell = row.locator('td:first-child a').first
-                            if name_cell:
-                                account_name = name_cell.text_content().strip()
-                                matching_accounts.append(account_name)
-                        except Exception as e:
-                            logging.warning(f"Error getting account name: {str(e)}")
-                
-                results[folder_name]['search_attempts'].append({
-                    'type': 'last_name',
-                    'query': name_parts['last_name'],
-                    'matches': search_result,
-                    'matching_accounts': matching_accounts
-                })
-                logging.info(f"Last name search complete: {search_result} matches")
-                
-                if search_result > 0:
-                    # If we found matches, try to find the exact account
-                    if name_parts['first_name']:
-                        full_name = f"{name_parts['first_name']} {name_parts['last_name']}"
-                        logging.info(f"Attempt 2/3: Checking for exact match '{full_name}'...")
-                        if account_manager.account_exists(full_name, view_name="All Clients"):
-                            logging.info(f"Found exact match: {full_name}")
-                            results[folder_name]['status'] = 'Exact Match'
-                            results[folder_name]['matches'].append(full_name)
-                            continue
+                try:
+                    # Select "All Clients" view with timeout
+                    logging.info("Selecting 'All Clients' view...")
+                    if not accounts_page.select_list_view("All Clients"):
+                        logging.error("Failed to select 'All Clients' view")
+                        continue
                     
-                    # If no exact match, try searching with first name
-                    if name_parts['first_name']:
-                        logging.info(f"Attempt 2/3: Searching with full name '{name_parts['first_name']} {name_parts['last_name']}'...")
-                        search_result = account_manager.search_account(f"{name_parts['first_name']} {name_parts['last_name']}", view_name="All Clients")
-                        
-                        # Get matching account names
-                        matching_accounts = []
-                        if search_result > 0:
-                            logging.info(f"Found {search_result} matches, extracting account names...")
-                            account_rows = page.locator('table[role="grid"] tr').all()
-                            for row in account_rows:
-                                try:
-                                    name_cell = row.locator('td:first-child a').first
-                                    if name_cell:
-                                        account_name = name_cell.text_content().strip()
-                                        matching_accounts.append(account_name)
-                                except Exception as e:
-                                    logging.warning(f"Error getting account name: {str(e)}")
-                        
-                        results[folder_name]['search_attempts'].append({
-                            'type': 'full_name',
-                            'query': f"{name_parts['first_name']} {name_parts['last_name']}",
-                            'matches': search_result,
-                            'matching_accounts': matching_accounts
-                        })
-                        logging.info(f"Full name search complete: {search_result} matches")
+                    # Search by last name first with timeout
+                    logging.info(f"Attempt 1/3: Searching by last name '{name_parts['last_name']}'...")
+                    search_result = account_manager.search_account(name_parts['last_name'], view_name="All Clients")
                     
-                    # If still no match, try searching with additional info
-                    if name_parts['additional_info']:
-                        search_query = f"{name_parts['last_name']} {name_parts['additional_info']}"
-                        logging.info(f"Attempt 3/3: Searching with additional info '{search_query}'...")
-                        search_result = account_manager.search_account(search_query, view_name="All Clients")
-                        
-                        # Get matching account names
-                        matching_accounts = []
-                        if search_result > 0:
-                            logging.info(f"Found {search_result} matches, extracting account names...")
-                            account_rows = page.locator('table[role="grid"] tr').all()
-                            for row in account_rows:
-                                try:
-                                    name_cell = row.locator('td:first-child a').first
-                                    if name_cell:
-                                        account_name = name_cell.text_content().strip()
-                                        matching_accounts.append(account_name)
-                                except Exception as e:
-                                    logging.warning(f"Error getting account name: {str(e)}")
-                        
-                        results[folder_name]['search_attempts'].append({
-                            'type': 'with_additional_info',
-                            'query': search_query,
-                            'matches': search_result,
-                            'matching_accounts': matching_accounts
-                        })
-                        logging.info(f"Additional info search complete: {search_result} matches")
+                    # Get matching account names
+                    matching_accounts = []
+                    if search_result > 0:
+                        logging.info(f"Found {search_result} matches, extracting account names...")
+                        matching_accounts = get_account_names(page)
+                        logging.info(f"Extracted account names: {matching_accounts}")
                     
-                    # Update status if we found any matches
-                    if any(attempt['matches'] > 0 for attempt in results[folder_name]['search_attempts']):
-                        results[folder_name]['status'] = 'Partial Match'
-                        # Add all unique matching accounts to the matches list
-                        all_matches = set()
-                        for attempt in results[folder_name]['search_attempts']:
-                            all_matches.update(attempt['matching_accounts'])
-                        results[folder_name]['matches'] = sorted(list(all_matches))
-                else:
-                    logging.info(f"No matches found for {name_parts['last_name']}")
+                    results[folder_name]['search_attempts'].append({
+                        'type': 'last_name',
+                        'query': name_parts['last_name'],
+                        'matches': search_result,
+                        'matching_accounts': matching_accounts
+                    })
+                    logging.info(f"Last name search complete: {search_result} matches")
+                    logging.info(f"Stored matching accounts: {matching_accounts}")
+                    
+                    if search_result > 0:
+                        # If we found matches, try to find the exact account
+                        if name_parts['first_name']:
+                            full_name = f"{name_parts['first_name']} {name_parts['last_name']}"
+                            logging.info(f"Attempt 2/3: Checking for exact match '{full_name}'...")
+                            if account_manager.account_exists(full_name, view_name="All Clients"):
+                                logging.info(f"Found exact match: {full_name}")
+                                results[folder_name]['status'] = 'Exact Match'
+                                results[folder_name]['matches'].append(full_name)
+                                # Add the exact match to the last search attempt's matching_accounts
+                                if results[folder_name]['search_attempts']:
+                                    results[folder_name]['search_attempts'][-1]['matching_accounts'].append(full_name)
+                                continue
+                        
+                        # If no exact match, try searching with first name
+                        if name_parts['first_name']:
+                            logging.info(f"Attempt 2/3: Searching with full name '{name_parts['first_name']} {name_parts['last_name']}'...")
+                            search_result = account_manager.search_account(f"{name_parts['first_name']} {name_parts['last_name']}", view_name="All Clients")
+                            
+                            # Get matching account names
+                            matching_accounts = []
+                            if search_result > 0:
+                                logging.info(f"Found {search_result} matches, extracting account names...")
+                                matching_accounts = get_account_names(page)
+                                logging.info(f"Extracted account names: {matching_accounts}")
+                            
+                            results[folder_name]['search_attempts'].append({
+                                'type': 'full_name',
+                                'query': f"{name_parts['first_name']} {name_parts['last_name']}",
+                                'matches': search_result,
+                                'matching_accounts': matching_accounts
+                            })
+                            logging.info(f"Full name search complete: {search_result} matches")
+                            logging.info(f"Stored matching accounts: {matching_accounts}")
+                        
+                        # If still no match, try searching with additional info
+                        if name_parts['additional_info']:
+                            search_query = f"{name_parts['last_name']} {name_parts['additional_info']}"
+                            logging.info(f"Attempt 3/3: Searching with additional info '{search_query}'...")
+                            search_result = account_manager.search_account(search_query, view_name="All Clients")
+                            
+                            # Get matching account names
+                            matching_accounts = []
+                            if search_result > 0:
+                                logging.info(f"Found {search_result} matches, extracting account names...")
+                                matching_accounts = get_account_names(page)
+                                logging.info(f"Extracted account names: {matching_accounts}")
+                            
+                            results[folder_name]['search_attempts'].append({
+                                'type': 'with_additional_info',
+                                'query': search_query,
+                                'matches': search_result,
+                                'matching_accounts': matching_accounts
+                            })
+                            logging.info(f"Additional info search complete: {search_result} matches")
+                            logging.info(f"Stored matching accounts: {matching_accounts}")
+                        
+                        # Update status if we found any matches
+                        if any(attempt['matches'] > 0 for attempt in results[folder_name]['search_attempts']):
+                            results[folder_name]['status'] = 'Partial Match'
+                            # Add all unique matching accounts to the matches list
+                            all_matches = set()
+                            for attempt in results[folder_name]['search_attempts']:
+                                if attempt['matching_accounts']:
+                                    all_matches.update(attempt['matching_accounts'])
+                            results[folder_name]['matches'] = list(all_matches)
+                            logging.info(f"Found partial matches: {list(all_matches)}")
                 
-                logging.info(f"Completed processing folder {index}/{total_folders}")
+                except TimeoutError as e:
+                    logging.error(f"Timeout error processing folder {folder_name}: {str(e)}")
+                    continue
+                except Exception as e:
+                    logging.error(f"Error processing folder {folder_name}: {str(e)}")
+                    continue
             
-            # Print summary report
-            logging.info("\n" + "="*80)
-            logging.info("SUMMARY REPORT")
-            logging.info("="*80)
-            
-            # Count statistics
-            exact_matches = sum(1 for r in results.values() if r['status'] == 'Exact Match')
-            partial_matches = sum(1 for r in results.values() if r['status'] == 'Partial Match')
-            not_found = sum(1 for r in results.values() if r['status'] == 'Not Found')
-            
-            logging.info(f"\nTotal folders processed: {total_folders}")
-            logging.info(f"Exact matches found: {exact_matches}")
-            logging.info(f"Partial matches found: {partial_matches}")
-            logging.info(f"No matches found: {not_found}")
-            
-            # Print detailed results
-            logging.info("\nDetailed Results:")
-            logging.info("-"*80)
-            
-            for index, (folder_name, result) in enumerate(results.items(), 1):
-                logging.info(f"\n[{index}/{total_folders}] Folder: {folder_name}")
-                logging.info(f"Status: {result['status']}")
-                if result['matches']:
-                    logging.info("Matching accounts found:")
-                    for match in result['matches']:
-                        logging.info(f"  - {match}")
-                logging.info("Search attempts:")
+            # Print results summary
+            logging.info("\n=== SALESFORCE ACCOUNT MATCHES ===")
+            for folder_name, result in results.items():
+                logging.info(f"\n📁 Searching for: {folder_name}")
+                logging.info(f"📊 Status: {result['status']}")
+                
+                # Show all unique matches found across all search attempts
+                all_matches = set()
                 for attempt in result['search_attempts']:
-                    logging.info(f"  - {attempt['type']}: '{attempt['query']}' -> {attempt['matches']} matches")
                     if attempt['matching_accounts']:
-                        logging.info("    Matching accounts:")
-                        for account in attempt['matching_accounts']:
-                            logging.info(f"      * {account}")
-            
-            logging.info("\n" + "="*80)
+                        all_matches.update(attempt['matching_accounts'])
+                # Also include matches from the main matches list
+                all_matches.update(result['matches'])
                 
+                if all_matches:
+                    logging.info("\n✅ All matching accounts found in Salesforce:")
+                    for match in sorted(all_matches):
+                        logging.info(f"   • {match}")
+                else:
+                    logging.info("\n❌ No matching accounts found in Salesforce")
+                
+                logging.info("\n🔍 Search details:")
+                for attempt in result['search_attempts']:
+                    if attempt['matching_accounts']:
+                        logging.info(f"\n   Search type: {attempt['type']}")
+                        logging.info(f"   Query used: '{attempt['query']}'")
+                        logging.info(f"   Found {attempt['matches']} matches:")
+                        for account in sorted(attempt['matching_accounts']):
+                            logging.info(f"      - {account}")
+                logging.info("=" * 50)
+            
         except Exception as e:
-            logging.error(f"Test failed: {str(e)}")
-            page.screenshot(path="test-failure.png")
-            raise
+            logging.error(f"Test failed with error: {str(e)}")
         finally:
             browser.close()
 
-def main():
-    """Run the fuzzy search test."""
-    test_accounts_fuzzy_find()
-
 if __name__ == "__main__":
-    main() 
+    test_accounts_fuzzy_find() 
