@@ -82,20 +82,26 @@ def accounts_fuzzy_search(accounts_file: str = None):
             for folder_name, result in results.items():
                 print(f"\n📁 Searching for: {folder_name}")
                 print(f"📊 Status: {result['status']}")
-                # Show all unique matches found across all search attempts
-                all_matches = set()
-                for attempt in result['search_attempts']:
-                    if attempt['matching_accounts']:
-                        all_matches.update(attempt['matching_accounts'])
-                # Also include matches from the main matches list
-                all_matches.update(result['matches'])
-                if all_matches:
-                    print("\n✅ All matching accounts found in Salesforce:")
-                    for match in sorted(all_matches):
+                
+                # Show exact matches
+                print("\n🔍 Exact Matches:")
+                exact_matches = [match for match in result['matches'] if match in [attempt['query'] for attempt in result['search_attempts']]]
+                if exact_matches:
+                    for match in sorted(exact_matches):
                         print(f"   • {match}")
                 else:
-                    print("\n❌ No matching accounts found in Salesforce")
-                print("\n🔍 Search details:")
+                    print("   • None found")
+                
+                # Show partial matches
+                print("\n🔍 Partial Matches:")
+                partial_matches = [match for match in result['matches'] if match not in exact_matches]
+                if partial_matches:
+                    for match in sorted(partial_matches):
+                        print(f"   • {match}")
+                else:
+                    print("   • None found")
+                
+                print("\n📝 Search details:")
                 for attempt in result['search_attempts']:
                     if attempt['matching_accounts']:
                         print(f"\n   Search type: {attempt['type']}")

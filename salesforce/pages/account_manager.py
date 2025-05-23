@@ -1143,62 +1143,74 @@ class AccountManager(BasePage):
             })
             
             if search_result > 0:
-                # If we found matches, try to find the exact account
-                if name_parts['first_name']:
+                # Check for exact matches
+                exact_matches = []
+                partial_matches = []
+                
+                # Check for exact matches based on name parts
+                if name_parts['first_name'] and name_parts['last_name']:
                     full_name = f"{name_parts['first_name']} {name_parts['last_name']}"
-                    self.logger.info(f"Attempt 2/3: Checking for exact match '{full_name}'...")
-                    if self.account_exists(full_name, view_name=view_name):
-                        self.logger.info(f"Found exact match: {full_name}")
-                        result['status'] = 'Exact Match'
-                        result['matches'].append(full_name)
-                        return result
+                    reverse_name = f"{name_parts['last_name']} {name_parts['first_name']}"
+                    
+                    # Check for exact matches in the found accounts
+                    for account in matching_accounts:
+                        if account.lower() == full_name.lower() or account.lower() == reverse_name.lower():
+                            exact_matches.append(account)
+                        else:
+                            partial_matches.append(account)
                 
-                # If no exact match, try searching with first name
-                if name_parts['first_name']:
-                    self.logger.info(f"Attempt 2/3: Searching with full name '{name_parts['first_name']} {name_parts['last_name']}'...")
-                    search_result = self.search_account(f"{name_parts['first_name']} {name_parts['last_name']}", view_name=view_name)
+                # If we have exact matches, update the result
+                if exact_matches:
+                    result['status'] = 'Exact Match'
+                    result['matches'] = exact_matches
+                else:
+                    # If no exact matches, try searching with first name
+                    if name_parts['first_name']:
+                        self.logger.info(f"Attempt 2/3: Searching with full name '{name_parts['first_name']} {name_parts['last_name']}'...")
+                        search_result = self.search_account(f"{name_parts['first_name']} {name_parts['last_name']}", view_name=view_name)
+                        
+                        # Get matching account names
+                        matching_accounts = []
+                        if search_result > 0:
+                            self.logger.info(f"Found {search_result} matches, extracting account names...")
+                            matching_accounts = self.get_account_names()
+                        
+                        result['search_attempts'].append({
+                            'type': 'full_name',
+                            'query': f"{name_parts['first_name']} {name_parts['last_name']}",
+                            'matches': search_result,
+                            'matching_accounts': matching_accounts
+                        })
+                        
+                        # Add any new matches to partial matches
+                        partial_matches.extend([m for m in matching_accounts if m not in partial_matches])
                     
-                    # Get matching account names
-                    matching_accounts = []
-                    if search_result > 0:
-                        self.logger.info(f"Found {search_result} matches, extracting account names...")
-                        matching_accounts = self.get_account_names()
+                    # If still no match, try searching with additional info
+                    if name_parts['additional_info']:
+                        search_query = f"{name_parts['last_name']} {name_parts['additional_info']}"
+                        self.logger.info(f"Attempt 3/3: Searching with additional info '{search_query}'...")
+                        search_result = self.search_account(search_query, view_name=view_name)
+                        
+                        # Get matching account names
+                        matching_accounts = []
+                        if search_result > 0:
+                            self.logger.info(f"Found {search_result} matches, extracting account names...")
+                            matching_accounts = self.get_account_names()
+                        
+                        result['search_attempts'].append({
+                            'type': 'with_additional_info',
+                            'query': search_query,
+                            'matches': search_result,
+                            'matching_accounts': matching_accounts
+                        })
+                        
+                        # Add any new matches to partial matches
+                        partial_matches.extend([m for m in matching_accounts if m not in partial_matches])
                     
-                    result['search_attempts'].append({
-                        'type': 'full_name',
-                        'query': f"{name_parts['first_name']} {name_parts['last_name']}",
-                        'matches': search_result,
-                        'matching_accounts': matching_accounts
-                    })
-                
-                # If still no match, try searching with additional info
-                if name_parts['additional_info']:
-                    search_query = f"{name_parts['last_name']} {name_parts['additional_info']}"
-                    self.logger.info(f"Attempt 3/3: Searching with additional info '{search_query}'...")
-                    search_result = self.search_account(search_query, view_name=view_name)
-                    
-                    # Get matching account names
-                    matching_accounts = []
-                    if search_result > 0:
-                        self.logger.info(f"Found {search_result} matches, extracting account names...")
-                        matching_accounts = self.get_account_names()
-                    
-                    result['search_attempts'].append({
-                        'type': 'with_additional_info',
-                        'query': search_query,
-                        'matches': search_result,
-                        'matching_accounts': matching_accounts
-                    })
-                
-                # Update status if we found any matches
-                if any(attempt['matches'] > 0 for attempt in result['search_attempts']):
-                    result['status'] = 'Partial Match'
-                    # Add all unique matching accounts to the matches list
-                    all_matches = set()
-                    for attempt in result['search_attempts']:
-                        if attempt['matching_accounts']:
-                            all_matches.update(attempt['matching_accounts'])
-                    result['matches'] = list(all_matches)
+                    # Update status if we found any matches
+                    if partial_matches:
+                        result['status'] = 'Partial Match'
+                        result['matches'] = partial_matches
             
         except Exception as e:
             self.logger.error(f"Error in fuzzy search: {str(e)}")
