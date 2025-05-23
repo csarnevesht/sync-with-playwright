@@ -3,7 +3,7 @@ import logging
 import re
 
 from salesforce.pages import file_manager
-from ..base_page import BasePage
+from .base_page import BasePage
 from playwright.sync_api import Page
 from sync.config import SALESFORCE_URL
 import sys
