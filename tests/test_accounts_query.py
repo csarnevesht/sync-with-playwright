@@ -17,11 +17,11 @@ from playwright.sync_api import sync_playwright
 import logging
 from salesforce.pages.account_manager import AccountManager
 from salesforce.pages.accounts_page import AccountsPage
-from get_salesforce_page import get_salesforce_page
+from salesforce.utils.browser import get_salesforce_page
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 

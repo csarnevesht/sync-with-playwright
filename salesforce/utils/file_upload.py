@@ -239,5 +239,4 @@ def upload_files_for_account(page: Page, account: dict, debug_mode: bool = True,
     except Exception as e:
         logging.error(f"Error in upload_files_for_account: {str(e)}")
         page.screenshot(path="upload-error-main.png")
-        return False
-        
+        return False 

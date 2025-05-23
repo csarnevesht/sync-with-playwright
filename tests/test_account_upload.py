@@ -15,10 +15,10 @@ import os
 import sys
 from playwright.sync_api import sync_playwright
 import logging
-from file_upload import upload_files_for_account
+from salesforce.utils.file_upload import upload_files_for_account
 from salesforce.pages.account_manager import AccountManager
-from get_salesforce_page import get_salesforce_page
-from mock_data import get_mock_accounts
+from salesforce.utils.browser import get_salesforce_page
+from salesforce.utils.mock_data import get_mock_accounts
 
 # Configure logging
 logging.basicConfig(
@@ -50,7 +50,7 @@ def test_account_upload():
             logging.info(f"Processing account: {full_name}")
             
             # Create account if it doesn't exist
-            if not account_manager.account_exists(full_name):
+            if not account_manager.account_exists(full_name, view_name="My Clients"):
                 logging.info(f"Account {full_name} does not exist, creating it...")
                 created = account_manager.create_new_account(
                     first_name=test_account['first_name'],
