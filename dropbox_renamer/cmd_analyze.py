@@ -261,7 +261,8 @@ def main():
         if account_folders and not args.show_all:
             print("\nDropbox Account folders:")
             for idx, folder in enumerate(account_folders, 1):
-                print(f"{idx}. {folder}")
+                ignored_mark = " (ignored)" if ignored_folders and folder in ignored_folders else ""
+                print(f"{idx}. {folder}{ignored_mark}")
         
         # If a specific path is provided, analyze that path relative to root_folder
         if args.analyze_path:
