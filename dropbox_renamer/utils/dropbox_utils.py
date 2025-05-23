@@ -25,11 +25,10 @@ from .config import DROPBOX_ROOT_FOLDER, ACCOUNT_INFO_PATTERN, DRIVERS_LICENSE_P
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('dropbox_sync.log'),
-        logging.StreamHandler()
-    ]
+    datefmt='%Y-%m-%d %H:%M:%S'
 )
+
+logger = logging.getLogger(__name__)
 
 # Set Dropbox logger level to WARNING to suppress INFO messages
 logging.getLogger('dropbox').setLevel(logging.WARNING)
