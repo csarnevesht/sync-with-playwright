@@ -389,6 +389,10 @@ def get_access_token(env_file):
     if token:
         print(f"Debug: Token length: {len(token)}")
         print(f"Debug: Token first 10 chars: {token[:10]}...")
+        print(f"Debug: Token last 10 chars: {token[-10:]}...")
+        print(f"Debug: Raw token value: '{token}'")  # Print raw token with quotes to see whitespace
+        print(f"Debug: Token contains newlines: {'Yes' if '\\n' in token else 'No'}")
+        print(f"Debug: Token contains spaces: {'Yes' if ' ' in token else 'No'}")
     
     # If no token found, prompt user
     if not token:
