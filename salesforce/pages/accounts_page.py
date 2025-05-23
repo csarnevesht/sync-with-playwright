@@ -220,7 +220,7 @@ class AccountsPage:
                     # Log the outer HTML of the row for debugging
                     try:
                         outer_html = row.evaluate('el => el.outerHTML')
-                        logging.debug(f"Row {idx} outer HTML: {outer_html}")
+                        # logging.debug(f"Row {idx} outer HTML: {outer_html}")
                         for handler in logging.getLogger().handlers:
                             handler.flush()
                     except Exception as e:
