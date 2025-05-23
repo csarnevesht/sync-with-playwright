@@ -642,10 +642,8 @@ class AccountManager(BasePage):
                     if i == 1 or i % 10 == 0:
                         self.logger.info(f"Processing file {i}/{total_rows} ({(i/total_rows)*100:.1f}%)")
                     
-                    logging.info(f"Row: {row}")
                     # Get file name
                     title_span = row.locator('span.itemTitle').first
-                    logging.info(f"Title span: {title_span}")
                     if not title_span:
                         self.logger.warning(f"Skipping row {i}: No title span found")
                         continue
@@ -662,7 +660,13 @@ class AccountManager(BasePage):
                         if type_cell:
                             type_text = type_cell.text_content(timeout=1000).strip()
                             if type_text:
-                                file_type = type_text.upper()
+                                # Extract just the file type by removing the filename part
+                                # The filename part starts with a number or is all caps
+                                type_match = re.match(r'^([A-Za-z\s]+)(?=\d|[A-Z]{2,})', type_text)
+                                if type_match:
+                                    file_type = type_match.group(1).strip()
+                                else:
+                                    file_type = type_text
                     except Exception:
                         # If we can't get the type from the cell, try file extension
                         if file_name.lower().endswith('.pdf'):
