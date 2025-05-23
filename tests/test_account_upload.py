@@ -15,9 +15,9 @@ import os
 import sys
 from playwright.sync_api import sync_playwright
 import logging
-from salesforce.file_upload import upload_files_for_account
+from salesforce.utils.file_upload import upload_files_for_account
 from salesforce.pages.account_manager import AccountManager
-from salesforce.browser import get_salesforce_page
+from salesforce.utils.browser import get_salesforce_page
 from salesforce.utils.mock_data import get_mock_accounts
 
 # Configure logging
