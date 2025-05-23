@@ -51,7 +51,7 @@ def test_search_account(account_name: str, expected_files: int = 74):
             
             # Ensure the account exists (create if not)
             just_created = False
-            if not account_manager.account_exists(account_name):
+            if not account_manager.account_exists(account_name, view_name="All Clients"):
                 logging.info(f"Account {account_name} does not exist, creating it...")
                 # Use mock data for creation
                 mock_accounts = get_mock_accounts()
@@ -76,8 +76,14 @@ def test_search_account(account_name: str, expected_files: int = 74):
                 logging.info(f"Account {account_name} already exists")
             
             # Search for the account
-            if not account_manager.account_exists(account_name):
+            if not account_manager.account_exists(account_name, view_name="All Clients"):
                 logging.error(f"Account {account_name} does not exist after creation")
+                return
+            
+            # Search for the account with "All Clients" view
+            search_result = account_manager.search_account(account_name, view_name="All Clients")
+            if search_result == 0:
+                logging.error(f"Could not find account {account_name} in search results")
                 return
             
             # Navigate to account page
