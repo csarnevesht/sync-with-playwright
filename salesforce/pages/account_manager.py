@@ -46,12 +46,29 @@ class AccountManager(BasePage):
             self._take_screenshot("accounts-navigation-error")
             return False
             
-    def search_account(self, account_name: str) -> int:
+    def search_account(self, account_name: str, view_name: str = "All Accounts") -> int:
         """Search for an account by name and return the number of items found.
-            Returns the number of items found. 
+        
+        Args:
+            account_name: The name of the account to search for
+            view_name: The name of the list view to use (default: "All Accounts")
+            
+        Returns:
+            int: The number of items found
         """
         try:
-            self.logger.info(f"Searching for account: {account_name}")
+            self.logger.info(f"Searching for account: {account_name} in view: {view_name}")
+            
+            # First ensure we're on the accounts list page
+            if not self.navigate_to_accounts_list_page():
+                self.logger.error("Failed to navigate to accounts list page")
+                return 0
+            
+            # Select the specified view
+            self.logger.info(f"Selecting '{view_name}' view...")
+            if not self.accounts_page.select_list_view(view_name):
+                self.logger.error(f"Failed to select '{view_name}' view")
+                return 0
             
             # Wait for the page to be fully loaded
             self.page.wait_for_load_state('networkidle', timeout=10000)
@@ -62,13 +79,36 @@ class AccountManager(BasePage):
             search_input = self.page.wait_for_selector('input[placeholder="Search this list..."]', timeout=20000)
             if not search_input:
                 self.logger.error("Search input not found")
+                self._take_screenshot("search-input-not-found")
                 return 0
-                
-            # Clear and fill the search input
+            
+            # Ensure the search input is visible and clickable
+            self.logger.info("Ensuring search input is visible and clickable...")
+            search_input.scroll_into_view_if_needed()
+            self.page.wait_for_timeout(1000)  # Wait for scroll to complete
+            
+            # Click the search input to ensure it's focused
+            search_input.click()
+            self.page.wait_for_timeout(500)  # Wait for focus
+            
+            # Clear the search input
             self.logger.info("Clearing search input...")
             search_input.fill("")
-            self.logger.info("Entering account name...")
-            search_input.fill(account_name)
+            self.page.wait_for_timeout(500)  # Wait for clear
+            
+            # Type the account name character by character with longer delays
+            self.logger.info(f"Typing account name: {account_name}")
+            for char in account_name:
+                search_input.type(char, delay=200)  # Increased delay between characters
+                self.page.wait_for_timeout(100)  # Increased wait between characters
+            
+            # Verify the text was entered correctly
+            actual_text = search_input.input_value()
+            if actual_text != account_name:
+                self.logger.error(f"Search text mismatch. Expected: {account_name}, Got: {actual_text}")
+                self._take_screenshot("search-text-mismatch")
+                return 0
+            
             self.logger.info("Pressing Enter...")
             self.page.keyboard.press("Enter")
             
@@ -114,6 +154,7 @@ class AccountManager(BasePage):
                     
                     # If we get here, none of the selectors worked
                     self.logger.info("Could not find status message with any selector")
+                    self._take_screenshot("status-message-not-found")
                     return 0
                     
                 except Exception as e:
@@ -126,15 +167,24 @@ class AccountManager(BasePage):
             
         except Exception as e:
             self.logger.error(f"Error searching for account: {e}")
+            self._take_screenshot("search-error")
             return 0
             
-    def account_exists(self, account_name: str) -> bool:
-        """Check if an account exists with the exact name."""
-        self.logger.info(f"Checking if account exists: {account_name}")
+    def account_exists(self, account_name: str, view_name: str = "All Accounts") -> bool:
+        """Check if an account exists with the exact name.
+        
+        Args:
+            account_name: The name of the account to check
+            view_name: The name of the list view to use (default: "All Accounts")
+            
+        Returns:
+            bool: True if the account exists, False otherwise
+        """
+        self.logger.info(f"Checking if account exists: {account_name} in view: {view_name}")
         
         try:
             # Search for the account
-            item_count = self.search_account(account_name)
+            item_count = self.search_account(account_name, view_name=view_name)
             
             if item_count > 0:
                 # Verify the account name matches exactly
@@ -563,7 +613,9 @@ class AccountManager(BasePage):
             sys.exit(1)
             
         try:
-            self.page.goto(f"{os.getenv('SALESFORCE_URL')}/lightning/r/Account/{self.current_account_id}/view")
+            url = f"{SALESFORCE_URL}/lightning/r/Account/{self.current_account_id}/view"
+            logging.info(f"Navigating to URL: {url}")
+            self.page.goto(url)
             # self.page.wait_for_load_state('networkidle')
             # checking url 
             current_url = self.page.url

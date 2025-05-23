@@ -42,7 +42,8 @@ def get_accounts_with_files(account_manager: AccountManager, max_number: int = 5
     try:
         accounts = account_manager.get_accounts_matching_condition(
             max_number=max_number,
-            condition=lambda account: account_manager.account_has_files(account['id'])
+            condition=lambda account: account_manager.account_has_files(account['id']),
+            drop_down_option_text="All Clients"
         )
         
         if not accounts:

@@ -178,7 +178,7 @@ def test_create_accounts():
                         continue
                     
                     # Check if account exists
-                    if account_manager.account_exists(full_name):
+                    if account_manager.account_exists(full_name, view_name="My Clients"):
                         logging.info(f"Account exists: {full_name}")
                         # Navigate to account view page
                         if not account_manager.click_account_name(full_name):
