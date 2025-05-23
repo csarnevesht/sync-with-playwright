@@ -207,9 +207,12 @@ def main():
     args = parser.parse_args()
     
     try:
-        # Get access token
+        # Load environment variables once at the start
         env_file_abs_path = os.path.abspath(args.env_file)
-        print(f"Debug: Loading token from {env_file_abs_path}")
+        print(f"Debug: Loading environment from {env_file_abs_path}")
+        load_dotenv(env_file_abs_path)
+        
+        # Get access token
         access_token = get_access_token(args.env_file)
         if not access_token:
             print("Error: Could not get access token")
