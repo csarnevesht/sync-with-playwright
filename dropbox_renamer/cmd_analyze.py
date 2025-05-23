@@ -260,8 +260,8 @@ def main():
         # Display account folders list when not using --show-all
         if account_folders and not args.show_all:
             print("\nAccount folders:")
-            for folder in account_folders:
-                print(folder)
+            for idx, folder in enumerate(account_folders, 1):
+                print(f"{idx}. {folder}")
         
         # If a specific path is provided, analyze that path relative to root_folder
         if args.analyze_path:
