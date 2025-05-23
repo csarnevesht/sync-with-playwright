@@ -219,7 +219,8 @@ def display_summary(counts, folders_only=False, ignored_folders=None, account_fo
     print(f"  - --show-all: {show_all}")
     print(f"  - --debug: {debug}")
     print(f"  - --analyze-path: {analyze_path if analyze_path else '(default: root folder)'}")
-    print(f"  - --accounts-file: {accounts_file if accounts_file else '(default: accounts/main.txt)'}")
+    if not show_all:
+        print(f"  - --accounts-file: {accounts_file if accounts_file else '(default: accounts/main.txt)'}")
     print()
     
     if not folders_only:
