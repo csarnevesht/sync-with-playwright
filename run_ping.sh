@@ -13,5 +13,8 @@ if [ -f ".env" ]; then
     export $(cat .env | grep -v '^#' | xargs)
 fi
 
+# Add current directory to PYTHONPATH
+export PYTHONPATH=$PYTHONPATH:$(pwd)
+
 # Run the ping script
 python sync/ping_services.py 
