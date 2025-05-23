@@ -26,16 +26,19 @@ class FileManager(BasePage):
             
             if not initial_count or initial_count == 0:
                 logging.warning("No initial count found, skipping scroll")
-                return
+                return 0
                 
-            max_attempts = 20
-            wait_time = 0.3
+            max_attempts = 10  # Increased to allow for stable attempts
+            wait_time = 0.2
             unique_file_hrefs = set()
             stable_count = 0
+            last_count = 0
+            no_new_files_count = 0
+            found_stable = False
             
-            # Wait for the file list container to be visible
+            # Wait for the file list container to be visible with shorter timeout
             file_list = self.page.locator('div.slds-card__body table, div.slds-scrollable_y table, div[role="main"] table').first
-            file_list.wait_for(state="visible")
+            file_list.wait_for(state="visible", timeout=2000)
             
             # Get initial file links
             all_links = self.page.locator('a[href*="/ContentDocument/"]').all()
@@ -44,29 +47,69 @@ class FileManager(BasePage):
                 if href and '/ContentDocument/' in href:
                     unique_file_hrefs.add(href)
             
-            for attempt in range(max_attempts):
+            # If we already have a good initial count (not "50+"), use that
+            if isinstance(initial_count, int) and initial_count > 0:
+                logging.info(f"Using initial count of {initial_count} files")
+                return initial_count
+            
+            # Log initial count from first collection
+            initial_links_count = len(unique_file_hrefs)
+            logging.info(f"Initial collection found {initial_links_count} unique file links")
+            
+            # Start from attempt 1
+            for attempt in range(1, max_attempts + 1):
                 current_count = len(unique_file_hrefs)
-                logging.info(f"Scroll attempt {attempt+1}: found {current_count} unique file links")
+                logging.info(f"Scroll attempt {attempt}: found {current_count} unique file links")
                 
-                # Try multiple scrolling methods
-                try:
-                    # Method 1: Scroll the table container
-                    file_list.evaluate('el => el.scrollIntoView({block: "end", behavior: "auto"})')
-                    
-                    # Method 2: Scroll the parent container
-                    parent = file_list.locator('xpath=..')
-                    parent.evaluate('el => el.scrollBy(0, 1000)')
-                    
-                    # Method 3: Use keyboard to scroll
-                    self.page.keyboard.press('PageDown')
-                    
-                except Exception as e:
-                    logging.warning(f"Failed to scroll: {str(e)}")
-                    # Fallback to window scroll
-                    self.page.evaluate('window.scrollBy(0, 1000)')
+                # If we haven't found any new files in the last attempt
+                if current_count == last_count:
+                    no_new_files_count += 1
+                    if not found_stable:
+                        logging.info(f"No new files found, count stable for {no_new_files_count} attempts")
+                        if no_new_files_count >= 2:  # Wait for 2 stable attempts
+                            found_stable = True
+                            stable_count = 0  # Reset stable count for final attempts
+                            logging.info("Count is stable, making 2 final attempts...")
+                    else:
+                        stable_count += 1
+                        logging.info(f"Making final attempt {stable_count}/2")
+                        if stable_count >= 2:  # Stop after 2 final attempts
+                            logging.info("Completed 2 final attempts, stopping scroll.")
+                            break
+                else:
+                    # Reset counters when we find new files
+                    no_new_files_count = 0
+                    found_stable = False
+                    stable_count = 0
+                    logging.info(f"Found new files! Total: {len(unique_file_hrefs)}")
                 
-                # Wait for any animations and content to load
-                self.page.wait_for_timeout(int(wait_time * 1000))
+                # Try a more aggressive scroll if we haven't found new files
+                if current_count == last_count:
+                    try:
+                        # Method 1: Scroll the table container with a larger offset
+                        file_list.evaluate('el => el.scrollIntoView({block: "end", behavior: "auto"})')
+                        self.page.wait_for_timeout(200)
+                        
+                        # Method 2: Scroll the parent container with a larger offset
+                        parent = file_list.locator('xpath=..')
+                        parent.evaluate('el => el.scrollBy(0, 3000)')
+                        self.page.wait_for_timeout(200)
+                        
+                        # Method 3: Use keyboard to scroll multiple times
+                        for _ in range(2):
+                            self.page.keyboard.press('PageDown')
+                            self.page.wait_for_timeout(100)
+                    except Exception as e:
+                        logging.warning(f"Failed to scroll: {str(e)}")
+                        self.page.evaluate('window.scrollBy(0, 3000)')
+                else:
+                    # Normal scroll when finding new files
+                    try:
+                        file_list.evaluate('el => el.scrollIntoView({block: "end", behavior: "auto"})')
+                        self.page.wait_for_timeout(int(wait_time * 1000))
+                    except Exception as e:
+                        logging.warning(f"Failed to scroll: {str(e)}")
+                        self.page.evaluate('window.scrollBy(0, 2000)')
                 
                 # Get new file links after scroll
                 all_links = self.page.locator('a[href*="/ContentDocument/"]').all()
@@ -75,17 +118,8 @@ class FileManager(BasePage):
                     if href and '/ContentDocument/' in href:
                         unique_file_hrefs.add(href)
                 
-                # Check if we found new files
-                if len(unique_file_hrefs) == current_count:
-                    stable_count += 1
-                    logging.info(f"Count stable for {stable_count} attempts")
-                else:
-                    stable_count = 0
-                    logging.info(f"Found new files! Total: {len(unique_file_hrefs)}")
-                
-                if stable_count >= 3:
-                    logging.info("File count stabilized, stopping scroll.")
-                    break
+                # Update last count for next iteration
+                last_count = current_count
             
             return len(unique_file_hrefs)
                 
@@ -235,3 +269,5 @@ class FileManager(BasePage):
         """Extract the account ID from the URL."""
         match = re.search(r'/Account/(\w+)/related', url)
         return match.group(1) if match else None 
+
+    
