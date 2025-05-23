@@ -377,8 +377,19 @@ def find_folder_path(dbx, target_folder):
     
     return None
 
-def get_access_token(env_file):
+def get_access_token(env_file, token=None):
     """Get the Dropbox access token from environment or prompt user."""
+    # If token is provided, use it
+    if token:
+        print(f"\nDebug: Using provided token")
+        print(f"Debug: Token length: {len(token)}")
+        print(f"Debug: Token first 10 chars: {token[:10]}...")
+        print(f"Debug: Token last 10 chars: {token[-10:]}...")
+        print(f"Debug: Raw token value: '{token}'")
+        print(f"Debug: Token contains newlines: {'Yes' if '\\n' in token else 'No'}")
+        print(f"Debug: Token contains spaces: {'Yes' if ' ' in token else 'No'}")
+        return token
+    
     # Try to get token from environment first
     token = os.getenv('DROPBOX_TOKEN')
     
@@ -393,7 +404,7 @@ def get_access_token(env_file):
         print(f"Debug: Token length: {len(token)}")
         print(f"Debug: Token first 10 chars: {token[:10]}...")
         print(f"Debug: Token last 10 chars: {token[-10:]}...")
-        print(f"Debug: Raw token value: '{token}'")  # Print raw token with quotes to see whitespace
+        print(f"Debug: Raw token value: '{token}'")
         print(f"Debug: Token contains newlines: {'Yes' if '\\n' in token else 'No'}")
         print(f"Debug: Token contains spaces: {'Yes' if ' ' in token else 'No'}")
     
