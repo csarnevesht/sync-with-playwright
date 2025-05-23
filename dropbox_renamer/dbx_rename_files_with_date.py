@@ -32,8 +32,6 @@ from .utils.dropbox_utils import (
     download_and_rename_file,
     list_folder_contents,
     find_folder_path,
-    list_all_namespaces_and_roots,
-    list_app_folder_contents,
     get_access_token,
     get_DROPBOX_FOLDER,
     count_account_folders,
@@ -150,10 +148,12 @@ def main():
     parser = argparse.ArgumentParser(description='Download and rename files from Dropbox with date prefixes.')
     parser.add_argument('--env-file', '-e', default='.env',
                       help='Path to .env file (default: .env)')
-    parser.add_argument('--list-namespaces', action='store_true',
-                      help='List all available namespaces and root folders')
-    parser.add_argument('--list-app-folder', action='store_true',
-                      help='List contents of the app folder')
+    parser.add_argument('--all', action='store_true',
+                      help='Process all folders except ignored ones (ignores allowed_folders list)')
+    parser.add_argument('--batch-size', type=int, default=0,
+                      help='Process folders in batches of specified size (0 for all at once)')
+    parser.add_argument('--start-from', type=int, default=0,
+                      help='Start processing from this folder index (0-based)')
     
     args = parser.parse_args()
     
@@ -166,15 +166,6 @@ def main():
         
         # Initialize Dropbox client
         dbx = dropbox.Dropbox(access_token, timeout=30)
-        
-        # Handle special commands
-        if args.list_namespaces:
-            list_all_namespaces_and_roots(dbx)
-            return
-            
-        if args.list_app_folder:
-            list_app_folder_contents(dbx)
-            return
         
         # Get Dropbox folder
         dropbox_path = get_DROPBOX_FOLDER(args.env_file)
@@ -192,7 +183,7 @@ def main():
         download_dir = create_timestamped_directory(base_directory)
         
         # Read allowed and ignored folders
-        allowed_folders = read_allowed_folders()
+        allowed_folders = None if args.all else read_allowed_folders()
         ignored_folders = read_ignored_folders()
         
         # Count account folders
@@ -203,8 +194,70 @@ def main():
         start_time = datetime.datetime.now()
         entries = list_folder_contents(dbx, dropbox_path)
         
-        for entry in entries:
-            if isinstance(entry, dropbox.files.FolderMetadata):
+        # Filter and sort folders
+        folders = [entry for entry in entries if isinstance(entry, dropbox.files.FolderMetadata)]
+        folders.sort(key=lambda x: x.name)
+        
+        # Apply start-from index
+        if args.start_from > 0:
+            if args.start_from >= len(folders):
+                print(f"Error: start-from index {args.start_from} is out of range (0-{len(folders)-1})")
+                return
+            folders = folders[args.start_from:]
+            print(f"Starting from folder {args.start_from}: {folders[0].name}")
+        
+        # Process in batches if specified
+        if args.batch_size > 0:
+            total_batches = (len(folders) + args.batch_size - 1) // args.batch_size
+            for batch_num, i in enumerate(range(0, len(folders), args.batch_size), 1):
+                batch = folders[i:i + args.batch_size]
+                print(f"\nProcessing batch {batch_num}/{total_batches} ({len(batch)} folders)")
+                
+                for entry in batch:
+                    folder_name = entry.name
+                    
+                    # Skip ignored folders
+                    if ignored_folders and folder_name in ignored_folders:
+                        print(f"Skipping ignored folder: {folder_name}")
+                        continue
+                    
+                    # Check if folder is allowed (only if not using --all)
+                    if not args.all and allowed_folders and folder_name not in allowed_folders:
+                        print(f"Skipping non-allowed folder: {folder_name}")
+                        continue
+                    
+                    # Create local folder
+                    local_folder = os.path.join(download_dir, folder_name)
+                    ensure_directory_exists(local_folder)
+                    
+                    # Log processed folder
+                    log_processed_folder(entry.path_display, download_dir)
+                    
+                    # Process folder contents
+                    folder_entries = list_folder_contents(dbx, entry.path_display)
+                    for file_entry in folder_entries:
+                        if isinstance(file_entry, dropbox.files.FileMetadata):
+                            download_and_rename_file(dbx, file_entry.path_display, local_folder)
+                
+                # Display intermediate summary
+                if batch_num < total_batches:
+                    stats = collect_folder_stats(download_dir)
+                    current_time = (datetime.datetime.now() - start_time).total_seconds()
+                    print(f"\nBatch {batch_num} Summary:")
+                    print(f"Folders processed in this batch: {len(batch)}")
+                    print(f"Total folders processed so far: {stats['total_folders']}")
+                    print(f"Total files renamed so far: {stats['total_files']}")
+                    print(f"Time elapsed: {format_duration(current_time)}")
+                    
+                    # Ask for confirmation to continue
+                    if batch_num < total_batches:
+                        response = input("\nContinue with next batch? (y/n): ").lower()
+                        if response != 'y':
+                            print("Stopping after current batch.")
+                            break
+        else:
+            # Process all folders at once
+            for entry in folders:
                 folder_name = entry.name
                 
                 # Skip ignored folders
@@ -212,8 +265,8 @@ def main():
                     print(f"Skipping ignored folder: {folder_name}")
                     continue
                 
-                # Check if folder is allowed
-                if allowed_folders and folder_name not in allowed_folders:
+                # Check if folder is allowed (only if not using --all)
+                if not args.all and allowed_folders and folder_name not in allowed_folders:
                     print(f"Skipping non-allowed folder: {folder_name}")
                     continue
                 
