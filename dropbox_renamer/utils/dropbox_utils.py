@@ -475,4 +475,58 @@ def get_DATA_DIRECTORY(env_file):
         # Update .env file with the new directory
         update_env_file(env_file, directory=directory)
     
-    return directory 
+    return directory
+
+def get_folder_structure(dbx, path=None):
+    """
+    Get the folder structure from Dropbox.
+    
+    Args:
+        dbx: Dropbox client instance
+        path: Optional path to start from. If None, uses root folder.
+        
+    Returns:
+        dict: Dictionary containing folder structure information
+    """
+    try:
+        if path is None:
+            path = get_DROPBOX_FOLDER('.env')
+            if not path:
+                raise ValueError("No Dropbox folder path specified")
+        
+        # Clean and validate the path
+        clean_path = clean_dropbox_path(path)
+        if not clean_path:
+            raise ValueError(f"Invalid path: {path}")
+            
+        # Get folder contents
+        entries = list_folder_contents(dbx, clean_path)
+        
+        # Initialize counts
+        counts = {
+            'total': 0,
+            'allowed': 0,
+            'ignored': 0,
+            'not_allowed': 0,
+            'files': 0
+        }
+        
+        # Process entries
+        for entry in entries:
+            if isinstance(entry, dropbox.files.FolderMetadata):
+                counts['total'] += 1
+                counts['allowed'] += 1  # For now, count all folders as allowed
+            else:
+                counts['files'] += 1
+                
+        return counts
+        
+    except Exception as e:
+        logger.error(f"Error getting folder structure: {str(e)}")
+        return {
+            'total': 0,
+            'allowed': 0,
+            'ignored': 0,
+            'not_allowed': 0,
+            'files': 0
+        } 
