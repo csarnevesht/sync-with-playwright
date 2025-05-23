@@ -148,14 +148,14 @@ def display_summary(counts, folders_only=False, ignored_folders=None, account_fo
         print(f"Total account files: {counts['files']}")
     if counts['allowed'] > 0:
         print(f"Account folders: {counts['allowed']}")
-    if counts['ignored'] > 0:
-        print(f"Ignored folders: {counts['ignored']}")
-        if ignored_folders and account_folders:
-            ignored_account_folders = [folder for folder in account_folders if folder in ignored_folders]
-            if ignored_account_folders:
-                print("Ignored folders list:")
-                for folder in ignored_account_folders:
-                    print(f"  - {folder}")
+    ignored_account_folders = []
+    if ignored_folders and account_folders:
+        ignored_account_folders = [folder for folder in account_folders if folder in ignored_folders]
+    print(f"Ignored \"Dropbox account folders\": {len(ignored_account_folders)}")
+    if ignored_account_folders:
+        print("Ignored folders list:")
+        for folder in ignored_account_folders:
+            print(f"  - {folder}")
 
 def debug_list_folders(dbx, path):
     """List all folders in the given Dropbox path with no filtering or recursion."""
