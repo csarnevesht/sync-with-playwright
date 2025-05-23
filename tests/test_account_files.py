@@ -66,7 +66,7 @@ def test_account_account_files():
             
             # Search for account
             account_name = "Beth Albert"
-            if not account_manager.account_exists(account_name):
+            if not account_manager.account_exists(account_name, view_name="Recently Viewed"):
                 logging.error(f"Account {account_name} does not exist")
                 return
             

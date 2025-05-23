@@ -770,6 +770,7 @@ class AccountManager(BasePage):
         processed_accounts = []
         the_condition = condition if condition is not None else self.get_default_condition()
         for account in all_accounts:
+            logging.debug(f"Processing account: {account['name']}")
             files_count = self.navigate_to_files_and_get_number_of_files_for_this_account(account['id'])
             account['files_count'] = files_count
             processed_accounts.append(account)
