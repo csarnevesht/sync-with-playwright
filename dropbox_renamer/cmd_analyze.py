@@ -153,22 +153,6 @@ def analyze_folder_structure(dbx, path, indent=0, account_folders=None, ignored_
         print(f"Error analyzing folder {path}: {e}")
         return {'total': 0, 'allowed': 0, 'ignored': 0, 'not_allowed': 0, 'files': 0}
 
-def display_summary(counts, folders_only=False, ignored_folders=None, account_folders=None):
-    """Display a summary of the analysis results."""
-    print("\n=== Summary ===")
-    if not folders_only:
-        print(f"Total Dropbox account files: {counts['files']}")
-    if counts['allowed'] > 0:
-        print(f"Dropbox account folders: {counts['allowed']}")
-    ignored_account_folders = []
-    if ignored_folders and account_folders:
-        ignored_account_folders = [folder for folder in account_folders if folder in ignored_folders]
-    print(f"Ignored Dropbox account folders: {len(ignored_account_folders)}")
-    if ignored_account_folders:
-        print("Ignored Dropbox account folders list:")
-        for folder in ignored_account_folders:
-            print(f"  - {folder}")
-
 def debug_list_folders(dbx, path):
     """List all folders in the given Dropbox path with no filtering or recursion."""
     try:

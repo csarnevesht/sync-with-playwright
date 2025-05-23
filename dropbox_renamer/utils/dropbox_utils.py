@@ -529,4 +529,28 @@ def get_folder_structure(dbx, path=None):
             'ignored': 0,
             'not_allowed': 0,
             'files': 0
-        } 
+        }
+
+def display_summary(counts, folders_only=False, ignored_folders=None, account_folders=None):
+    """
+    Display a summary of the analysis results.
+    
+    Args:
+        counts (dict): Dictionary containing folder and file counts
+        folders_only (bool): Whether only folders were analyzed
+        ignored_folders (list): List of ignored folders
+        account_folders (list): List of account folders
+    """
+    print("\n=== Summary ===")
+    if not folders_only:
+        print(f"Total Dropbox account files: {counts['files']}")
+    if counts['allowed'] > 0:
+        print(f"Dropbox account folders: {counts['allowed']}")
+    ignored_account_folders = []
+    if ignored_folders and account_folders:
+        ignored_account_folders = [folder for folder in account_folders if folder in ignored_folders]
+    print(f"Ignored Dropbox account folders: {len(ignored_account_folders)}")
+    if ignored_account_folders:
+        print("Ignored Dropbox account folders list:")
+        for folder in ignored_account_folders:
+            print(f"  - {folder}") 
