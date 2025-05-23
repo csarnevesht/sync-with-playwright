@@ -378,19 +378,13 @@ def find_folder_path(dbx, target_folder):
 
 def get_access_token() -> str:
     """
-    Get Dropbox access token from environment variable or .env file.
+    Get Dropbox access token from .env file or environment variable.
     If not found, prompt user to enter it.
     
     Returns:
         str: Dropbox access token
     """
-    # First try to get from environment variable
-    token = os.getenv('DROPBOX_TOKEN')
-    if token:
-        logger.info("Token loaded from environment variable DROPBOX_TOKEN")
-        return token
-        
-    # If not in environment, try to load from .env file
+    # First try to load from .env file
     try:
         load_dotenv()
         token = os.getenv('DROPBOX_TOKEN')
@@ -400,8 +394,14 @@ def get_access_token() -> str:
     except Exception as e:
         logger.warning(f"Failed to load .env file: {str(e)}")
     
+    # If not in .env, try environment variable
+    token = os.getenv('DROPBOX_TOKEN')
+    if token:
+        logger.info("Token loaded from environment variable DROPBOX_TOKEN")
+        return token
+    
     # If still not found, prompt user
-    logger.warning("No token found in environment or .env file")
+    logger.warning("No token found in .env file or environment")
     token = input("Please enter your Dropbox access token: ").strip()
     if not token:
         raise ValueError("No access token provided")
