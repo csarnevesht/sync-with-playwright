@@ -85,7 +85,7 @@ def read_allowed_folders(file_path='./dropbox_renamer/dropbox_files.txt'):
         print(f"Error reading {file_path}: {e}")
         return None
 
-def read_ignored_folders(file_path='./dropbox_ignore.txt'):
+def read_ignored_folders(file_path='./dropbox_renamer/dropbox_ignore.txt'):
     """Read the list of folders to ignore from dropbox_ignore.txt."""
     try:
         if not os.path.exists(file_path):
