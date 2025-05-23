@@ -10,7 +10,7 @@ from salesforce.logger import OperationLogger
 from dropbox_client import DropboxClient
 from mock_data import get_mock_accounts
 from file_upload import upload_files_for_account
-from get_salesforce_page import get_salesforce_page
+from salesforce.browser import get_salesforce_page
 
 
 logging.basicConfig(
