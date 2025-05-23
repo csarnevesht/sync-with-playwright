@@ -4,7 +4,7 @@ from typing import List, Tuple, Optional, Dict
 import os
 from datetime import datetime
 import re
-from config import DROPBOX_ROOT_FOLDER, ACCOUNT_INFO_PATTERN, DRIVERS_LICENSE_PATTERN
+from sync.config import DROPBOX_ROOT_FOLDER, ACCOUNT_INFO_PATTERN, DRIVERS_LICENSE_PATTERN
 import pdf2image
 import pytesseract
 from PIL import Image

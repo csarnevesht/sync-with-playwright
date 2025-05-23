@@ -4,7 +4,7 @@ import re
 import os
 import time
 import logging
-from config import SALESFORCE_URL
+from sync.config import SALESFORCE_URL
 import sys
 
 MAX_LOGGED_ROWS = 5  # Only log details for the first N rows/links
