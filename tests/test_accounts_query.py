@@ -21,7 +21,7 @@ from salesforce.utils.browser import get_salesforce_page
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
