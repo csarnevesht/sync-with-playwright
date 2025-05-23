@@ -1,7 +1,7 @@
 from typing import List, Optional, Union
 import os
 import logging
-from ..base_page import BasePage
+from .base_page import BasePage
 from playwright.sync_api import Page
 import re
 import sys
