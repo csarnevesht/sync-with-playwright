@@ -1,29 +1,5 @@
-List of account folder names:
-Smith, John & Sarah
-Johnson, Michael (Medicaid Mike)
-Williams, David (Medicaid Mike)
-Brown, Lisa (Medicaid Mike)
-Davis, Robert Daughter Emily (Medicaid Mike)
-Miller, Thomas & Daughter Grace Wilson (Medicaid Mike)
-Taylor, Jennifer daughter Olivia Parker
-Anderson, Elizabeth son William Anderson IV
-Martinez, Sofia (Mike)
-Thompson, Richard nephew James Wilson
-Wilson, Peter & Maria
-Robinson, Patricia daughter Laura Clark
-Garcia, Theresa (Mike)
-Moore, Daniel and Rachel
-Lee, Victoria
-Walker, Susan
-Clark, Andrew (Mike)
-Lewis, Margaret sons John and Michael
-Hall, Paul daughter Martinez
-Allen, Sophia
-Young, George (Mike)
-King, Frances daughter Patricia White
-Wright, Katherine
-Scott, Donald
-Green, Maria 
+List of account folder names in accounts/fuzzy.txt
+
 
 
 Write a test test_accounts_fuzzy_find that does the following:
