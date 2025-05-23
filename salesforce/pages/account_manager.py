@@ -993,14 +993,21 @@ class AccountManager(BasePage):
         account_names = []
         try:
             # Wait for table with timeout
-            self.page.wait_for_selector('table[role="grid"]', timeout=5000)
+            try:
+                self.page.wait_for_selector('table[role="grid"]', timeout=5000)
+            except Exception as e:
+                self.logger.error(f"Table with role='grid' not found: {str(e)}")
+                return []
             
-            # Get all account rows
+            # Get all account rows immediately
             rows = self.page.locator('table[role="grid"] tr').all()
             self.logger.info(f"Found {len(rows)} rows in the table")
+            if not rows or len(rows) <= 1:
+                self.logger.error("No data rows found in the accounts table (or only header row present)")
+                return []
             
             # Skip header row
-            for row in rows[1:]:  # Skip the first row (header)
+            for i, row in enumerate(rows[1:], 1):  # Skip the first row (header)
                 try:
                     # Try different selectors to find the account name
                     selectors = [
@@ -1009,21 +1016,33 @@ class AccountManager(BasePage):
                         'td a',              # Any link in the row
                         'td'                 # Any cell
                     ]
-                    
+                    found = False
                     for selector in selectors:
                         element = row.locator(selector).first
                         if element.count() > 0:
-                            account_name = element.text_content(timeout=1000)
-                            if account_name and account_name.strip():
-                                account_names.append(account_name.strip())
-                                self.logger.info(f"Found account using selector '{selector}': {account_name.strip()}")
-                                break
+                            try:
+                                account_name = element.text_content(timeout=1000)
+                                if account_name and account_name.strip():
+                                    account_names.append(account_name.strip())
+                                    self.logger.info(f"Found account using selector '{selector}': {account_name.strip()}")
+                                    found = True
+                                    break
+                            except Exception as e:
+                                self.logger.warning(f"Timeout or error getting text for selector '{selector}' in row {i}: {str(e)}")
+                                continue
+                    if not found:
+                        # Log the row's HTML for debugging
+                        try:
+                            row_html = row.inner_html(timeout=1000)
+                            self.logger.warning(f"Could not find account name in row {i}. Row HTML: {row_html}")
+                        except Exception as e:
+                            self.logger.warning(f"Could not get HTML for row {i}: {str(e)}")
+                        continue
                 except Exception as e:
-                    self.logger.warning(f"Error getting account name: {str(e)}")
+                    self.logger.warning(f"Error getting account name for row {i}: {str(e)}")
                     continue
         except Exception as e:
             self.logger.error(f"Error extracting account names: {str(e)}")
-        
         self.logger.info(f"Total accounts extracted: {len(account_names)}")
         self.logger.info(f"Extracted accounts: {account_names}")
         return account_names

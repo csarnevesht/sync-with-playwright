@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dropbox_renamer"
+version = "0.1.0"
+authors = [
+    { name = "Carolina Sarnevesht", email = "carolina.sarnevesht@gmail.com" },
+]
+description = "A tool to analyze and rename Dropbox folders"
+requires-python = ">=3.8"
+dependencies = [
+    "dropbox",
+    "python-dotenv",
+    "playwright",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+    "isort",
+]
+
+[tool.setuptools]
+packages = ["dropbox_renamer"] 

@@ -12,13 +12,11 @@ clear && python -m tests.test_all 2>&1 | tee output.log
 
 clear && python -m tests.test_accounts_query 2>&1 | tee output.log
 
-
-clear && python -m salesforce.cmd_fuzzy 2>&1 | tee output.log
-
 clear && python -m dropbox_renamer.cmd_rename 2>&1 | tee output.log
 
-clear && python -m dropbox_renamer.cmd_analyze --accounts-file accounts/small.txt 2>&1 | tee output.log
+clear && python -m dropbox_renamer.cmd_analyze --accounts-file accounts/fuzzy-small.txt 2>&1 | tee output.log
 
+clear && python -m salesforce.cmd_fuzzy --accounts-file accounts/fuzzy-small.txt 2>&1 | tee output.log
 
 
 curl -X POST https://api.dropboxapi.com/2/files/list_folder \

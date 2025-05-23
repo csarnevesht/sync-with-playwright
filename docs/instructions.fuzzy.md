@@ -2,7 +2,7 @@ List of account folder names in accounts/fuzzy.txt
 
 
 
-Write a test test_accounts_fuzzy_find that does the following:
+Write a test accounts_fuzzy_search that does the following:
 Iterates through the above list of account folder names
 For each item, determine the last name.
 Then search for the last name in Salesforce CRM

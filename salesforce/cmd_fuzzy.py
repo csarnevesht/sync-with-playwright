@@ -27,23 +27,22 @@ def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description='Test fuzzy search for Salesforce accounts')
     parser.add_argument('--accounts-file', 
-                      help='Name of the file in the accounts directory to read from (default: main.txt)',
+                      help='Name of the file in the accounts directory to read from (default: fuzzy.txt)',
                       default=None)
     return parser.parse_args()
 
-def test_accounts_fuzzy_find(accounts_file: str = None):
+def accounts_fuzzy_search(accounts_file: str = None):
     """
-    Test fuzzy search functionality for accounts using last names from folder names.
+    Account fuzzy search functionality for accounts using last names from folder names.
     
     Args:
         accounts_file: Optional name of the file in the accounts directory to read from.
-                      If not provided, defaults to 'main.txt'.
+                      If not provided, defaults to 'fuzzy.txt'.
     """
     # Print accounts file and default options at the start
-    accounts_file_path = accounts_file if accounts_file else 'accounts/main.txt'
-    logging.info(f"\n=== TEST START ===")
+    accounts_file_path = accounts_file if accounts_file else 'accounts/fuzzy.txt'
     logging.info(f"Accounts file: {accounts_file_path}")
-    logging.info(f"Default options: accounts_file='main.txt'")
+    logging.info(f"Default options: accounts_file='fuzzy.txt'")
 
     # Read account folders from file
     ACCOUNT_FOLDERS = read_accounts_folders(accounts_file)
@@ -113,8 +112,8 @@ def test_accounts_fuzzy_find(accounts_file: str = None):
             # Print accounts file and default options at the end
             logging.info(f"\n=== TEST END ===")
             logging.info(f"Accounts file: {accounts_file_path}")
-            logging.info(f"Default options: accounts_file='main.txt'")
+            logging.info(f"Default options: accounts_file='fuzzy.txt'")
 
 if __name__ == "__main__":
     args = parse_args()
-    test_accounts_fuzzy_find(args.accounts_file) 
+    accounts_fuzzy_search(args.accounts_file) 

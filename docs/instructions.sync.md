@@ -5,8 +5,10 @@ using logic from:
  dropbox analyzer (see dropbox/cmd_analyze.py)
  salesforce account fuzzy search (see salesforce/cmd_fuzzy.py)
 
-for each dropbox account folder:
-    uses fuzzy search in salesforce, if it has an exact match:
+for each dropbox account fol
+der:
+    uses fuzzy search in salesforce, 
+      if it has an exact match:
         navigates to the salesforce account and gets the list of all the salesforce account files
         gets the list of account dropbox files, this list should also contain modified date information.
         for each account dropbox file:
@@ -19,7 +21,9 @@ for each dropbox account folder:
                    search again
                if it does not find it at all save it in a list
 
-         report findings
+      if no exact match for account, print match information
+
+      report all information for each account and account files 
 
         
 
