@@ -4,7 +4,7 @@ import re
 import os
 import time
 import logging
-from config import SALESFORCE_URL
+from sync.config import SALESFORCE_URL
 import sys
 
 MAX_LOGGED_ROWS = 5  # Only log details for the first N rows/links
@@ -51,6 +51,7 @@ class AccountsPage:
             logging.info(f"Selected '{view_name}' list view")
 
             # Wait for the table to update and stabilize
+            logging.debug(f"Waiting for table to update and stabilize")
             self.page.wait_for_timeout(2000)
             return True
 
@@ -138,34 +139,123 @@ class AccountsPage:
         """
         try:
             # Navigate to accounts page
+            logging.debug(f"Navigating to Accounts page: {SALESFORCE_URL}/lightning/o/Account/list?filterName=__Recent")
             if not self.navigate_to_accounts_list_page():
                 logging.error("Failed to navigate to Accounts page")
                 return []
 
             # Select the specified list view
+            logging.debug(f"Selecting list view: {drop_down_option_text}")
             if not self.select_list_view(drop_down_option_text):
                 return []
 
-            # Get all account rows
-            account_rows = self.page.locator('table[role="grid"] tr').all()
+            # Wait for table to be visible
+            logging.debug(f"Waiting for table to be visible")
+            try:
+                table = self.page.wait_for_selector('table[role="grid"]', timeout=10000)
+                if not table:
+                    logging.error("Table element not found")
+                    return []
+                logging.debug("Table element found")
+            except Exception as e:
+                logging.error(f"Table not found after 10 seconds: {str(e)}")
+                return []
+
+            # Wait for table to be populated and visible
+            logging.debug(f"Waiting for table to be populated and visible")
+            try:
+                # Wait for the table to be fully loaded
+                logging.debug("Waiting for network to be idle")
+                self.page.wait_for_load_state('networkidle', timeout=10000)
+                
+                # Wait for the loading spinner to disappear (if present)
+                try:
+                    logging.debug("Waiting for loading spinner to disappear")
+                    self.page.wait_for_selector('.slds-spinner_container', state='hidden', timeout=5000)
+                except:
+                    logging.debug("No loading spinner found")
+                
+                # Force the table to be visible by evaluating JavaScript
+                logging.debug("Forcing table visibility with JavaScript")
+                self.page.evaluate("""
+                    () => {
+                        const table = document.querySelector('table[role="grid"]');
+                        if (table) {
+                            console.log('Found table element');
+                            table.style.visibility = 'visible';
+                            table.style.display = 'table';
+                            const rows = table.querySelectorAll('tr');
+                            console.log('Found ' + rows.length + ' rows');
+                            rows.forEach(row => {
+                                row.style.visibility = 'visible';
+                                row.style.display = 'table-row';
+                            });
+                            return rows.length;
+                        }
+                        return 0;
+                    }
+                """)
+                
+                # Get all rows
+                logging.debug("Getting all table rows")
+                rows = self.page.locator('table[role="grid"] tr').all()
+                if not rows:
+                    logging.error("No rows found in table")
+                    return []
+                
+                logging.debug(f"Found {len(rows)} rows in table")
+                
+                # Additional wait to ensure table is fully rendered
+                logging.debug("Waiting for table to stabilize")
+                self.page.wait_for_timeout(2000)
+                
+            except Exception as e:
+                logging.error(f"Error waiting for table rows: {str(e)}")
+                return []
+
             accounts = []
             
-            for row in account_rows:
+            for idx, row in enumerate(rows):
                 try:
-                    # Get account name and ID
-                    name_cell = row.locator('td:first-child a').first
-                    if not name_cell:
+                    # Log the outer HTML of the row for debugging
+                    try:
+                        outer_html = row.evaluate('el => el.outerHTML')
+                        # logging.debug(f"Row {idx} outer HTML: {outer_html}")
+                        for handler in logging.getLogger().handlers:
+                            handler.flush()
+                    except Exception as e:
+                        logging.warning(f"Could not get outer HTML for row {idx}: {e}")
+                    # Skip header rows
+                    first_cell = row.locator('th, td').nth(0)
+                    if first_cell.count() > 0:
+                        tag = first_cell.evaluate('el => el.tagName.toLowerCase()')
+                        scope = first_cell.get_attribute('scope')
+                        if tag == 'th' and (scope == 'col' or (first_cell.get_attribute('role') == 'cell' and scope == 'col')):
+                            continue
+                    # Try to get account name and ID from <th scope="row"> a
+                    name_cell = row.locator('th[scope="row"] a')
+                    if name_cell.count() == 0:
+                        # Fallback to <td:first-child a>
+                        name_cell = row.locator('td:first-child a')
+                    if name_cell.count() == 0:
                         continue
-                        
-                    name = name_cell.text_content().strip()
-                    href = name_cell.get_attribute('href')
-                    account_id = href.split('/')[-1] if href else None
-                    
-                    if name and account_id:
-                        accounts.append({
-                            'name': name,
-                            'id': account_id
-                        })
+                    try:
+                        name = name_cell.nth(0).text_content(timeout=10000).strip()
+                        href = name_cell.nth(0).get_attribute('href')
+                        # ***Account name: Irasis Abislaiman-Saade href: /lightning/r/001Dn00000VskmFIAR/view
+
+                        account_id = href.split('/')[-2] if href else None
+                        if name and account_id:
+                            accounts.append({
+                                'name': name,
+                                'id': account_id
+                            })
+                        logging.debug(f"***Account name: {name} found")
+                        logging.debug(f"***Account id: {account_id} found")
+                       
+                    except Exception as e:
+                        logging.warning(f"Error getting text content for row: {str(e)}")
+                        continue
                 except Exception as e:
                     logging.warning(f"Error processing account row: {str(e)}")
                     continue

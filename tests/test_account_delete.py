@@ -22,8 +22,8 @@ import sys
 from playwright.sync_api import sync_playwright, TimeoutError
 import logging
 from salesforce.pages.account_manager import AccountManager
-from get_salesforce_page import get_salesforce_page
-from mock_data import get_mock_accounts
+from salesforce.utils.browser import get_salesforce_page
+from salesforce.utils.mock_data import get_mock_accounts
 import time
 
 # Configure logging
@@ -91,7 +91,6 @@ def verify_account_exists(account_manager: AccountManager, account_name: str, ma
                 if attempt < max_retries - 1:
                     time.sleep(2)
                     continue
-                return False
             
             # Wait for the page to be fully loaded
             if not wait_for_page_load(account_manager.page):
