@@ -199,7 +199,7 @@ def debug_list_folders(dbx, path):
         print(f"Error listing folders for {path}: {e}")
         return
 
-def display_summary(counts, folders_only=False, ignored_folders=None, account_folders=None):
+def display_summary(counts, folders_only=False, ignored_folders=None, account_folders=None, show_all=False, debug=False):
     """
     Display a summary of the analysis results.
     
@@ -208,8 +208,16 @@ def display_summary(counts, folders_only=False, ignored_folders=None, account_fo
         folders_only (bool): Whether only folders were analyzed
         ignored_folders (list): List of ignored folders
         account_folders (list): List of account folders
+        show_all (bool): Whether --show-all flag was used
+        debug (bool): Whether --debug flag was used
     """
     print("\n=== Summary ===")
+    print("Flags used:")
+    print(f"  - --folders-only: {folders_only}")
+    print(f"  - --show-all: {show_all}")
+    print(f"  - --debug: {debug}")
+    print()
+    
     if not folders_only:
         print(f"Total Dropbox account files: {counts['files']}")
     print(f"Dropbox account folders: {counts['allowed']}")
@@ -327,7 +335,7 @@ def main():
             counts = analyze_folder_structure(dbx, root_folder, account_folders=account_folders, ignored_folders=ignored_folders)
     
     # Display summary
-    display_summary(counts, args.folders_only, ignored_folders, account_folders)
+    display_summary(counts, args.folders_only, ignored_folders, account_folders, args.show_all, args.debug)
 
 if __name__ == "__main__":
     main() 
