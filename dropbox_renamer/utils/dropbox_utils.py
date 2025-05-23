@@ -379,11 +379,14 @@ def find_folder_path(dbx, target_folder):
 
 def get_access_token(env_file):
     """Get the Dropbox access token from environment or prompt user."""
-    # Load environment variables
-    load_dotenv(env_file)
-    
-    # Try to get token from environment
+    # Try to get token from environment first
     token = os.getenv('DROPBOX_TOKEN')
+    
+    # If not found, load from .env file
+    if not token:
+        load_dotenv(env_file)
+        token = os.getenv('DROPBOX_TOKEN')
+    
     print(f"\nDebug: Loading token from {env_file}")
     print(f"Debug: Token found: {'Yes' if token else 'No'}")
     if token:
