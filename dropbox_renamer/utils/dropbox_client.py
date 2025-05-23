@@ -4,7 +4,6 @@ from typing import List, Tuple, Optional, Dict
 import os
 from datetime import datetime
 import re
-from sync.config import DROPBOX_ROOT_FOLDER, ACCOUNT_INFO_PATTERN, DRIVERS_LICENSE_PATTERN
 import pdf2image
 import pytesseract
 from PIL import Image
@@ -13,8 +12,8 @@ import PyPDF2
 import logging
 import urllib.parse
 
-from salesforce.base_page import BasePage
-from salesforce.utils.debug_utils import debug_prompt
+from .config import DROPBOX_ROOT_FOLDER, ACCOUNT_INFO_PATTERN, DRIVERS_LICENSE_PATTERN
+from .path_utils import clean_dropbox_path
 
 # Configure logging
 logging.basicConfig(
@@ -29,6 +28,7 @@ logging.basicConfig(
 class DropboxClient:
     def __init__(self, token: str, debug_mode: bool = False):
         self.dbx = dropbox.Dropbox(token)
+        self.debug_mode = debug_mode
         # Extract just the folder name from the path if it's a full URL
         folder = DROPBOX_ROOT_FOLDER
         if folder.startswith('http'):
@@ -40,7 +40,6 @@ class DropboxClient:
         logging.info(f"Initialized DropboxClient with root folder: {self.root_folder}")
         if debug_mode:
             logging.info("Debug mode is enabled")
-
 
     def _debug_show_files(self, files: List[FileMetadata], skip_patterns: List[str] = None) -> List[FileMetadata]:
         """
@@ -203,51 +202,6 @@ class DropboxClient:
                 dl_info['date_of_birth'] = dob_match.group(1)
                 logging.info(f"Found date of birth: {dl_info['date_of_birth']}")
             
-            # Extract Address
-            address_match = re.search(r'Address:?\s*([^\n]+)', text, re.IGNORECASE)
-            if address_match:
-                dl_info['address'] = address_match.group(1).strip()
-                logging.info(f"Found address: {dl_info['address']}")
-            
-            # Extract City, State, ZIP
-            city_state_zip_match = re.search(r'([^,]+),\s*([A-Z]{2})\s*(\d{5}(?:-\d{4})?)', text, re.IGNORECASE)
-            if city_state_zip_match:
-                dl_info['city'] = city_state_zip_match.group(1).strip()
-                dl_info['state'] = city_state_zip_match.group(2)
-                dl_info['zip'] = city_state_zip_match.group(3)
-                logging.info(f"Found location: {dl_info['city']}, {dl_info['state']} {dl_info['zip']}")
-            
-            # Extract Height
-            height_match = re.search(r'Height:?\s*(\d\'\d{1,2}")', text, re.IGNORECASE)
-            if height_match:
-                dl_info['height'] = height_match.group(1)
-                logging.info(f"Found height: {dl_info['height']}")
-            
-            # Extract Eye Color
-            eye_match = re.search(r'Eyes:?\s*([A-Z]+)', text, re.IGNORECASE)
-            if eye_match:
-                dl_info['eye_color'] = eye_match.group(1)
-                logging.info(f"Found eye color: {dl_info['eye_color']}")
-            
-            # Extract Hair Color
-            hair_match = re.search(r'Hair:?\s*([A-Z]+)', text, re.IGNORECASE)
-            if hair_match:
-                dl_info['hair_color'] = hair_match.group(1)
-                logging.info(f"Found hair color: {dl_info['hair_color']}")
-            
-            # Extract Weight
-            weight_match = re.search(r'Weight:?\s*(\d{3})', text, re.IGNORECASE)
-            if weight_match:
-                dl_info['weight'] = weight_match.group(1)
-                logging.info(f"Found weight: {dl_info['weight']}")
-            
-            # Extract Sex
-            sex_match = re.search(r'Sex:?\s*([MF])', text, re.IGNORECASE)
-            if sex_match:
-                dl_info['sex'] = sex_match.group(1)
-                logging.info(f"Found sex: {dl_info['sex']}")
-            
-            logging.info(f"Successfully extracted {len(dl_info)} fields from driver's license")
             return dl_info
 
         except Exception as e:
@@ -255,91 +209,53 @@ class DropboxClient:
             return {}
 
     def extract_account_info(self, account_folder: str) -> Dict[str, str]:
-        """
-        Extract account information from both the account info PDF and driver's license.
-        Returns a dictionary with account details.
-        """
+        """Extract account information from the account info file."""
         try:
-            logging.info(f"Starting account information extraction for folder: {account_folder}")
+            # Get the account info file
+            info_file = self.get_account_info_file(account_folder)
+            if not info_file:
+                logging.error(f"No account info file found for {account_folder}")
+                return {}
+
+            # Download the file
+            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
+                temp_path = temp_file.name
+                self.dbx.files_download_to_file(temp_path, info_file.path_display)
+
+            # Extract text from the PDF
+            text = self._extract_text_from_pdf(temp_path)
+            
+            # Clean up the temporary file
+            os.unlink(temp_path)
+
+            # Parse the extracted text
             account_info = {}
             
-            # Extract information from account info PDF
-            info_file = self.get_account_info_file(account_folder)
-            if info_file:
-                logging.info(f"Found account info PDF: {info_file.name}")
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    pdf_path = os.path.join(temp_dir, info_file.name)
-                    self.dbx.files_download_to_file(pdf_path, f"/{self.root_folder}/{account_folder}/{info_file.name}")
-                    text = self._extract_text_from_pdf(pdf_path)
-                    if text:
-                        # Extract Date of Birth
-                        dob_match = re.search(r'Date of Birth:?\s*(\d{1,2}/\d{1,2}/\d{4})', text, re.IGNORECASE)
-                        if dob_match:
-                            account_info['date_of_birth'] = dob_match.group(1)
-                            logging.info(f"Found date of birth in PDF: {account_info['date_of_birth']}")
-
-                        # Extract Age
-                        age_match = re.search(r'Age:?\s*(\d+)', text, re.IGNORECASE)
-                        if age_match:
-                            account_info['age'] = age_match.group(1)
-                            logging.info(f"Found age in PDF: {account_info['age']}")
-
-                        # Extract Sex
-                        sex_match = re.search(r'Sex:?\s*([MF])', text, re.IGNORECASE)
-                        if sex_match:
-                            account_info['sex'] = sex_match.group(1)
-                            logging.info(f"Found sex in PDF: {account_info['sex']}")
-
-                        # Extract SSN
-                        ssn_match = re.search(r'SSN:?\s*(\d{3}-\d{2}-\d{4})', text, re.IGNORECASE)
-                        if ssn_match:
-                            account_info['ssn'] = ssn_match.group(1)
-                            logging.info("Found SSN in PDF")
-
-                        # Extract Contact Information
-                        email_match = re.search(r'Email:?\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', text, re.IGNORECASE)
-                        if email_match:
-                            account_info['email'] = email_match.group(1)
-                            logging.info(f"Found email in PDF: {account_info['email']}")
-
-                        phone_match = re.search(r'Phone:?\s*(\d{3}[-.]?\d{3}[-.]?\d{4})', text, re.IGNORECASE)
-                        if phone_match:
-                            account_info['phone'] = phone_match.group(1)
-                            logging.info(f"Found phone in PDF: {account_info['phone']}")
-
-                        address_match = re.search(r'Address:?\s*([^\n]+)', text, re.IGNORECASE)
-                        if address_match:
-                            account_info['address'] = address_match.group(1).strip()
-                            logging.info(f"Found address in PDF: {account_info['address']}")
-
-                        # Extract city, state, zip
-                        city_state_zip_match = re.search(r'([^,]+),\s*([A-Z]{2})\s*(\d{5}(?:-\d{4})?)', text, re.IGNORECASE)
-                        if city_state_zip_match:
-                            account_info['city'] = city_state_zip_match.group(1).strip()
-                            account_info['state'] = city_state_zip_match.group(2)
-                            account_info['zip'] = city_state_zip_match.group(3)
-                            logging.info(f"Found location in PDF: {account_info['city']}, {account_info['state']} {account_info['zip']}")
-
-            # Extract information from driver's license
-            dl_file = self.get_drivers_license_file(account_folder)
-            if dl_file:
-                logging.info(f"Found driver's license file: {dl_file.name}")
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    dl_path = os.path.join(temp_dir, dl_file.name)
-                    self.dbx.files_download_to_file(dl_path, f"/{self.root_folder}/{account_folder}/{dl_file.name}")
-                    dl_info = self._extract_dl_info(dl_path)
-                    
-                    # Update account_info with driver's license information
-                    account_info.update(dl_info)
-                    logging.info(f"Updated account info with {len(dl_info)} fields from driver's license")
-
-            logging.info(f"Completed account information extraction. Found {len(account_info)} total fields")
+            # Extract Account Number
+            account_match = re.search(r'Account\s*#?:?\s*([A-Z0-9-]+)', text, re.IGNORECASE)
+            if account_match:
+                account_info['account_number'] = account_match.group(1)
             
-            _debug_prompt = debug_prompt(f"\nAccount information extracted for {account_folder}:\n{account_info}\n\nContinue with this information?")
-            if not _debug_prompt:
-                logging.info("User chose to stop processing after account information extraction")
-                return {}   
-
+            # Extract Name
+            name_match = re.search(r'Name:?\s*([A-Za-z\s]+)', text, re.IGNORECASE)
+            if name_match:
+                account_info['name'] = name_match.group(1).strip()
+            
+            # Extract Address
+            address_match = re.search(r'Address:?\s*([A-Za-z0-9\s,.-]+)', text, re.IGNORECASE)
+            if address_match:
+                account_info['address'] = address_match.group(1).strip()
+            
+            # Extract Phone
+            phone_match = re.search(r'Phone:?\s*(\d{3}[-.]?\d{3}[-.]?\d{4})', text, re.IGNORECASE)
+            if phone_match:
+                account_info['phone'] = phone_match.group(1)
+            
+            # Extract Email
+            email_match = re.search(r'Email:?\s*([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})', text, re.IGNORECASE)
+            if email_match:
+                account_info['email'] = email_match.group(1)
+            
             return account_info
 
         except Exception as e:
