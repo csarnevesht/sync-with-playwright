@@ -17,4 +17,4 @@ fi
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 
 # Run the ping script
-python sync/ping_services.py 
+python sync/cmd_ping.py 
