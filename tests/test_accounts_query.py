@@ -18,10 +18,12 @@ import logging
 from salesforce.pages.account_manager import AccountManager
 from salesforce.pages.accounts_page import AccountsPage
 from salesforce.utils.browser import get_salesforce_page
+from dotenv import load_dotenv
+from sync.config import SALESFORCE_URL
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,  # Set to DEBUG to see all messages
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
@@ -109,8 +111,40 @@ def test_get_accounts_matching_condition():
             browser.close()
 
 def main():
-    """Run the account query test."""
-    test_get_accounts_matching_condition()
+    # Load environment variables
+    load_dotenv()
+    
+    # Get credentials from environment variables
+    username = os.getenv('SALESFORCE_USERNAME')
+    password = os.getenv('SALESFORCE_PASSWORD')
+    
+    if not username or not password:
+        logging.error("SALESFORCE_USERNAME and SALESFORCE_PASSWORD must be set in .env file")
+        return
+    
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=False)
+        context = browser.new_context()
+        page = context.new_page()
+        
+        # Initialize pages
+        accounts_page = AccountsPage(page, debug_mode=True)
+        account_manager = AccountManager(page, debug_mode=True)
+        
+        # Login to Salesforce
+        if not account_manager.login(username, password):
+            logging.error("Failed to login to Salesforce")
+            return
+            
+        # Get all accounts
+        accounts = accounts_page._get_accounts_base()
+        logging.info(f"Found {len(accounts)} accounts")
+        
+        # Print first few accounts
+        for i, account in enumerate(accounts[:5]):
+            logging.info(f"Account {i+1}: {account['name']} (ID: {account['id']})")
+            
+        browser.close()
 
 if __name__ == "__main__":
     main() 
