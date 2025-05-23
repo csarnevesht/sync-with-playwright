@@ -3,10 +3,11 @@ List of account folder names in accounts/main.txt
 Write a sync tool sync/sync_analyze that does the following:
 using logic from:
  dropbox analyzer (see dropbox/cmd_analyze.py)
+     clear && python -m dropbox_renamer.cmd_analyze --show-all --folders-only 2>&1 | tee output.log
  salesforce account fuzzy search (see salesforce/cmd_fuzzy.py)
 
 
-for each dropbox account folder:
+for each dropbox account folder: use 
     uses fuzzy search in salesforce, 
       if it has an exact match:
         navigates to the salesforce account and gets the list of all the salesforce account files
