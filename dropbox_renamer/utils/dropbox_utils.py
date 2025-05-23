@@ -72,41 +72,13 @@ def download_and_rename_file(dbx, dropbox_path, local_dir):
         print(f"Error processing file {dropbox_path}: {e}")
 
 def list_folder_contents(dbx, path):
-    """List contents of a Dropbox folder."""
+    """List the contents of a Dropbox folder."""
     try:
         result = dbx.files_list_folder(path)
         return result.entries
     except ApiError as e:
-        print(f"Error listing folder contents for {path}: {e}")
+        print(f"Error listing folder {path}: {e}")
         return []
-
-def count_account_folders(dbx, dropbox_path, allowed_folders=None, ignored_folders=None):
-    """Count the number of account folders in the Dropbox path."""
-    try:
-        # List contents of the root folder
-        entries = list_folder_contents(dbx, dropbox_path)
-        
-        # Count folders that match the criteria
-        count = 0
-        for entry in entries:
-            if isinstance(entry, dropbox.files.FolderMetadata):
-                folder_name = entry.name
-                
-                # Skip ignored folders
-                if ignored_folders and folder_name in ignored_folders:
-                    continue
-                    
-                # Check if folder is allowed
-                if allowed_folders:
-                    if folder_name in allowed_folders:
-                        count += 1
-                else:
-                    count += 1
-                    
-        return count
-    except Exception as e:
-        print(f"Error counting account folders: {e}")
-        return 0
 
 def find_folder_path(dbx, target_folder):
     """Find the full path of a folder in Dropbox."""
@@ -114,127 +86,89 @@ def find_folder_path(dbx, target_folder):
         # Start from root
         result = dbx.files_list_folder('')
         
-        # Search through all entries
+        # Check each entry
         for entry in result.entries:
             if isinstance(entry, dropbox.files.FolderMetadata):
-                if entry.name.lower() == target_folder.lower():
+                if entry.name == target_folder:
                     return entry.path_display
                 
-                # Recursively search subfolders
+                # Recursively check subfolders
                 sub_path = find_folder_path(dbx, target_folder)
                 if sub_path:
                     return sub_path
-                    
-        return None
     except ApiError as e:
-        print(f"Error finding folder path for {target_folder}: {e}")
-        return None
-
-def list_all_namespaces_and_roots(dbx):
-    """List all namespaces and root folders in Dropbox."""
-    try:
-        # Get all namespaces
-        namespaces = dbx.team_namespaces_list()
-        
-        print("\nAvailable Namespaces:")
-        for namespace in namespaces.namespaces:
-            print(f"- {namespace.name} (ID: {namespace.namespace_id})")
-            
-        # Get root folders
-        root_folders = dbx.files_list_folder('')
-        
-        print("\nRoot Folders:")
-        for entry in root_folders.entries:
-            if isinstance(entry, dropbox.files.FolderMetadata):
-                print(f"- {entry.name} (Path: {entry.path_display})")
-                
-    except ApiError as e:
-        print(f"Error listing namespaces and roots: {e}")
-
-def list_app_folder_contents(dbx):
-    """List contents of the app folder in Dropbox."""
-    try:
-        result = dbx.files_list_folder('')
-        
-        print("\nApp Folder Contents:")
-        for entry in result.entries:
-            if isinstance(entry, dropbox.files.FolderMetadata):
-                print(f"📁 {entry.name}")
-            else:
-                print(f"📄 {entry.name}")
-                
-    except ApiError as e:
-        print(f"Error listing app folder contents: {e}")
+        print(f"Error finding folder {target_folder}: {e}")
+    
+    return None
 
 def get_access_token(env_file):
-    """Get the access token from environment or prompt user."""
+    """Get the Dropbox access token from environment or prompt user."""
     # Load environment variables
     load_dotenv(env_file)
     
     # Try to get token from environment
-    access_token = os.getenv('DROPBOX_TOKEN')
+    token = os.getenv('DROPBOX_TOKEN')
     
     # If no token found, prompt user
-    if not access_token:
-        print("\nDropbox Access Token not found in .env file.")
-        print("Please follow these steps:")
-        print("1. Create a file named 'token.txt' in the current directory")
-        print("2. Paste your Dropbox access token into this file")
-        print("3. Save the file")
-        print("4. Press Enter to continue...")
+    if not token:
+        print("\nDROPBOX_TOKEN not found in .env file.")
+        print("Please enter your Dropbox access token:")
+        token = input().strip()
         
-        # Wait for user to create the file
-        input()
+        if not token:
+            print("Error: No token provided")
+            return None
         
-        try:
-            # Read token from file
-            if os.path.exists('token.txt'):
-                with open('token.txt', 'r') as f:
-                    access_token = f.read().strip()
-                
-                # Delete the token file for security
-                os.remove('token.txt')
-                
-                if not access_token:
-                    print("Error: Token file is empty")
-                    return get_access_token(env_file)
-                
-                print(f"Token length: {len(access_token)}")
-                
-                # Update .env file with the new token
-                update_env_file(env_file, token=access_token)
-            else:
-                print("Error: token.txt file not found")
-                return get_access_token(env_file)
-                
-        except Exception as e:
-            print(f"Error reading token: {e}")
-            return get_access_token(env_file)
+        # Update .env file with the new token
+        update_env_file(env_file, token=token)
     
-    return access_token
+    return token
 
 def get_DROPBOX_FOLDER(env_file):
     """Get the Dropbox root folder from environment or prompt user."""
     # Load environment variables
     load_dotenv(env_file)
     
-    # Try to get root folder from environment
-    root_folder = os.getenv('DROPBOX_FOLDER')
+    # Try to get folder from environment
+    folder = os.getenv('DROPBOX_FOLDER')
     
-    # If no root folder found, prompt user
-    if not root_folder:
-        print("\nDropbox Root Folder not found in .env file.")
-        print("Please enter the Dropbox folder path to process (e.g., /Customers or full Dropbox URL):")
-        root_folder = input().strip()
+    # If no folder found, prompt user
+    if not folder:
+        print("\nDROPBOX_FOLDER not found in .env file.")
+        print("Please enter the root folder path in Dropbox:")
+        folder = input().strip()
         
-        if not root_folder:
+        if not folder:
             print("Error: No folder path provided")
-            return get_DROPBOX_FOLDER(env_file)
+            return None
         
-        # Update .env file with the new root folder
-        update_env_file(env_file, root_folder=root_folder)
+        # Update .env file with the new folder
+        update_env_file(env_file, root_folder=folder)
     
-    return root_folder
+    return folder
+
+def count_account_folders(dbx, path, allowed_folders=None, ignored_folders=None):
+    """Count the number of account folders in the given path."""
+    try:
+        entries = list_folder_contents(dbx, path)
+        count = 0
+        
+        for entry in entries:
+            if isinstance(entry, dropbox.files.FolderMetadata):
+                # Skip ignored folders
+                if ignored_folders and entry.name in ignored_folders:
+                    continue
+                
+                # Check if folder is allowed
+                if allowed_folders and entry.name not in allowed_folders:
+                    continue
+                
+                count += 1
+        
+        return count
+    except ApiError as e:
+        print(f"Error counting folders in {path}: {e}")
+        return 0
 
 def get_DATA_DIRECTORY(env_file):
     """Get the data directory from environment or prompt user."""
