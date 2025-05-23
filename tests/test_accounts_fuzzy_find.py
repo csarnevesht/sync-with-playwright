@@ -2,7 +2,7 @@
 Test Account Fuzzy Search
 
 This test verifies the fuzzy search functionality for accounts in Salesforce. It:
-1. Takes a list of account folder names from a file
+1. Takes a list of account folder names from a file in the accounts directory
 2. Extracts the last name from each folder name
 3. Searches for accounts in Salesforce CRM using the last name
 4. Verifies the search results
@@ -10,10 +10,12 @@ This test verifies the fuzzy search functionality for accounts in Salesforce. It
 
 import os
 import sys
+import argparse
 from playwright.sync_api import sync_playwright, TimeoutError
 import logging
 from salesforce.pages.account_manager import AccountManager
 from salesforce.browser import get_salesforce_page
+from dropbox_renamer.utils.account_utils import read_accounts_folders
 
 # Configure logging
 logging.basicConfig(
@@ -21,43 +23,30 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-def read_account_folders(file_path: str) -> list:
-    """
-    Read account folders from a file.
-    
-    Args:
-        file_path: Path to the file containing account folders
-        
-    Returns:
-        list: List of account folder names
-    """
-    try:
-        with open(file_path, 'r') as f:
-            # Read lines and strip whitespace, skip empty lines
-            folders = [line.strip() for line in f if line.strip()]
-        logging.info(f"Read {len(folders)} account folders from {file_path}")
-        return folders
-    except Exception as e:
-        logging.error(f"Error reading account folders file: {str(e)}")
-        return []
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description='Test fuzzy search for Salesforce accounts')
+    parser.add_argument('--accounts-file', 
+                      help='Name of the file in the accounts directory to read from (default: main.txt)',
+                      default=None)
+    return parser.parse_args()
 
-# Get the root directory (parent of tests directory)
-root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# Construct path to account_folders.txt in root directory
-account_folders_file = os.path.join(root_dir, 'account_folders.txt')
-
-# Read account folders from file
-ACCOUNT_FOLDERS = read_account_folders(account_folders_file)
-
-# If no folders were read, use a default for testing
-if not ACCOUNT_FOLDERS:
-    logging.warning("No account folders read from file, using default test folder")
-    ACCOUNT_FOLDERS = ["Andrews, Kathleen"]
-
-def test_accounts_fuzzy_find():
+def test_accounts_fuzzy_find(accounts_file: str = None):
     """
     Test fuzzy search functionality for accounts using last names from folder names.
+    
+    Args:
+        accounts_file: Optional name of the file in the accounts directory to read from.
+                      If not provided, defaults to 'main.txt'.
     """
+    # Read account folders from file
+    ACCOUNT_FOLDERS = read_accounts_folders(accounts_file)
+
+    # If no folders were read, use a default for testing
+    if not ACCOUNT_FOLDERS:
+        logging.warning("No account folders read from file, using default test folder")
+        ACCOUNT_FOLDERS = ["Andrews, Kathleen"]
+
     with sync_playwright() as p:
         browser, page = get_salesforce_page(p)
         try:
@@ -120,4 +109,5 @@ def test_accounts_fuzzy_find():
             browser.close()
 
 if __name__ == "__main__":
-    test_accounts_fuzzy_find() 
+    args = parse_args()
+    test_accounts_fuzzy_find(args.accounts_file) 
