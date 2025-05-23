@@ -151,9 +151,9 @@ def display_summary(counts, folders_only=False, ignored_folders=None, account_fo
     ignored_account_folders = []
     if ignored_folders and account_folders:
         ignored_account_folders = [folder for folder in account_folders if folder in ignored_folders]
-    print(f"Ignored \"Dropbox account folders\": {len(ignored_account_folders)}")
+    print(f"Ignored Dropbox account folders: {len(ignored_account_folders)}")
     if ignored_account_folders:
-        print("Ignored folders list:")
+        print("Ignored Dropbox account folders list:")
         for folder in ignored_account_folders:
             print(f"  - {folder}")
 
