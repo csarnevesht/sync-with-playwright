@@ -13,13 +13,13 @@ from dropbox.exceptions import ApiError
 from dotenv import load_dotenv
 import os
 
-from .utils.dropbox_utils import (
+from dropbox_renamer.utils.dropbox_utils import (
     get_access_token,
     list_folder_contents,
     clean_dropbox_path,
     get_DROPBOX_FOLDER
 )
-from .utils.file_utils import (
+from dropbox_renamer.utils.file_utils import (
     read_allowed_folders,
     read_ignored_folders
 )
