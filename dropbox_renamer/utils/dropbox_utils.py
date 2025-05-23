@@ -80,6 +80,34 @@ def list_folder_contents(dbx, path):
         print(f"Error listing folder contents for {path}: {e}")
         return []
 
+def count_account_folders(dbx, dropbox_path, allowed_folders=None, ignored_folders=None):
+    """Count the number of account folders in the Dropbox path."""
+    try:
+        # List contents of the root folder
+        entries = list_folder_contents(dbx, dropbox_path)
+        
+        # Count folders that match the criteria
+        count = 0
+        for entry in entries:
+            if isinstance(entry, dropbox.files.FolderMetadata):
+                folder_name = entry.name
+                
+                # Skip ignored folders
+                if ignored_folders and folder_name in ignored_folders:
+                    continue
+                    
+                # Check if folder is allowed
+                if allowed_folders:
+                    if folder_name in allowed_folders:
+                        count += 1
+                else:
+                    count += 1
+                    
+        return count
+    except Exception as e:
+        print(f"Error counting account folders: {e}")
+        return 0
+
 def find_folder_path(dbx, target_folder):
     """Find the full path of a folder in Dropbox."""
     try:
@@ -206,4 +234,27 @@ def get_DROPBOX_FOLDER(env_file):
         # Update .env file with the new root folder
         update_env_file(env_file, root_folder=root_folder)
     
-    return root_folder 
+    return root_folder
+
+def get_DATA_DIRECTORY(env_file):
+    """Get the data directory from environment or prompt user."""
+    # Load environment variables
+    load_dotenv(env_file)
+    
+    # Try to get directory from environment
+    directory = os.getenv('DATA_DIRECTORY')
+    
+    # If no directory found, prompt user
+    if not directory:
+        print("\nDATA_DIRECTORY not found in .env file.")
+        print("Please enter the base directory to save files (default: ./data):")
+        directory = input().strip()
+        
+        if not directory:
+            directory = './data'
+            print(f"Using default directory: {directory}")
+        
+        # Update .env file with the new directory
+        update_env_file(env_file, directory=directory)
+    
+    return directory 

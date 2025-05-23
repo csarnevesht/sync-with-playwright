@@ -35,37 +35,11 @@ from .utils.dropbox_utils import (
     list_all_namespaces_and_roots,
     list_app_folder_contents,
     get_access_token,
-    get_DROPBOX_FOLDER
+    get_DROPBOX_FOLDER,
+    count_account_folders,
+    get_DATA_DIRECTORY
 )
 from .utils.date_utils import format_duration
-
-def count_account_folders(dbx, dropbox_path, allowed_folders=None, ignored_folders=None):
-    """Count the number of account folders in the Dropbox path."""
-    try:
-        # List contents of the root folder
-        entries = list_folder_contents(dbx, dropbox_path)
-        
-        # Count folders that match the criteria
-        count = 0
-        for entry in entries:
-            if isinstance(entry, dropbox.files.FolderMetadata):
-                folder_name = entry.name
-                
-                # Skip ignored folders
-                if ignored_folders and folder_name in ignored_folders:
-                    continue
-                    
-                # Check if folder is allowed
-                if allowed_folders:
-                    if folder_name in allowed_folders:
-                        count += 1
-                else:
-                    count += 1
-                    
-        return count
-    except Exception as e:
-        print(f"Error counting account folders: {e}")
-        return 0
 
 def get_DATA_DIRECTORY(env_file):
     """Get the data directory from environment or prompt user."""
