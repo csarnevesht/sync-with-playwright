@@ -2,7 +2,7 @@ from playwright.sync_api import Page, TimeoutError
 import logging
 import time
 from typing import Optional, Any, List
-from .selectors import Selectors
+from salesforce.utils.selectors import Selectors
 
 class BasePage:
     """Base class for all page objects with common functionality."""
