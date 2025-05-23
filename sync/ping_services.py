@@ -7,6 +7,7 @@ from salesforce.browser import get_salesforce_page
 from salesforce.pages.account_manager import AccountManager
 from dropbox.exceptions import ApiError
 from dotenv import load_dotenv
+from dropbox_renamer.utils.path_utils import clean_dropbox_path
 
 # Configure logging
 logging.basicConfig(
@@ -17,50 +18,6 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
-
-def clean_dropbox_path(path):
-    """Clean and format the Dropbox path from URL or user input."""
-    print(f"\nOriginal path: {path}")
-    
-    # Remove URL parts if present
-    if 'dropbox.com/home' in path:
-        path = path.split('dropbox.com/home')[-1]
-        print(f"After removing URL: {path}")
-    
-    # Remove any URL encoding
-    path = path.replace('%20', ' ')
-    print(f"After URL decoding: {path}")
-    
-    # Remove any trailing slashes
-    path = path.rstrip('/')
-    
-    # Ensure path starts with a single forward slash
-    if not path.startswith('/'):
-        path = '/' + path
-    
-    # Remove any "All files" prefix if present
-    if path.startswith('/All files'):
-        path = path[10:]  # Remove '/All files' prefix
-    
-    # Try to normalize the path
-    path_parts = [p for p in path.split('/') if p]
-    
-    # Handle case sensitivity issues by trying different case combinations
-    if len(path_parts) > 0:
-        # Try with original case first
-        path = '/' + '/'.join(path_parts)
-        print(f"Trying path with original case: {path}")
-        
-        # If that fails, try with lowercase
-        path_lower = '/' + '/'.join(p.lower() for p in path_parts)
-        print(f"Trying path with lowercase: {path_lower}")
-        
-        # If that fails, try with uppercase
-        path_upper = '/' + '/'.join(p.upper() for p in path_parts)
-        print(f"Trying path with uppercase: {path_upper}")
-    
-    print(f"Final cleaned path: {path}")
-    return path
 
 def get_DROPBOX_FOLDER(env_file='.env'):
     """Get the Dropbox root folder from environment or prompt user."""

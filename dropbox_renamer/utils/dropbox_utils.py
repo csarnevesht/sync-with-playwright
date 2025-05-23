@@ -6,6 +6,7 @@ from dropbox.exceptions import ApiError
 from dotenv import load_dotenv
 from .date_utils import has_date_prefix, get_folder_creation_date
 from .path_utils import clean_dropbox_path
+from .file_utils import log_renamed_file
 
 def get_renamed_path(metadata, path, is_folder=False, dbx=None):
     """Get the renamed path with date prefix."""

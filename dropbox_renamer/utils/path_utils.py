@@ -2,55 +2,129 @@
 
 import urllib.parse
 import logging
+from typing import List, Optional
 
-def clean_dropbox_path(path: str) -> str:
+def remove_url_parts(path: str) -> str:
     """
-    Clean and format the Dropbox path from URL or user input.
+    Remove Dropbox URL parts from the path.
     
     Args:
-        path (str): The Dropbox path to clean, can be a full URL or relative path
+        path (str): The path that may contain Dropbox URL parts
         
     Returns:
-        str: The cleaned and normalized path
+        str: Path with URL parts removed
     """
-    logging.debug(f"Original path: {path}")
-    
-    # Remove URL parts if present
     if 'dropbox.com/home' in path:
         path = path.split('dropbox.com/home')[-1]
-        logging.debug(f"After removing URL: {path}")
+        logging.debug(f"Removed URL parts: {path}")
+    return path
+
+def decode_url_encoding(path: str) -> str:
+    """
+    Decode URL-encoded characters in the path.
     
-    # Remove any URL encoding
-    path = path.replace('%20', ' ')
-    logging.debug(f"After URL decoding: {path}")
+    Args:
+        path (str): The path that may contain URL-encoded characters
+        
+    Returns:
+        str: Path with URL-encoded characters decoded
+    """
+    try:
+        decoded = urllib.parse.unquote(path)
+        if decoded != path:
+            logging.debug(f"Decoded URL encoding: {decoded}")
+        return decoded
+    except Exception as e:
+        logging.warning(f"Failed to decode URL encoding: {e}")
+        return path
+
+def normalize_path_structure(path: str) -> str:
+    """
+    Normalize the path structure by handling slashes and prefixes.
     
-    # Remove any trailing slashes
+    Args:
+        path (str): The path to normalize
+        
+    Returns:
+        str: Normalized path
+    """
+    # Remove trailing slashes
     path = path.rstrip('/')
     
     # Ensure path starts with a single forward slash
     if not path.startswith('/'):
         path = '/' + path
     
-    # Remove any "All files" prefix if present
+    # Remove "All files" prefix if present
     if path.startswith('/All files'):
-        path = path[10:]  # Remove '/All files' prefix
+        path = path[10:]
+        logging.debug(f"Removed 'All files' prefix: {path}")
     
-    # Try to normalize the path
+    return path
+
+def get_case_variations(path_parts: List[str]) -> List[str]:
+    """
+    Generate different case variations of the path.
+    
+    Args:
+        path_parts (List[str]): List of path components
+        
+    Returns:
+        List[str]: List of paths with different case variations
+    """
+    variations = []
+    
+    # Original case
+    variations.append('/' + '/'.join(path_parts))
+    
+    # Lowercase
+    variations.append('/' + '/'.join(p.lower() for p in path_parts))
+    
+    # Uppercase
+    variations.append('/' + '/'.join(p.upper() for p in path_parts))
+    
+    return variations
+
+def clean_dropbox_path(path: str) -> str:
+    """
+    Clean and format the Dropbox path from URL or user input.
+    
+    This function handles:
+    - Removing Dropbox URL parts
+    - Decoding URL-encoded characters
+    - Normalizing path structure
+    - Handling case sensitivity
+    
+    Args:
+        path (str): The Dropbox path to clean, can be a full URL or relative path
+        
+    Returns:
+        str: The cleaned and normalized path
+        
+    Raises:
+        ValueError: If the path is empty or invalid
+    """
+    if not path or not isinstance(path, str):
+        raise ValueError("Path must be a non-empty string")
+    
+    logging.debug(f"Cleaning path: {path}")
+    
+    # Step 1: Remove URL parts
+    path = remove_url_parts(path)
+    
+    # Step 2: Decode URL encoding
+    path = decode_url_encoding(path)
+    
+    # Step 3: Normalize path structure
+    path = normalize_path_structure(path)
+    
+    # Step 4: Handle case sensitivity
     path_parts = [p for p in path.split('/') if p]
-    
-    # Handle case sensitivity issues by trying different case combinations
-    if len(path_parts) > 0:
-        # Try with original case first
-        path = '/' + '/'.join(path_parts)
-        logging.debug(f"Trying path with original case: {path}")
-        
-        # If that fails, try with lowercase
-        path_lower = '/' + '/'.join(p.lower() for p in path_parts)
-        logging.debug(f"Trying path with lowercase: {path_lower}")
-        
-        # If that fails, try with uppercase
-        path_upper = '/' + '/'.join(p.upper() for p in path_parts)
-        logging.debug(f"Trying path with uppercase: {path_upper}")
+    if path_parts:
+        case_variations = get_case_variations(path_parts)
+        logging.debug(f"Generated case variations: {case_variations}")
+        # Return the original case variation as default
+        path = case_variations[0]
     
     logging.debug(f"Final cleaned path: {path}")
     return path 

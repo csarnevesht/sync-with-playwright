@@ -37,6 +37,7 @@ from .utils.dropbox_utils import (
     count_account_folders,
     get_DATA_DIRECTORY
 )
+from .utils.path_utils import clean_dropbox_path
 from .utils.date_utils import format_duration
 
 def get_DATA_DIRECTORY(env_file):
@@ -172,6 +173,21 @@ def main():
         if not dropbox_path:
             print("Error: Could not get Dropbox folder")
             return
+            
+        # Clean and validate the path
+        clean_path = clean_dropbox_path(dropbox_path)
+        if not clean_path:
+            print(f"Invalid path: {dropbox_path}")
+            return
+            
+        # Try to get metadata first to check if path exists
+        try:
+            dbx.files_get_metadata(clean_path)
+        except ApiError as e:
+            if e.error.is_path() and e.error.get_path().is_not_found():
+                print(f"Path not found: {clean_path}")
+                return
+            raise
         
         # Get data directory
         base_directory = get_DATA_DIRECTORY(args.env_file)
@@ -187,12 +203,12 @@ def main():
         ignored_folders = read_ignored_folders()
         
         # Count account folders
-        num_folders = count_account_folders(dbx, dropbox_path, allowed_folders, ignored_folders)
+        num_folders = count_account_folders(dbx, clean_path, allowed_folders, ignored_folders)
         print(f"\nFound {num_folders} account folders to process")
         
         # Process each folder
         start_time = datetime.datetime.now()
-        entries = list_folder_contents(dbx, dropbox_path)
+        entries = list_folder_contents(dbx, clean_path)
         
         # Filter and sort folders
         folders = [entry for entry in entries if isinstance(entry, dropbox.files.FolderMetadata)]
