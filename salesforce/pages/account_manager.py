@@ -9,7 +9,6 @@ from config import SALESFORCE_URL
 import sys
 import os
 from salesforce.pages.accounts_page import AccountsPage
-from salesforce.utils.file_utils import get_file_type
 
 class AccountManager(BasePage):
     """Handles account-related operations in Salesforce."""
@@ -600,6 +599,7 @@ class AccountManager(BasePage):
             
         return num_files
 
+        
     def get_all_file_names_for_this_account(self, account_id: str) -> List[str]:
         """
         Get all file names associated with an account.
@@ -613,60 +613,85 @@ class AccountManager(BasePage):
         self.logger.info(f"Getting all file names for account {account_id}")
         
         try:
-            # Navigate to Files page
-            files_url = f"{SALESFORCE_URL}/lightning/r/Account/{account_id}/related/AttachedContentDocuments/view"
-            self.logger.info(f"Navigating to Files page: {files_url}")
-            self.page.goto(files_url)
+            # Quick check if table is already visible
+            try:
+                table = self.page.locator('table.slds-table').first
+                if table.is_visible(timeout=1000):
+                    self.logger.info("Table is already visible")
+            except Exception:
+                # If not visible, wait briefly
+                self.page.wait_for_selector('table.slds-table', timeout=5000)
             
-            # Initialize FileManager
-            file_manager_instance = file_manager.FileManager(self.page)
-            
-            # Get initial file count
-            num_files = file_manager_instance.extract_files_count_from_status()
-            self.logger.info(f"Initial number of files: {num_files}")
-            
-            # If we have "50+" files, scroll to load all
-            if isinstance(num_files, str) and '+' in str(num_files):
-                self.logger.info("Found '50+' count, scrolling to load all files...")
-                file_manager_instance.scroll_to_bottom_of_page()
-            
-            # Get all file names and types from the page
-            file_names = []
-            
-            # Wait for the table to be visible
-            self.page.wait_for_selector('table.slds-table', timeout=5000)
-            
-            # Get all file rows
+            # Get all file rows immediately
             file_rows = self.page.locator('table.slds-table tbody tr').all()
+            if not file_rows:
+                self.logger.error("No file rows found")
+                return []
+            
             self.logger.info(f"Found {len(file_rows)} file rows")
+            
+            # Get file information with minimal waits
+            logging.info("Getting file information with minimal waits")
+            file_names = []
+            total_rows = len(file_rows)
+            self.logger.info(f"Starting to process {total_rows} file rows...")
             
             for i, row in enumerate(file_rows, 1):
                 try:
-                    # Get file name from the title span
+                    # Log progress every 10 files or at the start
+                    if i == 1 or i % 10 == 0:
+                        self.logger.info(f"Processing file {i}/{total_rows} ({(i/total_rows)*100:.1f}%)")
+                    
+                    logging.info(f"Row: {row}")
+                    # Get file name
                     title_span = row.locator('span.itemTitle').first
+                    logging.info(f"Title span: {title_span}")
                     if not title_span:
+                        self.logger.warning(f"Skipping row {i}: No title span found")
                         continue
-                    file_name = title_span.text_content().strip()
+
+                    file_name = title_span.text_content(timeout=2000).strip()
+                    if not file_name:
+                        self.logger.warning(f"Skipping row {i}: Empty file name")
+                        continue
                     
                     # Get file type from the type column
-                    type_cell = row.locator('td:nth-child(2)').first
-                    if type_cell:
-                        file_type = type_cell.text_content().strip()
-                    else:
-                        file_type = 'Unknown'
+                    file_type = 'Unknown'
+                    try:
+                        type_cell = row.locator('th:nth-child(2) span a div').first
+                        if type_cell:
+                            type_text = type_cell.text_content(timeout=1000).strip()
+                            if type_text:
+                                file_type = type_text.upper()
+                    except Exception:
+                        # If we can't get the type from the cell, try file extension
+                        if file_name.lower().endswith('.pdf'):
+                            file_type = 'PDF'
+                        elif file_name.lower().endswith(('.doc', '.docx')):
+                            file_type = 'DOC'
+                        elif file_name.lower().endswith(('.xls', '.xlsx')):
+                            file_type = 'XLS'
+                        elif file_name.lower().endswith('.txt'):
+                            file_type = 'TXT'
+                        elif file_name.lower().endswith(('.jpg', '.jpeg', '.png')):
+                            file_type = 'IMG'
                     
-                    if file_name:
-                        file_names.append(f"{i}. {file_name} [{file_type}]")
+                    # Clean the file name by removing any existing numbers and file types
+                    clean_name = re.sub(r'^\d+\.\s*', '', file_name)
+                    clean_name = re.sub(r'\s*\[\w+\]\s*$', '', clean_name)
+                    
+                    file_names.append(f"{i}. {clean_name} [{file_type}]")
+                    self.logger.debug(f"Successfully processed file {i}: {clean_name} [{file_type}]")
                 except Exception as e:
-                    self.logger.warning(f"Error getting file info: {str(e)}")
+                    self.logger.warning(f"Error getting file info for row {i}: {str(e)}")
                     continue
             
-            self.logger.info(f"Found {len(file_names)} files")
+            self.logger.info(f"Completed processing {len(file_names)}/{total_rows} files successfully")
             return file_names
             
         except Exception as e:
             self.logger.error(f"Error getting file names: {str(e)}")
-            return []
+            return [] 
 
     def get_default_condition(self):
         """Get the default condition for filtering accounts."""

@@ -8,6 +8,7 @@ def get_file_type(filename: str) -> str:
     Returns:
         str: File type (PDF, DOC, XLS, etc.) or 'Unknown' if type cannot be determined
     """
+    print(f"Getting file type for {filename}")
     extension = filename.split('.')[-1].lower() if '.' in filename else ''
     file_types = {
         'pdf': 'PDF',

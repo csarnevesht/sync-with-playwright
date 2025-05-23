@@ -44,8 +44,7 @@ def format_file_list(files: list) -> str:
     
     formatted_files = []
     for i, file in enumerate(files, 1):
-        file_type = get_file_type(file)
-        formatted_files.append(f"{i}. {file} [{file_type}]")
+        formatted_files.append(f"{file}")
     
     return "\n".join(formatted_files)
 
@@ -92,6 +91,7 @@ def test_account_account_files():
                 return
             
             # Get all file names
+            logging.info("Getting all file names for this account")
             files = account_manager.get_all_file_names_for_this_account(account_id)
             
             # Display results
