@@ -377,50 +377,35 @@ def find_folder_path(dbx, target_folder):
     
     return None
 
-def get_access_token(env_file, token=None):
-    """Get the Dropbox access token from environment or prompt user."""
-    # If token is provided, use it
-    if token:
-        print(f"\nDebug: Using provided token")
-        print(f"Debug: Token length: {len(token)}")
-        print(f"Debug: Token first 10 chars: {token[:10]}...")
-        print(f"Debug: Token last 10 chars: {token[-10:]}...")
-        print(f"Debug: Raw token value: '{token}'")
-        print(f"Debug: Token contains newlines: {'Yes' if '\\n' in token else 'No'}")
-        print(f"Debug: Token contains spaces: {'Yes' if ' ' in token else 'No'}")
-        return token
+def get_access_token() -> str:
+    """
+    Get Dropbox access token from environment variable or .env file.
+    If not found, prompt user to enter it.
     
-    # Try to get token from environment first
+    Returns:
+        str: Dropbox access token
+    """
+    # First try to get from environment variable
     token = os.getenv('DROPBOX_TOKEN')
-    
-    # If not found, load from .env file
-    if not token:
-        load_dotenv(env_file)
-        token = os.getenv('DROPBOX_TOKEN')
-    
-    print(f"\nDebug: Loading token from {env_file}")
-    print(f"Debug: Token found: {'Yes' if token else 'No'}")
     if token:
-        print(f"Debug: Token length: {len(token)}")
-        print(f"Debug: Token first 10 chars: {token[:10]}...")
-        print(f"Debug: Token last 10 chars: {token[-10:]}...")
-        print(f"Debug: Raw token value: '{token}'")
-        print(f"Debug: Token contains newlines: {'Yes' if '\\n' in token else 'No'}")
-        print(f"Debug: Token contains spaces: {'Yes' if ' ' in token else 'No'}")
+        logger.info("Token loaded from environment variable DROPBOX_TOKEN")
+        return token
+        
+    # If not in environment, try to load from .env file
+    try:
+        load_dotenv()
+        token = os.getenv('DROPBOX_TOKEN')
+        if token:
+            logger.info("Token loaded from .env file")
+            return token
+    except Exception as e:
+        logger.warning(f"Failed to load .env file: {str(e)}")
     
-    # If no token found, prompt user
+    # If still not found, prompt user
+    logger.warning("No token found in environment or .env file")
+    token = input("Please enter your Dropbox access token: ").strip()
     if not token:
-        print("\nDROPBOX_TOKEN not found in .env file.")
-        print("Please enter your Dropbox access token:")
-        token = input().strip()
-        
-        if not token:
-            print("Error: No token provided")
-            return None
-        
-        # Update .env file with the new token
-        update_env_file(env_file, token=token)
-    
+        raise ValueError("No access token provided")
     return token
 
 def get_DROPBOX_FOLDER(env_file):
