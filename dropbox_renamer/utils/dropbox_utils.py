@@ -8,6 +8,41 @@ from .date_utils import has_date_prefix, get_folder_creation_date
 from .path_utils import clean_dropbox_path
 from .file_utils import log_renamed_file
 
+def update_env_file(env_file, token=None, root_folder=None, directory=None):
+    """Update the .env file with new values."""
+    try:
+        # Read existing content
+        existing_content = {}
+        if os.path.exists(env_file):
+            with open(env_file, 'r') as f:
+                for line in f:
+                    if '=' in line:
+                        key, value = line.strip().split('=', 1)
+                        existing_content[key] = value
+        
+        # Update values
+        if token:
+            existing_content['DROPBOX_TOKEN'] = token
+        if root_folder:
+            existing_content['DROPBOX_FOLDER'] = root_folder
+        if directory:
+            existing_content['DATA_DIRECTORY'] = directory
+        
+        # Write back to file
+        with open(env_file, 'w') as f:
+            for key, value in existing_content.items():
+                f.write(f"{key}={value}\n")
+        
+        if token:
+            print(f"✓ Access token saved to {env_file}")
+        if root_folder:
+            print(f"✓ Root folder saved to {env_file}")
+        if directory:
+            print(f"✓ Directory saved to {env_file}")
+    except Exception as e:
+        print(f"✗ Error saving to {env_file}: {e}")
+        raise
+
 def get_renamed_path(metadata, path, is_folder=False, dbx=None):
     """Get the renamed path with date prefix."""
     try:
