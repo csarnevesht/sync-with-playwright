@@ -16,7 +16,11 @@ from dotenv import load_dotenv
 import argparse
 from dropbox_renamer.utils.path_utils import clean_dropbox_path
 import logging
-from dropbox_renamer.utils.dropbox_utils import get_access_token
+from dropbox_renamer.utils.dropbox_utils import (
+    get_access_token,
+    get_DROPBOX_FOLDER,
+    update_env_file
+)
 
 # Configure logging
 logging.basicConfig(
@@ -36,29 +40,6 @@ def ensure_directory_exists(directory):
     except Exception as e:
         print(f"✗ Error creating directory {directory}: {str(e)}")
         return False
-
-def get_DROPBOX_FOLDER(env_file):
-    """Get the Dropbox root folder from environment or prompt user."""
-    # Load environment variables
-    load_dotenv(env_file)
-    
-    # Try to get root folder from environment
-    root_folder = os.getenv('DROPBOX_FOLDER')
-    
-    # If no root folder found, prompt user
-    if not root_folder:
-        print("\nDropbox Root Folder not found in .env file.")
-        print("Please enter the Dropbox folder path to process (e.g., /Customers or full Dropbox URL):")
-        root_folder = input().strip()
-        
-        if not root_folder:
-            print("Error: No folder path provided")
-            return get_DROPBOX_FOLDER(env_file)
-        
-        # Update .env file with the new root folder
-        update_env_file(env_file, root_folder=root_folder)
-    
-    return root_folder
 
 def get_DATA_DIRECTORY(env_file):
     """Get the data directory from environment or prompt user."""
@@ -82,41 +63,6 @@ def get_DATA_DIRECTORY(env_file):
         update_env_file(env_file, directory=directory)
     
     return directory
-
-def update_env_file(env_file, token=None, root_folder=None, directory=None):
-    """Update the .env file with the new token, root folder, and/or directory."""
-    try:
-        # Read existing content
-        existing_content = {}
-        if os.path.exists(env_file):
-            with open(env_file, 'r') as f:
-                for line in f:
-                    if '=' in line:
-                        key, value = line.strip().split('=', 1)
-                        existing_content[key] = value
-        
-        # Update values
-        if token:
-            existing_content['DROPBOX_TOKEN'] = token
-        if root_folder:
-            existing_content['DROPBOX_FOLDER'] = root_folder
-        if directory:
-            existing_content['DATA_DIRECTORY'] = directory
-        
-        # Write back to file
-        with open(env_file, 'w') as f:
-            for key, value in existing_content.items():
-                f.write(f"{key}={value}\n")
-        
-        if token:
-            print(f"✓ Access token saved to {env_file}")
-        if root_folder:
-            print(f"✓ Root folder saved to {env_file}")
-        if directory:
-            print(f"✓ Directory saved to {env_file}")
-    except Exception as e:
-        print(f"✗ Error saving to {env_file}: {e}")
-        raise
 
 def test_dropbox_connection():
     """Test the Dropbox connection and token validity."""
