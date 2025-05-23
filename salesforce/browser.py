@@ -6,11 +6,11 @@ import os
 import sys
 from playwright.sync_api import sync_playwright, Browser, Page
 import logging
-from config import SALESFORCE_URL, SALESFORCE_USERNAME, SALESFORCE_PASSWORD
+from config import SALESFORCE_URL, SALESFORCE_USERNAME, SALESFORCE_PASSWORD, CHROME_DEBUG_PORT
 
 def get_salesforce_page(playwright) -> tuple[Browser, Page]:
     """
-    Initialize a browser and navigate to Salesforce login page.
+    Connect to an existing Chrome browser and return the first Salesforce page found.
     
     Args:
         playwright: The Playwright instance
@@ -19,26 +19,29 @@ def get_salesforce_page(playwright) -> tuple[Browser, Page]:
         tuple[Browser, Page]: A tuple containing the browser and page objects
     """
     try:
-        # Launch browser
-        browser = playwright.chromium.launch(headless=False)
-        context = browser.new_context()
-        page = context.new_page()
+        # Connect to existing Chrome browser
+        remote_url = f"http://localhost:{CHROME_DEBUG_PORT}"
+        browser = playwright.chromium.connect_over_cdp(remote_url)
         
-        # Navigate to Salesforce
-        page.goto(SALESFORCE_URL)
-        
-        # Login to Salesforce
-        page.fill('input[name="username"]', SALESFORCE_USERNAME)
-        page.fill('input[name="pw"]', SALESFORCE_PASSWORD)
-        page.click('input[name="Login"]')
-        
-        # Wait for navigation to complete
-        page.wait_for_load_state('networkidle')
-        
-        return browser, page
+        # Find Salesforce page
+        salesforce_page = None
+        for context in browser.contexts:
+            for page in context.pages:
+                if "lightning.force.com" in page.url:
+                    salesforce_page = page
+                    break
+            if salesforce_page:
+                break
+                
+        if not salesforce_page:
+            logging.error(f"No Salesforce page found. Please make sure you have a Salesforce page open.")
+            browser.close()
+            sys.exit(1)
+            
+        return browser, salesforce_page
         
     except Exception as e:
-        logging.error(f"Error initializing Salesforce page: {str(e)}")
+        logging.error(f"Error connecting to Chrome browser: {str(e)}")
         if 'browser' in locals():
             browser.close()
         sys.exit(1) 

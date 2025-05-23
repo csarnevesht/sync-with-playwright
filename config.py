@@ -9,6 +9,8 @@ DROPBOX_ROOT_FOLDER = os.getenv('DROPBOX_FOLDER', 'Accounts')
 
 # Salesforce configuration
 SALESFORCE_URL = "https://capitalprotect.lightning.force.com"
+SALESFORCE_USERNAME = os.getenv('SALESFORCE_USERNAME')
+SALESFORCE_PASSWORD = os.getenv('SALESFORCE_PASSWORD')
 
 # File patterns
 ACCOUNT_INFO_PATTERN = os.getenv('ACCOUNT_INFO_PATTERN', '*App.pdf')
