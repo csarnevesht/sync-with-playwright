@@ -64,7 +64,7 @@ def log_processing_time(account_name, start_time, end_time, download_dir):
     with open(log_file, 'a') as f:
         f.write(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {account_name}: {format_duration(seconds)}\n")
 
-def read_allowed_folders(file_path='./dropbox_renamer/dropbox_files.txt'):
+def read_allowed_folders(file_path='./account_folders.txt'):
     """Read the list of allowed folder names from dropbox_files.txt."""
     try:
         if not os.path.exists(file_path):

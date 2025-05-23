@@ -9,3 +9,6 @@ clear && python main.py 2>&1 | tee output.log
 
 
 clear && python -m tests.test_all 2>&1 | tee output.log
+
+clear && python -m tests.test_accounts_fuzzy_find 2>&1 | tee output.log
+
