@@ -185,9 +185,20 @@ def debug_list_folders(dbx, path):
 def main():
     """Main function to analyze Dropbox folder structure."""
     parser = argparse.ArgumentParser(description='Analyze Dropbox folder structure')
-    parser.add_argument('--env-file', default='.env', help='Path to .env file')
+    parser.add_argument('--env-file', '-e', default='.env',
+                      help='Path to .env file (default: .env)')
+    parser.add_argument('--analyze-path', '-p',
+                      help='Analyze folder structure starting from this path (relative to DROPBOX_FOLDER)')
+    parser.add_argument('--show-all', action='store_true',
+                      help='Show all folders except ignored ones (ignores account folders list)')
+    parser.add_argument('--folders-only', action='store_true',
+                      help='List only folders without their contents')
     parser.add_argument('--accounts-file', '-a',
                       help='Path to file containing list of account folders (default: accounts/main.txt)')
+    parser.add_argument('--debug-list', action='store_true',
+                      help='Debug: List all folders from Dropbox without any filtering')
+    parser.add_argument('--find-folder',
+                      help='Debug: Search for a specific folder recursively')
     args = parser.parse_args()
     
     # Get absolute path of .env file
@@ -210,16 +221,67 @@ def main():
         logger.error(f"Failed to initialize Dropbox client: {str(e)}")
         return
     
-    # Get folder structure
-    try:
-        folder_structure = get_folder_structure(dbx)
-        logger.info("Successfully retrieved folder structure")
-    except Exception as e:
-        logger.error(f"Failed to get folder structure: {str(e)}")
+    # Get the root folder from environment
+    root_folder = get_DROPBOX_FOLDER(args.env_file)
+    if not root_folder:
+        logger.error("Could not get DROPBOX_FOLDER from environment")
+        return
+        
+    logger.info(f"=== Analyzing Folder Structure for {root_folder} ===")
+    
+    # If find-folder is enabled, search recursively for the folder
+    if args.find_folder:
+        logger.info(f"Searching for folder: {args.find_folder}")
+        if args.analyze_path:
+            full_path = os.path.join(root_folder, args.analyze_path.lstrip('/'))
+            logger.info(f"Starting search from: {args.analyze_path}")
+            found = debug_list_folders(dbx, full_path)
+        else:
+            found = debug_list_folders(dbx, root_folder)
+        if not found:
+            logger.info(f"Folder '{args.find_folder}' not found in any subfolder")
         return
     
-    # Display results
-    display_summary(folder_structure)
+    # If debug-list is enabled, just list all folders without filtering
+    if args.debug_list:
+        if args.analyze_path:
+            full_path = os.path.join(root_folder, args.analyze_path.lstrip('/'))
+            logger.info(f"Debug listing subfolder: {args.analyze_path}")
+            debug_list_folders(dbx, full_path)
+        else:
+            debug_list_folders(dbx, root_folder)
+        return
+    
+    # Always read ignored folders
+    ignored_folders = read_ignored_folders()
+    
+    # Read account folders based on options
+    account_folders = None if args.show_all else read_account_folders(args.accounts_file)
+    
+    # Display account folders list when not using --show-all
+    if account_folders and not args.show_all:
+        print("\nDropbox Account folders:")
+        for idx, folder in enumerate(account_folders, 1):
+            ignored_mark = " (ignored)" if ignored_folders and folder in ignored_folders else ""
+            print(f"{idx}. {folder}{ignored_mark}")
+    
+    # If a specific path is provided, analyze that path relative to root_folder
+    if args.analyze_path:
+        full_path = os.path.join(root_folder, args.analyze_path.lstrip('/'))
+        logger.info(f"Analyzing subfolder: {args.analyze_path}")
+        if args.folders_only:
+            counts = list_folders_only(dbx, full_path, account_folders=account_folders, ignored_folders=ignored_folders)
+        else:
+            counts = analyze_folder_structure(dbx, full_path, account_folders=account_folders, ignored_folders=ignored_folders)
+    else:
+        # Analyze the root folder
+        if args.folders_only:
+            counts = list_folders_only(dbx, root_folder, account_folders=account_folders, ignored_folders=ignored_folders)
+        else:
+            counts = analyze_folder_structure(dbx, root_folder, account_folders=account_folders, ignored_folders=ignored_folders)
+    
+    # Display summary
+    display_summary(counts, args.folders_only, ignored_folders, account_folders)
 
 if __name__ == "__main__":
     main() 
