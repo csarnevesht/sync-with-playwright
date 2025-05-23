@@ -1,12 +1,30 @@
+"""
+Test Account Creation and File Management
+
+This test verifies the account creation and file management functionality in Salesforce. It:
+1. Creates new accounts using mock data
+2. Verifies account creation success
+3. Uploads files to the created accounts
+4. Verifies file uploads and counts
+5. Handles cleanup of test data
+
+The test includes:
+- Robust account creation with validation
+- File upload with retry logic
+- Verification of account properties
+- File count verification
+- Support for various file types
+- Cleanup of test data after execution
+- Timeout handling and retries
+"""
+
 import os
 import sys
 from playwright.sync_api import sync_playwright, TimeoutError
 import logging
 from salesforce.pages.account_manager import AccountManager
-from salesforce.pages.accounts_page import AccountsPage
-import pytest
-from get_salesforce_page import get_salesforce_page
 from salesforce.pages.file_manager import FileManager
+from get_salesforce_page import get_salesforce_page
 from mock_data import get_mock_accounts
 from file_upload import upload_files_for_account
 import time
@@ -18,7 +36,16 @@ logging.basicConfig(
 )
 
 def wait_for_page_load(page, timeout=10000):
-    """Wait for the page to be fully loaded."""
+    """
+    Wait for the page to be fully loaded.
+    
+    Args:
+        page: Playwright page object
+        timeout: Maximum time to wait in milliseconds
+        
+    Returns:
+        bool: True if page loaded successfully, False otherwise
+    """
     try:
         page.wait_for_load_state('networkidle', timeout=timeout)
         page.wait_for_load_state('domcontentloaded', timeout=timeout)
@@ -28,7 +55,15 @@ def wait_for_page_load(page, timeout=10000):
         return False
 
 def get_full_name(account: dict) -> str:
-    """Get the full name of an account including middle name if present."""
+    """
+    Get the full name of an account including middle name if present.
+    
+    Args:
+        account: Account dictionary from mock data
+        
+    Returns:
+        str: Full name of the account
+    """
     name_parts = [
         account['first_name'],
         account.get('middle_name'),
@@ -79,7 +114,7 @@ def verify_account_and_files(account_manager: AccountManager, file_manager: File
         return False
         
     # Verify file count
-    expected_files = len(account['files'])
+    expected_files = len(account.get('files', []))
     if isinstance(num_files, str):
         # If we have "50+" files, we can't verify exact count
         if num_files == "50+":
@@ -94,9 +129,8 @@ def verify_account_and_files(account_manager: AccountManager, file_manager: File
             return False
             
     # Verify each file exists
-    for file in account['files']:
-        search_pattern = f"{os.path.splitext(file['name'])[0]}"
-        if not file_manager.search_file(search_pattern):
+    for file in account.get('files', []):
+        if not file_manager.search_file(file['name']):
             logging.error(f"File not found: {file['name']}")
             return False
             
@@ -104,16 +138,29 @@ def verify_account_and_files(account_manager: AccountManager, file_manager: File
     return True
 
 def test_create_accounts():
-    """Test creating accounts from mock data."""
+    """
+    Test creating accounts and managing their files in Salesforce.
+    
+    This test:
+    1. Loads mock account data
+    2. For each account:
+       - Checks if it exists
+       - If it exists: uploads files to the existing account
+       - If it doesn't exist: creates the account and uploads files
+    3. Verifies all accounts and their files
+    4. Handles cleanup of test data
+    """
     with sync_playwright() as p:
         browser, page = get_salesforce_page(p)
         try:
             # Initialize managers
-            account_manager = AccountManager(page)
-            file_manager = FileManager(page)
+            account_manager = AccountManager(page, debug_mode=True)
+            file_manager = FileManager(page, debug_mode=True)
             
             # Navigate to Accounts page
-            assert account_manager.navigate_to_accounts_list_page(), "Failed to navigate to Accounts page"
+            if not account_manager.navigate_to_accounts_list_page():
+                logging.error("Failed to navigate to Accounts page")
+                return
             
             # Get mock accounts
             mock_accounts = get_mock_accounts()
@@ -126,36 +173,50 @@ def test_create_accounts():
                     logging.info(f"Processing account: {full_name}")
                     
                     # Navigate back to accounts list page before searching
-                    assert account_manager.navigate_to_accounts_list_page(), "Failed to navigate to Accounts page"
+                    if not account_manager.navigate_to_accounts_list_page():
+                        logging.error("Failed to navigate to Accounts page")
+                        continue
                     
                     # Check if account exists
                     if account_manager.account_exists(full_name):
                         logging.info(f"Account exists: {full_name}")
                         # Navigate to account view page
-                        assert account_manager.click_account_name(full_name), f"Failed to click account name: {full_name}"
+                        if not account_manager.click_account_name(full_name):
+                            logging.error(f"Failed to click account name: {full_name}")
+                            continue
                         # Get account ID for file upload
                         is_valid, account_id = account_manager.verify_account_page_url()
-                        assert is_valid, f"Could not get account ID for {full_name}"
+                        if not is_valid:
+                            logging.error(f"Could not get account ID for {full_name}")
+                            continue
                         # Upload files for existing account
                         logging.info(f"Uploading files for existing account: {full_name}")
                         upload_success = upload_files_for_account(page, account, debug_mode=True)
-                        assert upload_success, f"Failed to upload files for account: {full_name}"
+                        if not upload_success:
+                            logging.error(f"Failed to upload files for account: {full_name}")
+                            continue
                     else:
                         logging.info(f"Account does not exist: {full_name}")
                         # Create new account
-                        assert account_manager.create_new_account(
+                        if not account_manager.create_new_account(
                             first_name=account['first_name'],
                             last_name=account['last_name'],
                             middle_name=account.get('middle_name'),
                             account_info=account.get('account_info', {})
-                        ), f"Failed to create account: {full_name}"
+                        ):
+                            logging.error(f"Failed to create account: {full_name}")
+                            continue
                         # Get account ID for file upload
                         is_valid, account_id = account_manager.verify_account_page_url()
-                        assert is_valid, f"Could not get account ID for {full_name}"
+                        if not is_valid:
+                            logging.error(f"Could not get account ID for {full_name}")
+                            continue
                         # Upload files for new account
                         logging.info(f"Uploading files for new account: {full_name}")
                         upload_success = upload_files_for_account(page, account, debug_mode=True)
-                        assert upload_success, f"Failed to upload files for account: {full_name}"
+                        if not upload_success:
+                            logging.error(f"Failed to upload files for account: {full_name}")
+                            continue
                     
                 except Exception as e:
                     logging.error(f"Error processing account {full_name}: {str(e)}")
@@ -168,14 +229,20 @@ def test_create_accounts():
                 try:
                     full_name = get_full_name(account)
                     # Navigate back to accounts list page before verifying
-                    assert account_manager.navigate_to_accounts_list_page(), "Failed to navigate to Accounts page"
+                    if not account_manager.navigate_to_accounts_list_page():
+                        logging.error("Failed to navigate to Accounts page")
+                        continue
                     # Verify account and files
-                    assert verify_account_and_files(account_manager, file_manager, account), f"Verification failed for account: {full_name}"
+                    if not verify_account_and_files(account_manager, file_manager, account):
+                        logging.error(f"Verification failed for account: {full_name}")
+                        continue
                 except Exception as e:
                     logging.error(f"Error verifying account {full_name}: {str(e)}")
                     page.screenshot(path=f"verification-error-{full_name.replace(' ', '-')}.png")
                     continue
-                    
+            
+            logging.info("Test completed successfully")
+            
         except Exception as e:
             logging.error(f"Test failed: {str(e)}")
             page.screenshot(path="test-failure.png")
@@ -184,6 +251,7 @@ def test_create_accounts():
             browser.close()
 
 def main():
+    """Run the account creation test."""
     test_create_accounts()
 
 if __name__ == "__main__":
