@@ -11,6 +11,8 @@ def read_accounts_folders(accounts_file: Optional[str] = None) -> List[str]:
     Args:
         accounts_file: Optional name of the file in the accounts directory to read from.
                       If not provided, defaults to 'main.txt'.
+                      Can be a relative path (e.g., 'accounts/fuzzy-small.txt') or
+                      just the filename (e.g., 'fuzzy-small.txt').
     
     Returns:
         List of account folder names.
@@ -22,8 +24,12 @@ def read_accounts_folders(accounts_file: Optional[str] = None) -> List[str]:
     if not accounts_file:
         accounts_file = 'main.txt'
     
-    # Construct the full path to the accounts file
-    file_path = os.path.join(accounts_dir, accounts_file)
+    # If the file path already includes 'accounts/', use it as is
+    if accounts_file.startswith('accounts/'):
+        file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), accounts_file)
+    else:
+        # Otherwise, assume it's just the filename and look in the accounts directory
+        file_path = os.path.join(accounts_dir, accounts_file)
     
     try:
         with open(file_path, 'r') as f:

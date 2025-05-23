@@ -5,8 +5,8 @@ using logic from:
  dropbox analyzer (see dropbox/cmd_analyze.py)
  salesforce account fuzzy search (see salesforce/cmd_fuzzy.py)
 
-for each dropbox account fol
-der:
+
+for each dropbox account folder:
     uses fuzzy search in salesforce, 
       if it has an exact match:
         navigates to the salesforce account and gets the list of all the salesforce account files
