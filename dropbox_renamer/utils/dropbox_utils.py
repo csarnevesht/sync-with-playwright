@@ -31,6 +31,9 @@ logging.basicConfig(
     ]
 )
 
+# Set Dropbox logger level to WARNING to suppress INFO messages
+logging.getLogger('dropbox').setLevel(logging.WARNING)
+
 class DropboxClient:
     def __init__(self, token: str, debug_mode: bool = False):
         self.dbx = dropbox.Dropbox(token)
@@ -341,10 +344,14 @@ def download_and_rename_file(dbx, dropbox_path, local_dir):
         print(f"Error processing file {dropbox_path}: {e}")
 
 def list_folder_contents(dbx, path):
-    """List the contents of a Dropbox folder."""
+    """List the contents of a Dropbox folder, handling pagination."""
     try:
         result = dbx.files_list_folder(path)
-        return result.entries
+        entries = result.entries
+        while result.has_more:
+            result = dbx.files_list_folder_continue(result.cursor)
+            entries.extend(result.entries)
+        return entries
     except ApiError as e:
         print(f"Error listing folder {path}: {e}")
         return []
@@ -377,6 +384,11 @@ def get_access_token(env_file):
     
     # Try to get token from environment
     token = os.getenv('DROPBOX_TOKEN')
+    print(f"\nDebug: Loading token from {env_file}")
+    print(f"Debug: Token found: {'Yes' if token else 'No'}")
+    if token:
+        print(f"Debug: Token length: {len(token)}")
+        print(f"Debug: Token first 10 chars: {token[:10]}...")
     
     # If no token found, prompt user
     if not token:
