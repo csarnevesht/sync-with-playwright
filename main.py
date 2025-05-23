@@ -6,11 +6,11 @@ import logging
 from playwright.sync_api import sync_playwright
 from salesforce.pages.account_manager import AccountManager
 from salesforce.pages.file_manager import FileManager
-from salesforce.logger import OperationLogger
+from salesforce.utils.logger import OperationLogger
 from dropbox_renamer.utils.dropbox_utils import DropboxClient
 from salesforce.utils.mock_data import get_mock_accounts
-from salesforce.file_upload import upload_files_for_account
-from salesforce.browser import get_salesforce_page
+from salesforce.utils.file_upload import upload_files_for_account
+from salesforce.utils.browser import get_salesforce_page
 
 
 logging.basicConfig(

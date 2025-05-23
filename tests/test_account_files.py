@@ -20,7 +20,7 @@ from playwright.sync_api import sync_playwright
 import logging
 from salesforce.pages.account_manager import AccountManager
 from salesforce.pages.file_manager import FileManager
-from salesforce.browser import get_salesforce_page
+from salesforce.utils.browser import get_salesforce_page
 from salesforce.utils.file_utils import get_file_type
 
 # Configure logging
