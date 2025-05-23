@@ -15,8 +15,6 @@ import os
 
 from .utils.dropbox_utils import (
     get_access_token,
-    list_all_namespaces_and_roots,
-    list_app_folder_contents,
     list_folder_contents,
     clean_dropbox_path,
     get_DROPBOX_FOLDER
@@ -162,10 +160,6 @@ def main():
     parser = argparse.ArgumentParser(description='Analyze Dropbox folder structure.')
     parser.add_argument('--env-file', '-e', default='.env',
                       help='Path to .env file (default: .env)')
-    parser.add_argument('--list-namespaces', action='store_true',
-                      help='List all available namespaces and root folders')
-    parser.add_argument('--list-app-folder', action='store_true',
-                      help='List contents of the app folder')
     parser.add_argument('--analyze-path', '-p',
                       help='Analyze folder structure starting from this path (relative to DROPBOX_FOLDER)')
     parser.add_argument('--show-all', action='store_true',
@@ -184,17 +178,6 @@ def main():
         
         # Initialize Dropbox client
         dbx = dropbox.Dropbox(access_token, timeout=30)
-        
-        # Handle special commands
-        if args.list_namespaces:
-            print("\n=== Listing Namespaces and Root Folders ===")
-            list_all_namespaces_and_roots(dbx)
-            return
-            
-        if args.list_app_folder:
-            print("\n=== Listing App Folder Contents ===")
-            list_app_folder_contents(dbx)
-            return
         
         # Get the root folder from environment
         root_folder = get_DROPBOX_FOLDER(args.env_file)
