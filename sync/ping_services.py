@@ -2,7 +2,7 @@ import os
 import sys
 import logging
 from playwright.sync_api import sync_playwright
-from sync.dropbox_client import DropboxClient
+from dropbox_renamer.utils.dropbox_client import DropboxClient
 from salesforce.browser import get_salesforce_page
 from salesforce.pages.account_manager import AccountManager
 from dropbox.exceptions import ApiError
