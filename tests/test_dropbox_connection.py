@@ -15,6 +15,17 @@ from dropbox.exceptions import ApiError
 from dotenv import load_dotenv
 import argparse
 from dropbox_renamer.utils.path_utils import clean_dropbox_path
+import logging
+from dropbox_renamer.utils.dropbox_utils import get_access_token
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+logger = logging.getLogger(__name__)
 
 def ensure_directory_exists(directory):
     """Ensure the directory exists, create it if it doesn't."""
@@ -25,53 +36,6 @@ def ensure_directory_exists(directory):
     except Exception as e:
         print(f"✗ Error creating directory {directory}: {str(e)}")
         return False
-
-def get_access_token(env_file):
-    """Get the access token from environment or prompt user."""
-    # Load environment variables
-    load_dotenv(env_file)
-    
-    # Try to get token from environment
-    access_token = os.getenv('DROPBOX_TOKEN')
-    
-    # If no token found, prompt user
-    if not access_token:
-        print("\nDropbox Access Token not found in .env file.")
-        print("Please follow these steps:")
-        print("1. Create a file named 'token.txt' in the current directory")
-        print("2. Paste your Dropbox access token into this file")
-        print("3. Save the file")
-        print("4. Press Enter to continue...")
-        
-        # Wait for user to create the file
-        input()
-        
-        try:
-            # Read token from file
-            if os.path.exists('token.txt'):
-                with open('token.txt', 'r') as f:
-                    access_token = f.read().strip()
-                
-                # Delete the token file for security
-                os.remove('token.txt')
-                
-                if not access_token:
-                    print("Error: Token file is empty")
-                    return get_access_token(env_file)
-                
-                print(f"Token length: {len(access_token)}")
-                
-                # Update .env file with the new token
-                update_env_file(env_file, token=access_token)
-            else:
-                print("Error: token.txt file not found")
-                return get_access_token(env_file)
-                
-        except Exception as e:
-            print(f"Error reading token: {e}")
-            return get_access_token(env_file)
-    
-    return access_token
 
 def get_DROPBOX_FOLDER(env_file):
     """Get the Dropbox root folder from environment or prompt user."""
@@ -154,49 +118,37 @@ def update_env_file(env_file, token=None, root_folder=None, directory=None):
         print(f"✗ Error saving to {env_file}: {e}")
         raise
 
-def test_dropbox_connection(dbx, dropbox_path):
-    """Test the Dropbox connection and folder access."""
+def test_dropbox_connection():
+    """Test the Dropbox connection and token validity."""
     try:
-        # Test account connection
+        # Get access token
+        token = get_access_token()
+        logger.info(f"Token loaded successfully (length: {len(token)})")
+        
+        # Initialize Dropbox client
+        dbx = dropbox.Dropbox(token)
+        logger.info("Successfully initialized Dropbox client")
+        
+        # Test the connection
         account = dbx.users_get_current_account()
-        print(f"✓ Successfully connected to Dropbox as: {account.name.display_name}")
-        print(f"✓ Account ID: {account.account_id}")
-        print(f"✓ Email: {account.email}")
+        logger.info(f"Successfully connected to Dropbox as: {account.name.display_name}")
+        return True
         
-        # Clean and test the path
-        cleaned_path = clean_dropbox_path(dropbox_path)
-        print(f"\nTesting path: {cleaned_path}")
-        
-        # Test folder access
-        try:
-            metadata = dbx.files_get_metadata(cleaned_path)
-            print(f"✓ Successfully accessed Dropbox folder: {cleaned_path}")
-            print(f"✓ Folder type: {type(metadata).__name__}")
-            return True
-        except ApiError as e:
-            print(f"✗ Error accessing Dropbox folder: {e}")
-            # Try alternative case versions if the first attempt fails
-            try:
-                path_parts = [p for p in cleaned_path.split('/') if p]
-                # Try lowercase
-                path_lower = '/' + '/'.join(p.lower() for p in path_parts)
-                metadata = dbx.files_get_metadata(path_lower)
-                print(f"✓ Successfully accessed Dropbox folder with lowercase path: {path_lower}")
-                print(f"✓ Folder type: {type(metadata).__name__}")
-                return True
-            except ApiError:
-                try:
-                    # Try uppercase
-                    path_upper = '/' + '/'.join(p.upper() for p in path_parts)
-                    metadata = dbx.files_get_metadata(path_upper)
-                    print(f"✓ Successfully accessed Dropbox folder with uppercase path: {path_upper}")
-                    print(f"✓ Folder type: {type(metadata).__name__}")
-                    return True
-                except ApiError:
-                    return False
-            
     except ApiError as e:
-        print(f"✗ Error connecting to Dropbox: {e}")
+        if e.error.is_expired_access_token():
+            logger.error("\nError: Your Dropbox access token has expired.")
+            logger.error("\nTo fix this:")
+            logger.error("1. Go to https://www.dropbox.com/developers/apps")
+            logger.error("2. Select your app")
+            logger.error("3. Under 'OAuth 2', click 'Generated access token'")
+            logger.error("4. Generate a new access token")
+            logger.error("5. Update your .env file with the new token:")
+            logger.error("   DROPBOX_TOKEN=your_new_token")
+        else:
+            logger.error(f"Error connecting to Dropbox: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
         return False
 
 def main():
@@ -220,30 +172,19 @@ def main():
         
         # Get access token
         print("\n1. Checking access token...")
-        access_token = get_access_token(args.env_file)
-        if not access_token:
+        if not test_dropbox_connection():
             print("✗ Could not get access token")
             return
         
-        # Initialize Dropbox client
-        print("\n2. Initializing Dropbox client...")
-        dbx = dropbox.Dropbox(access_token, timeout=30)
-        
         # Get Dropbox folder
-        print("\n3. Checking Dropbox folder...")
+        print("\n2. Checking Dropbox folder...")
         root_folder = get_DROPBOX_FOLDER(args.env_file)
         if not root_folder:
             print("✗ Could not get Dropbox folder")
             return
         
-        # Test Dropbox connection
-        print("\n4. Testing Dropbox connection...")
-        if not test_dropbox_connection(dbx, root_folder):
-            print("✗ Dropbox connection test failed")
-            return
-        
         # Get and test data directory
-        print("\n5. Checking data directory...")
+        print("\n3. Checking data directory...")
         base_directory = get_DATA_DIRECTORY(args.env_file)
         if not base_directory:
             print("✗ Could not get data directory")
