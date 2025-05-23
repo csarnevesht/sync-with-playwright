@@ -51,6 +51,7 @@ class AccountsPage:
             logging.info(f"Selected '{view_name}' list view")
 
             # Wait for the table to update and stabilize
+            logging.debug(f"Waiting for table to update and stabilize")
             self.page.wait_for_timeout(2000)
             return True
 
@@ -138,34 +139,48 @@ class AccountsPage:
         """
         try:
             # Navigate to accounts page
+            logging.debug(f"Navigating to Accounts page: {SALESFORCE_URL}/lightning/o/Account/list?filterName=__Recent")
             if not self.navigate_to_accounts_list_page():
                 logging.error("Failed to navigate to Accounts page")
                 return []
 
             # Select the specified list view
+            logging.debug(f"Selecting list view: {drop_down_option_text}")
             if not self.select_list_view(drop_down_option_text):
                 return []
 
+            # Wait for table to be visible
+            try:
+                self.page.wait_for_selector('table[role="grid"]', timeout=10000)
+            except Exception as e:
+                logging.error(f"Table not found after 10 seconds: {str(e)}")
+                return []
+
             # Get all account rows
+            logging.debug(f"Getting all account rows")
             account_rows = self.page.locator('table[role="grid"] tr').all()
             accounts = []
             
             for row in account_rows:
                 try:
-                    # Get account name and ID
+                    # Get account name and ID with a shorter timeout
                     name_cell = row.locator('td:first-child a').first
                     if not name_cell:
                         continue
                         
-                    name = name_cell.text_content().strip()
-                    href = name_cell.get_attribute('href')
-                    account_id = href.split('/')[-1] if href else None
-                    
-                    if name and account_id:
-                        accounts.append({
-                            'name': name,
-                            'id': account_id
-                        })
+                    try:
+                        name = name_cell.text_content(timeout=5000).strip()
+                        href = name_cell.get_attribute('href')
+                        account_id = href.split('/')[-1] if href else None
+                        
+                        if name and account_id:
+                            accounts.append({
+                                'name': name,
+                                'id': account_id
+                            })
+                    except Exception as e:
+                        logging.warning(f"Error getting text content for row: {str(e)}")
+                        continue
                 except Exception as e:
                     logging.warning(f"Error processing account row: {str(e)}")
                     continue
