@@ -1,6 +1,8 @@
-from typing import Optional, Dict, List
+from typing import Callable, Optional, Dict, List, Union
 import logging
 import re
+
+from salesforce.pages import file_manager
 from ..base_page import BasePage
 from playwright.sync_api import Page
 from config import SALESFORCE_URL
@@ -16,7 +18,7 @@ class AccountManager(BasePage):
         self.current_account_id = None
         self.accounts_page = AccountsPage(page, debug_mode)
         
-    def navigate_to_accounts(self) -> bool:
+    def navigate_to_accounts_list_page(self) -> bool:
         """Navigate to the Accounts page."""
         url = f"{SALESFORCE_URL}/lightning/o/Account/list?filterName=__Recent"
         self.logger.info(f"Navigating to Accounts page: {url}")
@@ -44,23 +46,69 @@ class AccountManager(BasePage):
             self._take_screenshot("accounts-navigation-error")
             return False
             
-    def search_account(self, account_name: str) -> int:
-        """Search for an account by name and return the number of items found."""
-        try:
-            self.logger.info(f"Searching for account: {account_name}")
+    def search_account(self, account_name: str, view_name: str = "All Accounts") -> int:
+        """Search for an account by name and return the number of items found.
+        
+        Args:
+            account_name: The name of the account to search for
+            view_name: The name of the list view to use (default: "All Accounts")
             
-            # Wait for the search input to be visible
+        Returns:
+            int: The number of items found
+        """
+        try:
+            self.logger.info(f"Searching for account: {account_name} in view: {view_name}")
+            
+            # First ensure we're on the accounts list page
+            if not self.navigate_to_accounts_list_page():
+                self.logger.error("Failed to navigate to accounts list page")
+                return 0
+            
+            # Select the specified view
+            self.logger.info(f"Selecting '{view_name}' view...")
+            if not self.accounts_page.select_list_view(view_name):
+                self.logger.error(f"Failed to select '{view_name}' view")
+                return 0
+            
+            # Wait for the page to be fully loaded
+            self.page.wait_for_load_state('networkidle', timeout=10000)
+            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
+            
+            # Wait for the search input to be visible with increased timeout
             self.logger.info("Waiting for search input...")
-            search_input = self.page.wait_for_selector('input[placeholder="Search this list..."]', timeout=6000)
+            search_input = self.page.wait_for_selector('input[placeholder="Search this list..."]', timeout=20000)
             if not search_input:
                 self.logger.error("Search input not found")
+                self._take_screenshot("search-input-not-found")
                 return 0
-                
-            # Clear and fill the search input
+            
+            # Ensure the search input is visible and clickable
+            self.logger.info("Ensuring search input is visible and clickable...")
+            search_input.scroll_into_view_if_needed()
+            self.page.wait_for_timeout(1000)  # Wait for scroll to complete
+            
+            # Click the search input to ensure it's focused
+            search_input.click()
+            self.page.wait_for_timeout(500)  # Wait for focus
+            
+            # Clear the search input
             self.logger.info("Clearing search input...")
             search_input.fill("")
-            self.logger.info("Entering account name...")
-            search_input.fill(account_name)
+            self.page.wait_for_timeout(500)  # Wait for clear
+            
+            # Type the account name character by character with longer delays
+            self.logger.info(f"Typing account name: {account_name}")
+            for char in account_name:
+                search_input.type(char, delay=200)  # Increased delay between characters
+                self.page.wait_for_timeout(100)  # Increased wait between characters
+            
+            # Verify the text was entered correctly
+            actual_text = search_input.input_value()
+            if actual_text != account_name:
+                self.logger.error(f"Search text mismatch. Expected: {account_name}, Got: {actual_text}")
+                self._take_screenshot("search-text-mismatch")
+                return 0
+            
             self.logger.info("Pressing Enter...")
             self.page.keyboard.press("Enter")
             
@@ -68,7 +116,7 @@ class AccountManager(BasePage):
             self.logger.info("Waiting for search results...")
             try:
                 # First wait for the loading spinner to disappear
-                self.page.wait_for_selector('div.slds-spinner_container', state='hidden', timeout=2000)
+                self.page.wait_for_selector('div.slds-spinner_container', state='hidden', timeout=5000)
                 self.logger.info("Loading spinner disappeared")
                 
                 # Wait a moment for results to appear
@@ -86,16 +134,18 @@ class AccountManager(BasePage):
                     
                     for selector in status_selectors:
                         try:
-                            status_message = self.page.wait_for_selector(selector, timeout=4000)
+                            status_message = self.page.wait_for_selector(selector, timeout=5000)
                             if status_message:
                                 status_text = status_message.text_content()
                                 self.logger.info(f"Status message: {status_text}")
                                 
                                 # Extract the number of items
-                                self.logger.info("Extracting the number of items...")
-                                match = re.search(r'(\d+)\s+items?\s+•', status_text)
+                                self.logger.info("***Extracting the number of items...")
+                                match = re.search(r'(\d+\+?)\s+items?\s+•', status_text)
                                 if match:
-                                    item_count = int(match.group(1))
+                                    item_count_str = match.group(1)
+                                    # Remove the plus sign if present and convert to int
+                                    item_count = int(item_count_str.rstrip('+'))
                                     self.logger.info(f"Found {item_count} items in search results")
                                     return item_count
                         except Exception as e:
@@ -104,6 +154,7 @@ class AccountManager(BasePage):
                     
                     # If we get here, none of the selectors worked
                     self.logger.info("Could not find status message with any selector")
+                    self._take_screenshot("status-message-not-found")
                     return 0
                     
                 except Exception as e:
@@ -116,15 +167,24 @@ class AccountManager(BasePage):
             
         except Exception as e:
             self.logger.error(f"Error searching for account: {e}")
+            self._take_screenshot("search-error")
             return 0
             
-    def account_exists(self, account_name: str) -> bool:
-        """Check if an account exists with the exact name."""
-        self.logger.info(f"Checking if account exists: {account_name}")
+    def account_exists(self, account_name: str, view_name: str = "All Accounts") -> bool:
+        """Check if an account exists with the exact name.
+        
+        Args:
+            account_name: The name of the account to check
+            view_name: The name of the list view to use (default: "All Accounts")
+            
+        Returns:
+            bool: True if the account exists, False otherwise
+        """
+        self.logger.info(f"Checking if account exists: {account_name} in view: {view_name}")
         
         try:
             # Search for the account
-            item_count = self.search_account(account_name)
+            item_count = self.search_account(account_name, view_name=view_name)
             
             if item_count > 0:
                 # Verify the account name matches exactly
@@ -553,7 +613,9 @@ class AccountManager(BasePage):
             sys.exit(1)
             
         try:
-            self.page.goto(f"{os.getenv('SALESFORCE_URL')}/lightning/r/Account/{self.current_account_id}/view")
+            url = f"{SALESFORCE_URL}/lightning/r/Account/{self.current_account_id}/view"
+            logging.info(f"Navigating to URL: {url}")
+            self.page.goto(url)
             # self.page.wait_for_load_state('networkidle')
             # checking url 
             current_url = self.page.url
@@ -567,22 +629,356 @@ class AccountManager(BasePage):
             self._take_screenshot("account-navigation-error")
             sys.exit(1) 
 
-    def navigate_to_files_for_account_id(self, account_id: str) -> None:
+    def navigate_to_files_and_get_number_of_files_for_this_account(self, account_id: str) -> Union[int, str]:
         """
         Navigate to the Files related list for the given account_id.
+        Returns either an integer or a string (e.g. "50+") representing the number of files.
         """
         files_url = f"{SALESFORCE_URL}/lightning/r/Account/{account_id}/related/AttachedContentDocuments/view"
         logging.info(f"Navigating to Files page for account {account_id}: {files_url}")
         self.page.goto(files_url)
-        self.page.wait_for_load_state('networkidle', timeout=10000)  
-        return self.get_number_of_files()
+        file_manager_instance = file_manager.FileManager(self.page)
+        num_files = file_manager_instance.extract_files_count_from_status()
+        logging.info(f"Initial number of files: {num_files}")
+        
+        # Scroll to load all files if we see a "50+" count
+        if isinstance(num_files, str) and '+' in str(num_files):
+            logging.info("Found '50+' count, scrolling to load all files...")
+            actual_count = file_manager_instance.scroll_to_bottom_of_page()
+            if actual_count > 0:
+                logging.info(f"Final number of files after scrolling: {actual_count}")
+                return actual_count
+            
+        return num_files
 
-    def get_number_of_files(self) -> int:
+        
+    def get_all_file_names_for_this_account(self, account_id: str) -> List[str]:
         """
-        Get the number of files for the current account.
+        Get all file names associated with an account.
+        
+        Args:
+            account_id: The Salesforce account ID
+            
+        Returns:
+            List[str]: List of file names found in the account
         """
-        return self.page.locator('a.slds-card__header-link.baseCard__header-title-container').count() 
+        self.logger.info(f"Getting all file names for account {account_id}")
+        
+        try:
+            # Quick check if table is already visible
+            try:
+                table = self.page.locator('table.slds-table').first
+                if table.is_visible(timeout=1000):
+                    self.logger.info("Table is already visible")
+            except Exception:
+                # If not visible, wait briefly
+                self.page.wait_for_selector('table.slds-table', timeout=5000)
+            
+            # Get all file rows immediately
+            file_rows = self.page.locator('table.slds-table tbody tr').all()
+            if not file_rows:
+                self.logger.error("No file rows found")
+                return []
+            
+            self.logger.info(f"Found {len(file_rows)} file rows")
+            
+            # Get file information with minimal waits
+            logging.info("Getting file information with minimal waits")
+            file_names = []
+            total_rows = len(file_rows)
+            self.logger.info(f"Starting to process {total_rows} file rows...")
+            
+            for i, row in enumerate(file_rows, 1):
+                try:
+                    # Log progress every 10 files or at the start
+                    if i == 1 or i % 10 == 0:
+                        self.logger.info(f"Processing file {i}/{total_rows} ({(i/total_rows)*100:.1f}%)")
+                    
+                    # Get file name
+                    title_span = row.locator('span.itemTitle').first
+                    if not title_span:
+                        self.logger.warning(f"Skipping row {i}: No title span found")
+                        continue
+
+                    file_name = title_span.text_content(timeout=2000).strip()
+                    if not file_name:
+                        self.logger.warning(f"Skipping row {i}: Empty file name")
+                        continue
+                    
+                    # Get file type from the type column
+                    file_type = 'Unknown'
+                    try:
+                        type_cell = row.locator('th:nth-child(2) span a div').first
+                        if type_cell:
+                            type_text = type_cell.text_content(timeout=1000).strip()
+                            if type_text:
+                                # Extract just the file type by removing the filename part
+                                # The filename part starts with a number or is all caps
+                                type_match = re.match(r'^([A-Za-z\s]+)(?=\d|[A-Z]{2,})', type_text)
+                                if type_match:
+                                    file_type = type_match.group(1).strip()
+                                else:
+                                    file_type = type_text
+                    except Exception:
+                        # If we can't get the type from the cell, try file extension
+                        if file_name.lower().endswith('.pdf'):
+                            file_type = 'PDF'
+                        elif file_name.lower().endswith(('.doc', '.docx')):
+                            file_type = 'DOC'
+                        elif file_name.lower().endswith(('.xls', '.xlsx')):
+                            file_type = 'XLS'
+                        elif file_name.lower().endswith('.txt'):
+                            file_type = 'TXT'
+                        elif file_name.lower().endswith(('.jpg', '.jpeg', '.png')):
+                            file_type = 'IMG'
+                    
+                    # Clean the file name by removing any existing numbers and file types
+                    clean_name = re.sub(r'^\d+\.\s*', '', file_name)
+                    clean_name = re.sub(r'\s*\[\w+\]\s*$', '', clean_name)
+                    
+                    file_names.append(f"{i}. {clean_name} [{file_type}]")
+                    self.logger.debug(f"Successfully processed file {i}: {clean_name} [{file_type}]")
+                except Exception as e:
+                    self.logger.warning(f"Error getting file info for row {i}: {str(e)}")
+                    continue
+            
+            self.logger.info(f"Completed processing {len(file_names)}/{total_rows} files successfully")
+            return file_names
+            
+        except Exception as e:
+            self.logger.error(f"Error getting file names: {str(e)}")
+            return [] 
+
+    def get_default_condition(self):
+        """Get the default condition for filtering accounts."""
+        def condition(account):
+            return self.account_has_files(account['id'])
+        return condition
+
+    def get_accounts_matching_condition(
+        self,
+        max_number: int = 10,
+        condition: Callable[[Dict[str, str]], bool] = None,
+        drop_down_option_text: str = "All Clients"
+    ) -> List[Dict[str, str]]:
+        """
+        Keep iterating through all accounts until max_number accounts that match a condition.
+        By default, returns accounts that have more than 0 files.
+        """
+        accounts = []
+        all_accounts = self.accounts_page._get_accounts_base(drop_down_option_text=drop_down_option_text)
+        processed_accounts = []
+        the_condition = condition if condition is not None else self.get_default_condition()
+        for account in all_accounts:
+            files_count = self.navigate_to_files_and_get_number_of_files_for_this_account(account['id'])
+            account['files_count'] = files_count
+            processed_accounts.append(account)
+            if the_condition(account):
+                accounts.append(account)
+                if len(accounts) >= max_number:
+                    break
+        logging.info(f"Total accounts processed: {len(processed_accounts)}")
+        for acc in processed_accounts:
+            logging.info(f"Processed account: Name={acc['name']}, ID={acc['id']}, Files={acc['files_count']}")
+        return accounts 
+
+    def verify_account_page_url(self) -> tuple[bool, Optional[str]]:
+        """Verify that the current URL is a valid account page URL and extract the account ID.
+        
+        Returns:
+            tuple[bool, Optional[str]]: A tuple containing:
+                - bool: True if the URL is valid, False otherwise
+                - Optional[str]: The account ID if found, None otherwise
+        """
+        try:
+            current_url = self.page.url
+            self.logger.info(f"Current URL: {current_url}")
+            
+            # Check if we're on an account page
+            if not re.match(r'.*Account/\w+/view.*', current_url):
+                self.logger.error(f"Not on account page. Current URL: {current_url}")
+                return False, None
+            
+            # Extract account ID from URL
+            account_id_match = re.search(r'/Account/(\w+)/view', current_url)
+            if not account_id_match:
+                self.logger.error(f"Could not extract account ID from URL: {current_url}")
+                return False, None
+            
+            account_id = account_id_match.group(1)
+            self.logger.info(f"Extracted account ID from URL: {account_id}")
+            return True, account_id
+            
+        except Exception as e:
+            self.logger.error(f"Error verifying account page URL: {str(e)}")
+            return False, None
+
+    def account_has_files(self, account_id: str) -> bool:
+        """
+        Check if the account has files.
+        """
+        num_files = self.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
+        if isinstance(num_files, str):
+            # If we have a string like "50+", we know there are files
+            return True
+        return num_files > 0
     
+    
+    def deprecated_account_has_files(self, account_id: str) -> bool:
+        """
+        Check if the account has files.
+        """
+        account_url = f"{SALESFORCE_URL}/lightning/r/{account_id}/view"
+        logging.info(f"Navigating to account view page: {account_url}")
+        self.page.goto(account_url)
+        # self.page.wait_for_load_state('networkidle', timeout=30000)
+        try:
+            # Find all matching <a> elements
+            files_links = self.page.locator('a.slds-card__header-link.baseCard__header-title-container')
+            found = False
+            for i in range(files_links.count()):
+                a = files_links.nth(i)
+                href = a.get_attribute('href')
+                outer_html = a.evaluate('el => el.outerHTML')
+                if href and 'AttachedContentDocuments' in href:
+                    # This is the Files card
+                    files_number_span = a.locator('span').nth(1)
+                    files_number_text = files_number_span.text_content(timeout=1000)
+                    files_number_match = re.search(r'\((\d+\+?)\)', files_number_text)
+                    if files_number_match:
+                        files_number_str = files_number_match.group(1)
+                        files_number = int(files_number_str.rstrip('+'))
+                    else:
+                        files_number = 0
+                    logging.info(f"Account {account_id} Files count: {files_number}")
+                    found = True
+                    return files_number > 0
+            if not found:
+                logging.error(f"Files card not found for account {account_id}")
+                sys.exit(1)
+        except Exception as e:
+            logging.error(f"Could not extract files count for account {account_id}: {e}")
+            sys.exit(1)
 
-
-
+    def delete_account(self, full_name: str) -> bool:
+        """
+        Delete an account by name.
+        Args:
+            full_name: Full name of the account to delete
+        Returns:
+            bool: True if deletion was successful, False otherwise
+        """
+        try:
+            # Search for the account
+            if not self.account_exists(full_name):
+                self.logger.error(f"Account {full_name} does not exist")
+                return False
+            # Click on the account name to navigate to it
+            if not self.click_account_name(full_name):
+                self.logger.error(f"Failed to navigate to account view page for: {full_name}")
+                return False
+            # Verify we're on the correct account page
+            is_valid, account_id = self.verify_account_page_url()
+            if not is_valid:
+                self.logger.error("Not on a valid account page")
+                return False
+            self.logger.info(f"Successfully navigated to account {full_name} with ID {account_id}")
+            # Wait for page to load completely and stabilize
+            self.page.wait_for_load_state('networkidle')
+            self.page.wait_for_timeout(2000)
+            # Step 1: Click the left-panel Delete button (try several selectors and log all candidates)
+            delete_selectors = [
+                "button[title='Delete']",
+                "button:has-text('Delete')",
+                "input[value='Delete']",
+                "a[title='Delete']",
+                "a:has-text('Delete')",
+            ]
+            delete_btn = None
+            for selector in delete_selectors:
+                try:
+                    elements = self.page.query_selector_all(selector)
+                    for el in elements:
+                        try:
+                            visible = el.is_visible()
+                            enabled = el.is_enabled()
+                            text = el.text_content()
+                            attrs = el.get_attribute('outerHTML')
+                            self.logger.info(f"Delete button candidate: selector={selector}, visible={visible}, enabled={enabled}, text={text}, outerHTML={attrs}")
+                            if visible and enabled:
+                                delete_btn = el
+                                break
+                        except Exception as e:
+                            self.logger.info(f"Error checking delete button candidate: {e}")
+                    if delete_btn:
+                        self.logger.info(f"Found delete button with selector: {selector}")
+                        break
+                except Exception as e:
+                    self.logger.info(f"Error finding delete button with selector {selector}: {e}")
+                    continue
+            if not delete_btn:
+                self.logger.error("Could not find enabled/visible left-panel Delete button with any selector")
+                self.page.screenshot(path="delete-btn-not-found.png")
+                return False
+            try:
+                delete_btn.click()
+                self.logger.info("Clicked left-panel Delete button.")
+            except Exception as e:
+                self.logger.error(f"Error clicking left-panel Delete button: {e}")
+                self.page.screenshot(path="delete-btn-click-error.png")
+                return False
+            self.page.wait_for_timeout(1000)
+            # Step 2: Wait for the modal and confirm deletion
+            try:
+                self.page.wait_for_selector('button[title="Delete"] span.label.bBody', timeout=5000)
+            except Exception:
+                self.logger.error("Delete confirmation modal did not appear after clicking delete button")
+                self.page.screenshot(path="delete-modal-not-found.png")
+                return False
+            # Log modal text for debugging
+            try:
+                modal = self.page.query_selector('div[role="dialog"]')
+                if modal:
+                    modal_text = modal.text_content()
+                    self.logger.info(f"Delete modal text: {modal_text}")
+            except Exception:
+                pass
+            # Click the modal's Delete button using the provided selector
+            try:
+                modal_delete_btn_span = self.page.wait_for_selector('button[title="Delete"] span.label.bBody', timeout=5000)
+                if not modal_delete_btn_span:
+                    self.logger.error("Could not find modal Delete button span.label.bBody")
+                    self.page.screenshot(path="modal-delete-btn-not-found.png")
+                    return False
+                modal_delete_btn_span.click()
+                self.logger.info("Clicked modal Delete button.")
+            except Exception as e:
+                self.logger.error(f"Error clicking modal Delete button: {e}")
+                self.page.screenshot(path="modal-delete-btn-click-error.png")
+                return False
+            # Wait for the modal to close
+            try:
+                self.page.wait_for_selector('button[title="Delete"] span.label.bBody', state='detached', timeout=8000)
+                self.logger.info("Delete confirmation modal closed.")
+            except Exception:
+                self.logger.warning("Delete confirmation modal did not close in time.")
+            # Wait for deletion confirmation (toast)
+            try:
+                self.page.wait_for_selector('div.slds-notify_toast, div.slds-notify--toast', timeout=15000)
+                self.logger.info(f"Successfully deleted account: {full_name}")
+                return True
+            except Exception as e:
+                self.logger.warning(f"Could not confirm account deletion by toast: {str(e)}. Checking if account still exists.")
+                # Fallback: check if account still exists
+                self.navigate_to_accounts_list_page()
+                if not self.account_exists(full_name):
+                    self.logger.info(f"Account {full_name} no longer exists. Deletion successful.")
+                    return True
+                else:
+                    self.logger.error(f"Account {full_name} still exists after attempted deletion.")
+                    self.page.screenshot(path="delete-toast-not-found.png")
+                    return False
+        except Exception as e:
+            self.logger.error(f"Error deleting account {full_name}: {str(e)}")
+            self.page.screenshot(path="delete-error.png")
+            return False

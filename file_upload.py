@@ -9,47 +9,7 @@ import logging
 from salesforce.pages.file_manager import FileManager
 from salesforce.pages.account_manager import AccountManager
 
-def verify_account_page_url(page: Page, account_id=None) -> tuple[bool, str]:
-    """
-    Verify we're on the correct account page URL pattern.
-    
-    Args:
-        page: Playwright page object
-        account_id: Optional specific account ID to verify against. If None, any valid account ID is accepted.
-    
-    Returns:
-        tuple[bool, str]: (is_valid_url, account_id)
-    """
-    logging.info(f"verify_account_page_url")
-    current_url = page.url
-    logging.info(f"\nCurrent URL: {current_url}")
-    
-    # Get Salesforce URL from environment variable
-    salesforce_url = os.getenv('SALESFORCE_URL')
-    if not salesforce_url:
-        logging.error("Error: SALESFORCE_URL environment variable is not set")
-        return False, None
-    
-    # Pattern: SALESFORCE_URL/Account/SOME_ID/view
-    expected_pattern = f"{re.escape(salesforce_url)}.*/Account/([^/]+)/view"
-    logging.info(f"***Expected pattern: {expected_pattern}")
-    logging.info(f"Current URL: {current_url}")
-    match = re.match(expected_pattern, current_url)
-    
-    if not match:
-        logging.error("Error: Not on the correct account page URL pattern")
-        logging.info(f"Current URL: {current_url}")
-        logging.info(f"Expected pattern: {expected_pattern}")
-        return False, None
-    
-    found_account_id = match.group(1)
-    
-    if account_id and found_account_id != account_id:
-        logging.error(f"Error: Account ID mismatch. Found: {found_account_id}, Expected: {account_id}")
-        return False, None
-    
-    logging.info(f"Verified correct URL pattern with account ID: {found_account_id}")
-    return True, found_account_id
+
 
 def upload_single_file(page: Page, file_to_upload: str, expected_items: int = 1) -> bool:
     """
@@ -152,6 +112,11 @@ def upload_single_file(page: Page, file_to_upload: str, expected_items: int = 1)
 def upload_files_for_account(page: Page, account: dict, debug_mode: bool = True, max_tries: int = 10) -> bool:
     """
     Upload files for a specific account, handling the entire process from setup to verification.
+    account['files'] is a list of dictionaries, each containing:
+    {
+        'name': 'file_name.pdf',
+    }   
+    account['folder_name'] is the name of the folder to upload the files to
     
     Args:
         page: Playwright page object
@@ -164,96 +129,115 @@ def upload_files_for_account(page: Page, account: dict, debug_mode: bool = True,
     """
     logging.info(f"Starting file upload process for account: {account['folder_name']}")
     
-    # Verify we're on the correct account page
-    logging.info(f"Verifying account page URL")
-    is_valid, account_id = verify_account_page_url(page)
-    if not is_valid:
-        return False
     
-    # Create temporary directory for test files
-    logging.info(f"Creating temporary directory for test files")
-    with tempfile.TemporaryDirectory() as temp_dir:
-        # Create test files
-        files_to_upload = []
-        logging.info(f"account['files']: {account['files']}")
-        for file_info in account['files']:
-            file_path = os.path.join(temp_dir, file_info['name'])
-            with open(file_path, 'wb') as f:
-                f.write(file_info['content'])
-            files_to_upload.append(file_path)
-            logging.info(f"Created test file: {file_path}")
-        
-        # Show files to be uploaded
-        logging.info("\nFiles to be uploaded:")
-        for file in files_to_upload:
-            logging.info(f"  + {os.path.basename(file)}")
-        
-        # Initialize Salesforce page objects
-        file_manager = FileManager(page, debug_mode=debug_mode)
+    try:
         account_manager = AccountManager(page, debug_mode=debug_mode)
-        account_manager.current_account_id = account_id
-
-        # Upload files
-        upload_success = True
-        expected_items = 0  # Start with 0 files
-        for file_path in files_to_upload:
-            
-            logging.info(f"Processing file: {os.path.basename(file_path)}")
-            
-            # Check if file exists in the account
-            logging.info(f"Checking if file {os.path.basename(file_path)} already exists in the account")
-            num_files = account_manager.navigate_to_files_for_account_id(account_id)
-            if num_files > 0:
-                search_pattern = f"{os.path.splitext(os.path.basename(file_path))[0]}"
-                logging.info(f"search_pattern: {search_pattern}")
-                if file_manager.search_file(search_pattern):
-                    logging.info(f"File {os.path.basename(file_path)} already exists, skipping upload")
-                    logging.info(f"Skipping file: {file_path}")
-                    account_manager.navigate_back_to_account_page()
-                    continue
-            
-            account_manager.navigate_back_to_account_page()
-            
-            # Try uploading the file with retries
-            logging.info(f"**** Try uploading the file with retries, file: {file_path}")
-            current_try = 1
-            file_success = False
-            while current_try <= max_tries and not file_success:
-                logging.info(f"Attempt {current_try} of {max_tries}")
-
-                # Navigate to Files page before each upload
-                logging.info("Navigating to Files page...")
-                num_files = file_manager.navigate_to_files()
-                # num_files = account_manager.navigate_to_files_for_account_id(account_id)
-
-                logging.info(f"***Number of files in account: {num_files}")
-                
-                # Update expected items count
-                expected_items = num_files + 1 if current_try == 1 else num_files
-                logging.info(f"***Number of files: {num_files}")
-                logging.info(f"***Expected number of items: {expected_items}")
-
-                logging.info(f"**** Uploading single file")
-                if upload_single_file(page, file_path, expected_items):
-                    file_success = True
-                    logging.info(f"**** Single file uploaded successfully")
-
-                logging.info(f"**** Navigating back to the original account page")  
-                # Navigate back to the original account page
-                account_manager.navigate_back_to_account_page()
-            
-
-                if not file_success:
-                    logging.warning(f"File upload failed. Retrying... (Attempt {current_try + 1} of {max_tries})")
-                    if current_try < max_tries:
-                        current_try += 1
-                        continue
-                    # else:
-                    #     logging.error("Maximum retry attempts reached. Upload may be incomplete.")
-                    #     upload_success = False
-                    #     if not input("Do you want to try again? (y/n): ").lower().startswith('y'):
-                    #         logging.info("Stopping as requested.")
-                    #         sys.exit(0)
+        # Verify we're on the correct account page
+        logging.info(f"Verifying account page URL")
+        is_valid, account_id = account_manager.verify_account_page_url()
+        if not is_valid:
+            return False
         
-        logging.info("File upload process completed successfully")
-        return upload_success 
+        # Create temporary directory for test files
+        logging.info(f"Creating temporary directory for test files")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Create test files
+            files_to_upload = []
+            logging.info(f"account['files']: {account['files']}")
+            for file_info in account['files']:
+                file_path = os.path.join(temp_dir, file_info['name'])
+                with open(file_path, 'wb') as f:
+                    f.write(file_info['content'])
+                files_to_upload.append(file_path)
+                logging.info(f"Created test file: {file_path}")
+            
+            # Show files to be uploaded
+            logging.info("\nFiles to be uploaded:")
+            for file in files_to_upload:
+                logging.info(f"  + {os.path.basename(file)}")
+            
+            # Initialize Salesforce page objects
+            file_manager = FileManager(page, debug_mode=debug_mode)
+            account_manager = AccountManager(page, debug_mode=debug_mode)
+            account_manager.current_account_id = account_id
+
+            # Upload files
+            upload_success = True
+            expected_items = 0  # Start with 0 files
+            for file_path in files_to_upload:
+                try:
+                    logging.info(f"Processing file: {os.path.basename(file_path)}")
+                    
+                    # Check if file exists in the account
+                    logging.info(f"Checking if file {os.path.basename(file_path)} already exists in the account")
+                    num_files = account_manager.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
+                    if isinstance(num_files, str) or num_files > 0:
+                        file_name_of_file_to_upload = f"{os.path.splitext(os.path.basename(file_path))[0]}"
+                        logging.info(f"file_name_of_file_to_upload: {file_name_of_file_to_upload}")
+                        if file_manager.search_file(file_name_of_file_to_upload):
+                            logging.info(f"File {file_name_of_file_to_upload} already exists, skipping upload for file: {file_path}")
+                            account_manager.navigate_back_to_account_page()
+                            continue
+                    
+                    account_manager.navigate_back_to_account_page()
+                    
+                    # Try uploading the file with retries
+                    logging.info(f"**** Try uploading the file with retries, file: {file_path}")
+                    current_try = 1
+                    file_success = False
+                    while current_try <= max_tries and not file_success:
+                        try:
+                            logging.info(f"Attempt {current_try} of {max_tries}")
+
+                            # Navigate to Files page before each upload
+                            logging.info("Navigating to Files page...")
+                            num_files = file_manager.navigate_to_files_click_on_files_card_to_facilitate_upload()
+                            logging.info(f"***Number of files in account: {num_files}")
+                            
+                            # Update expected items count
+                            if isinstance(num_files, str):
+                                # If we have a string like "50+", use 50 as the base count
+                                base_count = 50
+                            else:
+                                base_count = num_files
+                            expected_items = base_count + 1 if current_try == 1 else base_count
+                            logging.info(f"***Number of files: {num_files}")
+                            logging.info(f"***Expected number of items: {expected_items}")
+
+                            logging.info(f"**** Uploading single file")
+                            if upload_single_file(page, file_path, expected_items):
+                                file_success = True
+                                logging.info(f"**** Single file uploaded successfully")
+                                break
+                            
+                            current_try += 1
+                            if current_try <= max_tries:
+                                logging.info(f"Retrying in 2 seconds...")
+                                time.sleep(2)
+                                
+                        except Exception as e:
+                            logging.error(f"Error during upload attempt {current_try}: {str(e)}")
+                            page.screenshot(path=f"upload-error-attempt-{current_try}-{os.path.basename(file_path)}.png")
+                            current_try += 1
+                            if current_try <= max_tries:
+                                logging.info(f"Retrying in 2 seconds...")
+                                time.sleep(2)
+                    
+                    if not file_success:
+                        logging.error(f"Failed to upload file after {max_tries} attempts: {file_path}")
+                        upload_success = False
+                        break
+                        
+                except Exception as e:
+                    logging.error(f"Error processing file {os.path.basename(file_path)}: {str(e)}")
+                    page.screenshot(path=f"upload-error-{os.path.basename(file_path)}.png")
+                    upload_success = False
+                    break
+                    
+            return upload_success
+            
+    except Exception as e:
+        logging.error(f"Error in upload_files_for_account: {str(e)}")
+        page.screenshot(path="upload-error-main.png")
+        return False
+        
