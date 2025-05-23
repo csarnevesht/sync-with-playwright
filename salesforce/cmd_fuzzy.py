@@ -39,6 +39,12 @@ def test_accounts_fuzzy_find(accounts_file: str = None):
         accounts_file: Optional name of the file in the accounts directory to read from.
                       If not provided, defaults to 'main.txt'.
     """
+    # Print accounts file and default options at the start
+    accounts_file_path = accounts_file if accounts_file else 'accounts/main.txt'
+    logging.info(f"\n=== TEST START ===")
+    logging.info(f"Accounts file: {accounts_file_path}")
+    logging.info(f"Default options: accounts_file='main.txt'")
+
     # Read account folders from file
     ACCOUNT_FOLDERS = read_accounts_folders(accounts_file)
 
@@ -73,11 +79,10 @@ def test_accounts_fuzzy_find(accounts_file: str = None):
                 results[folder_name] = result
             
             # Print results summary
-            logging.info("\n=== SALESFORCE ACCOUNT MATCHES ===")
+            print("\n=== SALESFORCE ACCOUNT MATCHES ===")
             for folder_name, result in results.items():
-                logging.info(f"\n📁 Searching for: {folder_name}")
-                logging.info(f"📊 Status: {result['status']}")
-                
+                print(f"\n📁 Searching for: {folder_name}")
+                print(f"📊 Status: {result['status']}")
                 # Show all unique matches found across all search attempts
                 all_matches = set()
                 for attempt in result['search_attempts']:
@@ -85,28 +90,30 @@ def test_accounts_fuzzy_find(accounts_file: str = None):
                         all_matches.update(attempt['matching_accounts'])
                 # Also include matches from the main matches list
                 all_matches.update(result['matches'])
-                
                 if all_matches:
-                    logging.info("\n✅ All matching accounts found in Salesforce:")
+                    print("\n✅ All matching accounts found in Salesforce:")
                     for match in sorted(all_matches):
-                        logging.info(f"   • {match}")
+                        print(f"   • {match}")
                 else:
-                    logging.info("\n❌ No matching accounts found in Salesforce")
-                
-                logging.info("\n🔍 Search details:")
+                    print("\n❌ No matching accounts found in Salesforce")
+                print("\n🔍 Search details:")
                 for attempt in result['search_attempts']:
                     if attempt['matching_accounts']:
-                        logging.info(f"\n   Search type: {attempt['type']}")
-                        logging.info(f"   Query used: '{attempt['query']}'")
-                        logging.info(f"   Found {attempt['matches']} matches:")
+                        print(f"\n   Search type: {attempt['type']}")
+                        print(f"   Query used: '{attempt['query']}'")
+                        print(f"   Found {attempt['matches']} matches:")
                         for account in sorted(attempt['matching_accounts']):
-                            logging.info(f"      - {account}")
-                logging.info("=" * 50)
+                            print(f"      - {account}")
+                print("=" * 50)
             
         except Exception as e:
             logging.error(f"Test failed with error: {str(e)}")
         finally:
             browser.close()
+            # Print accounts file and default options at the end
+            logging.info(f"\n=== TEST END ===")
+            logging.info(f"Accounts file: {accounts_file_path}")
+            logging.info(f"Default options: accounts_file='main.txt'")
 
 if __name__ == "__main__":
     args = parse_args()
