@@ -1010,7 +1010,18 @@ class AccountManager(BasePage):
             # Skip header row
             for i, row in enumerate(rows[1:], 1):  # Skip the first row (header)
                 try:
-                    # Try different selectors to find the account name
+                    # Prioritize extracting from <th scope="row"> a
+                    name_cell = row.locator('th[scope="row"] a')
+                    if name_cell.count() > 0:
+                        try:
+                            account_name = name_cell.nth(0).text_content(timeout=1000)
+                            if account_name and account_name.strip():
+                                account_names.append(account_name.strip())
+                                self.logger.info(f"Found account using <th scope='row'> a: {account_name.strip()}")
+                                continue
+                        except Exception as e:
+                            self.logger.warning(f"Timeout or error getting text for <th scope='row'> a in row {i}: {str(e)}")
+                    # Fallback to previous selectors if needed
                     selectors = [
                         'td:first-child a',  # Standard link in first cell
                         'td:first-child',    # First cell if no link
@@ -1150,12 +1161,15 @@ class AccountManager(BasePage):
                 
                 # Check for exact matches based on name parts
                 if name_parts['first_name'] and name_parts['last_name']:
-                    full_name = f"{name_parts['first_name']} {name_parts['last_name']}"
-                    reverse_name = f"{name_parts['last_name']} {name_parts['first_name']}"
-                    
-                    # Check for exact matches in the found accounts
+                    # Normalize all possible forms of the folder name
+                    folder_full_name = f"{name_parts['first_name']} {name_parts['last_name']}".lower().replace(',', '').strip()
+                    folder_reverse_name = f"{name_parts['last_name']} {name_parts['first_name']}".lower().replace(',', '').strip()
+                    folder_comma_name = f"{name_parts['last_name']}, {name_parts['first_name']}".lower().replace(',', '').strip()
+                    folder_comma_nospace = f"{name_parts['last_name']},{name_parts['first_name']}".lower().replace(',', '').strip()
+
                     for account in matching_accounts:
-                        if account.lower() == full_name.lower() or account.lower() == reverse_name.lower():
+                        normalized_account = account.lower().replace(',', '').strip()
+                        if normalized_account in [folder_full_name, folder_reverse_name, folder_comma_name.replace(',', ''), folder_comma_nospace.replace(',', '')]:
                             exact_matches.append(account)
                         else:
                             partial_matches.append(account)

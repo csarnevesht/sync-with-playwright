@@ -342,14 +342,24 @@ def accounts_fuzzy_search(args):
                 results[folder_name] = result
                 
                 # Get exact matches for summary
-                exact_matches = [match for match in result['matches'] if match in [attempt['query'] for attempt in result['search_attempts']]]
-                salesforce_name = exact_matches[0] if exact_matches else "--"
+                if result['status'] == 'Exact Match' and result['matches']:
+                    salesforce_name = result['matches'][0]
+                else:
+                    salesforce_name = "--"
                 
                 # Get Salesforce files if requested and account was found
                 salesforce_files = []
                 if args.salesforce_account_files and salesforce_name != "--":
-                    salesforce_files = account_manager.get_account_files(salesforce_name)
-                    logger.info(f"Found {len(salesforce_files)} files in Salesforce")
+                    # Navigate to the account and get its ID
+                    if account_manager.click_account_name(salesforce_name):
+                        is_valid, account_id = account_manager.verify_account_page_url()
+                        if is_valid and account_id:
+                            salesforce_files = account_manager.get_all_file_names_for_this_account(account_id)
+                            logger.info(f"Found {len(salesforce_files)} files in Salesforce")
+                        else:
+                            logger.error(f"Could not verify account page or get account ID for: {salesforce_name}")
+                    else:
+                        logger.error(f"Could not navigate to Salesforce account: {salesforce_name}")
                 
                 # Compare files if both Dropbox and Salesforce files are available
                 file_comparison = None
@@ -409,8 +419,7 @@ def accounts_fuzzy_search(args):
                 if salesforce_name == "--":
                     print(f"Salesforce account name: -- [No exact match found]")
                 else:
-                    print(f"Salesforce account name: {salesforce_name}")
-                
+                    print(f"Salesforce account name: {salesforce_name} [Exact Match]")
                 # Show file summary if available
                 if args.dropbox_account_files and args.salesforce_account_files:
                     print("\nFile Migration Status:")
