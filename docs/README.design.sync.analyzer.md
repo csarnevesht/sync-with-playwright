@@ -29,16 +29,16 @@ The Sync Analyzer is a tool designed to analyze and track the migration status o
 ### Basic Usage
 ```bash
 # Single account analysis
-python -m sync.cmd_migration_analyzer --dropbox-account-name 'Account Name'
+python -m sync.cmd_analyzer --dropbox-account-name 'Account Name'
 
 # Multiple accounts from file
-python -m sync.cmd_migration_analyzer --dropbox-accounts-file accounts/fuzzy-small.txt
+python -m sync.cmd_analyzer --dropbox-accounts-file accounts/fuzzy-small.txt
 ```
 
 ### Advanced Options
 ```bash
 # Full analysis with batching
-python -m sync.cmd_migration_analyzer \
+python -m sync.cmd_analyzer \
     --dropbox-accounts \
     --dropbox-account-files \
     --salesforce-accounts \
@@ -47,7 +47,7 @@ python -m sync.cmd_migration_analyzer \
     --start-from 10
 
 # Dropbox accounts only with batching
-python -m sync.cmd_migration_analyzer \
+python -m sync.cmd_analyzer \
     --dropbox-accounts \
     --batch_size 5 \
     --start-from 10 \
@@ -102,7 +102,7 @@ python -m sync.cmd_migration_analyzer \
 ## Implementation Details
 
 ### Current Implementation
-The current implementation in `sync/cmd_migration_analyzer.py` provides:
+The current implementation in `sync/cmd_analyzer.py` provides:
 - Basic account fuzzy search
 - Single and batch account processing
 - Simple result reporting
@@ -151,13 +151,13 @@ The current implementation in `sync/cmd_migration_analyzer.py` provides:
 ### Basic Account Search
 ```bash
 # Search for a single account
-python -m sync.cmd_migration_analyzer --dropbox-account-name 'Alexander & Armelia Rolle'
+python -m sync.cmd_analyzer --dropbox-account-name 'Alexander & Armelia Rolle'
 ```
 
 ### Batch Processing
 ```bash
 # Process accounts in batches
-python -m sync.cmd_migration_analyzer \
+python -m sync.cmd_analyzer \
     --dropbox-accounts \
     --batch_size 5 \
     --start-from 10
@@ -166,7 +166,7 @@ python -m sync.cmd_migration_analyzer \
 ### Full Analysis
 ```bash
 # Complete analysis with all features
-python -m sync.cmd_migration_analyzer \
+python -m sync.cmd_analyzer \
     --dropbox-accounts \
     --dropbox-account-files \
     --salesforce-accounts \
