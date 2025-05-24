@@ -32,6 +32,13 @@ clear && python -m sync.cmd_analyzer --dropbox-account-name 'Alexander & Armelia
 
 clear && python -m sync.cmd_analyzer --dropbox-accounts --batch_size 5 --start-from 10 2>&1 | tee output.log
 
+clear && python -m sync.cmd_analyzer \
+    --dropbox-account-name='Matalon, Dennis' \
+    --dropbox-account-files \
+    --salesforce-accounts \
+    --salesforce-account-files \
+    2>&1 | tee output.log
+
 # list the dropbox accounts only in batches with a start-from
 clear && python -m sync.cmd_analyzer --dropbox-accounts --batch_size 5 --start-from 10 --dropbox-accounts-only 2>&1 | tee output.log
 
