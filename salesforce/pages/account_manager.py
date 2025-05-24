@@ -1098,6 +1098,7 @@ class AccountManager(BasePage):
                 # Split remaining name parts
                 name_parts = main_name.split()
                 if len(name_parts) >= 2:
+                    # Take the last word as the last name
                     result['last_name'] = name_parts[-1]
                     result['first_name'] = name_parts[0]
                     if len(name_parts) > 2:
