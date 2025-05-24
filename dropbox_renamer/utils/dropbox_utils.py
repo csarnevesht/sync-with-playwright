@@ -37,13 +37,19 @@ class DropboxClient:
     def __init__(self, token: str, debug_mode: bool = False):
         self.dbx = dropbox.Dropbox(token)
         self.debug_mode = debug_mode
-        # Extract just the folder name from the path if it's a full URL
+        
+        # Get the root folder from environment
         folder = DROPBOX_ROOT_FOLDER
         if folder.startswith('http'):
-            # Extract the last part of the path
-            folder = folder.split('/')[-1]
-            # URL decode the folder name
-            folder = urllib.parse.unquote(folder)
+            # Extract the path from the URL
+            parsed_url = urllib.parse.urlparse(folder)
+            # Get the path and remove 'home' from the start
+            path = parsed_url.path.lstrip('/')
+            if path.startswith('home/'):
+                path = path[5:]  # Remove 'home/'
+            # URL decode the path
+            folder = urllib.parse.unquote(path)
+        
         self.root_folder = folder
         logging.info(f"Initialized DropboxClient with root folder: {self.root_folder}")
         if debug_mode:
@@ -95,7 +101,21 @@ class DropboxClient:
     def get_account_files(self, account_folder: str) -> List[FileMetadata]:
         """Get all files in an account folder."""
         try:
-            result = self.dbx.files_list_folder(f"/{self.root_folder}/{account_folder}")
+            # Clean the account folder name to ensure it's properly formatted
+            clean_account_folder = account_folder.strip()
+            
+            # Construct the full path by joining the root folder with the account folder
+            full_path = os.path.join(self.root_folder, clean_account_folder)
+            
+            # Clean the full path to ensure it's in the correct format for Dropbox API
+            clean_path = clean_dropbox_path(full_path)
+            
+            if not clean_path:
+                logging.error(f"Invalid path constructed: {full_path}")
+                return []
+                
+            logging.info(f"Listing files in path: {clean_path}")
+            result = self.dbx.files_list_folder(clean_path)
             files = [entry for entry in result.entries if isinstance(entry, dropbox.files.FileMetadata)]
             
             # Show files in debug mode
