@@ -27,37 +27,161 @@ class AccountsPage:
         Returns:
             bool: True if selection was successful, False otherwise
         """
-        try:
-            # Click the list view selector
-            logging.info("Clicking list view selector...")
-            list_view_button = self.page.wait_for_selector('button[title="Select a List View: Accounts"]', timeout=10000)
-            if not list_view_button:
-                logging.error("Could not find list view selector button")
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                # If this is a retry, refresh the page first
+                if attempt > 0:
+                    logging.info(f"Retry {attempt + 1}/{max_retries}: Refreshing page...")
+                    self.page.reload()
+                    self.page.wait_for_load_state('networkidle', timeout=30000)
+                    self.page.wait_for_timeout(2000)  # Additional wait for stability
+                
+                # Try multiple selectors for the list view button
+                list_view_selectors = [
+                    'button[title="Select a List View: Accounts"]',
+                    'button[title="Select a List View"]',
+                    'button.slds-button[aria-haspopup="listbox"]',
+                    'button[aria-haspopup="listbox"]',
+                    'button[data-id="listViewSelector"]',
+                    'button[title*="List View"]',  # More generic selector
+                    'button[aria-label*="List View"]'  # Alternative attribute
+                ]
+                
+                list_view_button = None
+                for selector in list_view_selectors:
+                    try:
+                        logging.info(f"Trying list view selector: {selector}")
+                        # Wait for the button to be both visible and enabled
+                        list_view_button = self.page.wait_for_selector(
+                            selector,
+                            state='visible',
+                            timeout=10000
+                        )
+                        if list_view_button and list_view_button.is_visible():
+                            # Check if button is enabled
+                            is_disabled = list_view_button.get_attribute('disabled')
+                            if not is_disabled:
+                                logging.info(f"Found visible and enabled list view button with selector: {selector}")
+                                break
+                            else:
+                                logging.info(f"Button found but disabled, trying next selector")
+                                continue
+                    except Exception as e:
+                        logging.info(f"Selector {selector} failed: {str(e)}")
+                        continue
+                
+                if not list_view_button:
+                    logging.error("Could not find any list view selector button")
+                    if attempt < max_retries - 1:
+                        continue
+                    self.page.screenshot(path="list-view-button-not-found.png")
+                    return False
+                    
+                # Click the list view selector with retry
+                click_success = False
+                for click_attempt in range(3):
+                    try:
+                        logging.info("Clicking list view selector...")
+                        list_view_button.click()
+                        logging.info("Clicked list view selector")
+                        click_success = True
+                        break
+                    except Exception as e:
+                        logging.warning(f"Click attempt {click_attempt + 1} failed: {str(e)}")
+                        self.page.wait_for_timeout(1000)
+                
+                if not click_success:
+                    logging.error("Failed to click list view button after multiple attempts")
+                    if attempt < max_retries - 1:
+                        continue
+                    return False
+
+                # Wait for the dropdown content to appear
+                logging.info(f"Selecting '{view_name}' from list view...")
+                self.page.wait_for_timeout(2000)  # Give time for dropdown animation
+
+                # Try multiple ways to find and click the option
+                option_selectors = [
+                    f'text="{view_name}"',
+                    f'div[role="option"]:has-text("{view_name}")',
+                    f'li[role="option"]:has-text("{view_name}")',
+                    f'div[role="listbox"] div:has-text("{view_name}")',
+                    f'[role="option"]:has-text("{view_name}")'  # More generic selector
+                ]
+                
+                option = None
+                for selector in option_selectors:
+                    try:
+                        logging.info(f"Trying option selector: {selector}")
+                        option = self.page.locator(selector).first
+                        if option and option.is_visible():
+                            logging.info(f"Found visible option with selector: {selector}")
+                            break
+                    except Exception as e:
+                        logging.info(f"Option selector {selector} failed: {str(e)}")
+                        continue
+                
+                if not option:
+                    logging.error(f"Could not find visible '{view_name}' option")
+                    if attempt < max_retries - 1:
+                        continue
+                    self.page.screenshot(path=f"{view_name.replace(' ', '_').lower()}-not-found.png")
+                    return False
+                    
+                # Click the option with retry
+                click_success = False
+                for click_attempt in range(3):
+                    try:
+                        option.click()
+                        logging.info(f"Selected '{view_name}' list view")
+                        click_success = True
+                        break
+                    except Exception as e:
+                        logging.warning(f"Click attempt {click_attempt + 1} failed: {str(e)}")
+                        self.page.wait_for_timeout(1000)
+                
+                if not click_success:
+                    logging.error("Failed to click option after multiple attempts")
+                    if attempt < max_retries - 1:
+                        continue
+                    return False
+
+                # Wait for the table to update and stabilize
+                logging.debug("Waiting for table to update and stabilize")
+                self.page.wait_for_timeout(3000)  # Increased wait time
+                
+                # Verify the selection was successful
+                try:
+                    # Wait for the loading spinner to disappear
+                    self.page.wait_for_selector('.slds-spinner_container', state='hidden', timeout=5000)
+                    logging.info("Loading spinner disappeared")
+                    
+                    # Wait for the table to be visible
+                    table = self.page.wait_for_selector('table[role="grid"]', timeout=5000)
+                    if not table:
+                        logging.error("Table not visible after selection")
+                        if attempt < max_retries - 1:
+                            continue
+                        return False
+                        
+                    logging.info("Table is visible after selection")
+                    return True
+                    
+                except Exception as e:
+                    logging.error(f"Error verifying list view selection: {str(e)}")
+                    if attempt < max_retries - 1:
+                        continue
+                    return False
+
+            except Exception as e:
+                logging.error(f"Error selecting list view '{view_name}': {str(e)}")
+                if attempt < max_retries - 1:
+                    continue
+                self.page.screenshot(path="list-view-selection-error.png")
                 return False
-            list_view_button.click()
-            logging.info("Clicked list view selector")
-
-            # Wait for the dropdown content to appear
-            logging.info(f"Selecting '{view_name}' from list view...")
-            self.page.wait_for_timeout(1000)  # Give time for dropdown animation
-
-            # Find and click the desired option
-            option = self.page.locator(f'text="{view_name}"').first
-            if not option.is_visible():
-                logging.error(f"Could not find visible '{view_name}' option")
-                self.page.screenshot(path=f"{view_name.replace(' ', '_').lower()}-not-found.png")
-                return False
-            option.click()
-            logging.info(f"Selected '{view_name}' list view")
-
-            # Wait for the table to update and stabilize
-            logging.debug(f"Waiting for table to update and stabilize")
-            self.page.wait_for_timeout(2000)
-            return True
-
-        except Exception as e:
-            logging.error(f"Error selecting list view '{view_name}': {str(e)}")
-            return False
+        
+        return False
 
     def navigate_to_accounts_list_page(self) -> bool:
         """Navigate to the Accounts page."""

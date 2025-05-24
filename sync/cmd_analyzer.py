@@ -73,6 +73,7 @@ from dropbox_renamer.utils.dropbox_utils import (
     clean_dropbox_path,
     list_folder_contents
 )
+from dropbox_renamer.utils.date_utils import has_date_prefix
 from dropbox.exceptions import ApiError
 import dropbox
 
@@ -306,10 +307,6 @@ def accounts_fuzzy_search(args):
             # Initialize account manager
             account_manager = AccountManager(page, debug_mode=True)
             
-            # Navigate to accounts page
-            if not account_manager.navigate_to_accounts_list_page():
-                logger.error("Failed to navigate to accounts page")
-                return
             
             # Dictionary to store results for each folder
             results = {}
@@ -320,6 +317,11 @@ def accounts_fuzzy_search(args):
             # Process each folder name
             for index, folder_name in enumerate(ACCOUNT_FOLDERS, 1):
                 logger.info(f"\n[{index}/{total_folders}] Processing Dropbox account folder: {folder_name}")
+                
+                # Navigate to accounts page
+                if not account_manager.navigate_to_accounts_list_page():
+                    logger.error("Failed to navigate to accounts page")
+                    continue
                 
                 # Get Dropbox files if requested
                 dropbox_files = []
@@ -354,7 +356,6 @@ def accounts_fuzzy_search(args):
                     if account_manager.click_account_name(salesforce_name):
                         is_valid, account_id = account_manager.verify_account_page_url()
                         if is_valid and account_id:
-                    
                             salesforce_files = account_manager.get_all_file_names_for_this_account(account_id)
                             logger.info(f"Found {len(salesforce_files)} files in Salesforce")
                         else:
@@ -402,6 +403,26 @@ def accounts_fuzzy_search(args):
                 
                 # Show file comparison if available
                 if args.dropbox_account_files and args.salesforce_account_files:
+                    # Show Salesforce files
+                    print("\n📁 Salesforce account files:")
+                    for result in summary_results:
+                        if result['dropbox_name'] == folder_name and result['salesforce_files']:
+                            # Sort files by their enumeration number
+                            sorted_files = sorted(result['salesforce_files'], 
+                                key=lambda x: int(x.split('.')[0]) if x.split('.')[0].isdigit() else float('inf'))
+                            for file in sorted_files:
+                                print(f"   + {file}")
+                    
+                    # Show Dropbox files
+                    print("\n📁 Dropbox account files:")
+                    for result in summary_results:
+                        if result['dropbox_name'] == folder_name and result['dropbox_files']:
+                            # Sort files by date prefix
+                            sorted_files = sorted(result['dropbox_files'], key=lambda x: x.name)
+                            for i, file in enumerate(sorted_files, 1):
+                                print(f"   + {i}. {file.name}")
+                    
+                    # Show comparison results
                     print("\n📁 File Comparison:")
                     for result in summary_results:
                         if result['dropbox_name'] == folder_name and result['file_comparison']:
@@ -455,44 +476,86 @@ def compare_files(dropbox_files, salesforce_files):
     """
     file_statuses = []
     
+    # Normalize Salesforce files for comparison
+    normalized_sf_files = {}
+    for sf_file in salesforce_files:
+        # Remove any date prefix and normalize spaces
+        base_name = sf_file
+        if len(sf_file) > 6 and sf_file[:6].isdigit():
+            base_name = sf_file[6:].lstrip()
+        normalized_sf_files[base_name] = sf_file
+    
     for db_file in dropbox_files:
         # Access FileMetadata attributes properly
         original_name = db_file.name
-        modified_date = db_file.server_modified
-        expected_prefix = modified_date.strftime('%y%m%d')
         
-        # Check for file in Salesforce with different prefix formats
+        # Check if file already has a date prefix
+        has_prefix = False
+        prefix = None
+        base_name = original_name
+        
+        if len(original_name) > 6 and original_name[:6].isdigit():
+            has_prefix = True
+            prefix = original_name[:6]
+            base_name = original_name[6:].lstrip()
+        
+        # Try to find the file in Salesforce
         found = False
         prefix_status = None
+        sf_file_name = None
         
-        # Try original name
+        # First try exact match
         if original_name in salesforce_files:
             found = True
-            prefix_status = "Missing prefix"
+            sf_file_name = original_name
+            if has_prefix:
+                prefix_status = "Correct prefix"
+            else:
+                prefix_status = "No prefix (exact match)"
         else:
-            # Try with prefix formats
-            prefixed_name_no_space = f"{expected_prefix}{original_name}"
-            prefixed_name_with_space = f"{expected_prefix} {original_name}"
-            
-            if prefixed_name_no_space in salesforce_files:
+            # Try normalized name
+            if base_name in normalized_sf_files:
                 found = True
-                prefix_status = "Correct prefix (no space)"
-            elif prefixed_name_with_space in salesforce_files:
-                found = True
-                prefix_status = "Correct prefix (with space)"
+                sf_file_name = normalized_sf_files[base_name]
+                if has_prefix:
+                    prefix_status = "Prefix format mismatch"
+                else:
+                    prefix_status = "Missing prefix"
+            else:
+                # If no prefix, use server_modified date
+                if not has_prefix:
+                    modified_date = db_file.server_modified
+                    expected_prefix = modified_date.strftime('%y%m%d')
+                    
+                    # Try with prefix formats
+                    prefixed_name_no_space = f"{expected_prefix}{original_name}"
+                    prefixed_name_with_space = f"{expected_prefix} {original_name}"
+                    
+                    if prefixed_name_no_space in salesforce_files:
+                        found = True
+                        sf_file_name = prefixed_name_no_space
+                        prefix_status = "Correct prefix (no space)"
+                    elif prefixed_name_with_space in salesforce_files:
+                        found = True
+                        sf_file_name = prefixed_name_with_space
+                        prefix_status = "Correct prefix (with space)"
         
         # Create status object
         status = {
             'file': original_name,
             'status': '✓' if found else '✗',
-            'details': None
+            'details': None,
+            'salesforce_name': sf_file_name if found else None
         }
         
         if found:
-            if prefix_status != "Correct prefix (no space)":
+            if prefix_status and prefix_status != "Correct prefix (no space)":
                 status['details'] = prefix_status
         else:
-            status['details'] = f"Not found in Salesforce (expected prefix: {expected_prefix})"
+            if has_prefix:
+                status['details'] = f"Not found in Salesforce (existing prefix: {prefix})"
+            else:
+                status['details'] = f"Not found in Salesforce (expected prefix: {expected_prefix})"
         
         file_statuses.append(status)
     
