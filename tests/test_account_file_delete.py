@@ -11,13 +11,22 @@ This test verifies the account file deletion functionality in Salesforce. It:
 
 import os
 import sys
-from playwright.sync_api import sync_playwright
+import time
 import logging
-from salesforce.pages.account_manager import AccountManager
-from salesforce.pages.file_manager import FileManager
-from salesforce.utils.browser import get_salesforce_page
-from salesforce.utils.file_upload import upload_files_for_account
-from salesforce.utils.mock_data import get_mock_accounts
+from pathlib import Path
+from typing import List, Optional
+import pytest
+from playwright.sync_api import Page, expect
+import re
+import json
+from datetime import datetime
+import shutil
+import tempfile
+from sync.salesforce.pages.account_manager import AccountManager
+from sync.salesforce.pages.file_manager import FileManager
+from sync.salesforce.utils.browser import get_salesforce_page
+from sync.salesforce.utils.file_upload import upload_files_for_account
+from sync.salesforce.utils.mock_data import get_mock_accounts
 
 # Configure logging
 logging.basicConfig(
@@ -66,7 +75,7 @@ def test_account_file_delete():
             logging.info(f"Using mock account: {account_name}")
             
             # Navigate to accounts page
-            if not account_manager.navigate_to_accounts_list_page():
+            if not account_manager.navigate_to_accounts_list_page(view_name="Recent"):
                 logging.error("Failed to navigate to accounts page")
                 return
             

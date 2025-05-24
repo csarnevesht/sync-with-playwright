@@ -1,1 +1,1 @@
-"""Test suite for the dropbox_renamer package.""" 
+"""Test suite for the sync package.""" 
