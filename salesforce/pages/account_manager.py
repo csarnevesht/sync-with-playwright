@@ -643,7 +643,7 @@ class AccountManager(BasePage):
         
         # Scroll to load all files if we see a "50+" count
         if isinstance(num_files, str) and '+' in str(num_files):
-            logging.info("Found '50+' count, scrolling to load all files...")
+            logging.info("Found '{num_files}+' count, scrolling to load all files...")
             actual_count = file_manager_instance.scroll_to_bottom_of_page()
             if actual_count > 0:
                 logging.info(f"Final number of files after scrolling: {actual_count}")
@@ -665,19 +665,42 @@ class AccountManager(BasePage):
         self.logger.info(f"Getting all file names for account {account_id}")
         
         try:
-            # Quick check if table is already visible
-            try:
-                table = self.page.locator('table.slds-table').first
-                if table.is_visible(timeout=1000):
-                    self.logger.info("Table is already visible")
-            except Exception:
-                # If not visible, wait briefly
-                self.page.wait_for_selector('table.slds-table', timeout=5000)
-            
-            # Get all file rows immediately
+
+            # CAROLINA HERE
+            logging.info("Navigating to files section")
+            logging.info(f"account_id: {account_id}")
+            num_files = self.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
+            if num_files == -1:
+                logging.error("Failed to navigate to Files")
+                return
+            # Wait for the files table to be visible and at least one file row to appear
+            max_attempts = 5
+            for attempt in range(max_attempts):
+                try:
+                    table = self.page.wait_for_selector('table.slds-table', timeout=4000)
+                    file_rows = self.page.locator('table.slds-table tbody tr').all()
+                    if file_rows and len(file_rows) > 0:
+                        # Optionally, check if at least one row has a visible span.itemTitle
+                        has_title = False
+                        for row in file_rows:
+                            if row.locator('span.itemTitle').count() > 0:
+                                has_title = True
+                                break
+                        if has_title:
+                            break
+                    self.logger.info(f"Attempt {attempt+1}/{max_attempts}: Table or file rows not ready, retrying...")
+                    self.page.wait_for_timeout(1000)
+                except Exception as e:
+                    self.logger.info(f"Attempt {attempt+1}/{max_attempts}: Waiting for files table failed: {str(e)}")
+                    self.page.wait_for_timeout(1000)
+            else:
+                self.logger.error("Files table or file rows did not become visible after multiple attempts.")
+                return []
+
+            # Get all file rows immediately (after waiting)
             file_rows = self.page.locator('table.slds-table tbody tr').all()
             if not file_rows:
-                self.logger.error("No file rows found")
+                self.logger.error("No file rows found after waiting")
                 return []
             
             self.logger.info(f"Found {len(file_rows)} file rows")
@@ -699,8 +722,11 @@ class AccountManager(BasePage):
                     if not title_span:
                         self.logger.warning(f"Skipping row {i}: No title span found")
                         continue
-
-                    file_name = title_span.text_content(timeout=2000).strip()
+                    try:
+                        file_name = title_span.text_content(timeout=3000).strip()
+                    except Exception as e:
+                        self.logger.warning(f"Timeout or error getting file name for row {i}: {str(e)}")
+                        continue
                     if not file_name:
                         self.logger.warning(f"Skipping row {i}: Empty file name")
                         continue
@@ -744,7 +770,6 @@ class AccountManager(BasePage):
             
             self.logger.info(f"Completed processing {len(file_names)}/{total_rows} files successfully")
             return file_names
-            
         except Exception as e:
             self.logger.error(f"Error getting file names: {str(e)}")
             return [] 

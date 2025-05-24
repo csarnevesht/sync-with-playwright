@@ -354,6 +354,7 @@ def accounts_fuzzy_search(args):
                     if account_manager.click_account_name(salesforce_name):
                         is_valid, account_id = account_manager.verify_account_page_url()
                         if is_valid and account_id:
+                    
                             salesforce_files = account_manager.get_all_file_names_for_this_account(account_id)
                             logger.info(f"Found {len(salesforce_files)} files in Salesforce")
                         else:
@@ -455,8 +456,9 @@ def compare_files(dropbox_files, salesforce_files):
     file_statuses = []
     
     for db_file in dropbox_files:
-        original_name = db_file['name']
-        modified_date = db_file['modified_date']
+        # Access FileMetadata attributes properly
+        original_name = db_file.name
+        modified_date = db_file.server_modified
         expected_prefix = modified_date.strftime('%y%m%d')
         
         # Check for file in Salesforce with different prefix formats
