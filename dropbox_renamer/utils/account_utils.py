@@ -1,44 +1,99 @@
 """Utility functions for handling account-related operations."""
 
 import os
-from typing import List, Optional
+import logging
+from typing import List, Set
 
-def read_accounts_folders(accounts_file: Optional[str] = None) -> List[str]:
+logger = logging.getLogger(__name__)
+
+def read_accounts_folders(file_path: str) -> List[str]:
     """
-    Read account folder names from a file in the accounts directory.
-    By default, reads from main.txt if no file is specified.
+    Read account folder names from a file.
     
     Args:
-        accounts_file: Optional name of the file in the accounts directory to read from.
-                      If not provided, defaults to 'main.txt'.
-                      Can be a relative path (e.g., 'accounts/fuzzy-small.txt') or
-                      just the filename (e.g., 'fuzzy-small.txt').
-    
+        file_path: Path to the file containing account folder names
+        
     Returns:
-        List of account folder names.
+        List of account folder names
     """
-    # Determine the accounts directory path
-    accounts_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'accounts')
-    
-    # Use main.txt if no file specified
-    if not accounts_file:
-        accounts_file = 'main.txt'
-    
-    # If the file path already includes 'accounts/', use it as is
-    if accounts_file.startswith('accounts/'):
-        file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), accounts_file)
-    else:
-        # Otherwise, assume it's just the filename and look in the accounts directory
-        file_path = os.path.join(accounts_dir, accounts_file)
-    
     try:
         with open(file_path, 'r') as f:
-            # Read lines and strip whitespace, filtering out empty lines
-            accounts = [line.strip() for line in f if line.strip()]
-        return accounts
+            return [line.strip() for line in f if line.strip()]
     except FileNotFoundError:
-        print(f"Error: Accounts file not found at {file_path}")
+        logger.error(f"Accounts file not found: {file_path}")
         return []
     except Exception as e:
-        print(f"Error reading accounts file: {e}")
-        return [] 
+        logger.error(f"Error reading accounts file: {str(e)}")
+        return []
+
+def read_ignored_folders(file_path: str = 'accounts/ignore.txt') -> Set[str]:
+    """
+    Read list of folders to ignore from a file.
+    
+    Args:
+        file_path: Path to the ignore file (default: accounts/ignore.txt)
+        
+    Returns:
+        Set of folder names to ignore
+    """
+    ignored_folders = set()
+    
+    try:
+        # If the file path doesn't include 'accounts/', look in the accounts directory
+        if not file_path.startswith('accounts/'):
+            accounts_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'accounts')
+            file_path = os.path.join(accounts_dir, file_path)
+            
+        if not os.path.exists(file_path):
+            logger.warning(f"Ignore file not found: {file_path}")
+            return ignored_folders
+            
+        logger.info(f"Reading ignored folders from: {os.path.abspath(file_path)}")
+            
+        with open(file_path, 'r') as f:
+            for line in f:
+                folder = line.strip()
+                if folder:
+                    # Validate folder name
+                    if '/' in folder or '\\' in folder:
+                        logger.warning(f"Invalid folder name in ignore list (contains path separators): {folder}")
+                        continue
+                    if not folder.strip():
+                        logger.warning("Empty folder name found in ignore list, skipping")
+                        continue
+                    ignored_folders.add(folder)
+                    
+        # Log detailed information about ignored folders
+        if ignored_folders:
+            logger.info(f"Found {len(ignored_folders)} folders to ignore:")
+            for folder in sorted(ignored_folders):
+                logger.info(f"  - {folder}")
+        else:
+            logger.info("No folders found in ignore list")
+            
+        return ignored_folders
+        
+    except Exception as e:
+        logger.error(f"Error reading ignore file: {str(e)}")
+        return ignored_folders
+
+def read_allowed_folders(file_path: str = 'main.txt') -> Set[str]:
+    """
+    Read list of allowed folder names from a file.
+    
+    Args:
+        file_path: Path to the allowed folders file (default: main.txt)
+        
+    Returns:
+        Set of allowed folder names
+    """
+    try:
+        if not os.path.exists(file_path):
+            logger.warning(f"Allowed folders file not found: {file_path}")
+            return set()
+            
+        with open(file_path, 'r') as f:
+            return {line.strip() for line in f if line.strip()}
+    except Exception as e:
+        logger.error(f"Error reading allowed folders file: {str(e)}")
+        return set() 
