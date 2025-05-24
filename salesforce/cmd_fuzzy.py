@@ -80,35 +80,27 @@ def accounts_fuzzy_search(accounts_file: str = None):
             # Print results summary
             print("\n=== SALESFORCE ACCOUNT MATCHES ===")
             for folder_name, result in results.items():
-                print(f"\n📁 Searching for: {folder_name}")
-                print(f"📊 Status: {result['status']}")
+                print(f"\nDropbox account folder name: {folder_name}")
                 
-                # Show exact matches
-                print("\n🔍 Exact Matches:")
+                # Get exact matches
                 exact_matches = [match for match in result['matches'] if match in [attempt['query'] for attempt in result['search_attempts']]]
+                
+                # Show Salesforce account name based on exact matches
                 if exact_matches:
-                    for match in sorted(exact_matches):
-                        print(f"   • {match}")
+                    print(f"Salesforce account name: {exact_matches[0]}")  # Show first exact match
                 else:
-                    print("   • None found")
+                    print("Salesforce account name: None")
                 
-                # Show partial matches
-                print("\n🔍 Partial Matches:")
-                partial_matches = [match for match in result['matches'] if match not in exact_matches]
-                if partial_matches:
-                    for match in sorted(partial_matches):
-                        print(f"   • {match}")
-                else:
-                    print("   • None found")
-                
-                print("\n📝 Search details:")
-                for attempt in result['search_attempts']:
-                    if attempt['matching_accounts']:
-                        print(f"\n   Search type: {attempt['type']}")
-                        print(f"   Query used: '{attempt['query']}'")
-                        print(f"   Found {attempt['matches']} matches:")
-                        for account in sorted(attempt['matching_accounts']):
-                            print(f"      - {account}")
+                # Show search details if there are any matches
+                if result['matches']:
+                    print("\n📝 Search details:")
+                    for attempt in result['search_attempts']:
+                        if attempt['matching_accounts']:
+                            print(f"\n   Search type: {attempt['type']}")
+                            print(f"   Query used: '{attempt['query']}'")
+                            print(f"   Found {attempt['matches']} matches:")
+                            for account in sorted(attempt['matching_accounts']):
+                                print(f"      - {account}")
                 print("=" * 50)
             
         except Exception as e:
