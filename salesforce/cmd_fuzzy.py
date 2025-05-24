@@ -116,9 +116,16 @@ def accounts_fuzzy_search(accounts_file: str = None):
             
             # Print final summary
             print("\n=== SUMMARY ===")
+            # Print table header
+            print("\n{:<50} {:<50}".format("Dropbox account", "Salesforce account"))
+            print("-" * 100)  # Separator line
+            # Print each row
             for result in summary_results:
-                print(f"\nDropbox account folder name: {result['dropbox_name']}")
-                print(f"Salesforce account name: {result['salesforce_name']}")
+                print("{:<50} {:<50}".format(
+                    result['dropbox_name'],
+                    result['salesforce_name']
+                ))
+            print("-" * 100)  # Bottom separator line
             
         except Exception as e:
             logging.error(f"Test failed with error: {str(e)}")
