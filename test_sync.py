@@ -118,11 +118,11 @@ def main():
     from sync.salesforce.utils.browser import get_salesforce_page
     
     # Import test modules
-    from tests.test_accounts_create import test_create_accounts
+    from tests.test_account_creation import test_account_creation
     from tests.test_account_search import test_search_account
     from tests.test_account_upload import test_account_upload
     from tests.test_account_delete import test_delete_accounts
-    from tests.test_accounts_query import test_get_accounts_matching_condition
+    from tests.test_account_query_and_filter import test_accounts_query_and_filter
     
     # Set up test environment
     test_dir, run_dir = setup_test_environment()
@@ -134,19 +134,19 @@ def main():
             # Run selected test(s)
             if args.test == 'all':
                 tests = [
-                    ('Account Creation', test_create_accounts),
+                    ('Account Creation', test_account_creation),
                     ('Account Search', test_search_account),
                     ('File Upload', test_account_upload),
                     ('Account Deletion', test_delete_accounts),
-                    ('Account Query', test_get_accounts_matching_condition)
+                    ('Account Query and Filter', test_accounts_query_and_filter)
                 ]
             else:
                 test_map = {
-                    'account-creation': [('Account Creation', test_create_accounts)],
+                    'account-creation': [('Account Creation', test_account_creation)],
                     'account-search': [('Account Search', test_search_account)],
                     'file-upload': [('File Upload', test_account_upload)],
                     'account-deletion': [('Account Deletion', test_delete_accounts)],
-                    'account-query': [('Account Query', test_get_accounts_matching_condition)]
+                    'account-query': [('Account Query and Filter', test_accounts_query_and_filter)]
                 }
                 tests = test_map[args.test]
             

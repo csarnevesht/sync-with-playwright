@@ -20,7 +20,7 @@ show_menu() {
     echo "4) File Upload Test"
     echo "5) File Download Test"
     echo "6) Account Deletion Test"
-    echo "7) Fuzzy Search Test"
+    echo "7) Account Query and Filter Test"
     echo "8) Toggle Debug Mode (Currently: ${DEBUG_MODE:-OFF})"
     echo "9) Exit"
     echo "====================================="
@@ -92,7 +92,7 @@ while true; do
             run_test "account-deletion"
             ;;
         7)
-            run_test "fuzzy-search"
+            run_test "account-query"
             ;;
         8)
             toggle_debug

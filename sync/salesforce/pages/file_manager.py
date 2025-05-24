@@ -386,27 +386,22 @@ class FileManager(BasePage):
             self.logger.info("Error screenshot saved as file-search-error.png")
             return False
 
-    def get_all_file_names_for_this_account(self, account_id: str) -> List[str]:
+    def get_all_file_names(self) -> List[str]:
         """
-        Get all file names associated with an account.
-        
-        Args:
-            account_id: The Salesforce account ID
+        Get all file names from the current files page.
         
         Returns:
-            List[str]: List of file names found in the account
+            List[str]: List of file names found in the format "1. filename [TYPE]"
         """
-        self.logger.info(f"Getting all file names for account {account_id}")
+        self.logger.info(f"Getting all file names")
         
         try:
-            # Navigate to files section
-            logging.info("Navigating to files section")
-            logging.info(f"account_id: {account_id}")
-            num_files = self.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
-            if num_files == -1:
-                logging.error("Failed to navigate to Files")
+            # Verify we're on the correct Files page
+            current_url = self.page.url
+            if not current_url.endswith('/related/AttachedContentDocuments/view'):
+                self.logger.error(f"Not on Files page. Current URL: {current_url}")
                 return []
-                
+            
             # Wait for the files table to be visible and at least one file row to appear
             max_attempts = 5
             for attempt in range(max_attempts):
@@ -451,6 +446,7 @@ class FileManager(BasePage):
                     if i == 1 or i % 10 == 0:
                         self.logger.info(f"Processing file {i}/{total_rows} ({(i/total_rows)*100:.1f}%)")
                     
+                    # Use _extract_file_info_from_row to get file info
                     file_info = self._extract_file_info_from_row(row)
                     if file_info:
                         file_names.append(f"{i}. {file_info['full_name']}")
