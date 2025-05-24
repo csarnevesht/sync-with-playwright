@@ -18,6 +18,12 @@ clear && python -m dropbox_renamer.cmd_rename 2>&1 | tee output.log
 
 clear && python -m dropbox_renamer.cmd_analyze --accounts-file accounts/fuzzy-small.txt 2>&1 | tee output.log
 
+# list all dropbox account folders
+clear && python -m dropbox_renamer.cmd_analyze --show-all --folders-only
+
+# list all dropbox account folders and files
+clear && python -m dropbox_renamer.cmd_analyze --show-all 
+
 clear && python -m sync.cmd_analyzer --dropbox-accounts --dropbox-account-files --salesforce-accounts --account-batch-size 5 --start-from 10  2>&1 | tee output.log
 
 clear && python -m sync.cmd_analyzer --dropbox-accounts-file accounts/fuzzy-small.txt --salesforce-accounts --salesforce-account-files 2>&1 | tee output.log
