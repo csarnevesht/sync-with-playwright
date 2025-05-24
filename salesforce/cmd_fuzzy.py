@@ -1,17 +1,42 @@
 """
 Account Salesforce Fuzzy Search
 
-This command implements fuzzy search functionality to find Dropbox accounts in Salesforce.
-It analyzes whether an account has been fully migrated from Dropbox to Salesforce by:
-1. Taking a list of Dropbox account folder names from a file or a single account name
-2. Extracting the last name from each folder name
-3. Searching for accounts in Salesforce CRM using the last name
-4. Verifying the search results and showing matches
-5. Providing a summary of the migration status for each account
+This command implements fuzzy search functionality to find and verify Dropbox accounts in Salesforce.
+It helps track the migration status of accounts from Dropbox to Salesforce by performing a smart search
+that handles various name formats and provides detailed matching information.
 
-Usage:
-    - For a single account: --dropbox-account-name="Account Name"
-    - For multiple accounts: --dropbox-accounts-file=accounts/fuzzy.txt
+Key Features:
+- Supports both single account search and batch processing from a file
+- Handles complex name formats (with/without commas, ampersands, parentheses)
+- Performs multiple search attempts to find the best matches
+- Shows detailed search results including exact and partial matches
+- Provides a clear summary of migration status for each account
+
+Process:
+1. Takes input: either a single Dropbox account name or a list from a file
+2. Extracts and normalizes the last name from each folder name
+3. Searches Salesforce CRM using multiple strategies:
+   - First by last name
+   - Then by full name
+   - Finally with any additional information
+4. Analyzes search results to find exact and partial matches
+5. Generates a detailed report showing:
+   - All search attempts and their results
+   - Exact matches found (if any)
+   - Partial matches with similarity details
+   - Final migration status summary
+
+Usage Examples:
+    # Search for a single account
+    python -m salesforce.cmd_fuzzy --dropbox-account-name="Alexander & Armelia Rolle"
+
+    # Process multiple accounts from a file
+    python -m salesforce.cmd_fuzzy --dropbox-accounts-file=accounts/fuzzy.txt
+
+Output:
+    - Detailed search results for each account
+    - Summary table showing Dropbox account names and their Salesforce matches
+    - Clear indication of accounts that need attention (no matches found)
 """
 
 import os
