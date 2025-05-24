@@ -122,7 +122,47 @@ python -m sync.cmd_analyzer \
    - No file listing or detailed analysis
    - No need to specify account source
 
-2. **Account Source Only**
+2. **Default with File Analysis**
+   ```bash
+   python -m sync.cmd_analyzer --dropbox-account-files
+   ```
+   - Lists all Dropbox accounts (default behavior)
+   - Lists files for each Dropbox account
+   - Shows modified dates for each file
+   - Performs basic account matching
+
+3. **Default with Salesforce Analysis**
+   ```bash
+   python -m sync.cmd_analyzer --salesforce-accounts --salesforce-account-files
+   ```
+   - Lists all Dropbox accounts (default behavior)
+   - Lists all Salesforce accounts
+   - Lists files for each Salesforce account
+   - Performs detailed matching and analysis
+   - Shows file migration status
+
+4. **Default with Batching**
+   ```bash
+   python -m sync.cmd_analyzer --account-batch-size 5 --start-from 10
+   ```
+   - Lists all Dropbox accounts (default behavior)
+   - Processes accounts in batches of 5
+   - Starts from the 10th account
+   - Useful for large account lists
+
+5. **Default with Full Analysis**
+   ```bash
+   python -m sync.cmd_analyzer --dropbox-account-files --salesforce-accounts --salesforce-account-files
+   ```
+   - Lists all Dropbox accounts (default behavior)
+   - Lists files for each Dropbox account
+   - Lists all Salesforce accounts
+   - Lists files for each Salesforce account
+   - Performs detailed matching and analysis
+   - Shows file migration status
+   - Tracks date prefix compliance
+
+6. **Account Source Only**
    ```bash
    python -m sync.cmd_analyzer --dropbox-account-name 'Account Name'
    ```
@@ -130,24 +170,31 @@ python -m sync.cmd_analyzer \
    - Performs basic account matching
    - No file listing or detailed analysis
 
-3. **Full Analysis**
+7. **File Analysis Only**
    ```bash
-   python -m sync.cmd_analyzer --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files
+   python -m sync.cmd_analyzer --dropbox-account-files --salesforce-account-files
    ```
-   - Lists all Dropbox accounts
-   - Lists all Dropbox account files
-   - Lists all Salesforce accounts
-   - Lists all Salesforce account files
-   - Performs detailed matching and analysis
+   - Lists all Dropbox accounts (default behavior)
+   - Lists files for each Dropbox account
+   - Lists files for each Salesforce account
+   - Focuses on file comparison and migration status
+   - Tracks date prefix compliance
 
-4. **Batched Processing**
+8. **Batched Full Analysis**
    ```bash
-   python -m sync.cmd_analyzer --account-batch-size 5 --start-from 10
+   python -m sync.cmd_analyzer \
+       --dropbox-account-files \
+       --salesforce-accounts \
+       --salesforce-account-files \
+       --account-batch-size 5 \
+       --start-from 10
    ```
+   - Lists all Dropbox accounts (default behavior)
    - Processes accounts in batches of 5
    - Starts from the 10th account
-   - Useful for large account lists
-   - Can be combined with other options
+   - Performs full analysis on each batch
+   - Shows detailed matching and file status
+   - Tracks date prefix compliance
 
 ## Architecture
 
