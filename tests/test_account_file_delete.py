@@ -16,7 +16,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page, expect, sync_playwright
 import re
 import json
 from datetime import datetime
@@ -33,6 +33,9 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
+
+# Global view name for all operations
+VIEW_NAME = "Recent"
 
 def get_full_name(account: dict) -> str:
     """
@@ -74,13 +77,11 @@ def test_account_file_delete():
             account_name = get_full_name(account)
             logging.info(f"Using mock account: {account_name}")
             
-            # Navigate to accounts page
-            if not account_manager.navigate_to_accounts_list_page(view_name="Recent"):
-                logging.error("Failed to navigate to accounts page")
-                return
+            # Check if account exists and store result
+            account_exists = account_manager.account_exists(account_name, view_name=VIEW_NAME)
             
-            # Check if account exists
-            if not account_manager.account_exists(account_name):
+            # Create account if it doesn't exist
+            if not account_exists:
                 logging.info(f"Account {account_name} does not exist, creating it...")
                 # Create new account
                 if not account_manager.create_new_account(
@@ -98,6 +99,10 @@ def test_account_file_delete():
                 if not upload_success:
                     logging.error(f"Failed to upload files for account: {account_name}")
                     return
+                    
+                # Verify account exists after creation
+                account_exists = account_manager.account_exists(account_name, view_name=VIEW_NAME)
+                assert account_exists, f"Account {account_name} does not exist after creation"
             else:
                 logging.info(f"Account exists: {account_name}")
             

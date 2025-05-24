@@ -135,9 +135,10 @@ def verify_account_and_files(account_manager: AccountManager, file_manager: File
     logger.debug(f"Starting verification for account: {full_name}")
     logger.debug(f"Account data: {account}")
     
-    # Check if account exists
+    # Check if account exists and store result
     logger.debug(f"Checking if account exists: {full_name} in view: {view_name}")
-    if not account_manager.account_exists(full_name, view_name=view_name):
+    account_exists = account_manager.account_exists(full_name, view_name=view_name)
+    if not account_exists:
         logger.error(f"Account does not exist: {full_name}")
         return False
         

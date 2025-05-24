@@ -21,7 +21,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page, expect, sync_playwright
 import re
 import json
 from datetime import datetime
@@ -37,6 +37,9 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
+
+# Global view name for all operations
+VIEW_NAME = "Recent"
 
 def format_file_list(files: list) -> str:
     """
@@ -68,14 +71,12 @@ def test_account_account_files():
             account_manager = AccountManager(page, debug_mode=True)
             file_manager = FileManager(page, debug_mode=True)
             
-            # # Navigate to accounts page
-            # if not account_manager.navigate_to_accounts_list_page():
-            #     logging.error("Failed to navigate to accounts page")
-            #     return
-            
             # Search for account
             account_name = "Beth Albert"
-            if not account_manager.account_exists(account_name, view_name="Recent"):
+            
+            # Check if account exists and store result
+            account_exists = account_manager.account_exists(account_name, view_name=VIEW_NAME)
+            if not account_exists:
                 logging.error(f"Account {account_name} does not exist")
                 return
             
