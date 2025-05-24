@@ -360,6 +360,60 @@ python -m sync.cmd_analyzer \
     --start-from 10
 ```
 
+### Complete Analysis Example
+```bash
+# Full analysis with file comparison and modified date prefix handling
+python -m sync.cmd_analyzer \
+    --dropbox-accounts \
+    --dropbox-account-files \
+    --salesforce-accounts \
+    --salesforce-account-files \
+    --account-batch-size 5 \
+    --start-from 0
+```
+
+This command will:
+1. List all Dropbox accounts
+2. For each Dropbox account:
+   - List all files with their modified dates
+   - Search for the account in Salesforce
+   - If found in Salesforce:
+     - List all Salesforce account files
+     - For each Dropbox file:
+       - Extract modified date
+       - Generate expected prefix (YYMMDD format)
+       - Search for file in Salesforce with:
+         a. Original filename
+         b. YYMMDD{filename} format
+         c. YYMMDD {filename} format
+       - Track if file is found and if prefix matches
+3. Generate a detailed report showing:
+   - Account matches
+   - File migration status
+   - Date prefix compliance
+   - Files needing prefix updates
+
+Example output:
+```
+Processing Dropbox Account: Alexander & Armelia Rolle
+Found in Salesforce: Alexander & Armelia Rolle
+
+Dropbox Files:
+- tax_return_2023.pdf (Modified: 2023-03-15)
+- bank_statement.pdf (Modified: 2023-02-28)
+- investment_summary.pdf (Modified: 2023-01-15)
+
+Salesforce Files:
+- 230315 tax_return_2023.pdf
+- 230228 bank_statement.pdf
+- investment_summary.pdf (Missing prefix)
+
+Migration Status:
+✓ tax_return_2023.pdf: Migrated with correct prefix
+✓ bank_statement.pdf: Migrated with correct prefix
+✗ investment_summary.pdf: Migrated but missing prefix (Should be: 230115)
+```
+
 ## Development Guidelines
 
 ### Code Organization
