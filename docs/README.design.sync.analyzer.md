@@ -248,6 +248,50 @@ python -m sync.cmd_analyzer \
 
 ## Implementation Details
 
+### Token and Environment Variables
+
+#### Dropbox Token
+- Environment Variable: `DROPBOX_TOKEN`
+- Source Priority:
+  1. System environment variable
+  2. `.env` file in project root
+- Token Format: OAuth2 access token
+- Token Length: 64 characters
+- First 10 characters: "72de824b6c"
+- Token Validation:
+  - Checks for token presence at startup
+  - Validates token format
+  - Handles token expiration
+  - Provides clear error messages for missing/invalid tokens
+
+#### Environment File
+- Default Location: `.env` in project root
+- Required Variables:
+  ```
+  DROPBOX_TOKEN=<64-character-oauth-token>
+  DROPBOX_FOLDER=<root-folder-path>
+  ```
+- Optional Variables:
+  ```
+  DEBUG_MODE=true/false
+  TEST_MODE=true/false
+  ```
+
+#### Token Error Handling
+- Missing Token:
+  ```
+  ERROR: DROPBOX_TOKEN environment variable is not set
+  ```
+- Expired Token:
+  ```
+  WARNING: Unable to refresh access token without refresh token and app key
+  ERROR: Error getting account files: AuthError('expired_access_token', None)
+  ```
+- Invalid Token:
+  ```
+  ERROR: Invalid token format or authentication failed
+  ```
+
 ### Current Implementation
 The current implementation in `sync/cmd_analyzer.py` provides:
 - Basic account fuzzy search
