@@ -52,6 +52,9 @@ def accounts_fuzzy_search(accounts_file: str = None):
         logging.warning("No account folders read from file, using default test folder")
         ACCOUNT_FOLDERS = ["Andrews, Kathleen"]
 
+    # List to store results for summary
+    summary_results = []
+
     with sync_playwright() as p:
         browser, page = get_salesforce_page(p)
         try:
@@ -76,6 +79,14 @@ def accounts_fuzzy_search(accounts_file: str = None):
                 # Perform fuzzy search
                 result = account_manager.fuzzy_search_account(folder_name)
                 results[folder_name] = result
+                
+                # Get exact matches for summary
+                exact_matches = [match for match in result['matches'] if match in [attempt['query'] for attempt in result['search_attempts']]]
+                salesforce_name = exact_matches[0] if exact_matches else "--"
+                summary_results.append({
+                    'dropbox_name': folder_name,
+                    'salesforce_name': salesforce_name
+                })
             
             # Print results summary
             print("\n=== SALESFORCE ACCOUNT MATCHES ===")
@@ -102,6 +113,12 @@ def accounts_fuzzy_search(accounts_file: str = None):
                             for account in sorted(attempt['matching_accounts']):
                                 print(f"      - {account}")
                 print("=" * 50)
+            
+            # Print final summary
+            print("\n=== SUMMARY ===")
+            for result in summary_results:
+                print(f"\nDropbox account folder name: {result['dropbox_name']}")
+                print(f"Salesforce account name: {result['salesforce_name']}")
             
         except Exception as e:
             logging.error(f"Test failed with error: {str(e)}")
