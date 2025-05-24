@@ -1239,6 +1239,17 @@ class AccountManager(BasePage):
                 self.logger.info(f"Searching with {search_query['type']}: '{search_query['query']}'...")
                 search_result = self.search_account(search_query['query'], view_name=view_name)
                 
+                # If this is the last name search and we got zero matches, we can stop
+                if search_query['type'] == 'last_name' and search_result == 0:
+                    self.logger.info("Last name search returned zero matches, no need to continue")
+                    result['search_attempts'].append({
+                        'type': search_query['type'],
+                        'query': search_query['query'],
+                        'matches': search_result,
+                        'matching_accounts': []
+                    })
+                    return result
+                
                 # Get matching account names
                 matching_accounts = []
                 if search_result > 0:
@@ -1248,6 +1259,27 @@ class AccountManager(BasePage):
                     
                     # Add to set of all matching accounts
                     all_matching_accounts.update(matching_accounts)
+                    
+                    # Check for exact matches immediately
+                    exact_matches = []
+                    for account in matching_accounts:
+                        normalized_account = account.lower().strip()
+                        if normalized_account in name_parts['normalized_names']:
+                            self.logger.info(f"Found exact match: {account}")
+                            exact_matches.append(account)
+                    
+                    # If we found exact matches, we can stop searching
+                    if exact_matches:
+                        result['status'] = 'Exact Match'
+                        result['matches'] = exact_matches
+                        result['search_attempts'].append({
+                            'type': search_query['type'],
+                            'query': search_query['query'],
+                            'matches': search_result,
+                            'matching_accounts': matching_accounts
+                        })
+                        self.logger.info(f"Found exact matches: {exact_matches}")
+                        return result
                 
                 result['search_attempts'].append({
                     'type': search_query['type'],
@@ -1256,9 +1288,8 @@ class AccountManager(BasePage):
                     'matching_accounts': matching_accounts
                 })
             
-            # Process all matching accounts
+            # If we haven't found exact matches, check for partial matches
             if all_matching_accounts:
-                exact_matches = []
                 partial_matches = []
                 
                 # Check each matching account against normalized names
