@@ -114,24 +114,18 @@ class AccountManager(BasePage):
                 return 0
             
             # Ensure the search input is visible and clickable
-            self.logger.info("Ensuring search input is visible and clickable...")
             search_input.scroll_into_view_if_needed()
-            self.page.wait_for_timeout(1000)  # Wait for scroll to complete
+            self.page.wait_for_timeout(500)  # Short wait for scroll to complete
             
             # Click the search input to ensure it's focused
             search_input.click()
-            self.page.wait_for_timeout(500)  # Wait for focus
+            self.page.wait_for_timeout(500)  # Short wait for focus
             
-            # Clear the search input
-            self.logger.info("Clearing search input...")
+            # Clear and fill the search input
             search_input.fill("")
-            self.page.wait_for_timeout(500)  # Wait for clear
-            
-            # Type the account name character by character with longer delays
-            self.logger.info(f"Typing account name: {account_name}")
-            for char in account_name:
-                search_input.type(char, delay=200)  # Increased delay between characters
-                self.page.wait_for_timeout(100)  # Increased wait between characters
+            self.page.wait_for_timeout(500)  # Short wait for clear
+            search_input.fill(account_name)
+            self.page.wait_for_timeout(500)  # Short wait for fill
             
             # Verify the text was entered correctly
             actual_text = search_input.input_value()
@@ -140,7 +134,7 @@ class AccountManager(BasePage):
                 self._take_screenshot("search-text-mismatch")
                 return 0
             
-            self.logger.info("Pressing Enter...")
+            # Press Enter and wait for results
             self.page.keyboard.press("Enter")
             
             # Wait for search results with a more specific check
@@ -151,7 +145,7 @@ class AccountManager(BasePage):
                 self.logger.info("Loading spinner disappeared")
                 
                 # Wait a moment for results to appear
-                self.page.wait_for_timeout(2000)
+                self.page.wait_for_timeout(1000)  # Reduced wait time
                 
                 # Check the item count in the status message
                 try:
@@ -171,7 +165,6 @@ class AccountManager(BasePage):
                                 self.logger.info(f"Status message: {status_text}")
                                 
                                 # Extract the number of items
-                                self.logger.info("Extracting the number of items...")
                                 match = re.search(r'(\d+\+?)\s+items?\s+•', status_text)
                                 if match:
                                     item_count_str = match.group(1)
@@ -228,24 +221,18 @@ class AccountManager(BasePage):
                 return False
             
             # Ensure the search input is visible and clickable
-            self.logger.info("Ensuring search input is visible and clickable...")
             search_input.scroll_into_view_if_needed()
-            self.page.wait_for_timeout(1000)  # Wait for scroll to complete
+            self.page.wait_for_timeout(500)  # Short wait for scroll to complete
             
             # Click the search input to ensure it's focused
             search_input.click()
-            self.page.wait_for_timeout(500)  # Wait for focus
+            self.page.wait_for_timeout(500)  # Short wait for focus
             
-            # Clear the search input
-            self.logger.info("Clearing search input...")
+            # Clear and fill the search input
             search_input.fill("")
-            self.page.wait_for_timeout(500)  # Wait for clear
-            
-            # Type the account name character by character
-            self.logger.info(f"Typing account name: {account_name}")
-            for char in account_name:
-                search_input.type(char, delay=200)
-                self.page.wait_for_timeout(100)
+            self.page.wait_for_timeout(500)  # Short wait for clear
+            search_input.fill(account_name)
+            self.page.wait_for_timeout(500)  # Short wait for fill
             
             # Verify the text was entered correctly
             actual_text = search_input.input_value()
@@ -254,18 +241,18 @@ class AccountManager(BasePage):
                 self._take_screenshot("search-text-mismatch")
                 return False
             
-            self.logger.info("Pressing Enter...")
+            # Press Enter and wait for results
             self.page.keyboard.press("Enter")
             
             # Wait for search results
             self.logger.info("Waiting for search results...")
             try:
                 # Wait for the loading spinner to disappear
-                self.page.wait_for_selector('div.slds-spinner_container', state='hidden', timeout=5000)
+                self.page.wait_for_selector('.slds-spinner_container', state='hidden', timeout=5000)
                 self.logger.info("Loading spinner disappeared")
                 
                 # Wait a moment for results to appear
-                self.page.wait_for_timeout(2000)
+                self.page.wait_for_timeout(1000)  # Reduced wait time
                 
                 # Check for the exact account name
                 account_link = self.page.locator(f'a[title="{account_name}"]').first
@@ -286,45 +273,10 @@ class AccountManager(BasePage):
 
     def click_account_name(self, account_name: str) -> bool:
         """Click on the account name in the search results."""
-        logging.info(f"****Clicking account name: {account_name}")
         try:
-            # Try the specific selector first
-            try:
-                self.logger.info(f"Trying specific selector: a[title='{account_name}']")
-                account_link = self.page.wait_for_selector(f"a[title='{account_name}']", timeout=4000)
-                if account_link and account_link.is_visible():
-                    # Scroll the element into view
-                    account_link.scroll_into_view_if_needed()
-                    # Wait a bit for any animations to complete
-                    self.page.wait_for_timeout(1000)
-                    # Click the element
-                    account_link.click()
-                    self.logger.info(f"***Clicked account link using specific selector")
-                    
-                    # Verify we're on the account view page
-                    logging.info(f"****Verifying we're on the account view page")
-                    current_url = self.page.url
-                    if '/view' not in current_url:
-                        self.logger.error(f"Not on account view page. Current URL: {current_url}")
-                        return False
-                    logging.info(f"****Current URL: {current_url}")
-
-                    # Extract account ID from URL
-                    logging.info(f"****Extracting account ID from URL: {current_url}")
-                    account_id_match = re.search(r'/Account/([^/]+)/view', current_url)
-                    if not account_id_match:
-                        self.logger.error(f"Could not extract account ID from URL: {current_url}")
-                        return False
-                    
-                    # Store the account ID
-                    self.current_account_id = account_id_match.group(1)
-                    self.logger.info(f"Stored account ID: {self.current_account_id}")
-                    return True
-            except Exception as e:
-                self.logger.info(f"Specific selector failed: {str(e)}")
-            
-            # If specific selector fails, try other selectors
+            # Try the most specific and reliable selectors first
             selectors = [
+                f'a[title="{account_name}"]',  # Most specific
                 f'a[data-refid="recordId"][data-special-link="true"][title="{account_name}"]',
                 f'td:first-child a[title="{account_name}"]',
                 f'table[role="grid"] tr:first-child td:first-child a',
@@ -333,41 +285,26 @@ class AccountManager(BasePage):
             
             for selector in selectors:
                 try:
-                    self.logger.info(f"Trying selector: {selector}")
-                    account_link = self.page.wait_for_selector(selector, timeout=4000)
+                    account_link = self.page.wait_for_selector(selector, timeout=2000)
                     if account_link and account_link.is_visible():
-                        # Scroll the element into view
+                        # Scroll and click in one operation
                         account_link.scroll_into_view_if_needed()
-                        # Wait a bit for any animations to complete
-                        self.page.wait_for_timeout(1000)
-                        # Click the element
                         account_link.click()
-                        self.logger.info(f"Clicked account link using selector: {selector}")
                         
-                        # Wait for navigation to complete
-                        self.page.wait_for_load_state("networkidle")
-                        self.page.wait_for_timeout(2000)  # Additional wait for page to stabilize
+                        # Wait for navigation with a shorter timeout
+                        self.page.wait_for_load_state("networkidle", timeout=5000)
                         
-                        # Verify we're on the account view page
+                        # Verify we're on the account view page and extract ID
                         current_url = self.page.url
-                        if '/view' not in current_url:
-                            self.logger.error(f"Not on account view page. Current URL: {current_url}")
-                            continue
-                            
-                        # Extract account ID from URL
-                        account_id_match = re.search(r'/Account/([^/]+)/view', current_url)
-                        if not account_id_match:
-                            self.logger.error(f"Could not extract account ID from URL: {current_url}")
-                            continue
-                            
-                        account_id = account_id_match.group(1)
-                        self.logger.info(f"Successfully navigated to account view page. Account ID: {account_id}")
-                        return True
-                except Exception as e:
-                    self.logger.info(f"Selector {selector} failed: {str(e)}")
+                        if '/view' in current_url:
+                            account_id_match = re.search(r'/Account/([^/]+)/view', current_url)
+                            if account_id_match:
+                                self.current_account_id = account_id_match.group(1)
+                                return True
+                except Exception:
                     continue
             
-            self.logger.error("Could not find or click account link with any selector")
+            self.logger.error(f"Could not find or click account link for: {account_name}")
             return False
             
         except Exception as e:

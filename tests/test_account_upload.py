@@ -18,7 +18,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page, expect, sync_playwright
 import re
 import json
 from datetime import datetime
@@ -34,6 +34,9 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
+
+# Global view name for all operations
+VIEW_NAME = "My Clients"
 
 def test_account_upload():
     """Test uploading files to a Salesforce account."""
@@ -51,15 +54,15 @@ def test_account_upload():
             # Initialize account manager
             account_manager = AccountManager(page, debug_mode=debug_mode)
             
-            # Navigate to Accounts page
-            assert account_manager.navigate_to_accounts_list_page(), "Failed to navigate to Accounts page"
-            
             # Get full name for the test account
             full_name = f"{test_account['first_name']} {test_account['last_name']}"
             logging.info(f"Processing account: {full_name}")
             
+            # Check if account exists and store result
+            account_exists = account_manager.account_exists(full_name, view_name=VIEW_NAME)
+            
             # Create account if it doesn't exist
-            if not account_manager.account_exists(full_name, view_name="My Clients"):
+            if not account_exists:
                 logging.info(f"Account {full_name} does not exist, creating it...")
                 created = account_manager.create_new_account(
                     first_name=test_account['first_name'],
@@ -70,8 +73,9 @@ def test_account_upload():
                 assert created, f"Failed to create account: {full_name}"
                 logging.info(f"Account {full_name} created successfully")
                 
-                # Navigate back to Accounts page
-                assert account_manager.navigate_to_accounts_list_page(), "Failed to navigate to Accounts page after creation"
+                # Verify account exists after creation
+                account_exists = account_manager.account_exists(full_name, view_name=VIEW_NAME)
+                assert account_exists, f"Account {full_name} does not exist after creation"
             else:
                 logging.info(f"Account {full_name} already exists")
             
