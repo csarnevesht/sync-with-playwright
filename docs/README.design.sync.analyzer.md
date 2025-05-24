@@ -28,6 +28,56 @@ The Sync Analyzer is a tool designed to analyze and track the migration status o
 
 ## Command Line Interface
 
+### Command Options
+
+#### Account Source Options (Mutually Exclusive)
+- `--dropbox-account-name`: Single Dropbox account to analyze
+  - Example: `--dropbox-account-name 'Alexander & Armelia Rolle'`
+  - When specified: Analyzes only this specific account
+  - When not specified: Falls back to `--dropbox-accounts-file` or default behavior
+
+- `--dropbox-accounts-file`: File containing list of Dropbox accounts
+  - Example: `--dropbox-accounts-file accounts/fuzzy-small.txt`
+  - When specified: Processes all accounts listed in the file
+  - When not specified: Falls back to default behavior
+
+- Default Behavior (when neither is specified):
+  - Uses `accounts/fuzzy.txt` as the default accounts file
+  - If file doesn't exist or is empty, uses a default test account ("Andrews, Kathleen")
+
+#### Analysis Scope Options
+- `--dropbox-accounts`: List Dropbox accounts
+  - When specified: Shows all Dropbox accounts
+  - When not specified: Only processes accounts from source options
+
+- `--dropbox-account-files`: List Dropbox account files
+  - When specified: Shows files for each Dropbox account
+  - When not specified: Skips file listing
+
+- `--salesforce-accounts`: List Salesforce accounts
+  - When specified: Shows all Salesforce accounts
+  - When not specified: Only searches for matches to Dropbox accounts
+
+- `--salesforce-account-files`: List Salesforce account files
+  - When specified: Shows files for each Salesforce account
+  - When not specified: Skips file listing
+
+#### Processing Options
+- `--account-batch-size`: Number of accounts to process in each batch
+  - Example: `--account-batch-size 5`
+  - Default: Process all accounts at once
+  - When specified: Processes accounts in batches of specified size
+
+- `--start-from`: Index to start processing from
+  - Example: `--start-from 10`
+  - Default: Start from the beginning
+  - When specified: Skips accounts before this index
+  - Useful for resuming interrupted operations
+
+- `--dropbox-accounts-only`: Process only Dropbox accounts
+  - When specified: Skips Salesforce operations
+  - When not specified: Performs full analysis
+
 ### Basic Usage
 ```bash
 # Single account analysis
@@ -35,6 +85,9 @@ python -m sync.cmd_analyzer --dropbox-account-name 'Account Name'
 
 # Multiple accounts from file
 python -m sync.cmd_analyzer --dropbox-accounts-file accounts/fuzzy-small.txt
+
+# Default behavior (uses accounts/fuzzy.txt)
+python -m sync.cmd_analyzer
 ```
 
 ### Advanced Options
@@ -55,6 +108,44 @@ python -m sync.cmd_analyzer \
     --start-from 10 \
     --dropbox-accounts-only
 ```
+
+### Option Combinations and Effects
+
+1. **Minimal Usage**
+   ```bash
+   python -m sync.cmd_analyzer
+   ```
+   - Uses default accounts file (`accounts/fuzzy.txt`)
+   - Processes all accounts in the file
+   - Performs basic account matching
+   - No file listing or detailed analysis
+
+2. **Account Source Only**
+   ```bash
+   python -m sync.cmd_analyzer --dropbox-account-name 'Account Name'
+   ```
+   - Processes single specified account
+   - Performs basic account matching
+   - No file listing or detailed analysis
+
+3. **Full Analysis**
+   ```bash
+   python -m sync.cmd_analyzer --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files
+   ```
+   - Lists all Dropbox accounts
+   - Lists all Dropbox account files
+   - Lists all Salesforce accounts
+   - Lists all Salesforce account files
+   - Performs detailed matching and analysis
+
+4. **Batched Processing**
+   ```bash
+   python -m sync.cmd_analyzer --account-batch-size 5 --start-from 10
+   ```
+   - Processes accounts in batches of 5
+   - Starts from the 10th account
+   - Useful for large account lists
+   - Can be combined with other options
 
 ## Architecture
 
