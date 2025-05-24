@@ -10,12 +10,30 @@ This script tests the Dropbox connection and configuration by:
 """
 
 import os
-import dropbox
+import sys
+import time
+import logging
+from pathlib import Path
+from typing import List, Optional
+import pytest
+from playwright.sync_api import Page, expect
+import re
+import json
+from datetime import datetime
+import shutil
+import tempfile
+from sync.dropbox.utils.path_utils import clean_dropbox_path
+from sync.dropbox.utils.dropbox_utils import (
+    DropboxClient,
+    get_access_token,
+    get_DROPBOX_FOLDER,
+    clean_dropbox_path,
+    list_folder_contents
+)
 from dropbox.exceptions import ApiError
 from dotenv import load_dotenv
 import argparse
 from dropbox_renamer.utils.path_utils import clean_dropbox_path
-import logging
 from dropbox_renamer.utils.dropbox_utils import (
     get_access_token,
     get_DROPBOX_FOLDER,

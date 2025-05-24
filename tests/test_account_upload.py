@@ -13,12 +13,21 @@ retry logic for file uploads to handle potential network issues.
 
 import os
 import sys
-from playwright.sync_api import sync_playwright
+import time
 import logging
-from salesforce.utils.file_upload import upload_files_for_account
-from salesforce.pages.account_manager import AccountManager
-from salesforce.utils.browser import get_salesforce_page
-from salesforce.utils.mock_data import get_mock_accounts
+from pathlib import Path
+from typing import List, Optional
+import pytest
+from playwright.sync_api import Page, expect
+import re
+import json
+from datetime import datetime
+import shutil
+import tempfile
+from sync.salesforce.utils.file_upload import upload_files_for_account
+from sync.salesforce.pages.account_manager import AccountManager
+from sync.salesforce.utils.browser import get_salesforce_page
+from sync.salesforce.utils.mock_data import get_mock_accounts
 
 # Configure logging
 logging.basicConfig(

@@ -13,11 +13,20 @@ including file counts and account IDs.
 
 import os
 import sys
-from playwright.sync_api import sync_playwright
+import time
 import logging
-from salesforce.pages.account_manager import AccountManager
-from salesforce.pages.accounts_page import AccountsPage
-from salesforce.utils.browser import get_salesforce_page
+from pathlib import Path
+from typing import List, Optional
+import pytest
+from playwright.sync_api import Page, expect
+import re
+import json
+from datetime import datetime
+import shutil
+import tempfile
+from sync.salesforce.pages.account_manager import AccountManager
+from sync.salesforce.pages.accounts_page import AccountsPage
+from sync.salesforce.utils.browser import get_salesforce_page
 
 # Configure logging
 logging.basicConfig(
@@ -43,7 +52,7 @@ def get_accounts_with_files(account_manager: AccountManager, max_number: int = 5
         accounts = account_manager.get_accounts_matching_condition(
             max_number=max_number,
             condition=lambda account: account_manager.account_has_files(account['id']),
-            drop_down_option_text="All Clients"
+            view_name="All Clients"
         )
         
         if not accounts:

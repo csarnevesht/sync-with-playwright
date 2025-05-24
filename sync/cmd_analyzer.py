@@ -63,17 +63,17 @@ import sys
 import argparse
 from playwright.sync_api import sync_playwright, TimeoutError
 import logging
-from salesforce.pages.account_manager import AccountManager
-from salesforce.utils.browser import get_salesforce_page
-from dropbox_renamer.utils.account_utils import read_accounts_folders, read_ignored_folders
-from dropbox_renamer.utils.dropbox_utils import (
+from sync.salesforce.pages.account_manager import AccountManager
+from sync.salesforce.utils.browser import get_salesforce_page
+from sync.dropbox.utils.account_utils import read_accounts_folders, read_ignored_folders
+from sync.dropbox.utils.dropbox_utils import (
     DropboxClient,
     get_access_token,
     get_DROPBOX_FOLDER,
     clean_dropbox_path,
     list_folder_contents
 )
-from dropbox_renamer.utils.date_utils import has_date_prefix
+from sync.dropbox.utils.date_utils import has_date_prefix
 from dropbox.exceptions import ApiError
 import dropbox
 
