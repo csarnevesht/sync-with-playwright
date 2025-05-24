@@ -1,11 +1,17 @@
 """
-Test Account Fuzzy Search
+Account Salesforce Fuzzy Search
 
-This test verifies the fuzzy search functionality for accounts in Salesforce. It:
-1. Takes a list of Dropbox account folder names from a file
-2. Extracts the last name from each folder name
-3. Searches for accounts in Salesforce CRM using the last name
-4. Verifies the search results
+This command implements fuzzy search functionality to find Dropbox accounts in Salesforce.
+It analyzes whether an account has been fully migrated from Dropbox to Salesforce by:
+1. Taking a list of Dropbox account folder names from a file or a single account name
+2. Extracting the last name from each folder name
+3. Searching for accounts in Salesforce CRM using the last name
+4. Verifying the search results and showing matches
+5. Providing a summary of the migration status for each account
+
+Usage:
+    - For a single account: --dropbox-account-name="Account Name"
+    - For multiple accounts: --dropbox-accounts-file=accounts/fuzzy.txt
 """
 
 import os
