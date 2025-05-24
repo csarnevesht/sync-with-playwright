@@ -193,7 +193,7 @@ def verify_account_and_files(account_manager: AccountManager, file_manager: File
     logger.info(f"Successfully verified account {full_name} with {num_files} files")
     return True
 
-def test_create_accounts(browser: Browser, page: Page):
+def test_account_creation(browser: Browser, page: Page):
     """
     Test creating accounts and managing their files in Salesforce.
     
@@ -211,7 +211,7 @@ def test_create_accounts(browser: Browser, page: Page):
     4. Handles cleanup of test data
     """
     try:
-        logger.info("Starting test_create_accounts")
+        logger.info("Starting test_account_creation")
         logger.debug("Initializing test with browser and page")
         
         # Initialize managers
@@ -318,7 +318,12 @@ def test_create_accounts(browser: Browser, page: Page):
 
 def main():
     """Run the account creation test."""
-    test_create_accounts()
+    with sync_playwright() as p:
+        browser, page = get_salesforce_page(p)
+        try:
+            test_account_creation(browser, page)
+        finally:
+            browser.close()
 
 if __name__ == "__main__":
     main() 
