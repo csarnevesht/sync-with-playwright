@@ -42,13 +42,15 @@ The Sync Analyzer is a tool designed to analyze and track the migration status o
   - When not specified: Falls back to default behavior
 
 - Default Behavior (when neither is specified):
-  - Uses `accounts/fuzzy.txt` as the default accounts file
-  - If file doesn't exist or is empty, uses a default test account ("Andrews, Kathleen")
+  - Uses `--dropbox-accounts` to list and process all Dropbox accounts
+  - No need to specify a file or single account
+  - Processes all accounts found in Dropbox
 
 #### Analysis Scope Options
 - `--dropbox-accounts`: List Dropbox accounts
   - When specified: Shows all Dropbox accounts
   - When not specified: Only processes accounts from source options
+  - Default behavior: This is the default when no account source is specified
 
 - `--dropbox-account-files`: List Dropbox account files
   - When specified: Shows files for each Dropbox account
@@ -80,14 +82,14 @@ The Sync Analyzer is a tool designed to analyze and track the migration status o
 
 ### Basic Usage
 ```bash
+# Default behavior (lists all Dropbox accounts)
+python -m sync.cmd_analyzer
+
 # Single account analysis
 python -m sync.cmd_analyzer --dropbox-account-name 'Account Name'
 
 # Multiple accounts from file
 python -m sync.cmd_analyzer --dropbox-accounts-file accounts/fuzzy-small.txt
-
-# Default behavior (uses accounts/fuzzy.txt)
-python -m sync.cmd_analyzer
 ```
 
 ### Advanced Options
@@ -115,10 +117,10 @@ python -m sync.cmd_analyzer \
    ```bash
    python -m sync.cmd_analyzer
    ```
-   - Uses default accounts file (`accounts/fuzzy.txt`)
-   - Processes all accounts in the file
+   - Lists and processes all Dropbox accounts
    - Performs basic account matching
    - No file listing or detailed analysis
+   - No need to specify account source
 
 2. **Account Source Only**
    ```bash
