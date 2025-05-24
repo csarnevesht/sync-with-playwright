@@ -13,10 +13,12 @@ The Sync Analyzer is a tool designed to analyze and track the migration status o
 - Support for single account analysis
 
 ### 2. File Management
-- List Dropbox account files
+- List Dropbox account files with modified dates
 - List Salesforce account files
 - Compare files between systems
 - Track file migration status
+- Handle modified date prefixes (YYMMDD format)
+- Ensure Salesforce files have proper date prefixes
 
 ### 3. Search and Matching
 - Fuzzy search for accounts
@@ -67,6 +69,8 @@ python -m sync.cmd_analyzer \
    - Handles file listing and comparison
    - Tracks file migration status
    - Manages file metadata
+   - Processes modified dates
+   - Handles date prefix formatting and validation
 
 3. **Search Engine**
    - Implements fuzzy search algorithms
@@ -91,13 +95,16 @@ python -m sync.cmd_analyzer \
 
 3. File Processing
    - List files for matched accounts
+   - Extract and validate modified dates
    - Compare files between systems
    - Track migration status
+   - Verify date prefix compliance
 
 4. Result Generation
    - Generate detailed reports
    - Provide summary statistics
    - Output migration status
+   - Report on date prefix compliance
 
 ## Implementation Details
 
@@ -123,11 +130,49 @@ The current implementation in `sync/cmd_analyzer.py` provides:
    - Add file comparison logic
    - Implement file status tracking
    - Add file metadata handling
+   - Implement modified date extraction
+   - Add date prefix validation
+   - Track prefix compliance status
 
 4. **Reporting**
    - Add detailed migration reports
    - Implement status summaries
    - Add export functionality
+   - Report on date prefix compliance
+   - Track files needing prefix updates
+
+## File Date Prefix Handling
+
+### Format
+- Prefix format: YYMMDD (e.g., "230315" for March 15, 2023)
+- Can appear as "YYMMDD filename" or "YYMMDDfilename"
+- Required for all Salesforce files
+- Optional for Dropbox files
+
+### Processing Rules
+1. **Dropbox Files**
+   - Extract modified date for each file
+   - Store original filename and modified date
+   - Generate expected prefix format
+   - Track if file already has prefix
+
+2. **Salesforce Files**
+   - Validate existing prefixes
+   - Track files missing prefixes
+   - Compare with Dropbox modified dates
+   - Flag inconsistencies
+
+3. **Comparison Logic**
+   - Match files with and without prefixes
+   - Verify prefix matches modified date
+   - Track files needing prefix updates
+   - Report on compliance status
+
+### Migration Goals
+- All Salesforce files should have correct date prefixes
+- Prefixes should match file modified dates
+- Consistent format across all files
+- Clear tracking of compliance status
 
 ## Future Considerations
 
