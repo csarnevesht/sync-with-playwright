@@ -118,7 +118,11 @@ def accounts_fuzzy_search(accounts_file: str = None):
             print("\n=== SUMMARY ===")
             for result in summary_results:
                 print(f"\nDropbox account folder name: {result['dropbox_name']}")
-                print(f"Salesforce account name: {result['salesforce_name']}")
+                salesforce_name = result['salesforce_name']
+                if salesforce_name == "--":
+                    print(f"Salesforce account name: -- [No exact match found]")
+                else:
+                    print(f"Salesforce account name: {salesforce_name}")
             
         except Exception as e:
             logging.error(f"Test failed with error: {str(e)}")
