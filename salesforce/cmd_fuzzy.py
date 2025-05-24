@@ -29,28 +29,40 @@ def parse_args():
     parser.add_argument('--dropbox-accounts-file', 
                       help='Name of the file containing Dropbox account folders (default: fuzzy.txt)',
                       default=None)
+    parser.add_argument('--dropbox-account-name',
+                      help='Single Dropbox account folder name to search for',
+                      default=None)
     return parser.parse_args()
 
-def accounts_fuzzy_search(accounts_file: str = None):
+def accounts_fuzzy_search(accounts_file: str = None, account_name: str = None):
     """
     Account fuzzy search functionality for accounts using last names from folder names.
     
     Args:
         accounts_file: Optional name of the file containing Dropbox account folders.
                       If not provided, defaults to 'fuzzy.txt'.
+        account_name: Optional single Dropbox account folder name to search for.
     """
-    # Print accounts file and default options at the start
-    accounts_file_path = accounts_file if accounts_file else 'accounts/fuzzy.txt'
-    logging.info(f"Dropbox accounts file: {accounts_file_path}")
-    logging.info(f"Default options: dropbox_accounts_file='fuzzy.txt'")
+    # Initialize account folders list
+    ACCOUNT_FOLDERS = []
 
-    # Read account folders from file
-    ACCOUNT_FOLDERS = read_accounts_folders(accounts_file)
+    # If a single account name is provided, use that
+    if account_name:
+        ACCOUNT_FOLDERS = [account_name]
+        logging.info(f"Using provided Dropbox account name: {account_name}")
+    else:
+        # Otherwise, read from file
+        accounts_file_path = accounts_file if accounts_file else 'accounts/fuzzy.txt'
+        logging.info(f"Dropbox accounts file: {accounts_file_path}")
+        logging.info(f"Default options: dropbox_accounts_file='fuzzy.txt'")
 
-    # If no folders were read, use a default for testing
-    if not ACCOUNT_FOLDERS:
-        logging.warning("No account folders read from file, using default test folder")
-        ACCOUNT_FOLDERS = ["Andrews, Kathleen"]
+        # Read account folders from file
+        ACCOUNT_FOLDERS = read_accounts_folders(accounts_file)
+
+        # If no folders were read, use a default for testing
+        if not ACCOUNT_FOLDERS:
+            logging.warning("No account folders read from file, using default test folder")
+            ACCOUNT_FOLDERS = ["Andrews, Kathleen"]
 
     # List to store results for summary
     summary_results = []
@@ -130,9 +142,10 @@ def accounts_fuzzy_search(accounts_file: str = None):
             browser.close()
             # Print accounts file and default options at the end
             logging.info(f"\n=== TEST END ===")
-            logging.info(f"Dropbox accounts file: {accounts_file_path}")
-            logging.info(f"Default options: dropbox_accounts_file='fuzzy.txt'")
+            if not account_name:
+                logging.info(f"Dropbox accounts file: {accounts_file_path}")
+                logging.info(f"Default options: dropbox_accounts_file='fuzzy.txt'")
 
 if __name__ == "__main__":
     args = parse_args()
-    accounts_fuzzy_search(args.dropbox_accounts_file) 
+    accounts_fuzzy_search(args.dropbox_accounts_file, args.dropbox_account_name) 
