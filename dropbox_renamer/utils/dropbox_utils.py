@@ -63,7 +63,7 @@ class DropboxClient:
         if not self.debug_mode:
             return files
 
-        print("\nFiles to be processed:")
+        print("\nDropbox account files to be processed:")
         files_to_process = []
         for file in files:
             should_skip = False
@@ -115,12 +115,64 @@ class DropboxClient:
                 return []
                 
             logging.info(f"Listing files in path: {clean_path}")
-            result = self.dbx.files_list_folder(clean_path)
-            files = [entry for entry in result.entries if isinstance(entry, dropbox.files.FileMetadata)]
+            logging.info(f"Full Dropbox path being used: /{clean_path}")
+            
+            # Initialize list to store all files
+            all_files = []
+            page_num = 1
+            
+            # Get first page of results
+            try:
+                result = self.dbx.files_list_folder(f"/{clean_path}")
+                files = [entry for entry in result.entries if isinstance(entry, dropbox.files.FileMetadata)]
+                all_files.extend(files)
+                logging.info(f"Page {page_num}: Found {len(files)} files")
+                
+                # Continue getting more pages if there are more results
+                while result.has_more:
+                    page_num += 1
+                    result = self.dbx.files_list_folder_continue(result.cursor)
+                    files = [entry for entry in result.entries if isinstance(entry, dropbox.files.FileMetadata)]
+                    all_files.extend(files)
+                    logging.info(f"Page {page_num}: Found {len(files)} files")
+                
+                logging.info(f"Total files found across all pages: {len(all_files)}")
+                
+                # Try alternative path if we didn't find enough files
+                if len(all_files) < 23:  # We expect 23 files
+                    alt_path = f"/A Work Documents/A WORK Documents/Principal Protection/{clean_account_folder}"
+                    logging.info(f"Trying alternative path: {alt_path}")
+                    
+                    result = self.dbx.files_list_folder(alt_path)
+                    alt_files = [entry for entry in result.entries if isinstance(entry, dropbox.files.FileMetadata)]
+                    all_files.extend(alt_files)
+                    logging.info(f"Alternative path: Found {len(alt_files)} files")
+                    
+                    while result.has_more:
+                        result = self.dbx.files_list_folder_continue(result.cursor)
+                        alt_files = [entry for entry in result.entries if isinstance(entry, dropbox.files.FileMetadata)]
+                        all_files.extend(alt_files)
+                        logging.info(f"Alternative path additional page: Found {len(alt_files)} files")
+                    
+                    # Remove duplicates
+                    all_files = list({f.path_display: f for f in all_files}.values())
+                    logging.info(f"Total unique files after trying alternative path: {len(all_files)}")
+            
+            except ApiError as e:
+                if e.error.is_path() and e.error.get_path().is_not_found():
+                    logging.error(f"Path not found: /{clean_path}")
+                    logging.error("Trying alternative path...")
+                    alt_path = f"/A Work Documents/A WORK Documents/Principal Protection/{clean_account_folder}"
+                    result = self.dbx.files_list_folder(alt_path)
+                    files = [entry for entry in result.entries if isinstance(entry, dropbox.files.FileMetadata)]
+                    all_files.extend(files)
+                    logging.info(f"Alternative path: Found {len(files)} files")
+                else:
+                    raise
             
             # Show files in debug mode
             skip_patterns = [r'.*\.DS_Store$', r'.*\.tmp$']  # Add any patterns for files to skip
-            return self._debug_show_files(files, skip_patterns)
+            return self._debug_show_files(all_files, skip_patterns)
             
         except Exception as e:
             logging.error(f"Error getting account files: {e}")

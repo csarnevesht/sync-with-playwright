@@ -64,15 +64,25 @@ class AccountManager(BasePage):
                 self.logger.error("Failed to navigate to accounts list page")
                 return 0
             
-            # Select the specified view
-            self.logger.info(f"Selecting '{view_name}' view...")
-            if not self.accounts_page.select_list_view(view_name):
-                self.logger.error(f"Failed to select '{view_name}' view")
-                return 0
-            
             # Wait for the page to be fully loaded
             self.page.wait_for_load_state('networkidle', timeout=10000)
             self.page.wait_for_load_state('domcontentloaded', timeout=10000)
+            
+            # Try to select the specified view with retries
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    self.logger.info(f"Selecting '{view_name}' view (attempt {attempt + 1}/{max_retries})...")
+                    if self.accounts_page.select_list_view(view_name):
+                        break
+                    self.logger.warning(f"Failed to select view on attempt {attempt + 1}, retrying...")
+                    self.page.wait_for_timeout(2000)  # Wait before retry
+                except Exception as e:
+                    self.logger.warning(f"Error selecting view on attempt {attempt + 1}: {str(e)}")
+                    if attempt == max_retries - 1:
+                        self.logger.error(f"Failed to select '{view_name}' view after {max_retries} attempts")
+                        return 0
+                    self.page.wait_for_timeout(2000)  # Wait before retry
             
             # Wait for the search input to be visible with increased timeout
             self.logger.info("Waiting for search input...")
@@ -1084,6 +1094,81 @@ class AccountManager(BasePage):
         self.logger.info(f"Extracted accounts: {account_names}")
         return account_names
 
+    def extract_name_parts(self, name: str) -> dict:
+        """Extract name parts from a name string."""
+        result = {
+            'last_name': '',
+            'first_name': '',
+            'middle_name': '',
+            'additional_info': ''
+        }
+        
+        # Extract additional info in parentheses
+        if '(' in name:
+            parts = name.split('(')
+            main_name = parts[0].strip()
+            result['additional_info'] = parts[1].rstrip(')').strip()
+        else:
+            main_name = name
+        
+        # Handle names with commas
+        if ',' in main_name:
+            parts = main_name.split(',')
+            result['last_name'] = parts[0].strip()
+            if len(parts) > 1:
+                name_parts = parts[1].strip().split()
+                if name_parts:
+                    result['first_name'] = name_parts[0]
+                    if len(name_parts) > 1:
+                        result['middle_name'] = ' '.join(name_parts[1:])
+        else:
+            # Handle names with ampersands
+            if '&' in main_name:
+                parts = main_name.split('&')
+                main_name = parts[0].strip()
+            
+            # Split remaining name parts
+            name_parts = main_name.split()
+            if len(name_parts) >= 2:
+                # Take the last word as the last name
+                result['last_name'] = name_parts[-1]
+                result['first_name'] = name_parts[0]
+                if len(name_parts) > 2:
+                    result['middle_name'] = ' '.join(name_parts[1:-1])
+            else:
+                result['last_name'] = main_name
+        
+        # Normalize the name parts
+        result['last_name'] = result['last_name'].strip()
+        result['first_name'] = result['first_name'].strip()
+        result['middle_name'] = result['middle_name'].strip()
+        
+        # Create normalized versions of the name
+        result['normalized_names'] = []
+        
+        # Add the original name
+        result['normalized_names'].append(name.lower().strip())
+        
+        # Add comma-separated version
+        if result['first_name'] and result['last_name']:
+            result['normalized_names'].append(f"{result['last_name']}, {result['first_name']}".lower().strip())
+            result['normalized_names'].append(f"{result['last_name']},{result['first_name']}".lower().strip())
+        
+        # Add space-separated version
+        if result['first_name'] and result['last_name']:
+            result['normalized_names'].append(f"{result['first_name']} {result['last_name']}".lower().strip())
+        
+        # Add version with middle name
+        if result['middle_name']:
+            if result['first_name'] and result['last_name']:
+                result['normalized_names'].append(f"{result['first_name']} {result['middle_name']} {result['last_name']}".lower().strip())
+                result['normalized_names'].append(f"{result['last_name']}, {result['first_name']} {result['middle_name']}".lower().strip())
+        
+        # Remove duplicates and empty strings
+        result['normalized_names'] = list(set(n for n in result['normalized_names'] if n))
+        
+        return result
+
     def fuzzy_search_account(self, folder_name: str, view_name: str = "All Clients") -> dict:
         """
         Perform a fuzzy search for an account using a folder name.
@@ -1098,52 +1183,6 @@ class AccountManager(BasePage):
                 - matches: List of matching account names
                 - search_attempts: List of search attempts with their results
         """
-        def extract_name_parts(name: str) -> dict:
-            """Extract name parts from a name string."""
-            result = {
-                'last_name': '',
-                'first_name': '',
-                'middle_name': '',
-                'additional_info': ''
-            }
-            
-            # Extract additional info in parentheses
-            if '(' in name:
-                parts = name.split('(')
-                main_name = parts[0].strip()
-                result['additional_info'] = parts[1].rstrip(')').strip()
-            else:
-                main_name = name
-            
-            # Handle names with commas
-            if ',' in main_name:
-                parts = main_name.split(',')
-                result['last_name'] = parts[0].strip()
-                if len(parts) > 1:
-                    name_parts = parts[1].strip().split()
-                    if name_parts:
-                        result['first_name'] = name_parts[0]
-                        if len(name_parts) > 1:
-                            result['middle_name'] = ' '.join(name_parts[1:])
-            else:
-                # Handle names with ampersands
-                if '&' in main_name:
-                    parts = main_name.split('&')
-                    main_name = parts[0].strip()
-                
-                # Split remaining name parts
-                name_parts = main_name.split()
-                if len(name_parts) >= 2:
-                    # Take the last word as the last name
-                    result['last_name'] = name_parts[-1]
-                    result['first_name'] = name_parts[0]
-                    if len(name_parts) > 2:
-                        result['middle_name'] = ' '.join(name_parts[1:-1])
-                else:
-                    result['last_name'] = main_name
-            
-            return result
-
         # Initialize result
         result = {
             'status': 'Not Found',
@@ -1153,7 +1192,7 @@ class AccountManager(BasePage):
         
         try:
             # Extract name parts
-            name_parts = extract_name_parts(folder_name)
+            name_parts = self.extract_name_parts(folder_name)
             self.logger.info(f"Extracted name parts: {name_parts}")
             
             # Select the specified view
@@ -1162,97 +1201,101 @@ class AccountManager(BasePage):
                 self.logger.error(f"Failed to select '{view_name}' view")
                 return result
             
-            # Search by last name first
-            self.logger.info(f"Attempt 1/3: Searching by last name '{name_parts['last_name']}'...")
-            search_result = self.search_account(name_parts['last_name'], view_name=view_name)
+            # Try different search strategies in order of likelihood
+            search_queries = []
             
-            # Get matching account names
-            matching_accounts = []
-            if search_result > 0:
-                self.logger.info(f"Found {search_result} matches, extracting account names...")
-                matching_accounts = self.get_account_names()
+            # If we have a simple LastName, FirstName format, try FirstName LastName first
+            if (name_parts['first_name'] and name_parts['last_name'] and 
+                not name_parts['middle_name'] and not name_parts['additional_info']):
+                search_queries.append({
+                    'type': 'reversed_name',
+                    'query': f"{name_parts['first_name']} {name_parts['last_name']}"
+                })
             
-            result['search_attempts'].append({
-                'type': 'last_name',
-                'query': name_parts['last_name'],
-                'matches': search_result,
-                'matching_accounts': matching_accounts
-            })
+            # Add other search strategies
+            search_queries.extend([
+                # Try last name first (most common search pattern)
+                {'type': 'last_name', 'query': name_parts['last_name']},
+                # Try full name with comma
+                {'type': 'full_name_comma', 'query': f"{name_parts['last_name']}, {name_parts['first_name']}"},
+                # Try full name without comma
+                {'type': 'full_name', 'query': f"{name_parts['first_name']} {name_parts['last_name']}"},
+                # Try with additional info if present
+                {'type': 'with_additional_info', 'query': f"{name_parts['last_name']} {name_parts['additional_info']}"} if name_parts['additional_info'] else None,
+                # Try with middle name if present
+                {'type': 'with_middle_name', 'query': f"{name_parts['first_name']} {name_parts['middle_name']} {name_parts['last_name']}"} if name_parts['middle_name'] else None,
+                # Try original folder name
+                {'type': 'original', 'query': folder_name}
+            ])
             
-            if search_result > 0:
-                # Check for exact matches
+            # Filter out None values
+            search_queries = [q for q in search_queries if q is not None]
+            
+            # Track all matching accounts across attempts
+            all_matching_accounts = set()
+            
+            # Try each search query
+            for search_query in search_queries:
+                self.logger.info(f"Searching with {search_query['type']}: '{search_query['query']}'...")
+                search_result = self.search_account(search_query['query'], view_name=view_name)
+                
+                # Get matching account names
+                matching_accounts = []
+                if search_result > 0:
+                    self.logger.info(f"Found {search_result} matches, extracting account names...")
+                    matching_accounts = self.get_account_names()
+                    self.logger.info(f"Found matching accounts: {matching_accounts}")
+                    
+                    # Add to set of all matching accounts
+                    all_matching_accounts.update(matching_accounts)
+                
+                result['search_attempts'].append({
+                    'type': search_query['type'],
+                    'query': search_query['query'],
+                    'matches': search_result,
+                    'matching_accounts': matching_accounts
+                })
+            
+            # Process all matching accounts
+            if all_matching_accounts:
                 exact_matches = []
                 partial_matches = []
                 
-                # Check for exact matches based on name parts
-                if name_parts['first_name'] and name_parts['last_name']:
-                    # Normalize all possible forms of the folder name
-                    folder_full_name = f"{name_parts['first_name']} {name_parts['last_name']}".lower().replace(',', '').strip()
-                    folder_reverse_name = f"{name_parts['last_name']} {name_parts['first_name']}".lower().replace(',', '').strip()
-                    folder_comma_name = f"{name_parts['last_name']}, {name_parts['first_name']}".lower().replace(',', '').strip()
-                    folder_comma_nospace = f"{name_parts['last_name']},{name_parts['first_name']}".lower().replace(',', '').strip()
-
-                    for account in matching_accounts:
-                        normalized_account = account.lower().replace(',', '').strip()
-                        if normalized_account in [folder_full_name, folder_reverse_name, folder_comma_name.replace(',', ''), folder_comma_nospace.replace(',', '')]:
-                            exact_matches.append(account)
-                        else:
-                            partial_matches.append(account)
+                # Check each matching account against normalized names
+                for account in all_matching_accounts:
+                    normalized_account = account.lower().strip()
+                    self.logger.info(f"Comparing with normalized account: {normalized_account}")
+                    
+                    # Check if the account name matches any of our normalized versions
+                    if normalized_account in name_parts['normalized_names']:
+                        self.logger.info(f"Found exact match: {account}")
+                        exact_matches.append(account)
+                    else:
+                        # Check for partial matches
+                        # Split the account name into parts
+                        account_parts = self.extract_name_parts(account)
+                        
+                        # Check if last names match
+                        if account_parts['last_name'].lower() == name_parts['last_name'].lower():
+                            # Check if first names match or are similar
+                            if (account_parts['first_name'].lower() == name_parts['first_name'].lower() or
+                                account_parts['first_name'].lower().startswith(name_parts['first_name'].lower()) or
+                                name_parts['first_name'].lower().startswith(account_parts['first_name'].lower())):
+                                self.logger.info(f"Found partial match: {account}")
+                                partial_matches.append(account)
                 
-                # If we have exact matches, update the result
+                # Update result based on matches found
                 if exact_matches:
                     result['status'] = 'Exact Match'
                     result['matches'] = exact_matches
-                else:
-                    # If no exact matches, try searching with first name
-                    if name_parts['first_name']:
-                        self.logger.info(f"Attempt 2/3: Searching with full name '{name_parts['first_name']} {name_parts['last_name']}'...")
-                        search_result = self.search_account(f"{name_parts['first_name']} {name_parts['last_name']}", view_name=view_name)
-                        
-                        # Get matching account names
-                        matching_accounts = []
-                        if search_result > 0:
-                            self.logger.info(f"Found {search_result} matches, extracting account names...")
-                            matching_accounts = self.get_account_names()
-                        
-                        result['search_attempts'].append({
-                            'type': 'full_name',
-                            'query': f"{name_parts['first_name']} {name_parts['last_name']}",
-                            'matches': search_result,
-                            'matching_accounts': matching_accounts
-                        })
-                        
-                        # Add any new matches to partial matches
-                        partial_matches.extend([m for m in matching_accounts if m not in partial_matches])
-                    
-                    # If still no match, try searching with additional info
-                    if name_parts['additional_info']:
-                        search_query = f"{name_parts['last_name']} {name_parts['additional_info']}"
-                        self.logger.info(f"Attempt 3/3: Searching with additional info '{search_query}'...")
-                        search_result = self.search_account(search_query, view_name=view_name)
-                        
-                        # Get matching account names
-                        matching_accounts = []
-                        if search_result > 0:
-                            self.logger.info(f"Found {search_result} matches, extracting account names...")
-                            matching_accounts = self.get_account_names()
-                        
-                        result['search_attempts'].append({
-                            'type': 'with_additional_info',
-                            'query': search_query,
-                            'matches': search_result,
-                            'matching_accounts': matching_accounts
-                        })
-                        
-                        # Add any new matches to partial matches
-                        partial_matches.extend([m for m in matching_accounts if m not in partial_matches])
-                    
-                    # Update status if we found any matches
-                    if partial_matches:
-                        result['status'] = 'Partial Match'
-                        result['matches'] = partial_matches
+                    self.logger.info(f"Found exact matches: {exact_matches}")
+                elif partial_matches:
+                    result['status'] = 'Partial Match'
+                    result['matches'] = partial_matches
+                    self.logger.info(f"Found partial matches: {partial_matches}")
+            
+            return result
             
         except Exception as e:
             self.logger.error(f"Error in fuzzy search: {str(e)}")
-        
-        return result
+            return result
