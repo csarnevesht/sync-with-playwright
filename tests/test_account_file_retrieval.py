@@ -106,7 +106,7 @@ def test_account_file_retrieval(browser, page):
         
         # Get all file names
         logging.info("Getting all file names for this account")
-        files = account_manager.get_all_file_names_for_this_account(account_id)
+        files = account_manager.get_all_file_names_for_account(account_id)
         
         # Display results
         logging.info("\nFiles found:")

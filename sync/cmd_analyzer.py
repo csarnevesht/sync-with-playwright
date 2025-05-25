@@ -64,6 +64,7 @@ import argparse
 from playwright.sync_api import sync_playwright, TimeoutError
 import logging
 from sync.salesforce.pages.account_manager import AccountManager
+from sync.salesforce.pages.file_manager import FileManager
 from sync.salesforce.utils.browser import get_salesforce_page
 from sync.dropbox.utils.account_utils import read_accounts_folders, read_ignored_folders
 from sync.dropbox.utils.dropbox_utils import (
@@ -74,8 +75,10 @@ from sync.dropbox.utils.dropbox_utils import (
     list_folder_contents
 )
 from sync.dropbox.utils.date_utils import has_date_prefix
+from sync.utils.file_utils import sort_files_by_date
 from dropbox.exceptions import ApiError
 import dropbox
+from typing import List, Union
 
 # Configure logging
 logging.basicConfig(
@@ -304,9 +307,9 @@ def accounts_fuzzy_search(args):
     with sync_playwright() as p:
         browser, page = get_salesforce_page(p)
         try:
-            # Initialize account manager
+            # Initialize account manager and file manager
             account_manager = AccountManager(page, debug_mode=True)
-            
+            file_manager = FileManager(page, debug_mode=True)
             
             # Dictionary to store results for each folder
             results = {}
@@ -356,7 +359,15 @@ def accounts_fuzzy_search(args):
                     if account_manager.click_account_name(salesforce_name):
                         is_valid, account_id = account_manager.verify_account_page_url()
                         if is_valid and account_id:
-                            salesforce_files = account_manager.get_all_file_names_for_this_account(account_id)
+                            # Navigate to files section
+                            logger.info("Navigating to files section")
+                            logger.info(f"account_id: {account_id}")
+                            num_files = file_manager.navigate_to_files_click_on_files_card_to_facilitate_upload()
+                            if num_files == -1:
+                                logging.error("Failed to navigate to Files")
+                                return []
+                            
+                            salesforce_files = file_manager.get_all_file_names()
                             logger.info(f"Found {len(salesforce_files)} files in Salesforce")
                         else:
                             logger.error(f"Could not verify account page or get account ID for: {salesforce_name}")
@@ -366,7 +377,7 @@ def accounts_fuzzy_search(args):
                 # Compare files if both Dropbox and Salesforce files are available
                 file_comparison = None
                 if dropbox_files and salesforce_files:
-                    file_comparison = compare_files(dropbox_files, salesforce_files)
+                    file_comparison = file_manager.compare_files(dropbox_files, salesforce_files)
                 
                 summary_results.append({
                     'dropbox_name': folder_name,
@@ -405,31 +416,37 @@ def accounts_fuzzy_search(args):
                 if args.dropbox_account_files and args.salesforce_account_files:
                     # Show Salesforce files
                     print("\n📁 Salesforce account files:")
-                    for result in summary_results:
-                        if result['dropbox_name'] == folder_name and result['salesforce_files']:
-                            # Sort files by their enumeration number
-                            sorted_files = sorted(result['salesforce_files'], 
+                    for summary in summary_results:
+                        if summary['dropbox_name'] == folder_name and summary['salesforce_files']:
+                            sorted_files = sorted(summary['salesforce_files'], 
                                 key=lambda x: int(x.split('.')[0]) if x.split('.')[0].isdigit() else float('inf'))
                             for file in sorted_files:
                                 print(f"   + {file}")
-                    
                     # Show Dropbox files
                     print("\n📁 Dropbox account files:")
-                    for result in summary_results:
-                        if result['dropbox_name'] == folder_name and result['dropbox_files']:
-                            # Sort files by date prefix
-                            sorted_files = sorted(result['dropbox_files'], key=lambda x: x.name)
+                    for summary in summary_results:
+                        if summary['dropbox_name'] == folder_name and summary['dropbox_files']:
+                            sorted_files = sorted(summary['dropbox_files'], key=lambda x: x.name)
                             for i, file in enumerate(sorted_files, 1):
                                 print(f"   + {i}. {file.name}")
-                    
                     # Show comparison results
                     print("\n📁 File Comparison:")
-                    for result in summary_results:
-                        if result['dropbox_name'] == folder_name and result['file_comparison']:
-                            for file_status in result['file_comparison']:
-                                print(f"   {file_status['status']} {file_status['file']}")
-                                if file_status['details']:
-                                    print(f"      {file_status['details']}")
+                    for summary in summary_results:
+                        if summary['dropbox_name'] == folder_name and summary['file_comparison']:
+                            file_details = summary['file_comparison'].get('file_details', {})
+                            for file_name, detail in file_details.items():
+                                status = detail.get('status', '')
+                                sf_file = detail.get('salesforce_file', '')
+                                match_type = detail.get('match_type', '')
+                                reason = detail.get('reason', '')
+                                print(f"   {status} {file_name}")
+                                if sf_file:
+                                    print(f"      Matched Salesforce file: {sf_file} ({match_type})")
+                                if reason:
+                                    print(f"      {reason}")
+                                potential_matches = detail.get('potential_matches', [])
+                                if potential_matches:
+                                    print(f"      Potential matches: {potential_matches}")
                 
                 print("=" * 50)
             
@@ -445,15 +462,21 @@ def accounts_fuzzy_search(args):
                 # Show file summary if available
                 if args.dropbox_account_files and args.salesforce_account_files:
                     print("\nFile Migration Status:")
-                    if result['file_comparison']:
-                        migrated = sum(1 for f in result['file_comparison'] if f['status'] == '✓')
-                        total = len(result['file_comparison'])
-                        print(f"   {migrated}/{total} files migrated")
-                        for file_status in result['file_comparison']:
-                            if file_status['status'] != '✓':
-                                print(f"   {file_status['status']} {file_status['file']}")
-                                if file_status['details']:
-                                    print(f"      {file_status['details']}")
+                    file_comparison = result.get('file_comparison')
+                    if file_comparison:
+                        matched = file_comparison.get('matched_files', 0)
+                        total = file_comparison.get('total_files', 0)
+                        print(f"   {matched}/{total} files matched")
+                        missing_files = file_comparison.get('missing_files', [])
+                        extra_files = file_comparison.get('extra_files', [])
+                        if missing_files:
+                            print("   Missing files in Salesforce:")
+                            for f in missing_files:
+                                print(f"      - {f}")
+                        if extra_files:
+                            print("   Extra files in Salesforce:")
+                            for f in extra_files:
+                                print(f"      - {f}")
                     else:
                         print("   No files to compare")
             
@@ -462,104 +485,6 @@ def accounts_fuzzy_search(args):
         finally:
             browser.close()
             logger.info(f"\n=== ANALYSIS COMPLETE ===")
-
-def compare_files(dropbox_files, salesforce_files):
-    """
-    Compare files between Dropbox and Salesforce, checking for migration status and date prefix compliance.
-    
-    Args:
-        dropbox_files: List of Dropbox files with metadata
-        salesforce_files: List of Salesforce files
-        
-    Returns:
-        List of file status objects with migration and prefix information
-    """
-    file_statuses = []
-    
-    # Normalize Salesforce files for comparison
-    normalized_sf_files = {}
-    for sf_file in salesforce_files:
-        # Remove any date prefix and normalize spaces
-        base_name = sf_file
-        if len(sf_file) > 6 and sf_file[:6].isdigit():
-            base_name = sf_file[6:].lstrip()
-        normalized_sf_files[base_name] = sf_file
-    
-    for db_file in dropbox_files:
-        # Access FileMetadata attributes properly
-        original_name = db_file.name
-        
-        # Check if file already has a date prefix
-        has_prefix = False
-        prefix = None
-        base_name = original_name
-        
-        if len(original_name) > 6 and original_name[:6].isdigit():
-            has_prefix = True
-            prefix = original_name[:6]
-            base_name = original_name[6:].lstrip()
-        
-        # Try to find the file in Salesforce
-        found = False
-        prefix_status = None
-        sf_file_name = None
-        
-        # First try exact match
-        if original_name in salesforce_files:
-            found = True
-            sf_file_name = original_name
-            if has_prefix:
-                prefix_status = "Correct prefix"
-            else:
-                prefix_status = "No prefix (exact match)"
-        else:
-            # Try normalized name
-            if base_name in normalized_sf_files:
-                found = True
-                sf_file_name = normalized_sf_files[base_name]
-                if has_prefix:
-                    prefix_status = "Prefix format mismatch"
-                else:
-                    prefix_status = "Missing prefix"
-            else:
-                # If no prefix, use server_modified date
-                if not has_prefix:
-                    modified_date = db_file.server_modified
-                    expected_prefix = modified_date.strftime('%y%m%d')
-                    
-                    # Try with prefix formats
-                    prefixed_name_no_space = f"{expected_prefix}{original_name}"
-                    prefixed_name_with_space = f"{expected_prefix} {original_name}"
-                    
-                    if prefixed_name_no_space in salesforce_files:
-                        found = True
-                        sf_file_name = prefixed_name_no_space
-                        prefix_status = "Correct prefix (no space)"
-                    elif prefixed_name_with_space in salesforce_files:
-                        found = True
-                        sf_file_name = prefixed_name_with_space
-                        prefix_status = "Correct prefix (with space)"
-        
-        # Create status object
-        status = {
-            'file': original_name,
-            'status': '✓' if found else '✗',
-            'details': None,
-            'salesforce_name': sf_file_name if found else None
-        }
-        
-        if found:
-            if prefix_status and prefix_status != "Correct prefix (no space)":
-                status['details'] = prefix_status
-        else:
-            if has_prefix:
-                status['details'] = f"Not found in Salesforce (existing prefix: {prefix})"
-            else:
-                status['details'] = f"Not found in Salesforce (expected prefix: {expected_prefix})"
-        
-        file_statuses.append(status)
-    
-    return file_statuses
 
 if __name__ == "__main__":
     args = parse_args()
