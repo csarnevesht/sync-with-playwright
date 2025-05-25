@@ -15,6 +15,11 @@ import PyPDF2
 import logging
 import urllib.parse
 from dotenv import load_dotenv
+import base64
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+import getpass
 
 from .date_utils import has_date_prefix, get_folder_creation_date
 from .path_utils import clean_dropbox_path
@@ -351,7 +356,217 @@ class DropboxClient:
             logging.error(f"Error extracting account info: {e}")
             return {}
 
-def update_env_file(env_file, token=None, root_folder=None, directory=None):
+def generate_key(password: str, salt: bytes = None) -> tuple[bytes, bytes]:
+    """
+    Generate an encryption key from a password using PBKDF2.
+    
+    Args:
+        password: The password to derive the key from
+        salt: Optional salt for key derivation
+        
+    Returns:
+        tuple: (encryption_key, salt)
+    """
+    if salt is None:
+        salt = os.urandom(16)
+    
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+    )
+    key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
+    return key, salt
+
+def encrypt_token(token: str, key: bytes) -> str:
+    """
+    Encrypt a token using Fernet symmetric encryption.
+    
+    Args:
+        token: The token to encrypt
+        key: The encryption key
+        
+    Returns:
+        str: Encrypted token
+    """
+    f = Fernet(key)
+    return f.encrypt(token.encode()).decode()
+
+def decrypt_token(encrypted_token: str, key: bytes) -> str:
+    """
+    Decrypt a token using Fernet symmetric encryption.
+    
+    Args:
+        encrypted_token: The encrypted token
+        key: The encryption key
+        
+    Returns:
+        str: Decrypted token
+    """
+    f = Fernet(key)
+    return f.decrypt(encrypted_token.encode()).decode()
+
+def get_encryption_key() -> bytes:
+    """
+    Get or create the encryption key.
+    Stores the key securely after first use to avoid repeated password prompts.
+    
+    Returns:
+        bytes: The encryption key
+    """
+    key_file = '.dropbox_key'
+    salt_file = '.dropbox_salt'
+    
+    # Try to load existing key
+    if os.path.exists(key_file) and os.path.exists(salt_file):
+        try:
+            with open(key_file, 'rb') as f:
+                key = f.read()
+            # Verify the key works by trying to decrypt a test value
+            test_value = "test"
+            f = Fernet(key)
+            encrypted = f.encrypt(test_value.encode())
+            f.decrypt(encrypted)  # If this fails, the key is invalid
+            logger.info("Successfully loaded existing encryption key")
+            return key
+        except Exception as e:
+            logger.warning(f"Failed to load existing key: {str(e)}")
+            # If key is invalid, remove it and create a new one
+            if os.path.exists(key_file):
+                os.remove(key_file)
+            if os.path.exists(salt_file):
+                os.remove(salt_file)
+    
+    # Create new key
+    password = getpass.getpass("Create password for Dropbox token encryption: ")
+    key, salt = generate_key(password)
+    
+    # Save key and salt
+    with open(key_file, 'wb') as f:
+        f.write(key)
+    with open(salt_file, 'wb') as f:
+        f.write(salt)
+    
+    # Set secure permissions on key files
+    try:
+        os.chmod(key_file, 0o600)  # Only owner can read/write
+        os.chmod(salt_file, 0o600)  # Only owner can read/write
+    except Exception as e:
+        logger.warning(f"Failed to set secure permissions on key files: {str(e)}")
+    
+    logger.info("Created and saved new encryption key")
+    return key
+
+def get_offline_access_token() -> str:
+    """
+    Get a long-lived offline access token that persists until the user logs out of Dropbox.
+    This token will be valid as long as the user is logged into Dropbox.
+    
+    Returns:
+        str: Offline access token
+    """
+    try:
+        app_key = get_app_key()
+        
+        # Create OAuth2 flow with offline access
+        auth_flow = dropbox.DropboxOAuth2FlowNoRedirect(
+            app_key,
+            token_access_type='offline'  # This ensures we get a long-lived token
+        )
+        
+        # Get the authorization URL
+        auth_url = auth_flow.start()
+        print("\nPlease visit this URL to authorize the app:")
+        print(auth_url)
+        
+        # Get the authorization code from the user
+        auth_code = input("\nEnter the authorization code: ").strip()
+        
+        # Exchange the code for an access token
+        oauth_result = auth_flow.finish(auth_code)
+        
+        # Save both the access token and refresh token
+        update_env_file('.env', 
+                       token=oauth_result.access_token,
+                       refresh_token=oauth_result.refresh_token)
+        
+        logger.info("Successfully obtained offline access token")
+        return oauth_result.access_token
+        
+    except Exception as e:
+        logger.error(f"Failed to get offline access token: {str(e)}")
+        raise
+
+def check_token_validity(token: str) -> bool:
+    """
+    Check if the token is still valid by making a test API call.
+    
+    Args:
+        token: The access token to check
+        
+    Returns:
+        bool: True if token is valid, False otherwise
+    """
+    try:
+        dbx = dropbox.Dropbox(token)
+        # Make a lightweight API call to check token validity
+        dbx.users_get_current_account()
+        return True
+    except ApiError as e:
+        if e.error.is_expired_access_token():
+            return False
+        raise
+    except Exception:
+        return False
+
+def get_access_token() -> str:
+    """
+    Get Dropbox access token from .env file or environment variable.
+    If not found or invalid, prompt user to get a new offline access token.
+    
+    Returns:
+        str: Dropbox access token
+    """
+    # First try to load from .env file
+    try:
+        load_dotenv()
+        encrypted_token = os.getenv('DROPBOX_TOKEN')
+        if encrypted_token:
+            # Decrypt token
+            key = get_encryption_key()
+            token = decrypt_token(encrypted_token, key)
+            
+            # Check if token is still valid
+            if check_token_validity(token):
+                logger.info("Valid token loaded from .env file (DROPBOX_TOKEN)")
+                return token
+            else:
+                logger.info("Token is no longer valid, getting new offline access token...")
+                return get_offline_access_token()
+    except Exception as e:
+        logger.warning(f"Failed to load .env file: {str(e)}")
+    
+    # If not in .env or invalid, try environment variable
+    encrypted_token = os.getenv('DROPBOX_TOKEN')
+    if encrypted_token:
+        # Decrypt token
+        key = get_encryption_key()
+        token = decrypt_token(encrypted_token, key)
+        
+        # Check if token is still valid
+        if check_token_validity(token):
+            logger.info("Valid token loaded from environment variable DROPBOX_TOKEN")
+            return token
+        else:
+            logger.info("Token is no longer valid, getting new offline access token...")
+            return get_offline_access_token()
+    
+    # If still not found or invalid, get new offline access token
+    logger.warning("No valid token found, getting new offline access token...")
+    return get_offline_access_token()
+
+def update_env_file(env_file, token=None, refresh_token=None, root_folder=None, directory=None):
     """Update the .env file with new values."""
     try:
         # Read existing content
@@ -365,7 +580,15 @@ def update_env_file(env_file, token=None, root_folder=None, directory=None):
         
         # Update values
         if token:
-            existing_content['DROPBOX_TOKEN'] = token
+            # Encrypt token before saving
+            key = get_encryption_key()
+            encrypted_token = encrypt_token(token, key)
+            existing_content['DROPBOX_TOKEN'] = encrypted_token
+        if refresh_token:
+            # Encrypt refresh token before saving
+            key = get_encryption_key()
+            encrypted_refresh_token = encrypt_token(refresh_token, key)
+            existing_content['DROPBOX_REFRESH_TOKEN'] = encrypted_refresh_token
         if root_folder:
             existing_content['DROPBOX_FOLDER'] = root_folder
         if directory:
@@ -378,6 +601,8 @@ def update_env_file(env_file, token=None, root_folder=None, directory=None):
         
         if token:
             print(f"✓ Access token saved to {env_file}")
+        if refresh_token:
+            print(f"✓ Refresh token saved to {env_file}")
         if root_folder:
             print(f"✓ Root folder saved to {env_file}")
         if directory:
@@ -483,37 +708,6 @@ def find_folder_path(dbx, target_folder):
         print(f"Error finding folder {target_folder}: {e}")
     
     return None
-
-def get_access_token() -> str:
-    """
-    Get Dropbox access token from .env file or environment variable.
-    If not found, prompt user to enter it.
-    
-    Returns:
-        str: Dropbox access token
-    """
-    # First try to load from .env file
-    try:
-        load_dotenv()
-        token = os.getenv('DROPBOX_TOKEN')
-        if token:
-            logger.info("Token loaded from .env file (DROPBOX_TOKEN)")
-            return token
-    except Exception as e:
-        logger.warning(f"Failed to load .env file: {str(e)}")
-    
-    # If not in .env, try environment variable
-    token = os.getenv('DROPBOX_TOKEN')
-    if token:
-        logger.info("Token loaded from environment variable DROPBOX_TOKEN")
-        return token
-    
-    # If still not found, prompt user
-    logger.warning("No token found in .env file or environment")
-    token = input("Please enter your Dropbox access token: ").strip()
-    if not token:
-        raise ValueError("No access token provided")
-    return token
 
 def get_DROPBOX_FOLDER(env_file):
     """Get the Dropbox root folder from environment or prompt user."""
