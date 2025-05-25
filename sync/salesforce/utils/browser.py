@@ -17,11 +17,21 @@ def get_salesforce_page(playwright) -> tuple[Browser, Page]:
         
     Returns:
         tuple[Browser, Page]: A tuple containing the browser and page objects
+        
+    Raises:
+        RuntimeError: If no Chrome browser is running or no Salesforce page is found
     """
     try:
         # Connect to existing Chrome browser
         remote_url = f"http://localhost:{CHROME_DEBUG_PORT}"
-        browser = playwright.chromium.connect_over_cdp(remote_url)
+        try:
+            browser = playwright.chromium.connect_over_cdp(remote_url)
+        except Exception as e:
+            raise RuntimeError(
+                f"No Chrome browser found running on port {CHROME_DEBUG_PORT}. "
+                "Please start Chrome with remote debugging enabled using:\n"
+                f"chrome --remote-debugging-port={CHROME_DEBUG_PORT}"
+            ) from e
         
         # Find Salesforce page
         salesforce_page = None
@@ -34,14 +44,18 @@ def get_salesforce_page(playwright) -> tuple[Browser, Page]:
                 break
                 
         if not salesforce_page:
-            logging.error(f"No Salesforce page found. Please make sure you have a Salesforce page open.")
             browser.close()
-            sys.exit(1)
+            raise RuntimeError(
+                "No Salesforce page found. Please make sure you have a Salesforce page open "
+                f"at {SALESFORCE_URL}"
+            )
             
         return browser, salesforce_page
         
     except Exception as e:
+        if isinstance(e, RuntimeError):
+            raise
         logging.error(f"Error connecting to Chrome browser: {str(e)}")
         if 'browser' in locals():
             browser.close()
-        sys.exit(1) 
+        raise RuntimeError(f"Failed to connect to Chrome browser: {str(e)}") 

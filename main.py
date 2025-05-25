@@ -2,15 +2,16 @@ import json
 import os
 from pprint import pprint
 import sys
+import time
 import logging
 from playwright.sync_api import sync_playwright
-from salesforce.pages.account_manager import AccountManager
-from salesforce.pages.file_manager import FileManager
-from salesforce.utils.logger import OperationLogger
-from dropbox_renamer.utils.dropbox_utils import DropboxClient
-from salesforce.utils.mock_data import get_mock_accounts
-from salesforce.utils.file_upload import upload_files_for_account
-from salesforce.utils.browser import get_salesforce_page
+from sync.salesforce.pages.account_manager import AccountManager
+from sync.salesforce.pages.file_manager import FileManager
+from sync.salesforce.utils.logger import OperationLogger
+from sync.dropbox.utils.dropbox_utils import DropboxClient
+from sync.salesforce.utils.mock_data import get_mock_accounts
+from sync.salesforce.utils.file_upload import upload_files_for_account
+from sync.salesforce.utils.browser import get_salesforce_page
 
 
 logging.basicConfig(
@@ -194,7 +195,6 @@ def main():
                                     logging.info(f"File already exists: {file['name']}")
                                 else:
                                     logging.info(f"File not found, will be uploaded: {file['name']}")
-                                    #  CAROLINA HERE
                                     account_manager.navigate_back_to_account_page()
                                     # Upload single file for the account
                                     logging.info(f"****Uploading file: {file['name']} for account: {full_name}")

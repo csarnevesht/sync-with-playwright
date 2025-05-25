@@ -1,13 +1,32 @@
-List of account folder names in accounts/main.txt
 
-Write a sync tool sync/sync_analyze that does the following:
-using logic from:
- dropbox analyzer (see dropbox/cmd_analyze.py)
- salesforce account fuzzy search (see salesforce/cmd_fuzzy.py)
+ # list the dropbox accounts and dropbox account files and searches for the accounts in salesforce in batches with a start-from
+clear && python -m sync.cmd_migration_analyzer --dropbox-accounts --dropbox-account-files --salesforce-accounts --account-batch-size 5 --start-from 10  2>&1 | tee output.log
 
-for each dropbox account fol
-der:
-    uses fuzzy search in salesforce, 
+# list the dropbox accounts and dropbox account files and searches for the accounts in salesforce and searches for the account files in salesforce in batches with a start-from
+clear && python -m salesforce.cmd_fuzzy --dropbox-accounts --dropbox-account-files --salesforce-accounts -salesforce-account-files --account-batch-size 5 --start-from 10  2>&1 | tee output.log
+
+
+clear && python -m sync.cmd_migration_analyzer --dropbox-accounts-file accounts/fuzzy-small.txt --salesforce-accounts --salesforce-account-files 2>&1 | tee output.log
+
+clear && python -m sync.cmd_migration_analyzer --dropbox-account-name 'Alexander & Armelia Rolle' 2>&1 | tee output.log
+
+clear && python -m sync.cmd_migration_analyzer --dropbox-accounts --batch_size 5 --start-from 10 2>&1 | tee output.log
+
+# list the dropbox accounts only in batches with a start-from
+clear && python -m sync.cmd_migration_analyzer --dropbox-accounts --batch_size 5 --start-from 10 --dropbox-accounts-only 2>&1 | tee output.log
+
+# list the dropbox accounts only in batches with a start-from
+clear && python -m sync.cmd_migration_analyzer --dropbox-accounts --batch_size 5 --start-from 10 --dropbox-accounts-only 2>&1 | tee output.log
+
+# list the dropbox accounts and dropbox account files in batches with a start-from
+clear && python -m sync.cmd_migration_analyzer --dropbox-accounts --dropbox-account-files --account-batch-size 5 --start-from 10  2>&1 | tee output.log
+
+
+
+for each dropbox account folder in 'Dropbox account folders list':
+
+                
+    Search for the Dropbox account in Salesforce           
       if it has an exact match:
         navigates to the salesforce account and gets the list of all the salesforce account files
         gets the list of account dropbox files, this list should also contain modified date information.
@@ -23,7 +42,7 @@ der:
 
       if no exact match for account, print match information
 
-      report all information for each account and account files 
+      report all information for each dropbox account and dropbox account files 
 
         
 

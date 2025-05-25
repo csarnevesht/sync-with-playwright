@@ -1,13 +1,14 @@
 import os
 import sys
+import time
 import logging
 from playwright.sync_api import sync_playwright
-from dropbox_renamer.utils.dropbox_utils import DropboxClient
-from salesforce.utils.browser import get_salesforce_page
-from salesforce.pages.account_manager import AccountManager
+from sync.dropbox.utils.dropbox_utils import DropboxClient
+from sync.salesforce.utils.browser import get_salesforce_page
+from sync.salesforce.pages.account_manager import AccountManager
 from dropbox.exceptions import ApiError
 from dotenv import load_dotenv
-from dropbox_renamer.utils.path_utils import clean_dropbox_path
+from sync.dropbox.utils.path_utils import clean_dropbox_path
 
 # Configure logging
 logging.basicConfig(
