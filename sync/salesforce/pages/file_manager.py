@@ -396,8 +396,9 @@ class FileManager(BasePage):
         Returns:
             List[str]: List of file names found in the format "1. filename [TYPE]"
         """
+        self.logger.info(f"Getting all file names")
+        
         try:
-            self.logger.info(f"Getting all file names")
             # Verify we're on the correct Files page
             current_url = self.page.url
             if not current_url.endswith('/related/AttachedContentDocuments/view'):
@@ -408,8 +409,9 @@ class FileManager(BasePage):
             max_attempts = 5
             for attempt in range(max_attempts):
                 try:
-                    table = self.page.wait_for_selector('table.slds-table', timeout=6000)
-                    file_rows = self.page.locator('table.slds-table tbody tr').all()
+                    # Use the same selector as in navigation and deletion methods
+                    table = self.page.wait_for_selector('div.slds-card__body table, div.slds-scrollable_y table, div[role="main"] table', timeout=6000)
+                    file_rows = self.page.locator('div.slds-card__body table tbody tr, div.slds-scrollable_y table tbody tr, div[role="main"] table tbody tr').all()
                     if file_rows and len(file_rows) > 0:
                         # Optionally, check if at least one row has a visible span.itemTitle
                         has_title = False
@@ -429,7 +431,7 @@ class FileManager(BasePage):
                 return []
 
             # Get all file rows immediately (after waiting)
-            file_rows = self.page.locator('table.slds-table tbody tr').all()
+            file_rows = self.page.locator('div.slds-card__body table tbody tr, div.slds-scrollable_y table tbody tr, div[role="main"] table tbody tr').all()
             if not file_rows:
                 self.logger.error("No file rows found after waiting")
                 return []
@@ -623,26 +625,27 @@ class FileManager(BasePage):
         try:
             # Wait for the table to be visible and loaded
             self.logger.info("Waiting for the files table to be visible...")
-            table = self.page.wait_for_selector('div.slds-card__body table, div.slds-scrollable_y table, div[role="main"] table', timeout=5000)
+            table = self.page.wait_for_selector('div.slds-card__body table, div.slds-scrollable_y table, div[role=\"main\"] table', timeout=5000)
             if not table:
                 self.logger.error("Files table not found")
                 return False
 
             # Wait for the table header to be visible
             self.logger.info("Waiting for table header...")
-            self.page.wait_for_selector('span[title="Title"]', timeout=5000)
+            self.page.wait_for_selector('span[title=\"Title\"]', timeout=5000)
 
             # Wait a bit for content to load
             self.page.wait_for_timeout(2000)  # Increased wait time
 
-            # Get all file rows
+            # Get all file rows (only visible ones)
             self.logger.info("Getting all file rows from table...")
-            file_rows = self.page.locator('table.slds-table tbody tr').all()
+            all_rows = self.page.locator('div.slds-card__body table tbody tr, div.slds-scrollable_y table tbody tr, div[role=\"main\"] table tbody tr')
+            file_rows = [row for row in all_rows.all() if row.is_visible()]
             if not file_rows:
-                self.logger.info("No file rows found")
+                self.logger.info("No visible file rows found")
                 return False
 
-            self.logger.info(f"Found {len(file_rows)} file rows to search through")
+            self.logger.info(f"Found {len(file_rows)} visible file rows to search through")
 
             # Search through each row
             for i, row in enumerate(file_rows, 1):
@@ -668,29 +671,54 @@ class FileManager(BasePage):
                 if clean_file_name == file_info['full_name'] or clean_file_name == file_info['name']:
                     self.logger.info(f"Found matching file in row {i}")
 
-                    # Try multiple selectors for the dropdown button
-                    self.logger.info("Looking for dropdown button...")
-                    dropdown_selectors = [
-                        'button.slds-button_icon-border-filled',
-                        'button[title="Show Actions"]',
-                        'button[aria-label="Show Actions"]',
-                        'button[class*="slds-button_icon"]',
-                        'button[class*="slds-button--icon"]'
-                    ]
-                    
-                    dropdown = None
-                    for selector in dropdown_selectors:
-                        try:
-                            dropdown = row.locator(selector).first
-                            if dropdown and dropdown.is_visible():
-                                self.logger.info(f"Found dropdown button with selector: {selector}")
-                                break
-                        except Exception as e:
-                            self.logger.info(f"Selector {selector} failed: {str(e)}")
-                            continue
-                    
-                    if not dropdown:
-                        self.logger.error("Could not find any dropdown button")
+                    # Hover over the row to reveal action buttons
+                    self.logger.info(f"Hovering over row {i} to reveal action buttons...")
+                    try:
+                        row.hover()
+                        self.page.wait_for_timeout(500)
+                    except Exception as e:
+                        self.logger.warning(f"Failed to hover over row {i}: {str(e)}")
+
+                    # Take a screenshot after hover for diagnostics
+                    self.page.screenshot(path=f"row{i}-after-hover.png")
+                    self.logger.info(f"Screenshot saved as row{i}-after-hover.png")
+
+                    # Try to find the dropdown button or <a role="button"> in the last cell of the row
+                    self.logger.info(f"Looking for dropdown action in the last cell of row {i}...")
+                    try:
+                        cells = row.locator('td').all()
+                        if cells:
+                            last_cell = cells[-1]
+                            # Look for both <button> and <a role="button">
+                            dropdown_candidates = last_cell.locator('button, a[role="button"]').all()
+                            if dropdown_candidates:
+                                # Use the first visible and enabled candidate
+                                dropdown = None
+                                for candidate in dropdown_candidates:
+                                    if candidate.is_visible() and (candidate.is_enabled() if hasattr(candidate, 'is_enabled') else True):
+                                        dropdown = candidate
+                                        break
+                                if dropdown:
+                                    self.logger.info(f"Found dropdown action in last cell of row {i}.")
+                                else:
+                                    self.logger.error(f"Dropdown action in last cell is not visible/enabled.")
+                                    self.page.screenshot(path=f"dropdown-not-visible-row{i}.png")
+                                    self.logger.info(f"Screenshot saved as dropdown-not-visible-row{i}.png")
+                                    return False
+                            else:
+                                self.logger.error(f"No <button> or <a role='button'> found in last cell of row {i}.")
+                                self.page.screenshot(path=f"dropdown-not-found-in-last-cell-row{i}.png")
+                                self.logger.info(f"Screenshot saved as dropdown-not-found-in-last-cell-row{i}.png")
+                                return False
+                        else:
+                            self.logger.error(f"No cells found in row {i}.")
+                            self.page.screenshot(path=f"no-cells-in-row{i}.png")
+                            self.logger.info(f"Screenshot saved as no-cells-in-row{i}.png")
+                            return False
+                    except Exception as e:
+                        self.logger.error(f"Error finding dropdown in last cell: {str(e)}")
+                        self.page.screenshot(path=f"dropdown-error-row{i}.png")
+                        self.logger.info(f"Screenshot saved as dropdown-error-row{i}.png")
                         return False
 
                     # Click the dropdown menu with retry
@@ -700,55 +728,94 @@ class FileManager(BasePage):
                             self.logger.info(f"Attempting to click dropdown (attempt {attempt + 1}/{max_retries})...")
                             dropdown.click(timeout=5000)
                             self.page.wait_for_timeout(1000)  # Wait for dropdown to appear
-                            break
+                            # Take a screenshot after clicking dropdown
+                            self.page.screenshot(path=f"dropdown-opened-row{i}.png")
+                            self.logger.info(f"Screenshot saved as dropdown-opened-row{i}.png")
+                            # Look for the Delete menu item
+                            delete_menuitem = None
+                            menuitems = self.page.locator('a[role="menuitem"]').all()
+                            self.logger.info(f"Dropdown has {len(menuitems)} menuitem(s):")
+                            for idx, item in enumerate(menuitems, 1):
+                                text = item.text_content().strip() if item else ''
+                                self.logger.info(f"  Menuitem {idx}: text='{text}'")
+                                if text.lower() == 'delete' and item.is_visible():
+                                    delete_menuitem = item
+                                    break
+                            if delete_menuitem:
+                                self.logger.info("Found 'Delete' menu item. Clicking...")
+                                delete_menuitem.click(timeout=5000)
+                                self.page.wait_for_timeout(1000)
+                                break
+                            else:
+                                self.logger.error("Could not find 'Delete' menu item after opening dropdown.")
+                                self.page.screenshot(path=f"delete-menuitem-not-found-row{i}.png")
+                                self.logger.info(f"Screenshot saved as delete-menuitem-not-found-row{i}.png")
+                                if attempt == max_retries - 1:
+                                    return False
+                                self.page.wait_for_timeout(1000)
                         except Exception as e:
                             self.logger.warning(f"Click attempt {attempt + 1} failed: {str(e)}")
+                            self.page.screenshot(path=f"dropdown-click-fail-row{i}-attempt{attempt+1}.png")
+                            self.logger.info(f"Screenshot saved as dropdown-click-fail-row{i}-attempt{attempt+1}.png")
                             if attempt == max_retries - 1:
                                 self.logger.error("All click attempts failed")
                                 return False
                             self.page.wait_for_timeout(1000)  # Wait before retry
 
-                    # Wait for and click the Delete option
-                    self.logger.info("Looking for Delete option...")
-                    delete_option = self.page.locator('div.slds-dropdown__item:has-text("Delete")').first
-                    if not delete_option:
-                        self.logger.error("Could not find Delete option")
+                    # Wait for the confirmation dialog/modal to appear
+                    self.logger.info("Waiting for confirmation dialog to appear...")
+                    try:
+                        # Wait for a modal/dialog to be visible
+                        modal = self.page.wait_for_selector('.slds-modal__container, .slds-modal', timeout=5000)
+                        if not modal or not modal.is_visible():
+                            self.logger.error("Confirmation dialog/modal did not appear or is not visible.")
+                            self.page.screenshot(path=f"delete-modal-not-visible-row{i}.png")
+                            return False
+                        self.logger.info("Confirmation dialog/modal is visible.")
+                    except Exception as e:
+                        self.logger.error(f"Error waiting for confirmation dialog: {str(e)}")
+                        self.page.screenshot(path=f"delete-modal-error-row{i}.png")
                         return False
-                    
-                    # Click Delete option with retry
-                    for attempt in range(max_retries):
-                        try:
-                            self.logger.info(f"Attempting to click Delete option (attempt {attempt + 1}/{max_retries})...")
-                            delete_option.click(timeout=5000)
-                            self.page.wait_for_timeout(1000)  # Wait for confirmation dialog
-                            break
-                        except Exception as e:
-                            self.logger.warning(f"Delete option click attempt {attempt + 1} failed: {str(e)}")
-                            if attempt == max_retries - 1:
-                                self.logger.error("All Delete option click attempts failed")
-                                return False
-                            self.page.wait_for_timeout(1000)  # Wait before retry
 
-                    # Wait for and click the Delete button in the confirmation dialog
-                    self.logger.info("Looking for Delete confirmation button...")
-                    confirm_button = self.page.locator('button.slds-button:has-text("Delete")').first
-                    if not confirm_button:
-                        self.logger.error("Could not find Delete confirmation button")
+                    # Now look for the Delete button inside the modal
+                    self.logger.info("Looking for Delete button inside the modal...")
+                    try:
+                        # Only search for buttons inside the modal
+                        delete_button = None
+                        buttons = modal.query_selector_all('button')
+                        for idx, btn in enumerate(buttons, 1):
+                            inner_text = btn.inner_text().strip() if hasattr(btn, 'inner_text') else ''
+                            text_content = btn.text_content().strip() if hasattr(btn, 'text_content') else ''
+                            title = btn.get_attribute('title')
+                            classes = btn.get_attribute('class')
+                            self.logger.info(f"  Modal Button {idx}: inner_text='{inner_text}', text_content='{text_content}', title='{title}', class='{classes}'")
+                            if (inner_text.lower() == 'delete' or text_content.lower() == 'delete' or (title and title.lower() == 'delete')):
+                                # Try to check visibility and enabled state if possible
+                                is_visible = True
+                                is_enabled = True
+                                try:
+                                    is_visible = btn.is_visible() if hasattr(btn, 'is_visible') else True
+                                except Exception:
+                                    pass
+                                try:
+                                    is_enabled = btn.is_enabled() if hasattr(btn, 'is_enabled') else True
+                                except Exception:
+                                    pass
+                                if is_visible and is_enabled:
+                                    delete_button = btn
+                                    break
+                        if not delete_button:
+                            self.logger.error("Could not find visible and enabled Delete button in modal.")
+                            self.page.screenshot(path=f"delete-button-not-found-in-modal-row{i}.png")
+                            return False
+                        self.logger.info("Found visible and enabled Delete button in modal. Attempting to click...")
+                        delete_button.scroll_into_view_if_needed()
+                        delete_button.click(timeout=5000)
+                        self.page.wait_for_timeout(2000)  # Wait for deletion to complete
+                    except Exception as e:
+                        self.logger.error(f"Error clicking Delete button in modal: {str(e)}")
+                        self.page.screenshot(path=f"delete-button-click-error-modal-row{i}.png")
                         return False
-                    
-                    # Click confirmation button with retry
-                    for attempt in range(max_retries):
-                        try:
-                            self.logger.info(f"Attempting to click confirmation button (attempt {attempt + 1}/{max_retries})...")
-                            confirm_button.click(timeout=5000)
-                            self.page.wait_for_timeout(2000)  # Wait for deletion to complete
-                            break
-                        except Exception as e:
-                            self.logger.warning(f"Confirmation button click attempt {attempt + 1} failed: {str(e)}")
-                            if attempt == max_retries - 1:
-                                self.logger.error("All confirmation button click attempts failed")
-                                return False
-                            self.page.wait_for_timeout(1000)  # Wait before retry
 
                     self.logger.info(f"Successfully deleted file: {file_name}")
                     return True

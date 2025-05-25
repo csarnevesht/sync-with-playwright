@@ -124,12 +124,12 @@ def test_account_file_deletion(browser, page):
         logging.info(f"Successfully navigated to account {account_name} with ID {account_id}")
         
         # Navigate to files section and get number of files
-        num_files = account_manager.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
+        num_files = file_manager.navigate_to_files_click_on_files_card_to_facilitate_upload()
         if num_files == -1:
             logging.error("Failed to navigate to Files")
             return
         
-        logging.info(f"Found {num_files} files in account")
+        logging.info(f"Initial number of files: {num_files}")
         
         if num_files == 0:
             logging.info("No files found in account to delete")
@@ -156,7 +156,7 @@ def test_account_file_deletion(browser, page):
         logging.info(f"Successfully deleted file: {first_file_name}")
         
         # Verify file was deleted by checking the new count
-        new_num_files = account_manager.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
+        new_num_files = file_manager.navigate_to_files_click_on_files_card_to_facilitate_upload()
         logging.info(f"New file count: {new_num_files}")
         
         if new_num_files >= num_files:
