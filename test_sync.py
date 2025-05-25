@@ -50,9 +50,9 @@ def configure_logging(debug_mode: bool):
     
     # Configure specific module loggers
     modules = [
-        'sync.salesforce.pages.file_manager',
-        'sync.salesforce.pages.account_manager',
-        'sync.salesforce.utils.file_upload',
+        'sync.salesforce_client.pages.file_manager',
+        'sync.salesforce_client.pages.account_manager',
+        'sync.salesforce_client.utils.file_upload',
         'tests.test_accounts_create'
     ]
     
@@ -116,8 +116,8 @@ def main():
     
     # Import test modules after logging is configured
     from sync.config import SALESFORCE_URL
-    from sync.salesforce import Salesforce
-    from sync.salesforce.utils.browser import get_salesforce_page
+    from sync.salesforce_client import Salesforce
+    from sync.salesforce_client.utils.browser import get_salesforce_page
     
     # Import test modules
     from tests.test_account_creation import test_account_creation

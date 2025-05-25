@@ -5,13 +5,13 @@ import sys
 import time
 import logging
 from playwright.sync_api import sync_playwright
-from sync.salesforce.pages.account_manager import AccountManager
-from sync.salesforce.pages.file_manager import FileManager
-from sync.salesforce.utils.logger import OperationLogger
-from sync.dropbox.utils.dropbox_utils import DropboxClient
-from sync.salesforce.utils.mock_data import get_mock_accounts
-from sync.salesforce.utils.file_upload import upload_files_for_account
-from sync.salesforce.utils.browser import get_salesforce_page
+from sync.salesforce_client.pages.account_manager import AccountManager
+from sync.salesforce_client.pages.file_manager import FileManager
+from sync.salesforce_client.utils.logger import OperationLogger
+from sync.dropbox_client.utils.dropbox_utils import DropboxClient
+from sync.salesforce_client.utils.mock_data import get_mock_accounts
+from sync.salesforce_client.utils.file_upload import upload_files_for_account
+from sync.salesforce_client.utils.browser import get_salesforce_page
 
 
 logging.basicConfig(

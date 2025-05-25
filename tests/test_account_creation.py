@@ -31,11 +31,11 @@ import json
 from datetime import datetime
 import shutil
 import tempfile
-from sync.salesforce.pages.account_manager import AccountManager
-from sync.salesforce.pages.file_manager import FileManager
-from sync.salesforce.utils.browser import get_salesforce_page
-from sync.salesforce.utils.file_upload import upload_files_for_account
-from sync.salesforce.utils.mock_data import get_mock_accounts
+from sync.salesforce_client.pages.account_manager import AccountManager
+from sync.salesforce_client.pages.file_manager import FileManager
+from sync.salesforce_client.utils.browser import get_salesforce_page
+from sync.salesforce_client.utils.file_upload import upload_files_for_account
+from sync.salesforce_client.utils.mock_data import get_mock_accounts
 from playwright.sync_api import sync_playwright, TimeoutError
 
 # Configure logging
@@ -58,9 +58,9 @@ logger.setLevel(logging.DEBUG)
 
 # Set debug level for specific modules and ensure their handlers are set
 for module in [
-    'sync.salesforce.pages.file_manager',
-    'sync.salesforce.pages.account_manager',
-    'sync.salesforce.utils.file_upload',
+    'sync.salesforce_client.pages.file_manager',
+    'sync.salesforce_client.pages.account_manager',
+    'sync.salesforce_client.utils.file_upload',
     'tests.test_accounts_create'
 ]:
     module_logger = logging.getLogger(module)

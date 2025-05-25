@@ -22,8 +22,8 @@ import json
 from datetime import datetime
 import shutil
 import tempfile
-from sync.dropbox.utils.path_utils import clean_dropbox_path
-from sync.dropbox.utils.dropbox_utils import (
+from sync.dropbox_client.utils.path_utils import clean_dropbox_path
+from sync.dropbox_client.utils.dropbox_utils import (
     DropboxClient,
     get_access_token,
     get_DROPBOX_FOLDER,
