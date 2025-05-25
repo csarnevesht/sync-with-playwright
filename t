@@ -17,14 +17,16 @@ show_menu() {
     echo "1) Run All Tests"
     echo "2) Account Creation Test"
     echo "3) Account Search Test"
-    echo "4) File Upload Test"
+    echo "4) Account File Upload Test"
     echo "5) File Download Test"
     echo "6) Account Deletion Test"
-    echo "7) Account Query and Filter Test"
-    echo "8) Toggle Debug Mode (Currently: ${DEBUG_MODE:-OFF})"
-    echo "9) Exit"
+    echo "7) Account Filter Test"
+    echo "8) Account File Retrieval Test"
+    echo "9) Account File Deletion Test"
+    echo "10) Toggle Debug Mode (Currently: ${DEBUG_MODE:-OFF})"
+    echo "11) Exit"
     echo "====================================="
-    echo -n "Enter your choice (1-9): "
+    echo -n "Enter your choice (1-11): "
 }
 
 # Function to run the selected test
@@ -92,12 +94,18 @@ while true; do
             run_test "account-deletion"
             ;;
         7)
-            run_test "account-query"
+            run_test "account-filter"
             ;;
         8)
-            toggle_debug
+            run_test "account-file-retrieval"
             ;;
         9)
+            run_test "account-file-deletion"
+            ;;
+        10)
+            toggle_debug
+            ;;
+        11)
             echo -e "\n${GREEN}Goodbye!${NC}"
             exit 0
             ;;

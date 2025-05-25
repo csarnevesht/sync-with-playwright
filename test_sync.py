@@ -103,7 +103,9 @@ def main():
         'account-search',
         'file-upload',
         'account-deletion',
-        'account-query'
+        'account-filter',
+        'account-file-retrieval',
+        'account-file-deletion'
     ], default='all', help='Specify which test to run')
     parser.add_argument('--debug', action='store_true', help='Enable debug logging')
     
@@ -120,9 +122,11 @@ def main():
     # Import test modules
     from tests.test_account_creation import test_account_creation
     from tests.test_account_search import test_search_account
-    from tests.test_account_upload import test_account_upload
-    from tests.test_account_delete import test_delete_accounts
-    from tests.test_account_query_and_filter import test_accounts_query_and_filter
+    from tests.test_account_file_upload import test_account_file_upload
+    from tests.test_account_deletion import test_account_deletion
+    from tests.test_account_filter import test_account_filter
+    from tests.test_account_file_retrieval import test_account_file_retrieval
+    from tests.test_account_file_deletion import test_account_file_deletion
     
     # Set up test environment
     test_dir, run_dir = setup_test_environment()
@@ -136,17 +140,21 @@ def main():
                 tests = [
                     ('Account Creation', test_account_creation),
                     ('Account Search', test_search_account),
-                    ('File Upload', test_account_upload),
-                    ('Account Deletion', test_delete_accounts),
-                    ('Account Query and Filter', test_accounts_query_and_filter)
+                    ('File Upload', test_account_file_upload),
+                    ('Account Deletion', test_account_deletion),
+                    ('Account Filter', test_account_filter),
+                    ('Account File Retrieval', test_account_file_retrieval),
+                    ('Account File Deletion', test_account_file_deletion)
                 ]
             else:
                 test_map = {
                     'account-creation': [('Account Creation', test_account_creation)],
                     'account-search': [('Account Search', test_search_account)],
-                    'file-upload': [('File Upload', test_account_upload)],
-                    'account-deletion': [('Account Deletion', test_delete_accounts)],
-                    'account-query': [('Account Query and Filter', test_accounts_query_and_filter)]
+                    'file-upload': [('File Upload', test_account_file_upload)],
+                    'account-deletion': [('Account Deletion', test_account_deletion)],
+                    'account-filter': [('Account Filter', test_account_filter)],
+                    'account-file-retrieval': [('Account File Retrieval', test_account_file_retrieval)],
+                    'account-file-deletion': [('Account File Deletion', test_account_file_deletion)]
                 }
                 tests = test_map[args.test]
             
