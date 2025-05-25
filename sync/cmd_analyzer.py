@@ -79,6 +79,15 @@ from dropbox.exceptions import ApiError
 import dropbox
 from typing import List, Union
 
+# ANSI color codes
+class Colors:
+    BLUE = '\033[94m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    BOLD = '\033[1m'
+    ENDC = '\033[0m'
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -86,6 +95,17 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+# Custom formatter to add colors to specific log messages
+class ColoredFormatter(logging.Formatter):
+    def format(self, record):
+        if "Processing Dropbox account folder" in record.msg:
+            record.msg = f"{Colors.BLUE}{Colors.BOLD}{record.msg}{Colors.ENDC}"
+        return super().format(record)
+
+# Apply the colored formatter
+for handler in logger.handlers:
+    handler.setFormatter(ColoredFormatter('%(asctime)s - %(levelname)s - %(message)s'))
 
 def parse_args():
     """Parse command line arguments."""
