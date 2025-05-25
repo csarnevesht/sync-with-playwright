@@ -278,7 +278,7 @@ class FileManager(BasePage):
                                 file_type = 'PDF'
                             elif 'doc' in file_type:
                                 file_type = 'DOC'
-                            elif 'xls' in file_type:
+                            elif any(excel_type in file_type for excel_type in ['xls', 'excel spreadsheet']):
                                 file_type = 'XLS'
                             elif 'txt' in file_type:
                                 file_type = 'TXT'
@@ -452,7 +452,7 @@ class FileManager(BasePage):
                     # Use _extract_file_info_from_row to get file info
                     file_info = self._extract_file_info_from_row(row)
                     if file_info:
-                        file_names.append(f"{i}. {file_info['full_name']}")
+                        file_names.append(f"{file_info['full_name']}")
                         self.logger.info(f"Successfully processed file {i}: {file_info['full_name']}")
                 except Exception as e:
                     self.logger.warning(f"Error getting file info for row {i}: {str(e)}")
@@ -491,21 +491,16 @@ class FileManager(BasePage):
         self.logger.info(f"  Salesforce files: {len(salesforce_files)}")
 
         # Sort both lists by date (newest first)
-        sorted_dropbox = sorted(dropbox_files, key=None, reverse=True)
-        sorted_salesforce = salesforce_files
-         
+        sorted_dropbox = list(map(lambda f: parse_search_file_pattern(f.name)['full_name'], sorted(dropbox_files, key=lambda f: f.name, reverse=True)))        
+        sorted_salesforce = sorted(salesforce_files, key=lambda f: f, reverse=True)
         # Log sorted lists with dates
         self.logger.info("\nDropbox files (sorted):")
-        for i, file in enumerate(sorted_dropbox, 1):
+        for file in sorted_dropbox:
             file_name = file.name if isinstance(file, FileMetadata) else file
-            date_prefix = file_name[:6]
-            base_name = file_name[6:]
-            self.logger.info(f"  {i:2d}. [{date_prefix}] {base_name}")
+            self.logger.info(f"  {file_name}")
         self.logger.info("\nSalesforce files (sorted):")
-        for i, file in enumerate(sorted_salesforce, 1):
-            date_prefix = file[:6]
-            base_name = file[6:]
-            self.logger.info(f"  {i:2d}. [{date_prefix}] {base_name}")
+        for file in sorted_salesforce:
+            self.logger.info(f"  {file}")
 
         # Initialize comparison results
         comparison = {
@@ -519,24 +514,28 @@ class FileManager(BasePage):
         # Compare each Dropbox file
         self.logger.info("\n" + "-"*50)
         self.logger.info("Starting file comparison")
-        self.logger.info("-"*50)
+        self.logger.info("\n" + "-"*50)
         for dropbox_file in sorted_dropbox:
             dropbox_name = dropbox_file.name if isinstance(dropbox_file, FileMetadata) else dropbox_file
             self.logger.info(f"\nChecking Dropbox file: {dropbox_name}")
-            # Parse the file name to get clean name and type
-            file_info = parse_search_file_pattern(dropbox_name)
-            date_prefix = dropbox_name[:6]
-            base_name = file_info['name'].lower()
             found_match = False
             potential_matches = []
             for salesforce_file in sorted_salesforce:
-                # Remove enumeration numbers for comparison
+                if dropbox_name == salesforce_file:
+                    found_match = True
+                    comparison['matched_files'] += 1
+                    comparison['file_details'][dropbox_name] = {
+                            'status': 'matched',
+                            'salesforce_file': salesforce_file,
+                            'match_type': 'exact'
+                    }
+                    break
+                else:
+                    self.logger.info(f"  {dropbox_name} != {salesforce_file}")
                 sf_file = salesforce_file
-                if '. ' in sf_file:
-                    space_index = sf_file.find('. ') + 2
-                    if space_index > 1:
-                        sf_file = sf_file[space_index:]
-                if sf_file.startswith(date_prefix):
+                date_prefix = sf_file[:6]
+                base_name = sf_file[6:].lower()
+                if dropbox_name.startswith(date_prefix):
                     potential_matches.append(salesforce_file)
                     self.logger.info(f"  Found potential match with date prefix {date_prefix}: {salesforce_file}")
                     if base_name in sf_file[6:].lower():
