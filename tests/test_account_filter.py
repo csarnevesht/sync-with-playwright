@@ -1,7 +1,7 @@
 """
 Test Account Query and Filtering
 
-This test suite verifies the account query and filtering functionality in Salesforce. It focuses on
+This test suite verifies the account filtering functionality in Salesforce. It focuses on
 finding and validating accounts that have files attached to them, with specific attention to:
 
 1. Account Query:
@@ -107,7 +107,7 @@ def get_accounts_with_files(account_manager: AccountManager, max_number: int = 5
         logging.error(f"Error getting accounts with files: {str(e)}")
         return []
 
-def test_accounts_query_and_filter(browser: Browser, page: Page):
+def test_account_filter(browser: Browser, page: Page):
     """
     Test the account query and filtering functionality.
     
@@ -187,7 +187,7 @@ def main():
     with sync_playwright() as p:
         browser, page = get_salesforce_page(p)
         try:
-            test_accounts_query_and_filter(browser, page)
+            test_account_filter(browser, page)
         finally:
             browser.close()
 
