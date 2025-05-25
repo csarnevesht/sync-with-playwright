@@ -6,7 +6,7 @@ Write a test accounts_fuzzy_search that does the following:
 Iterates through the above list of account folder names
 For each item, determine the last name.
 Then search for the last name in Salesforce CRM
-   - see if you can use account_manager.get_accounts_matching_condition, with drop_down_option_text: str = "All Accounts"
+   - see if you can use account_manager.get_accounts_matching_condition, with view_name: str = "All Accounts"
 
 Let's change that to dropbox account folders.
 If we use option --all flag, it will process all dropbox account folders except those listed in ingored folders currently listed in accounts/ignore.txt.

@@ -1,14 +1,16 @@
 from typing import Callable, Optional, Dict, List, Union
 import logging
 import re
+import time
 
-from salesforce.pages import file_manager
+from . import file_manager
 from .base_page import BasePage
-from playwright.sync_api import Page
+from playwright.sync_api import Page, TimeoutError
 from sync.config import SALESFORCE_URL
 import sys
 import os
-from salesforce.pages.accounts_page import AccountsPage
+from .accounts_page import AccountsPage
+from ..utils.selectors import Selectors
 
 class AccountManager(BasePage):
     """Handles account-related operations in Salesforce."""
@@ -18,15 +20,22 @@ class AccountManager(BasePage):
         self.current_account_id = None
         self.accounts_page = AccountsPage(page, debug_mode)
         
-    def navigate_to_accounts_list_page(self) -> bool:
-        """Navigate to the Accounts page."""
-        url = f"{SALESFORCE_URL}/lightning/o/Account/list?filterName=__Recent"
-        self.logger.info(f"Navigating to Accounts page: {url}")
+    def navigate_to_accounts_list_page(self, view_name: str = "All Clients") -> bool:
+        """Navigate to the Accounts page with a specific list view.
         
-        try:
-            self.page.goto(url)
-            self.page.wait_for_load_state('domcontentloaded')
+        Args:
+            view_name: Name of the list view to use (default: "All Clients")
             
+        Returns:
+            bool: True if navigation was successful, False otherwise
+        """
+        try:
+            # Navigate to the list view
+            if not self._navigate_to_accounts_list_view_url(view_name):
+                self.logger.error("Failed to navigate to list view")
+                self._take_screenshot("accounts-navigation-error")
+                return False
+                
             # Wait for the search input
             if not self._wait_for_selector('ACCOUNT', 'search_input', timeout=20000):
                 self.logger.error("Search input not found")
@@ -45,7 +54,39 @@ class AccountManager(BasePage):
             self.logger.error(f"Error navigating to Accounts page: {str(e)}")
             self._take_screenshot("accounts-navigation-error")
             return False
+
+    def _navigate_to_accounts_list_view_url(self, view_name: str) -> bool:
+        """Navigate to a specific list view URL.
+        
+        Args:
+            view_name: Name of the list view to navigate to
             
+        Returns:
+            bool: True if navigation was successful, False otherwise
+        """
+        try:
+            # Construct the URL with the correct list view filter
+            # Convert view_name to the format expected by Salesforce (e.g., "All Clients" -> "AllClients")
+            filter_name = view_name.replace(" ", "")
+            url = f"{SALESFORCE_URL}/lightning/o/Account/list?filterName={filter_name}"
+            
+            # Check if we're already on the correct URL
+            current_url = self.page.url
+            if current_url == url:
+                self.logger.info(f"Already on the correct list view URL: {url}")
+                return True
+                
+            self.logger.info(f"Navigating directly to list view URL: {url}")
+            
+            # Navigate to the URL
+            self.page.goto(url)
+            self.page.wait_for_load_state('networkidle', timeout=10000)
+            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
+            return True
+        except Exception as e:
+            self.logger.error(f"Error navigating to list view URL: {str(e)}")
+            return False
+
     def search_account(self, account_name: str, view_name: str = "All Accounts") -> int:
         """Search for an account by name and return the number of items found.
         
@@ -59,20 +100,10 @@ class AccountManager(BasePage):
         try:
             self.logger.info(f"Searching for account: {account_name} in view: {view_name}")
             
-            # First ensure we're on the accounts list page
-            if not self.navigate_to_accounts_list_page():
-                self.logger.error("Failed to navigate to accounts list page")
+            # Navigate to the list view
+            if not self._navigate_to_accounts_list_view_url(view_name):
+                self.logger.error("Failed to navigate to list view")
                 return 0
-            
-            # Select the specified view
-            self.logger.info(f"Selecting '{view_name}' view...")
-            if not self.accounts_page.select_list_view(view_name):
-                self.logger.error(f"Failed to select '{view_name}' view")
-                return 0
-            
-            # Wait for the page to be fully loaded
-            self.page.wait_for_load_state('networkidle', timeout=10000)
-            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
             
             # Wait for the search input to be visible with increased timeout
             self.logger.info("Waiting for search input...")
@@ -83,24 +114,18 @@ class AccountManager(BasePage):
                 return 0
             
             # Ensure the search input is visible and clickable
-            self.logger.info("Ensuring search input is visible and clickable...")
             search_input.scroll_into_view_if_needed()
-            self.page.wait_for_timeout(1000)  # Wait for scroll to complete
+            self.page.wait_for_timeout(500)  # Short wait for scroll to complete
             
             # Click the search input to ensure it's focused
             search_input.click()
-            self.page.wait_for_timeout(500)  # Wait for focus
+            self.page.wait_for_timeout(500)  # Short wait for focus
             
-            # Clear the search input
-            self.logger.info("Clearing search input...")
+            # Clear and fill the search input
             search_input.fill("")
-            self.page.wait_for_timeout(500)  # Wait for clear
-            
-            # Type the account name character by character with longer delays
-            self.logger.info(f"Typing account name: {account_name}")
-            for char in account_name:
-                search_input.type(char, delay=200)  # Increased delay between characters
-                self.page.wait_for_timeout(100)  # Increased wait between characters
+            self.page.wait_for_timeout(500)  # Short wait for clear
+            search_input.fill(account_name)
+            self.page.wait_for_timeout(500)  # Short wait for fill
             
             # Verify the text was entered correctly
             actual_text = search_input.input_value()
@@ -109,7 +134,7 @@ class AccountManager(BasePage):
                 self._take_screenshot("search-text-mismatch")
                 return 0
             
-            self.logger.info("Pressing Enter...")
+            # Press Enter and wait for results
             self.page.keyboard.press("Enter")
             
             # Wait for search results with a more specific check
@@ -120,7 +145,7 @@ class AccountManager(BasePage):
                 self.logger.info("Loading spinner disappeared")
                 
                 # Wait a moment for results to appear
-                self.page.wait_for_timeout(2000)
+                self.page.wait_for_timeout(1000)  # Reduced wait time
                 
                 # Check the item count in the status message
                 try:
@@ -140,7 +165,6 @@ class AccountManager(BasePage):
                                 self.logger.info(f"Status message: {status_text}")
                                 
                                 # Extract the number of items
-                                self.logger.info("***Extracting the number of items...")
                                 match = re.search(r'(\d+\+?)\s+items?\s+•', status_text)
                                 if match:
                                     item_count_str = match.group(1)
@@ -183,64 +207,76 @@ class AccountManager(BasePage):
         self.logger.info(f"Checking if account exists: {account_name} in view: {view_name}")
         
         try:
-            # Search for the account
-            item_count = self.search_account(account_name, view_name=view_name)
+            # Navigate to the list view
+            if not self._navigate_to_accounts_list_view_url(view_name):
+                self.logger.error("Failed to navigate to list view")
+                return False
             
-            if item_count > 0:
-                # Verify the account name matches exactly
+            # Wait for the search input to be visible
+            self.logger.info("Waiting for search input...")
+            search_input = self.page.wait_for_selector('input[placeholder="Search this list..."]', timeout=20000)
+            if not search_input:
+                self.logger.error("Search input not found")
+                self._take_screenshot("search-input-not-found")
+                return False
+            
+            # Ensure the search input is visible and clickable
+            search_input.scroll_into_view_if_needed()
+            self.page.wait_for_timeout(500)  # Short wait for scroll to complete
+            
+            # Click the search input to ensure it's focused
+            search_input.click()
+            self.page.wait_for_timeout(500)  # Short wait for focus
+            
+            # Clear and fill the search input
+            search_input.fill("")
+            self.page.wait_for_timeout(500)  # Short wait for clear
+            search_input.fill(account_name)
+            self.page.wait_for_timeout(500)  # Short wait for fill
+            
+            # Verify the text was entered correctly
+            actual_text = search_input.input_value()
+            if actual_text != account_name:
+                self.logger.error(f"Search text mismatch. Expected: {account_name}, Got: {actual_text}")
+                self._take_screenshot("search-text-mismatch")
+                return False
+            
+            # Press Enter and wait for results
+            self.page.keyboard.press("Enter")
+            
+            # Wait for search results
+            self.logger.info("Waiting for search results...")
+            try:
+                # Wait for the loading spinner to disappear
+                self.page.wait_for_selector('.slds-spinner_container', state='hidden', timeout=5000)
+                self.logger.info("Loading spinner disappeared")
+                
+                # Wait a moment for results to appear
+                self.page.wait_for_timeout(1000)  # Reduced wait time
+                
+                # Check for the exact account name
                 account_link = self.page.locator(f'a[title="{account_name}"]').first
                 if account_link and account_link.is_visible():
                     self.logger.info(f"Account exists: {account_name}")
                     return True
-                    
-            self.logger.info(f"Account does not exist: {account_name}")
-            return False
+                
+                self.logger.info(f"Account does not exist: {account_name}")
+                return False
+                
+            except Exception as e:
+                self.logger.error(f"Error waiting for search results: {str(e)}")
+                return False
             
         except Exception as e:
             self.logger.error(f"Error checking if account exists: {str(e)}")
             return False
-            
+
     def click_account_name(self, account_name: str) -> bool:
         """Click on the account name in the search results."""
-        logging.info(f"****Clicking account name: {account_name}")
         try:
-            # Try the specific selector first
-            try:
-                self.logger.info(f"Trying specific selector: a[title='{account_name}']")
-                account_link = self.page.wait_for_selector(f"a[title='{account_name}']", timeout=4000)
-                if account_link and account_link.is_visible():
-                    # Scroll the element into view
-                    account_link.scroll_into_view_if_needed()
-                    # Wait a bit for any animations to complete
-                    self.page.wait_for_timeout(1000)
-                    # Click the element
-                    account_link.click()
-                    self.logger.info(f"***Clicked account link using specific selector")
-                    
-                    # Verify we're on the account view page
-                    logging.info(f"****Verifying we're on the account view page")
-                    current_url = self.page.url
-                    if '/view' not in current_url:
-                        self.logger.error(f"Not on account view page. Current URL: {current_url}")
-                        return False
-                    logging.info(f"****Current URL: {current_url}")
-
-                    # Extract account ID from URL
-                    logging.info(f"****Extracting account ID from URL: {current_url}")
-                    account_id_match = re.search(r'/Account/([^/]+)/view', current_url)
-                    if not account_id_match:
-                        self.logger.error(f"Could not extract account ID from URL: {current_url}")
-                        return False
-                    
-                    # Store the account ID
-                    self.current_account_id = account_id_match.group(1)
-                    self.logger.info(f"Stored account ID: {self.current_account_id}")
-                    return True
-            except Exception as e:
-                self.logger.info(f"Specific selector failed: {str(e)}")
-            
-            # If specific selector fails, try other selectors
+            # Try the most specific and reliable selectors first
             selectors = [
+                f'a[title="{account_name}"]',  # Most specific
                 f'a[data-refid="recordId"][data-special-link="true"][title="{account_name}"]',
                 f'td:first-child a[title="{account_name}"]',
                 f'table[role="grid"] tr:first-child td:first-child a',
@@ -249,41 +285,26 @@ class AccountManager(BasePage):
             
             for selector in selectors:
                 try:
-                    self.logger.info(f"Trying selector: {selector}")
-                    account_link = self.page.wait_for_selector(selector, timeout=4000)
+                    account_link = self.page.wait_for_selector(selector, timeout=2000)
                     if account_link and account_link.is_visible():
-                        # Scroll the element into view
+                        # Scroll and click in one operation
                         account_link.scroll_into_view_if_needed()
-                        # Wait a bit for any animations to complete
-                        self.page.wait_for_timeout(1000)
-                        # Click the element
                         account_link.click()
-                        self.logger.info(f"Clicked account link using selector: {selector}")
                         
-                        # Wait for navigation to complete
-                        self.page.wait_for_load_state("networkidle")
-                        self.page.wait_for_timeout(2000)  # Additional wait for page to stabilize
+                        # Wait for navigation with a shorter timeout
+                        self.page.wait_for_load_state("networkidle", timeout=5000)
                         
-                        # Verify we're on the account view page
+                        # Verify we're on the account view page and extract ID
                         current_url = self.page.url
-                        if '/view' not in current_url:
-                            self.logger.error(f"Not on account view page. Current URL: {current_url}")
-                            continue
-                            
-                        # Extract account ID from URL
-                        account_id_match = re.search(r'/Account/([^/]+)/view', current_url)
-                        if not account_id_match:
-                            self.logger.error(f"Could not extract account ID from URL: {current_url}")
-                            continue
-                            
-                        account_id = account_id_match.group(1)
-                        self.logger.info(f"Successfully navigated to account view page. Account ID: {account_id}")
-                        return True
-                except Exception as e:
-                    self.logger.info(f"Selector {selector} failed: {str(e)}")
+                        if '/view' in current_url:
+                            account_id_match = re.search(r'/Account/([^/]+)/view', current_url)
+                            if account_id_match:
+                                self.current_account_id = account_id_match.group(1)
+                                return True
+                except Exception:
                     continue
             
-            self.logger.error("Could not find or click account link with any selector")
+            self.logger.error(f"Could not find or click account link for: {account_name}")
             return False
             
         except Exception as e:
@@ -346,12 +367,28 @@ class AccountManager(BasePage):
         else:
             raise Exception("Next button not found")
             
+    def get_full_name(self, first_name: str, last_name: str, middle_name: Optional[str] = None) -> str:
+        """Get the full name including middle name if available.
+        
+        Args:
+            first_name: First name
+            last_name: Last name
+            middle_name: Optional middle name
+            
+        Returns:
+            str: Full name in the format "FirstName MiddleName LastName" or "FirstName LastName"
+        """
+        if middle_name:
+            return f"{first_name} {middle_name} {last_name}"
+        return f"{first_name} {last_name}"
+
     def create_new_account(self, first_name: str, last_name: str, 
                           middle_name: Optional[str] = None, 
                           account_info: Optional[Dict[str, str]] = None) -> bool:
         """Create a new account with the given information."""
         try:
-            self.logger.info(f"Creating new account for: {first_name} {last_name}")
+            full_name = self.get_full_name(first_name, last_name, middle_name)
+            self.logger.info(f"Creating new account for: {full_name}")
             
             # Click New button
             self.logger.info("Step 1: Attempting to click New button...")
@@ -416,9 +453,8 @@ class AccountManager(BasePage):
             # Wait for save confirmation with increased timeout
             self.logger.info("Step 9: Waiting for save confirmation...")
             try:
-                # # Wait for network to be idle
-                # self.page.wait_for_load_state('networkidle', timeout=600)  # Increased to 60 seconds
-                # self.page.wait_for_timeout(10000)  # Additional 10 second wait
+                # Wait for network to be idle
+                self.page.wait_for_load_state('networkidle', timeout=60000)  # 60 second timeout
                 
                 # Try multiple confirmation methods
                 confirmation_found = False
@@ -441,10 +477,14 @@ class AccountManager(BasePage):
                 logging.info(f"confirmation_found: {confirmation_found}")
                 if not confirmation_found:
                     try:
-                        logging.info(f"Waiting for URL lambda url: '/view' in url") 
-                        self.page.wait_for_url(lambda url: '/view' in url, timeout=4000)
+                        # Wait for URL to change to view page
+                        self.page.wait_for_url(lambda url: '/view' in url, timeout=40000)
                         self.logger.info("URL changed to view page")
                         confirmation_found = True
+                        
+                        # Additional wait for page load after URL change
+                        self.page.wait_for_load_state('networkidle', timeout=20000)
+                        self.page.wait_for_load_state('domcontentloaded', timeout=20000)
                     except Exception as e:
                         self.logger.info(f"URL did not change: {str(e)}")
                 
@@ -477,7 +517,7 @@ class AccountManager(BasePage):
                 if not self._verify_account_creation(first_name, last_name, middle_name):
                     self.logger.error("Could not verify account creation")
                     self._take_screenshot("account-verification-error")
-                    sys.exit(1)
+                    return False
                 self.logger.info("Successfully verified account creation")
                 
                 self.logger.info("Successfully created new account")
@@ -486,7 +526,7 @@ class AccountManager(BasePage):
             except Exception as e:
                 self.logger.error(f"Error during save confirmation: {str(e)}")
                 self._take_screenshot("save-confirmation-error")
-                sys.exit(1)
+                return False
             
         except Exception as e:
             self.logger.error(f"Error creating new account: {str(e)}")
@@ -635,15 +675,23 @@ class AccountManager(BasePage):
         Returns either an integer or a string (e.g. "50+") representing the number of files.
         """
         files_url = f"{SALESFORCE_URL}/lightning/r/Account/{account_id}/related/AttachedContentDocuments/view"
-        logging.info(f"Navigating to Files page for account {account_id}: {files_url}")
-        self.page.goto(files_url)
+        logging.info(f"Checking current URL for account {account_id}")
+        
+        # Check if we're already on the correct files URL
+        current_url = self.page.url
+        if current_url != files_url:
+            logging.info(f"Navigating to Files page for account {account_id}: {files_url}")
+            self.page.goto(files_url)
+        else:
+            logging.info(f"Already on Files page for account {account_id}")
+            
         file_manager_instance = file_manager.FileManager(self.page)
         num_files = file_manager_instance.extract_files_count_from_status()
         logging.info(f"Initial number of files: {num_files}")
         
         # Scroll to load all files if we see a "50+" count
         if isinstance(num_files, str) and '+' in str(num_files):
-            logging.info("Found '50+' count, scrolling to load all files...")
+            logging.info("Found '{num_files}+' count, scrolling to load all files...")
             actual_count = file_manager_instance.scroll_to_bottom_of_page()
             if actual_count > 0:
                 logging.info(f"Final number of files after scrolling: {actual_count}")
@@ -651,103 +699,35 @@ class AccountManager(BasePage):
             
         return num_files
 
-        
-    def get_all_file_names_for_this_account(self, account_id: str) -> List[str]:
+    def get_all_file_names_for_account(self, account_id: str) -> List[str]:
         """
         Get all file names associated with an account.
         
         Args:
             account_id: The Salesforce account ID
-            
+        
         Returns:
             List[str]: List of file names found in the account
         """
         self.logger.info(f"Getting all file names for account {account_id}")
         
         try:
-            # Quick check if table is already visible
-            try:
-                table = self.page.locator('table.slds-table').first
-                if table.is_visible(timeout=1000):
-                    self.logger.info("Table is already visible")
-            except Exception:
-                # If not visible, wait briefly
-                self.page.wait_for_selector('table.slds-table', timeout=5000)
-            
-            # Get all file rows immediately
-            file_rows = self.page.locator('table.slds-table tbody tr').all()
-            if not file_rows:
-                self.logger.error("No file rows found")
+            # CAROLINA HERE
+            # Navigate to files section
+            logging.info("Navigating to files section")
+            logging.info(f"account_id: {account_id}")
+            num_files = self.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
+            if num_files == -1:
+                logging.error("Failed to navigate to Files")
                 return []
-            
-            self.logger.info(f"Found {len(file_rows)} file rows")
-            
-            # Get file information with minimal waits
-            logging.info("Getting file information with minimal waits")
-            file_names = []
-            total_rows = len(file_rows)
-            self.logger.info(f"Starting to process {total_rows} file rows...")
-            
-            for i, row in enumerate(file_rows, 1):
-                try:
-                    # Log progress every 10 files or at the start
-                    if i == 1 or i % 10 == 0:
-                        self.logger.info(f"Processing file {i}/{total_rows} ({(i/total_rows)*100:.1f}%)")
-                    
-                    # Get file name
-                    title_span = row.locator('span.itemTitle').first
-                    if not title_span:
-                        self.logger.warning(f"Skipping row {i}: No title span found")
-                        continue
-
-                    file_name = title_span.text_content(timeout=2000).strip()
-                    if not file_name:
-                        self.logger.warning(f"Skipping row {i}: Empty file name")
-                        continue
-                    
-                    # Get file type from the type column
-                    file_type = 'Unknown'
-                    try:
-                        type_cell = row.locator('th:nth-child(2) span a div').first
-                        if type_cell:
-                            type_text = type_cell.text_content(timeout=1000).strip()
-                            if type_text:
-                                # Extract just the file type by removing the filename part
-                                # The filename part starts with a number or is all caps
-                                type_match = re.match(r'^([A-Za-z\s]+)(?=\d|[A-Z]{2,})', type_text)
-                                if type_match:
-                                    file_type = type_match.group(1).strip()
-                                else:
-                                    file_type = type_text
-                    except Exception:
-                        # If we can't get the type from the cell, try file extension
-                        if file_name.lower().endswith('.pdf'):
-                            file_type = 'PDF'
-                        elif file_name.lower().endswith(('.doc', '.docx')):
-                            file_type = 'DOC'
-                        elif file_name.lower().endswith(('.xls', '.xlsx')):
-                            file_type = 'XLS'
-                        elif file_name.lower().endswith('.txt'):
-                            file_type = 'TXT'
-                        elif file_name.lower().endswith(('.jpg', '.jpeg', '.png')):
-                            file_type = 'IMG'
-                    
-                    # Clean the file name by removing any existing numbers and file types
-                    clean_name = re.sub(r'^\d+\.\s*', '', file_name)
-                    clean_name = re.sub(r'\s*\[\w+\]\s*$', '', clean_name)
-                    
-                    file_names.append(f"{i}. {clean_name} [{file_type}]")
-                    self.logger.debug(f"Successfully processed file {i}: {clean_name} [{file_type}]")
-                except Exception as e:
-                    self.logger.warning(f"Error getting file info for row {i}: {str(e)}")
-                    continue
-            
-            self.logger.info(f"Completed processing {len(file_names)}/{total_rows} files successfully")
-            return file_names
+                
+            # Use FileManager to get file names
+            file_manager_instance = file_manager.FileManager(self.page)
+            return file_manager_instance.get_all_file_names()
             
         except Exception as e:
             self.logger.error(f"Error getting file names: {str(e)}")
-            return [] 
+            return []
 
     def get_default_condition(self):
         """Get the default condition for filtering accounts."""
@@ -755,18 +735,158 @@ class AccountManager(BasePage):
             return self.account_has_files(account['id'])
         return condition
 
+    def _get_accounts_base(self, view_name: str = "All Clients") -> List[Dict[str, str]]:
+        """
+        Get all accounts from the current list view.
+        
+        Args:
+            view_name: Name of the list view to select
+            
+        Returns:
+            List[Dict[str, str]]: List of account dictionaries with 'name' and 'id' keys
+        """
+        try:
+            self.logger.debug(f"Getting accounts base: {view_name}")
+            # Navigate to accounts page
+            self.logger.debug(f"Navigating to Accounts page: {SALESFORCE_URL}/lightning/o/Account/list?filterName=__Recent")
+            if not self.navigate_to_accounts_list_page():
+                self.logger.error("Failed to navigate to Accounts page")
+                return []
+
+            # Select the specified list view
+            self.logger.debug(f"Selecting list view: {view_name}")
+            if not self._navigate_to_accounts_list_view_url(view_name):
+                return []
+
+            # Wait for table to be visible
+            self.logger.debug(f"Waiting for table to be visible")
+            try:
+                table = self.page.wait_for_selector('table[role="grid"]', timeout=10000)
+                if not table:
+                    self.logger.error("Table element not found")
+                    return []
+                self.logger.debug("Table element found")
+            except Exception as e:
+                self.logger.error(f"Table not found after 10 seconds: {str(e)}")
+                return []
+
+            # Wait for table to be populated and visible
+            self.logger.debug(f"Waiting for table to be populated and visible")
+            try:
+                # Wait for the table to be fully loaded
+                self.logger.debug("Waiting for network to be idle")
+                self.page.wait_for_load_state('networkidle', timeout=10000)
+                
+                # Wait for the loading spinner to disappear (if present)
+                try:
+                    self.logger.debug("Waiting for loading spinner to disappear")
+                    self.page.wait_for_selector('.slds-spinner_container', state='hidden', timeout=5000)
+                except:
+                    self.logger.debug("No loading spinner found")
+                
+                # Force the table to be visible by evaluating JavaScript
+                self.logger.debug("Forcing table visibility with JavaScript")
+                self.page.evaluate("""
+                    () => {
+                        const table = document.querySelector('table[role="grid"]');
+                        if (table) {
+                            console.log('Found table element');
+                            table.style.visibility = 'visible';
+                            table.style.display = 'table';
+                            const rows = table.querySelectorAll('tr');
+                            console.log('Found ' + rows.length + ' rows');
+                            rows.forEach(row => {
+                                row.style.visibility = 'visible';
+                                row.style.display = 'table-row';
+                            });
+                            return rows.length;
+                        }
+                        return 0;
+                    }
+                """)
+                
+                # Get all rows
+                self.logger.debug("Getting all table rows")
+                rows = self.page.locator('table[role="grid"] tr').all()
+                if not rows:
+                    self.logger.error("No rows found in table")
+                    return []
+                
+                self.logger.debug(f"Found {len(rows)} rows in table")
+                
+                # Additional wait to ensure table is fully rendered
+                self.logger.debug("Waiting for table to stabilize")
+                self.page.wait_for_timeout(2000)
+                
+            except Exception as e:
+                self.logger.error(f"Error waiting for table rows: {str(e)}")
+                return []
+
+            accounts = []
+            
+            for idx, row in enumerate(rows):
+                try:
+                    # Log the outer HTML of the row for debugging
+                    try:
+                        outer_html = row.evaluate('el => el.outerHTML')
+                        # self.logger.debug(f"Row {idx} outer HTML: {outer_html}")
+                        for handler in logging.getLogger().handlers:
+                            handler.flush()
+                    except Exception as e:
+                        self.logger.warning(f"Could not get outer HTML for row {idx}: {e}")
+                    # Skip header rows
+                    first_cell = row.locator('th, td').nth(0)
+                    if first_cell.count() > 0:
+                        tag = first_cell.evaluate('el => el.tagName.toLowerCase()')
+                        scope = first_cell.get_attribute('scope')
+                        if tag == 'th' and (scope == 'col' or (first_cell.get_attribute('role') == 'cell' and scope == 'col')):
+                            continue
+                    # Try to get account name and ID from <th scope="row"> a
+                    name_cell = row.locator('th[scope="row"] a')
+                    if name_cell.count() == 0:
+                        # Fallback to <td:first-child a>
+                        name_cell = row.locator('td:first-child a')
+                    if name_cell.count() == 0:
+                        continue
+                    try:
+                        name = name_cell.nth(0).text_content(timeout=10000).strip()
+                        href = name_cell.nth(0).get_attribute('href')
+                        # ***Account name: Irasis Abislaiman-Saade href: /lightning/r/001Dn00000VskmFIAR/view
+
+                        account_id = href.split('/')[-2] if href else None
+                        if name and account_id:
+                            accounts.append({
+                                'name': name,
+                                'id': account_id
+                            })
+                        self.logger.debug(f"***Account name: {name} found")
+                        self.logger.debug(f"***Account id: {account_id} found")
+                       
+                    except Exception as e:
+                        self.logger.warning(f"Error getting text content for row: {str(e)}")
+                        continue
+                except Exception as e:
+                    self.logger.warning(f"Error processing account row: {str(e)}")
+                    continue
+            
+            return accounts
+            
+        except Exception as e:
+            self.logger.error(f"Error getting accounts: {str(e)}")
+            return []
+
     def get_accounts_matching_condition(
         self,
         max_number: int = 10,
         condition: Callable[[Dict[str, str]], bool] = None,
-        drop_down_option_text: str = "All Clients"
+        view_name: str = "All Clients"
     ) -> List[Dict[str, str]]:
         """
         Keep iterating through all accounts until max_number accounts that match a condition.
         By default, returns accounts that have more than 0 files.
         """
         accounts = []
-        all_accounts = self.accounts_page._get_accounts_base(drop_down_option_text=drop_down_option_text)
+        all_accounts = self._get_accounts_base(view_name=view_name)
         processed_accounts = []
         the_condition = condition if condition is not None else self.get_default_condition()
         for account in all_accounts:
@@ -781,7 +901,7 @@ class AccountManager(BasePage):
         logging.info(f"Total accounts processed: {len(processed_accounts)}")
         for acc in processed_accounts:
             logging.info(f"Processed account: Name={acc['name']}, ID={acc['id']}, Files={acc['files_count']}")
-        return accounts 
+        return accounts
 
     def verify_account_page_url(self) -> tuple[bool, Optional[str]]:
         """Verify that the current URL is a valid account page URL and extract the account ID.
@@ -861,17 +981,18 @@ class AccountManager(BasePage):
             logging.error(f"Could not extract files count for account {account_id}: {e}")
             sys.exit(1)
 
-    def delete_account(self, full_name: str) -> bool:
+    def delete_account(self, full_name: str, view_name: str = "Recent") -> bool:
         """
         Delete an account by name.
         Args:
             full_name: Full name of the account to delete
+            view_name: Name of the view to search in (default: "Recent")
         Returns:
             bool: True if deletion was successful, False otherwise
         """
         try:
             # Search for the account
-            if not self.account_exists(full_name):
+            if not self.account_exists(full_name, view_name=view_name):
                 self.logger.error(f"Account {full_name} does not exist")
                 return False
             # Click on the account name to navigate to it
@@ -1010,7 +1131,18 @@ class AccountManager(BasePage):
             # Skip header row
             for i, row in enumerate(rows[1:], 1):  # Skip the first row (header)
                 try:
-                    # Try different selectors to find the account name
+                    # Prioritize extracting from <th scope="row"> a
+                    name_cell = row.locator('th[scope="row"] a')
+                    if name_cell.count() > 0:
+                        try:
+                            account_name = name_cell.nth(0).text_content(timeout=1000)
+                            if account_name and account_name.strip():
+                                account_names.append(account_name.strip())
+                                self.logger.info(f"Found account using <th scope='row'> a: {account_name.strip()}")
+                                continue
+                        except Exception as e:
+                            self.logger.warning(f"Timeout or error getting text for <th scope='row'> a in row {i}: {str(e)}")
+                    # Fallback to previous selectors if needed
                     selectors = [
                         'td:first-child a',  # Standard link in first cell
                         'td:first-child',    # First cell if no link
@@ -1048,6 +1180,86 @@ class AccountManager(BasePage):
         self.logger.info(f"Extracted accounts: {account_names}")
         return account_names
 
+    def extract_name_parts(self, name: str) -> dict:
+        """Extract name parts from a name string."""
+        result = {
+            'last_name': '',
+            'first_name': '',
+            'middle_name': '',
+            'additional_info': ''
+        }
+        
+        # Extract additional info in parentheses
+        if '(' in name:
+            parts = name.split('(')
+            main_name = parts[0].strip()
+            result['additional_info'] = parts[1].rstrip(')').strip()
+        else:
+            main_name = name
+        
+        # Handle names with commas
+        if ',' in main_name:
+            parts = main_name.split(',')
+            result['last_name'] = parts[0].strip()
+            if len(parts) > 1:
+                # Split the remaining part into first and middle names
+                name_parts = parts[1].strip().split()
+                if name_parts:
+                    result['first_name'] = name_parts[0]
+                    if len(name_parts) > 1:
+                        result['middle_name'] = ' '.join(name_parts[1:])
+        else:
+            # Handle names with ampersands
+            if '&' in main_name:
+                parts = main_name.split('&')
+                main_name = parts[0].strip()
+            
+            # Split remaining name parts
+            name_parts = main_name.split()
+            if len(name_parts) >= 2:
+                # Take the last word as the last name
+                result['last_name'] = name_parts[-1]
+                result['first_name'] = name_parts[0]
+                if len(name_parts) > 2:
+                    result['middle_name'] = ' '.join(name_parts[1:-1])
+            else:
+                result['last_name'] = main_name
+        
+        # Normalize the name parts
+        result['last_name'] = result['last_name'].strip()
+        result['first_name'] = result['first_name'].strip()
+        result['middle_name'] = result['middle_name'].strip()
+        
+        # Create normalized versions of the name
+        result['normalized_names'] = []
+        
+        # Add the original name
+        result['normalized_names'].append(name.lower().strip())
+        
+        # Add comma-separated version
+        if result['first_name'] and result['last_name']:
+            result['normalized_names'].append(f"{result['last_name']}, {result['first_name']}".lower().strip())
+            result['normalized_names'].append(f"{result['last_name']},{result['first_name']}".lower().strip())
+            
+            # Add comma-separated version with middle name
+            if result['middle_name']:
+                result['normalized_names'].append(f"{result['last_name']}, {result['first_name']} {result['middle_name']}".lower().strip())
+                result['normalized_names'].append(f"{result['last_name']},{result['first_name']} {result['middle_name']}".lower().strip())
+        
+        # Add space-separated version
+        if result['first_name'] and result['last_name']:
+            result['normalized_names'].append(f"{result['first_name']} {result['last_name']}".lower().strip())
+        
+        # Add version with middle name
+        if result['middle_name']:
+            if result['first_name'] and result['last_name']:
+                result['normalized_names'].append(f"{result['first_name']} {result['middle_name']} {result['last_name']}".lower().strip())
+        
+        # Remove duplicates and empty strings
+        result['normalized_names'] = list(set(n for n in result['normalized_names'] if n))
+        
+        return result
+
     def fuzzy_search_account(self, folder_name: str, view_name: str = "All Clients") -> dict:
         """
         Perform a fuzzy search for an account using a folder name.
@@ -1062,51 +1274,9 @@ class AccountManager(BasePage):
                 - matches: List of matching account names
                 - search_attempts: List of search attempts with their results
         """
-        def extract_name_parts(name: str) -> dict:
-            """Extract name parts from a name string."""
-            result = {
-                'last_name': '',
-                'first_name': '',
-                'middle_name': '',
-                'additional_info': ''
-            }
-            
-            # Extract additional info in parentheses
-            if '(' in name:
-                parts = name.split('(')
-                main_name = parts[0].strip()
-                result['additional_info'] = parts[1].rstrip(')').strip()
-            else:
-                main_name = name
-            
-            # Handle names with commas
-            if ',' in main_name:
-                parts = main_name.split(',')
-                result['last_name'] = parts[0].strip()
-                if len(parts) > 1:
-                    name_parts = parts[1].strip().split()
-                    if name_parts:
-                        result['first_name'] = name_parts[0]
-                        if len(name_parts) > 1:
-                            result['middle_name'] = ' '.join(name_parts[1:])
-            else:
-                # Handle names with ampersands
-                if '&' in main_name:
-                    parts = main_name.split('&')
-                    main_name = parts[0].strip()
-                
-                # Split remaining name parts
-                name_parts = main_name.split()
-                if len(name_parts) >= 2:
-                    result['last_name'] = name_parts[-1]
-                    result['first_name'] = name_parts[0]
-                    if len(name_parts) > 2:
-                        result['middle_name'] = ' '.join(name_parts[1:-1])
-                else:
-                    result['last_name'] = main_name
-            
-            return result
-
+        start_time = time.time()
+        self.logger.info(f"Starting fuzzy search for folder: '{folder_name}' in view: '{view_name}'")
+        
         # Initialize result
         result = {
             'status': 'Not Found',
@@ -1116,91 +1286,192 @@ class AccountManager(BasePage):
         
         try:
             # Extract name parts
-            name_parts = extract_name_parts(folder_name)
+            name_extraction_start = time.time()
+            self.logger.info(f"Extracting name parts from folder name: '{folder_name}'")
+            name_parts = self.extract_name_parts(folder_name)
+            name_extraction_duration = time.time() - name_extraction_start
             self.logger.info(f"Extracted name parts: {name_parts}")
+            self.logger.info(f"Normalized names for comparison: {name_parts['normalized_names']}")
+            self.logger.info(f"Name extraction took {name_extraction_duration:.2f} seconds")
             
-            # Select the specified view
-            self.logger.info(f"Selecting '{view_name}' view...")
-            if not self.accounts_page.select_list_view(view_name):
-                self.logger.error(f"Failed to select '{view_name}' view")
+            # Navigate to the list view
+            navigation_start = time.time()
+            if not self._navigate_to_accounts_list_view_url(view_name):
+                self.logger.error("Failed to navigate to list view")
                 return result
             
-            # Search by last name first
-            self.logger.info(f"Attempt 1/3: Searching by last name '{name_parts['last_name']}'...")
-            search_result = self.search_account(name_parts['last_name'], view_name=view_name)
+            # Wait for the table to be visible
+            try:
+                # Wait for the loading spinner to disappear
+                self.page.wait_for_selector('.slds-spinner_container', state='hidden', timeout=5000)
+                self.logger.info("Loading spinner disappeared")
+                
+                # Wait for the table to be visible
+                table = self.page.wait_for_selector('table[role="grid"]', timeout=5000)
+                if not table:
+                    self.logger.error("Table not visible after navigation")
+                    return result
+                    
+                navigation_duration = time.time() - navigation_start
+                self.logger.info(f"Table is visible after navigation (took {navigation_duration:.2f} seconds)")
+            except Exception as e:
+                self.logger.error(f"Error verifying list view navigation: {str(e)}")
+                return result
             
-            # Get matching account names
-            matching_accounts = []
-            if search_result > 0:
-                self.logger.info(f"Found {search_result} matches, extracting account names...")
-                matching_accounts = self.get_account_names()
+            # Determine the best search key
+            search_key = None
+            search_type = None
             
-            result['search_attempts'].append({
-                'type': 'last_name',
-                'query': name_parts['last_name'],
+            # If we have a middle name, use the full name for better matching
+            if name_parts['middle_name']:
+                search_key = f"{name_parts['first_name']} {name_parts['middle_name']} {name_parts['last_name']}"
+                search_type = 'full_name'
+                self.logger.info(f"Using full name with middle name as search key: '{search_key}'")
+            # If we have a LastName, FirstName format, use FirstName LastName
+            elif (name_parts['first_name'] and name_parts['last_name'] and 
+                not name_parts['additional_info']):
+                search_key = f"{name_parts['first_name']} {name_parts['last_name']}"
+                search_type = 'reversed_name'
+                self.logger.info(f"Using reversed name format (FirstName LastName) as search key: '{search_key}'")
+            else:
+                # Otherwise use last name
+                search_key = name_parts['last_name']
+                search_type = 'last_name'
+                self.logger.info(f"Using last name as search key: '{search_key}'")
+            
+            # Perform the search
+            search_start = time.time()
+            self.logger.info(f"Performing search with {search_type}: '{search_key}'...")
+            search_result = self.search_account(search_key, view_name=view_name)
+            search_duration = time.time() - search_start
+            self.logger.info(f"Search returned {search_result} matches (took {search_duration:.2f} seconds)")
+            
+            # Record this search attempt
+            search_attempt = {
+                'type': search_type,
+                'query': search_key,
                 'matches': search_result,
-                'matching_accounts': matching_accounts
-            })
+                'matching_accounts': [],
+                'duration': search_duration
+            }
+            result['search_attempts'].append(search_attempt)
+            self.logger.info(f"Recorded search attempt: {search_attempt}")
             
-            if search_result > 0:
-                # If we found matches, try to find the exact account
-                if name_parts['first_name']:
-                    full_name = f"{name_parts['first_name']} {name_parts['last_name']}"
-                    self.logger.info(f"Attempt 2/3: Checking for exact match '{full_name}'...")
-                    if self.account_exists(full_name, view_name=view_name):
-                        self.logger.info(f"Found exact match: {full_name}")
-                        result['status'] = 'Exact Match'
-                        result['matches'].append(full_name)
-                        return result
+            # If no matches found, try searching with just first and last name
+            if search_result == 0 and name_parts['middle_name']:
+                self.logger.info("No matches found with full name, trying with first and last name only...")
+                fallback_key = f"{name_parts['first_name']} {name_parts['last_name']}"
+                fallback_result = self.search_account(fallback_key, view_name=view_name)
                 
-                # If no exact match, try searching with first name
-                if name_parts['first_name']:
-                    self.logger.info(f"Attempt 2/3: Searching with full name '{name_parts['first_name']} {name_parts['last_name']}'...")
-                    search_result = self.search_account(f"{name_parts['first_name']} {name_parts['last_name']}", view_name=view_name)
-                    
-                    # Get matching account names
-                    matching_accounts = []
-                    if search_result > 0:
-                        self.logger.info(f"Found {search_result} matches, extracting account names...")
-                        matching_accounts = self.get_account_names()
-                    
-                    result['search_attempts'].append({
-                        'type': 'full_name',
-                        'query': f"{name_parts['first_name']} {name_parts['last_name']}",
-                        'matches': search_result,
-                        'matching_accounts': matching_accounts
-                    })
+                # Record this fallback search attempt
+                fallback_attempt = {
+                    'type': 'fallback_name',
+                    'query': fallback_key,
+                    'matches': fallback_result,
+                    'matching_accounts': [],
+                    'duration': time.time() - search_start
+                }
+                result['search_attempts'].append(fallback_attempt)
+                self.logger.info(f"Recorded fallback search attempt: {fallback_attempt}")
                 
-                # If still no match, try searching with additional info
-                if name_parts['additional_info']:
-                    search_query = f"{name_parts['last_name']} {name_parts['additional_info']}"
-                    self.logger.info(f"Attempt 3/3: Searching with additional info '{search_query}'...")
-                    search_result = self.search_account(search_query, view_name=view_name)
-                    
-                    # Get matching account names
-                    matching_accounts = []
-                    if search_result > 0:
-                        self.logger.info(f"Found {search_result} matches, extracting account names...")
-                        matching_accounts = self.get_account_names()
-                    
-                    result['search_attempts'].append({
-                        'type': 'with_additional_info',
-                        'query': search_query,
-                        'matches': search_result,
-                        'matching_accounts': matching_accounts
-                    })
+                if fallback_result > 0:
+                    search_result = fallback_result
+                    search_key = fallback_key
+                    self.logger.info(f"Found {fallback_result} matches with fallback search")
+            
+            # If still no matches found, return early
+            if search_result == 0:
+                total_duration = time.time() - start_time
+                self.logger.info(f"No matches found for any search key, returning early (total time: {total_duration:.2f} seconds)")
+                return result
+            
+            # Get all matching accounts and their data
+            matching_start = time.time()
+            self.logger.info(f"Found {search_result} matches, extracting account data...")
+            matching_accounts = self.get_account_names()
+            matching_duration = time.time() - matching_start
+            self.logger.info(f"Retrieved {len(matching_accounts)} matching accounts: {matching_accounts} (took {matching_duration:.2f} seconds)")
+            
+            # Check for exact matches in memory
+            matching_process_start = time.time()
+            exact_matches = []
+            partial_matches = []
+            
+            self.logger.info("Starting in-memory matching process...")
+            for account in matching_accounts:
+                normalized_account = account.lower().strip()
+                self.logger.info(f"Processing account: '{account}' (normalized: '{normalized_account}')")
                 
-                # Update status if we found any matches
-                if any(attempt['matches'] > 0 for attempt in result['search_attempts']):
-                    result['status'] = 'Partial Match'
-                    # Add all unique matching accounts to the matches list
-                    all_matches = set()
-                    for attempt in result['search_attempts']:
-                        if attempt['matching_accounts']:
-                            all_matches.update(attempt['matching_accounts'])
-                    result['matches'] = list(all_matches)
+                # Check for exact match
+                if normalized_account in name_parts['normalized_names']:
+                    self.logger.info(f"Found exact match: '{account}' matches one of the normalized names")
+                    exact_matches.append(account)
+                else:
+                    # Check for partial match
+                    self.logger.info(f"No exact match found, checking for partial match...")
+                    account_parts = self.extract_name_parts(account)
+                    self.logger.info(f"Extracted parts from account name: {account_parts}")
+                    
+                    # Check if last names match
+                    if account_parts['last_name'].lower() == name_parts['last_name'].lower():
+                        self.logger.info(f"Last names match: '{account_parts['last_name']}' == '{name_parts['last_name']}'")
+                        
+                        # Check if first names match or are similar
+                        first_name_match = (
+                            account_parts['first_name'].lower() == name_parts['first_name'].lower() or
+                            account_parts['first_name'].lower().startswith(name_parts['first_name'].lower()) or
+                            name_parts['first_name'].lower().startswith(account_parts['first_name'].lower())
+                        )
+                        
+                        # Check if middle names match or are similar
+                        middle_name_match = True
+                        if name_parts['middle_name'] and account_parts['middle_name']:
+                            middle_name_match = (
+                                account_parts['middle_name'].lower() == name_parts['middle_name'].lower() or
+                                account_parts['middle_name'].lower().startswith(name_parts['middle_name'].lower()) or
+                                name_parts['middle_name'].lower().startswith(account_parts['middle_name'].lower())
+                            )
+                        
+                        if first_name_match and middle_name_match:
+                            self.logger.info(f"First and middle names match or are similar, adding as partial match: '{account}'")
+                            partial_matches.append(account)
+                        else:
+                            self.logger.info(f"First or middle names don't match: '{account_parts['first_name']} {account_parts['middle_name']}' != '{name_parts['first_name']} {name_parts['middle_name']}'")
+                    else:
+                        self.logger.info(f"Last names don't match: '{account_parts['last_name']}' != '{name_parts['last_name']}'")
+            
+            matching_process_duration = time.time() - matching_process_start
+            self.logger.info(f"Matching process completed in {matching_process_duration:.2f} seconds")
+            
+            # Update result based on matches found
+            if exact_matches:
+                result['status'] = 'Exact Match'
+                result['matches'] = exact_matches
+                self.logger.info(f"Found {len(exact_matches)} exact matches: {exact_matches}")
+            elif partial_matches:
+                result['status'] = 'Partial Match'
+                result['matches'] = partial_matches
+                self.logger.info(f"Found {len(partial_matches)} partial matches: {partial_matches}")
+            else:
+                self.logger.info("No exact or partial matches found")
+            
+            total_duration = time.time() - start_time
+            self.logger.info(f"Fuzzy search completed with status: {result['status']} (total time: {total_duration:.2f} seconds)")
+            
+            # Add timing information to the result
+            result['timing'] = {
+                'name_extraction': name_extraction_duration,
+                'navigation': navigation_duration,
+                'search': search_duration,
+                'matching': matching_duration,
+                'matching_process': matching_process_duration,
+                'total': total_duration
+            }
+            
+            return result
             
         except Exception as e:
-            self.logger.error(f"Error in fuzzy search: {str(e)}")
-        
-        return result
+            total_duration = time.time() - start_time
+            self.logger.error(f"Error in fuzzy search: {str(e)} (total time: {total_duration:.2f} seconds)")
+            self.logger.exception("Full traceback:")
+            return result

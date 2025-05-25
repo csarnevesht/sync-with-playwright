@@ -4,10 +4,10 @@ import tempfile
 import re
 import time
 from playwright.sync_api import Page
-from salesforce.pages.accounts_page import AccountsPage
+from ..pages.accounts_page import AccountsPage
 import logging
-from salesforce.pages.file_manager import FileManager
-from salesforce.pages.account_manager import AccountManager
+from ..pages.file_manager import FileManager
+from ..pages.account_manager import AccountManager
 
 
 
