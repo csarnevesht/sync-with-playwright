@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Dict
 import os
 import logging
 from .base_page import BasePage
@@ -6,6 +6,9 @@ from playwright.sync_api import Page
 import re
 import sys
 from ..utils.debug_utils import debug_prompt
+from ..utils.file_utils import get_file_type, parse_search_file_pattern
+from dropbox.files import FileMetadata
+from sync.utils.file_utils import sort_files, sort_files_by_date
 
 class FileManager(BasePage):
     """Handles file-related operations in Salesforce."""
@@ -289,7 +292,7 @@ class FileManager(BasePage):
             except Exception as e:
                 self.logger.info(f"Failed to get type from column, falling back to extension: {str(e)}")
                 # If we can't get the type from the cell, try file extension
-                file_type = self._get_file_type_from_extension(file_name)
+                file_type = get_file_type(file_name)
                 self.logger.info(f"Determined file type from extension: '{file_type}'")
             
             # Clean the file name by removing any existing numbers and file types
@@ -353,7 +356,7 @@ class FileManager(BasePage):
                 self.logger.info(f"Full name: '{file_info['full_name']}'")
                 
                 # Parse the search pattern into file info
-                search_file_info = self._parse_search_file_pattern(file_pattern)
+                search_file_info = parse_search_file_pattern(file_pattern)
                 self.logger.info(f"Search file info: {search_file_info}")
                 
                 # Normalize both the pattern and the file names for comparison
@@ -393,9 +396,8 @@ class FileManager(BasePage):
         Returns:
             List[str]: List of file names found in the format "1. filename [TYPE]"
         """
-        self.logger.info(f"Getting all file names")
-        
         try:
+            self.logger.info(f"Getting all file names")
             # Verify we're on the correct Files page
             current_url = self.page.url
             if not current_url.endswith('/related/AttachedContentDocuments/view'):
@@ -406,7 +408,7 @@ class FileManager(BasePage):
             max_attempts = 5
             for attempt in range(max_attempts):
                 try:
-                    table = self.page.wait_for_selector('table.slds-table', timeout=4000)
+                    table = self.page.wait_for_selector('table.slds-table', timeout=6000)
                     file_rows = self.page.locator('table.slds-table tbody tr').all()
                     if file_rows and len(file_rows) > 0:
                         # Optionally, check if at least one row has a visible span.itemTitle
@@ -471,48 +473,296 @@ class FileManager(BasePage):
         match = re.search(r'/Account/(\w+)/related', url)
         return match.group(1) if match else None 
 
-    def _get_file_type_from_extension(self, file_name: str) -> str:
-        """Determine the file type from the file name extension.
-        
-        Args:
-            file_name: The name of the file
-            
-        Returns:
-            str: The standardized file type (PDF, DOC, XLS, TXT, IMG, or Unknown)
+    def compare_files(self, dropbox_files: List[FileMetadata], salesforce_files: List[str]) -> Dict:
         """
-        file_name = file_name.lower()
-        if file_name.endswith('.pdf'):
-            return 'PDF'
-        elif file_name.endswith(('.doc', '.docx')):
-            return 'DOC'
-        elif file_name.endswith(('.xls', '.xlsx')):
-            return 'XLS'
-        elif file_name.endswith('.txt'):
-            return 'TXT'
-        elif file_name.endswith(('.jpg', '.jpeg', '.png')):
-            return 'IMG'
-        return 'Unknown'
+        Compare files between Dropbox and Salesforce, logging detailed information.
+        Args:
+            dropbox_files: List of FileMetadata objects from Dropbox
+            salesforce_files: List of filenames from Salesforce
+        Returns:
+            dict: Comparison results with detailed status for each file
+        """
+        self.logger.info("\n" + "="*50)
+        self.logger.info("Starting file comparison process")
+        self.logger.info("="*50)
+        self.logger.info(f"\nInitial file counts:")
+        self.logger.info(f"  Dropbox files: {len(dropbox_files)}")
+        self.logger.info(f"  Salesforce files: {len(salesforce_files)}")
 
-    def _parse_search_file_pattern(self, file_pattern: str) -> dict:
-        """Parse a search file pattern into a file info dictionary.
-        
-        Args:
-            file_pattern: The file pattern to search for (e.g., "John Smith Application.pdf")
-            
-        Returns:
-            dict: Dictionary containing:
-                - name: The file name without extension
-                - type: The file type (PDF, DOC, etc.)
-                - full_name: The full file name with type in brackets
-        """
-        # Split the pattern to get name and extension
-        search_file_name = file_pattern.split('.')[0].strip()
-        search_file_type = self._get_file_type_from_extension(file_pattern)
-        
-        return {
-            'name': search_file_name,
-            'type': search_file_type,
-            'full_name': f"{search_file_name} [{search_file_type}]"
+        # Sort both lists by date (newest first)
+        sorted_dropbox = sort_files(dropbox_files)
+        sorted_salesforce = sort_files_by_date(salesforce_files)
+         
+        # Log sorted lists with dates
+        self.logger.info("\nDropbox files (sorted):")
+        for i, file in enumerate(sorted_dropbox, 1):
+            file_name = file.name if isinstance(file, FileMetadata) else file
+            date_prefix = file_name[:6]
+            base_name = file_name[6:]
+            self.logger.info(f"  {i:2d}. [{date_prefix}] {base_name}")
+        self.logger.info("\nSalesforce files (sorted):")
+        for i, file in enumerate(sorted_salesforce, 1):
+            date_prefix = file[:6]
+            base_name = file[6:]
+            self.logger.info(f"  {i:2d}. [{date_prefix}] {base_name}")
+
+        # Initialize comparison results
+        comparison = {
+            'total_files': len(dropbox_files),
+            'matched_files': 0,
+            'missing_files': [],
+            'extra_files': [],
+            'file_details': {}
         }
+
+        # Compare each Dropbox file
+        self.logger.info("\n" + "-"*50)
+        self.logger.info("Starting file comparison")
+        self.logger.info("-"*50)
+        for dropbox_file in sorted_dropbox:
+            dropbox_name = dropbox_file.name if isinstance(dropbox_file, FileMetadata) else dropbox_file
+            self.logger.info(f"\nChecking Dropbox file: {dropbox_name}")
+            # Parse the file name to get clean name and type
+            file_info = parse_search_file_pattern(dropbox_name)
+            date_prefix = dropbox_name[:6]
+            base_name = file_info['name'].lower()
+            found_match = False
+            potential_matches = []
+            for salesforce_file in sorted_salesforce:
+                # Remove enumeration numbers for comparison
+                sf_file = salesforce_file
+                if '. ' in sf_file:
+                    space_index = sf_file.find('. ') + 2
+                    if space_index > 1:
+                        sf_file = sf_file[space_index:]
+                if sf_file.startswith(date_prefix):
+                    potential_matches.append(salesforce_file)
+                    self.logger.info(f"  Found potential match with date prefix {date_prefix}: {salesforce_file}")
+                    if base_name in sf_file[6:].lower():
+                        self.logger.info(f"  ✓ MATCH FOUND: {salesforce_file}")
+                        found_match = True
+                        comparison['matched_files'] += 1
+                        comparison['file_details'][dropbox_name] = {
+                            'status': 'matched',
+                            'salesforce_file': salesforce_file,
+                            'match_type': 'exact' if base_name == sf_file[6:].lower() else 'partial'
+                        }
+                        break
+                    else:
+                        self.logger.info(f"  ✗ Date prefix matches but names differ:")
+                        self.logger.info(f"    Dropbox:    {base_name}")
+                        self.logger.info(f"    Salesforce: {sf_file[6:].lower()}")
+            if not found_match:
+                if potential_matches:
+                    self.logger.info(f"  ✗ NO EXACT MATCH FOUND for {dropbox_name}")
+                    self.logger.info(f"    Found {len(potential_matches)} files with matching date prefix:")
+                    for match in potential_matches:
+                        self.logger.info(f"      - {match}")
+                else:
+                    self.logger.info(f"  ✗ NO MATCH FOUND for {dropbox_name}")
+                    self.logger.info(f"    No files found with date prefix {date_prefix}")
+                comparison['missing_files'].append(dropbox_name)
+                comparison['file_details'][dropbox_name] = {
+                    'status': 'missing',
+                    'reason': f"Not found in Salesforce (existing prefix: {date_prefix})",
+                    'potential_matches': potential_matches
+                }
+
+        # Find extra files in Salesforce
+        self.logger.info("\n" + "-"*50)
+        self.logger.info("Checking for extra files in Salesforce")
+        self.logger.info("-"*50)
+        for salesforce_file in sorted_salesforce:
+            found_match = False
+            sf_file = salesforce_file
+            if '. ' in sf_file:
+                space_index = sf_file.find('. ') + 2
+                if space_index > 1:
+                    sf_file = sf_file[space_index:]
+            for dropbox_file in sorted_dropbox:
+                dropbox_name = dropbox_file.name if isinstance(dropbox_file, FileMetadata) else dropbox_file
+                if sf_file.startswith(dropbox_name[:6]) and dropbox_name[6:].lower() in sf_file[6:].lower():
+                    found_match = True
+                    break
+            if not found_match:
+                self.logger.info(f"  ✗ Extra file in Salesforce: {salesforce_file}")
+                self.logger.info(f"    Date prefix: {sf_file[:6]}")
+                self.logger.info(f"    Base name: {sf_file[6:]}")
+                comparison['extra_files'].append(salesforce_file)
+
+        # Log summary
+        self.logger.info("\n" + "="*50)
+        self.logger.info("Comparison Summary")
+        self.logger.info("="*50)
+        self.logger.info(f"Total files to process: {comparison['total_files']}")
+        self.logger.info(f"Successfully matched: {comparison['matched_files']}")
+        self.logger.info(f"Missing files: {len(comparison['missing_files'])}")
+        self.logger.info(f"Extra files in Salesforce: {len(comparison['extra_files'])}")
+        if comparison['missing_files']:
+            self.logger.info("\nMissing files:")
+            for file in comparison['missing_files']:
+                self.logger.info(f"  - {file}")
+        if comparison['extra_files']:
+            self.logger.info("\nExtra files in Salesforce:")
+            for file in comparison['extra_files']:
+                self.logger.info(f"  - {file}")
+        self.logger.info("\n" + "="*50)
+        return comparison
+
+    def delete_file(self, file_name: str) -> bool:
+        """Delete a file from Salesforce.
+
+        Args:
+            file_name: The name of the file to delete (can include enumeration number)
+
+        Returns:
+            bool: True if the file was deleted successfully, False otherwise
+        """
+        self.logger.info(f"Attempting to delete file: {file_name}")
+
+        try:
+            # Wait for the table to be visible and loaded
+            self.logger.info("Waiting for the files table to be visible...")
+            table = self.page.wait_for_selector('div.slds-card__body table, div.slds-scrollable_y table, div[role="main"] table', timeout=5000)
+            if not table:
+                self.logger.error("Files table not found")
+                return False
+
+            # Wait for the table header to be visible
+            self.logger.info("Waiting for table header...")
+            self.page.wait_for_selector('span[title="Title"]', timeout=5000)
+
+            # Wait a bit for content to load
+            self.page.wait_for_timeout(2000)  # Increased wait time
+
+            # Get all file rows
+            self.logger.info("Getting all file rows from table...")
+            file_rows = self.page.locator('table.slds-table tbody tr').all()
+            if not file_rows:
+                self.logger.info("No file rows found")
+                return False
+
+            self.logger.info(f"Found {len(file_rows)} file rows to search through")
+
+            # Search through each row
+            for i, row in enumerate(file_rows, 1):
+                self.logger.info(f"Processing row {i}/{len(file_rows)}")
+                file_info = self._extract_file_info_from_row(row)
+                if not file_info:
+                    self.logger.info(f"Skipping row {i} - no file info extracted")
+                    continue
+
+                # Check if the file name matches
+                self.logger.info(f"Checking row {i} against file name '{file_name}'")
+                self.logger.info(f"Clean name: '{file_info['name']}'")
+                self.logger.info(f"Full name: '{file_info['full_name']}'")
+
+                # Remove enumeration number from file_name if present
+                clean_file_name = file_name
+                if '. ' in file_name:
+                    space_index = file_name.find('. ') + 2
+                    if space_index > 1:
+                        clean_file_name = file_name[space_index:]
+
+                # Check for match
+                if clean_file_name == file_info['full_name'] or clean_file_name == file_info['name']:
+                    self.logger.info(f"Found matching file in row {i}")
+
+                    # Try multiple selectors for the dropdown button
+                    self.logger.info("Looking for dropdown button...")
+                    dropdown_selectors = [
+                        'button.slds-button_icon-border-filled',
+                        'button[title="Show Actions"]',
+                        'button[aria-label="Show Actions"]',
+                        'button[class*="slds-button_icon"]',
+                        'button[class*="slds-button--icon"]'
+                    ]
+                    
+                    dropdown = None
+                    for selector in dropdown_selectors:
+                        try:
+                            dropdown = row.locator(selector).first
+                            if dropdown and dropdown.is_visible():
+                                self.logger.info(f"Found dropdown button with selector: {selector}")
+                                break
+                        except Exception as e:
+                            self.logger.info(f"Selector {selector} failed: {str(e)}")
+                            continue
+                    
+                    if not dropdown:
+                        self.logger.error("Could not find any dropdown button")
+                        return False
+
+                    # Click the dropdown menu with retry
+                    max_retries = 3
+                    for attempt in range(max_retries):
+                        try:
+                            self.logger.info(f"Attempting to click dropdown (attempt {attempt + 1}/{max_retries})...")
+                            dropdown.click(timeout=5000)
+                            self.page.wait_for_timeout(1000)  # Wait for dropdown to appear
+                            break
+                        except Exception as e:
+                            self.logger.warning(f"Click attempt {attempt + 1} failed: {str(e)}")
+                            if attempt == max_retries - 1:
+                                self.logger.error("All click attempts failed")
+                                return False
+                            self.page.wait_for_timeout(1000)  # Wait before retry
+
+                    # Wait for and click the Delete option
+                    self.logger.info("Looking for Delete option...")
+                    delete_option = self.page.locator('div.slds-dropdown__item:has-text("Delete")').first
+                    if not delete_option:
+                        self.logger.error("Could not find Delete option")
+                        return False
+                    
+                    # Click Delete option with retry
+                    for attempt in range(max_retries):
+                        try:
+                            self.logger.info(f"Attempting to click Delete option (attempt {attempt + 1}/{max_retries})...")
+                            delete_option.click(timeout=5000)
+                            self.page.wait_for_timeout(1000)  # Wait for confirmation dialog
+                            break
+                        except Exception as e:
+                            self.logger.warning(f"Delete option click attempt {attempt + 1} failed: {str(e)}")
+                            if attempt == max_retries - 1:
+                                self.logger.error("All Delete option click attempts failed")
+                                return False
+                            self.page.wait_for_timeout(1000)  # Wait before retry
+
+                    # Wait for and click the Delete button in the confirmation dialog
+                    self.logger.info("Looking for Delete confirmation button...")
+                    confirm_button = self.page.locator('button.slds-button:has-text("Delete")').first
+                    if not confirm_button:
+                        self.logger.error("Could not find Delete confirmation button")
+                        return False
+                    
+                    # Click confirmation button with retry
+                    for attempt in range(max_retries):
+                        try:
+                            self.logger.info(f"Attempting to click confirmation button (attempt {attempt + 1}/{max_retries})...")
+                            confirm_button.click(timeout=5000)
+                            self.page.wait_for_timeout(2000)  # Wait for deletion to complete
+                            break
+                        except Exception as e:
+                            self.logger.warning(f"Confirmation button click attempt {attempt + 1} failed: {str(e)}")
+                            if attempt == max_retries - 1:
+                                self.logger.error("All confirmation button click attempts failed")
+                                return False
+                            self.page.wait_for_timeout(1000)  # Wait before retry
+
+                    self.logger.info(f"Successfully deleted file: {file_name}")
+                    return True
+                else:
+                    self.logger.info(f"No match in row {i}")
+
+            self.logger.info(f"No file found matching name: {file_name}")
+            return False
+
+        except Exception as e:
+            self.logger.error(f"Error deleting file: {str(e)}")
+            self.page.screenshot(path="file-delete-error.png")
+            self.logger.info("Error screenshot saved as file-delete-error.png")
+            return False
+
 
     

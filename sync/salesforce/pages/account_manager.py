@@ -712,6 +712,7 @@ class AccountManager(BasePage):
         self.logger.info(f"Getting all file names for account {account_id}")
         
         try:
+            # CAROLINA HERE
             # Navigate to files section
             logging.info("Navigating to files section")
             logging.info(f"account_id: {account_id}")

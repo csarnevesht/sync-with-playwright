@@ -16,6 +16,8 @@ import logging
 import urllib.parse
 from dotenv import load_dotenv
 
+from sync.utils.file_utils import sort_files_by_date
+
 from .date_utils import has_date_prefix, get_folder_creation_date
 from .path_utils import clean_dropbox_path
 from .file_utils import log_renamed_file

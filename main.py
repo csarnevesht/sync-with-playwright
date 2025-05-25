@@ -195,7 +195,6 @@ def main():
                                     logging.info(f"File already exists: {file['name']}")
                                 else:
                                     logging.info(f"File not found, will be uploaded: {file['name']}")
-                                    #  CAROLINA HERE
                                     account_manager.navigate_back_to_account_page()
                                     # Upload single file for the account
                                     logging.info(f"****Uploading file: {file['name']} for account: {full_name}")
