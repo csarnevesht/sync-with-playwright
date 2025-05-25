@@ -35,8 +35,9 @@ logging.getLogger('dropbox').setLevel(logging.WARNING)
 
 class DropboxClient:
     def __init__(self, token: str, debug_mode: bool = False):
-        self.dbx = dropbox.Dropbox(token)
+        self.token = token
         self.debug_mode = debug_mode
+        self.dbx = dropbox.Dropbox(token)
         
         # Get the root folder from environment
         folder = DROPBOX_ROOT_FOLDER
@@ -54,6 +55,40 @@ class DropboxClient:
         logging.info(f"Initialized DropboxClient with root folder: {self.root_folder}")
         if debug_mode:
             logging.info("Debug mode is enabled")
+
+    def _handle_token_expiration(self):
+        """Handle token expiration by refreshing the token."""
+        try:
+            new_token = refresh_access_token()
+            self.token = new_token
+            self.dbx = dropbox.Dropbox(new_token)
+            logger.info("Successfully refreshed token and reinitialized client")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to refresh token: {str(e)}")
+            return False
+
+    def _make_request(self, func, *args, **kwargs):
+        """
+        Make a request to Dropbox API with automatic token refresh.
+        
+        Args:
+            func: The Dropbox API function to call
+            *args: Arguments to pass to the function
+            **kwargs: Keyword arguments to pass to the function
+            
+        Returns:
+            The result of the API call
+        """
+        try:
+            return func(*args, **kwargs)
+        except ApiError as e:
+            if e.error.is_expired_access_token():
+                logger.info("Access token expired, attempting to refresh...")
+                if self._handle_token_expiration():
+                    # Retry the request with the new token
+                    return func(*args, **kwargs)
+            raise
 
     def _debug_show_files(self, account_name: str, files: List[FileMetadata], skip_patterns: List[str] = None) -> List[FileMetadata]:
         """
@@ -124,7 +159,7 @@ class DropboxClient:
             
             # Get first page of results
             try:
-                result = self.dbx.files_list_folder(f"/{clean_path}")
+                result = self._make_request(self.dbx.files_list_folder, f"/{clean_path}")
                 files = [entry for entry in result.entries if isinstance(entry, dropbox.files.FileMetadata)]
                 all_files.extend(files)
                 logging.info(f"Page {page_num}: Found {len(files)} files")
@@ -132,7 +167,7 @@ class DropboxClient:
                 # Continue getting more pages if there are more results
                 while result.has_more:
                     page_num += 1
-                    result = self.dbx.files_list_folder_continue(result.cursor)
+                    result = self._make_request(self.dbx.files_list_folder_continue, result.cursor)
                     files = [entry for entry in result.entries if isinstance(entry, dropbox.files.FileMetadata)]
                     all_files.extend(files)
                     logging.info(f"Page {page_num}: Found {len(files)} files")
@@ -144,13 +179,13 @@ class DropboxClient:
                     alt_path = f"/A Work Documents/A WORK Documents/Principal Protection/{clean_account_folder}"
                     logging.info(f"Trying alternative path: {alt_path}")
                     
-                    result = self.dbx.files_list_folder(alt_path)
+                    result = self._make_request(self.dbx.files_list_folder, alt_path)
                     alt_files = [entry for entry in result.entries if isinstance(entry, dropbox.files.FileMetadata)]
                     all_files.extend(alt_files)
                     logging.info(f"Alternative path: Found {len(alt_files)} files")
                     
                     while result.has_more:
-                        result = self.dbx.files_list_folder_continue(result.cursor)
+                        result = self._make_request(self.dbx.files_list_folder_continue, result.cursor)
                         alt_files = [entry for entry in result.entries if isinstance(entry, dropbox.files.FileMetadata)]
                         all_files.extend(alt_files)
                         logging.info(f"Alternative path additional page: Found {len(alt_files)} files")
@@ -164,7 +199,7 @@ class DropboxClient:
                     logging.error(f"Path not found: /{clean_path}")
                     logging.error("Trying alternative path...")
                     alt_path = f"/A Work Documents/A WORK Documents/Principal Protection/{clean_account_folder}"
-                    result = self.dbx.files_list_folder(alt_path)
+                    result = self._make_request(self.dbx.files_list_folder, alt_path)
                     files = [entry for entry in result.entries if isinstance(entry, dropbox.files.FileMetadata)]
                     all_files.extend(files)
                     logging.info(f"Alternative path: Found {len(files)} files")
@@ -625,4 +660,96 @@ def display_summary(counts, folders_only=False, ignored_folders=None, account_fo
     if ignored_account_folders:
         print("Ignored Dropbox account folders list:")
         for folder in ignored_account_folders:
-            print(f"  - {folder}") 
+            print(f"  - {folder}")
+
+def get_refresh_token() -> str:
+    """
+    Get Dropbox refresh token from .env file or environment variable.
+    If not found, prompt user to enter it.
+    
+    Returns:
+        str: Dropbox refresh token
+    """
+    # First try to load from .env file
+    try:
+        load_dotenv()
+        token = os.getenv('DROPBOX_REFRESH_TOKEN')
+        if token:
+            logger.info("Refresh token loaded from .env file (DROPBOX_REFRESH_TOKEN)")
+            return token
+    except Exception as e:
+        logger.warning(f"Failed to load .env file: {str(e)}")
+    
+    # If not in .env, try environment variable
+    token = os.getenv('DROPBOX_REFRESH_TOKEN')
+    if token:
+        logger.info("Refresh token loaded from environment variable DROPBOX_REFRESH_TOKEN")
+        return token
+    
+    # If still not found, prompt user
+    logger.warning("No refresh token found in .env file or environment")
+    token = input("Please enter your Dropbox refresh token: ").strip()
+    if not token:
+        raise ValueError("No refresh token provided")
+    return token
+
+def get_app_key() -> str:
+    """
+    Get Dropbox app key from .env file or environment variable.
+    If not found, prompt user to enter it.
+    
+    Returns:
+        str: Dropbox app key
+    """
+    # First try to load from .env file
+    try:
+        load_dotenv()
+        key = os.getenv('DROPBOX_APP_KEY')
+        if key:
+            logger.info("App key loaded from .env file (DROPBOX_APP_KEY)")
+            return key
+    except Exception as e:
+        logger.warning(f"Failed to load .env file: {str(e)}")
+    
+    # If not in .env, try environment variable
+    key = os.getenv('DROPBOX_APP_KEY')
+    if key:
+        logger.info("App key loaded from environment variable DROPBOX_APP_KEY")
+        return key
+    
+    # If still not found, prompt user
+    logger.warning("No app key found in .env file or environment")
+    key = input("Please enter your Dropbox app key: ").strip()
+    if not key:
+        raise ValueError("No app key provided")
+    return key
+
+def refresh_access_token() -> str:
+    """
+    Refresh the Dropbox access token using the refresh token and app key.
+    
+    Returns:
+        str: New access token
+    """
+    try:
+        refresh_token = get_refresh_token()
+        app_key = get_app_key()
+        
+        # Create OAuth2 refresh flow
+        auth_flow = dropbox.DropboxOAuth2FlowNoRedirect(
+            app_key,
+            token_access_type='offline'
+        )
+        
+        # Get new access token
+        new_token = auth_flow.refresh_access_token(refresh_token)
+        
+        # Update .env file with new token
+        update_env_file('.env', token=new_token.access_token)
+        
+        logger.info("Successfully refreshed access token")
+        return new_token.access_token
+        
+    except Exception as e:
+        logger.error(f"Failed to refresh access token: {str(e)}")
+        raise 

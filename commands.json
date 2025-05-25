@@ -13,7 +13,7 @@
   },
   {
     "description": "Sync analyzer of dropbox accounts and salesforce accounts",
-    "command": "python -m sync.cmd_analyzer --dropbox-accounts --salesforce-accounts 2>&1 | tee output.log]"
+    "command": "python -m sync.cmd_analyzer --dropbox-accounts --salesforce-accounts 2>&1 | tee output.log"
   },
   {
     "description": "Sync analyzer of account 'Matalon, Dennis' account and files",
