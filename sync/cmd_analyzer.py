@@ -75,7 +75,6 @@ from sync.dropbox.utils.dropbox_utils import (
     list_folder_contents
 )
 from sync.dropbox.utils.date_utils import has_date_prefix
-from sync.utils.file_utils import sort_files_by_date
 from dropbox.exceptions import ApiError
 import dropbox
 from typing import List, Union
@@ -362,7 +361,7 @@ def accounts_fuzzy_search(args):
                             # Navigate to files section
                             logger.info("Navigating to files section")
                             logger.info(f"account_id: {account_id}")
-                            num_files = file_manager.navigate_to_files_click_on_files_card_to_facilitate_upload()
+                            num_files = account_manager.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
                             if num_files == -1:
                                 logging.error("Failed to navigate to Files")
                                 return []

@@ -8,7 +8,6 @@ import sys
 from ..utils.debug_utils import debug_prompt
 from ..utils.file_utils import get_file_type, parse_search_file_pattern
 from dropbox.files import FileMetadata
-from sync.utils.file_utils import sort_files, sort_files_by_date
 
 class FileManager(BasePage):
     """Handles file-related operations in Salesforce."""
@@ -174,7 +173,7 @@ class FileManager(BasePage):
             # Try the most specific selector first: span[title="Files"]
             try:
                 self.logger.info("Trying span[title='Files'] selector...")
-                files_span = self.page.wait_for_selector('span[title="Files"]', timeout=4000)
+                files_span = self.page.wait_for_selector('span[title="Files"]', timeout=10000)
                 if files_span and files_span.is_visible():
                     # Try to click the parent element (often the tab itself)
                     parent = files_span.evaluate_handle('el => el.closest("a,button,li,div[role=\'tab\']")')
@@ -486,14 +485,14 @@ class FileManager(BasePage):
         """
         self.logger.info("\n" + "="*50)
         self.logger.info("Starting file comparison process")
-        self.logger.info("="*50)
+        self.logger.info("\n" + "="*50)
         self.logger.info(f"\nInitial file counts:")
         self.logger.info(f"  Dropbox files: {len(dropbox_files)}")
         self.logger.info(f"  Salesforce files: {len(salesforce_files)}")
 
         # Sort both lists by date (newest first)
-        sorted_dropbox = sort_files(dropbox_files)
-        sorted_salesforce = sort_files_by_date(salesforce_files)
+        sorted_dropbox = sorted(dropbox_files, key=None, reverse=True)
+        sorted_salesforce = salesforce_files
          
         # Log sorted lists with dates
         self.logger.info("\nDropbox files (sorted):")
