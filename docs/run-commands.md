@@ -22,7 +22,7 @@ clear && python -m dropbox_renamer.cmd_analyze --accounts-file accounts/fuzzy-sm
 clear && python -m dropbox_renamer.cmd_analyze --show-all --folders-only
 
 # list all dropbox account folders and files
-clear && python -m dropbox_renamer.cmd_analyze --show-all 
+clear && python -m dropbox.cmd_analyze --show-all 
 
 clear && python -m sync.cmd_analyzer --dropbox-accounts --dropbox-account-files --salesforce-accounts --account-batch-size 5 --start-from 10  2>&1 | tee output.log
 
@@ -63,3 +63,8 @@ curl -X POST https://api.dropboxapi.com/2/files/list_folder/continue \
   --header 'Authorization: Bearer token' \
   --header 'Content-Type: application/json' \
   --data '{"cursor": "cursor from previous api output"}'
+
+from InquirerPy import inquirer
+
+desc = inquirer.text(message="Enter description:").execute()
+print("You entered:", desc)

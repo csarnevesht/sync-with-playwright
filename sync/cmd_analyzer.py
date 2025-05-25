@@ -213,6 +213,7 @@ def accounts_fuzzy_search(args):
         if ignored_count > 0:
             logger.info(f"Filtered out {ignored_count} ignored folders from the list")
         logger.info(f"Found {len(ACCOUNT_FOLDERS)} valid account folders after filtering ignored folders")
+    
     # If --dropbox-accounts is specified or no source is provided, use default behavior
     elif args.dropbox_accounts or (not args.dropbox_account_name and not args.dropbox_accounts_file):
         # Initialize Dropbox client with enhanced logging
@@ -299,6 +300,13 @@ def accounts_fuzzy_search(args):
         end_idx = min(start_idx + args.account_batch_size, len(ACCOUNT_FOLDERS))
         ACCOUNT_FOLDERS = ACCOUNT_FOLDERS[start_idx:end_idx]
         logger.info(f"Processing batch of {len(ACCOUNT_FOLDERS)} accounts starting from index {start_idx}")
+
+    if args.dropbox_accounts_only:
+        total_folders = len(ACCOUNT_FOLDERS)
+        print(f"Dropbox account folder names:")
+        for index, folder_name in enumerate(ACCOUNT_FOLDERS, 1):
+            print(f"    {index}. {folder_name}")
+        return
 
     # List to store results for summary
     summary_results = []
