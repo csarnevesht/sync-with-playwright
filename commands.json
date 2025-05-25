@@ -1,26 +1,26 @@
 [
   {
-    "description": "Sync analyzer of accounts and files in batches of 5",
-    "command": "python -m sync.cmd_analyzer --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --account-batch-size 5 --start-from 0 2>&1 | tee output.log"
+    "description": "list the dropbox accounts only",
+    "command": "python -m sync.cmd_analyzer --dropbox-accounts-only"
+  },
+  {
+    "description": "list the dropbox accounts and dropbox account files",
+    "command": "python -m sync.cmd_analyzer --dropbox-accounts --dropbox-account-files  2>&1 | tee output.log"
+  },
+  {
+    "description": "list the dropbox accounts and dropbox account files in batches of 5 with a start-from 10",
+    "command": "python -m sync.cmd_analyzer --dropbox-accounts --dropbox-account-files --account-batch-size 5 --start-from 10  2>&1 | tee output.log"
+  },
+  {
+    "description": "Sync analyzer of dropbox accounts and salesforce accounts",
+    "command": "python -m sync.cmd_analyzer --dropbox-accounts --salesforce-accounts 2>&1 | tee output.log]"
   },
   {
     "description": "Sync analyzer of account 'Matalon, Dennis' account and files",
     "command": "python -m sync.cmd_analyzer --dropbox-account-name='Matalon, Dennis' --dropbox-account-files --salesforce-accounts --salesforce-account-files 2>&1 | tee output.log"
   },
   {
-    "description": "list the dropbox accounts only in batches with a start-from",
-    "command": "clear && python -m sync.cmd_analyzer --dropbox-accounts --batch_size 5 --start-from 10 --dropbox-accounts-only 2>&1 | tee output.log"
-  },
-  {
-    "description": "list the dropbox accounts and dropbox account files in batches with a start-from",
-    "command": "python -m sync.cmd_analyzer --dropbox-accounts --dropbox-account-files --account-batch-size 5 --start-from 10  2>&1 | tee output.log"
-  },
-  {
-    "description": "list the dropbox accounts only",
-    "command": "python -m sync.cmd_analyzer --dropbox-accounts-only"
-  },
-  {
-    "description": "list the dropbox accounts and dropbox account files in batches with a start-from",
-    "command": "python -m sync.cmd_analyzer --dropbox-accounts --dropbox-account-files --account-batch-size 5 --start-from 10  2>&1 | tee output.log"
+    "description": "Sync analyzer of accounts and files in batches of 5",
+    "command": "python -m sync.cmd_analyzer --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --account-batch-size 5 --start-from 0 2>&1 | tee output.log"
   }
 ]

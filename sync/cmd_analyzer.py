@@ -349,6 +349,9 @@ def accounts_fuzzy_search(args):
                         logger.error(f"Failed to get files for folder {folder_name}: {str(e)}")
                         continue
                 
+                if not args.salesforce_accounts:
+                    continue
+
                 # Perform fuzzy search
                 result = account_manager.fuzzy_search_account(folder_name)
                 results[folder_name] = result
@@ -395,7 +398,8 @@ def accounts_fuzzy_search(args):
                 })
             
             # Print results summary
-            print("\n=== SALESFORCE ACCOUNT MATCHES ===")
+            if args.salesforce_accounts:
+                print("\n=== SALESFORCE ACCOUNT MATCHES ===")
             for folder_name, result in results.items():
                 print(f"\nDropbox account folder name: {folder_name}")
                 
@@ -419,6 +423,14 @@ def accounts_fuzzy_search(args):
                             for account in sorted(attempt['matching_accounts']):
                                 print(f"      - {account}")
                 
+                if args.dropbox_account_files:
+                    # Show Dropbox files
+                    print("\n📁 Dropbox account files:")
+                    for summary in summary_results:
+                        if summary['dropbox_name'] == folder_name and summary['dropbox_files']:
+                            sorted_files = sorted(summary['dropbox_files'], key=lambda x: x.name)
+                            for i, file in enumerate(sorted_files, 1):
+                                print(f"   + {i}. {file.name}")
                 # Show file comparison if available
                 if args.dropbox_account_files and args.salesforce_account_files:
                     # Show Salesforce files
@@ -429,13 +441,6 @@ def accounts_fuzzy_search(args):
                                 key=lambda x: int(x.split('.')[0]) if x.split('.')[0].isdigit() else float('inf'))
                             for file in sorted_files:
                                 print(f"   + {file}")
-                    # Show Dropbox files
-                    print("\n📁 Dropbox account files:")
-                    for summary in summary_results:
-                        if summary['dropbox_name'] == folder_name and summary['dropbox_files']:
-                            sorted_files = sorted(summary['dropbox_files'], key=lambda x: x.name)
-                            for i, file in enumerate(sorted_files, 1):
-                                print(f"   + {i}. {file.name}")
                     # Show comparison results
                     print("\n📁 File Comparison:")
                     for summary in summary_results:

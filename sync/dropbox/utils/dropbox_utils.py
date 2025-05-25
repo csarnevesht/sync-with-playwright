@@ -55,7 +55,7 @@ class DropboxClient:
         if debug_mode:
             logging.info("Debug mode is enabled")
 
-    def _debug_show_files(self, files: List[FileMetadata], skip_patterns: List[str] = None) -> List[FileMetadata]:
+    def _debug_show_files(self, account_name: str, files: List[FileMetadata], skip_patterns: List[str] = None) -> List[FileMetadata]:
         """
         Show files to be processed and which ones will be skipped.
         Returns the list of files that will be processed.
@@ -63,7 +63,7 @@ class DropboxClient:
         if not self.debug_mode:
             return files
 
-        print("\nDropbox account files to be processed:")
+        print(f"\nDropbox account files to be processed for {account_name}:")
         files_to_process = []
         for file in files:
             should_skip = False
@@ -79,6 +79,7 @@ class DropboxClient:
                 print(f"  + {file.name} (will be processed)")
 
         return files_to_process
+        
 
     def get_account_folders(self) -> List[str]:
         """Get all account folders under the root folder."""
@@ -172,7 +173,7 @@ class DropboxClient:
             
             # Show files in debug mode
             skip_patterns = [r'.*\.DS_Store$', r'.*\.tmp$']  # Add any patterns for files to skip
-            return self._debug_show_files(all_files, skip_patterns)
+            return self._debug_show_files(account_folder, all_files, skip_patterns)
             
         except Exception as e:
             logging.error(f"Error getting account files: {e}")

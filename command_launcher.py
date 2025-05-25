@@ -32,6 +32,15 @@ def list_commands():
     for idx, c in enumerate(commands, 1):
         print(f"{idx}. {c['description']} [{c['command']}]")
 
+def list_descriptions():
+    commands = load_commands()
+    if not commands:
+        print("No commands saved.")
+        return
+    print("\nCommand Descriptions:")
+    for idx, c in enumerate(commands, 1):
+        print(f"{idx}. {c['description']}")
+
 def run_command():
     commands = load_commands()
     if not commands:
@@ -48,20 +57,48 @@ def run_command():
     except ValueError:
         print("Invalid input.")
 
+def run_last_command():
+    commands = load_commands()
+    if not commands:
+        print("No commands saved.")
+        return
+    last_command = commands[-1]
+    print(f"\nRunning last command: {last_command['description']} [{last_command['command']}]\n")
+    subprocess.run(last_command['command'], shell=True)
+
 def main():
     while True:
-        print("\n1. Add command\n2. List commands\n3. Run command\n4. Exit")
-        choice = input("Choose an option: ").strip()
-        if choice == "1":
+        print("\nCommand Launcher Menu:")
+        print("1. Add command (a)")
+        print("2. List commands (ls)")
+        print("3. Run command (r)")
+        print("4. Run last command (l)")
+        print("5. List command descriptions (ld)")
+        print("6. Exit (e)")
+        print("\nShortcuts:")
+        print("  a  - Add command")
+        print("  ls - List commands")
+        print("  ld - List command descriptions")
+        print("  l  - Run last command")
+        print("  r  - Run command")
+        print("  e  - Exit")
+        
+        choice = input("\nChoose an option: ").strip().lower()
+        
+        if choice in ["1", "add", "a"]:
             add_command()
-        elif choice == "2":
+        elif choice in ["2", "ls"]:
             list_commands()
-        elif choice == "3":
+        elif choice in ["3", "r"]:
             run_command()
-        elif choice == "4":
+        elif choice in ["4", "l"]:
+            run_last_command()
+        elif choice in ["5", "ld"]:
+            list_descriptions()
+        elif choice in ["6", "exit", "quit", "e"]:
             break
         else:
-            print("Invalid choice.")
+            print("Invalid choice. Use numbers or shortcuts (a, ls, ld, l, r, e).")
 
 if __name__ == "__main__":
     main() 
