@@ -250,26 +250,46 @@ python -m sync.cmd_analyzer \
 
 ### Token and Environment Variables
 
-#### Dropbox Token
-- Environment Variable: `DROPBOX_TOKEN`
+#### Dropbox Tokens
+- Environment Variables:
+  - `DROPBOX_TOKEN`: Encrypted OAuth2 access token
+  - `DROPBOX_REFRESH_TOKEN`: Encrypted OAuth2 refresh token
+  - `DROPBOX_APP_KEY`: Your Dropbox app key
+- Token Behavior:
+  - Uses offline access tokens that persist until user logs out
+  - Automatically checks token validity on each use
+  - Automatically refreshes invalid tokens
+  - Maintains session as long as user is logged into Dropbox
+- Security Features:
+  - Tokens are encrypted using Fernet symmetric encryption
+  - Encryption key is stored securely after first use
+  - Key is verified on each use to ensure validity
+  - Key files are protected with restrictive permissions (0o600)
+  - Tokens are encrypted at rest in .env file
+  - Secure password input using getpass (only on first use)
 - Source Priority:
   1. System environment variable
   2. `.env` file in project root
-- Token Format: OAuth2 access token
-- Token Length: 64 characters
-- First 10 characters: "72de824b6c"
 - Token Validation:
   - Checks for token presence at startup
   - Validates token format
-  - Handles token expiration
+  - Verifies token validity with Dropbox API
+  - Automatically refreshes invalid tokens
   - Provides clear error messages for missing/invalid tokens
 
 #### Environment File
 - Default Location: `.env` in project root
 - Required Variables:
   ```
-  DROPBOX_TOKEN=<64-character-oauth-token>
+  DROPBOX_TOKEN=<encrypted-access-token>
+  DROPBOX_REFRESH_TOKEN=<encrypted-refresh-token>
+  DROPBOX_APP_KEY=<app-key>
   DROPBOX_FOLDER=<root-folder-path>
+  ```
+- Security Files:
+  ```
+  .dropbox_key: Contains the encryption key (protected with 0o600 permissions)
+  .dropbox_salt: Contains the salt for key derivation (protected with 0o600 permissions)
   ```
 - Optional Variables:
   ```
@@ -282,15 +302,55 @@ python -m sync.cmd_analyzer \
   ```
   ERROR: DROPBOX_TOKEN environment variable is not set
   ```
-- Expired Token:
-  ```
-  WARNING: Unable to refresh access token without refresh token and app key
-  ERROR: Error getting account files: AuthError('expired_access_token', None)
-  ```
 - Invalid Token:
   ```
-  ERROR: Invalid token format or authentication failed
+  INFO: Token is no longer valid, getting new offline access token...
+  Please visit this URL to authorize the app:
+  [Authorization URL]
+  Enter the authorization code:
   ```
+- Token Expired:
+  ```
+  INFO: Token is no longer valid, getting new offline access token...
+  ```
+- Refresh Token Missing:
+  ```
+  WARNING: No refresh token found in .env file or environment
+  Please visit this URL to authorize the app:
+  [Authorization URL]
+  Enter the authorization code:
+  ```
+- Encryption Password Required:
+  ```
+  Enter password for Dropbox token encryption:
+  ```
+
+#### Security Best Practices
+1. **Token Storage**
+   - Tokens are encrypted at rest
+   - Encryption key is derived from a password
+   - Password is never stored
+   - Salt is stored separately
+   - Secure password input
+
+2. **Access Control**
+   - Password required for token decryption
+   - Tokens are encrypted in memory
+   - Secure password input using getpass
+   - No token exposure in logs
+   - Automatic token refresh
+
+3. **Key Management**
+   - PBKDF2 key derivation
+   - 100,000 iterations for key derivation
+   - Unique salt per installation
+   - Secure key storage
+
+4. **Session Management**
+   - Offline access tokens
+   - Automatic token validation
+   - Automatic token refresh
+   - Session persistence until logout
 
 ### Current Implementation
 The current implementation in `sync/cmd_analyzer.py` provides:
