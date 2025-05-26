@@ -6,6 +6,11 @@ function debugLog(msg) {
   if (debug) debug.textContent += msg + '\n';
 }
 
+function clearDebug() {
+    const debug = document.getElementById('debug');
+    if (debug) debug.textContent = '';
+}
+
 async function connectNativeHost() {
   try {
     nativePort = chrome.runtime.connectNative('com.command_launcher');
@@ -88,6 +93,8 @@ function displayCommands(commands) {
 
 async function runCommand(index) {
   debugLog('Running command at index: ' + index);
+  showOutput(''); // Clear output immediately when Run is clicked
+  clearDebug();   // Optionally clear debug log as well
   try {
     const response = await fetch(`${SERVER_URL}/api/commands/run`, {
       method: 'POST',
