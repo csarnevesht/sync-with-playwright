@@ -1,3 +1,12 @@
+<!--
+Command Launcher Chrome Extension Popup
+
+This popup displays a dynamic list of commands fetched from the local Flask server (http://localhost:5001/api/commands).
+- Each command is shown with a description and a Run button.
+- Output from command execution is shown in the output area.
+- Debug messages are shown in the <pre id="debug"></pre> area at the bottom for troubleshooting.
+- The command list and output areas are dynamically updated by popup.js.
+-->
 <!DOCTYPE html>
 <html>
 <head>
@@ -61,6 +70,7 @@
       max-height: 200px;
       overflow-y: auto;
     }
+    #debug { margin-top: 10px; color: #888; font-size: 12px; white-space: pre-wrap; }
   </style>
 </head>
 <body>
@@ -71,6 +81,7 @@
     </div>
     <div id="output" class="output" style="display: none;"></div>
   </div>
+  <pre id="debug"></pre>
   <script src="popup.js"></script>
 </body>
 </html> 
