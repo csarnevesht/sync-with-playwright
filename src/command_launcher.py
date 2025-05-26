@@ -120,6 +120,27 @@ def run_last_command():
     print(f"\nRunning last command: {last_command['description']} [{last_command['command']}]\n")
     run_command()  # Reuse the run_command logic
 
+def show_help():
+    """Display help information about the command launcher."""
+    print("\nCommand Launcher Help:")
+    print("This tool helps you manage and run commands for the sync project.")
+    print("\nMenu Options:")
+    print("1. (a) Add command - Add a new command to the list")
+    print("2. (ls) List commands - Show all saved commands")
+    print("3. (r) Run command - Execute a saved command")
+    print("4. (l) Run last command - Execute the most recently added command")
+    print("5. (ld) List descriptions - Show command descriptions only")
+    print("6. (e) Exit - Quit the program")
+    print("\nShortcuts:")
+    print("  a  - Add command")
+    print("  ls - List commands")
+    print("  ld - List command descriptions")
+    print("  l  - Run last command")
+    print("  r  - Run command")
+    print("  h  - Show this help")
+    print("  ?  - Show this help")
+    print("  e  - Exit")
+
 def main():
     while True:
         print("\nCommand Launcher Menu:")
@@ -135,6 +156,8 @@ def main():
         print("  ld - List command descriptions")
         print("  l  - Run last command")
         print("  r  - Run command")
+        print("  h  - Show help")
+        print("  ?  - Show help")
         print("  e  - Exit")
         
         choice = input("\nChoose an option: ").strip().lower()
@@ -151,8 +174,10 @@ def main():
             list_descriptions()
         elif choice in ["6", "exit", "quit", "e"]:
             break
+        elif choice in ["h", "?", "help"]:
+            show_help()
         else:
-            print("Invalid choice. Use numbers or shortcuts (a, ls, ld, l, r, e).")
+            print("Invalid choice. Use numbers or shortcuts (a, ls, ld, l, r, h, e).")
 
 if __name__ == "__main__":
     main() 
