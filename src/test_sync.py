@@ -95,6 +95,39 @@ def run_test(test_func, browser: Browser, page: Page, logger):
         logger.error(f"Test failed with error: {str(e)}")
         return False
 
+def show_test_menu() -> str:
+    """Display the test menu and return the selected test."""
+    print("\nTest Menu:")
+    print("1. (a) Run All Tests")
+    print("2. (c) Account Creation Test")
+    print("3. (s) Account Search Test")
+    print("4. (u) File Upload Test")
+    print("5. (d) Account Deletion Test")
+    print("6. (f) Account Filter Test")
+    print("7. (r) Account File Retrieval Test")
+    print("8. (x) Account File Deletion Test")
+    print("9. (q) Quit")
+    
+    while True:
+        choice = input("\nSelect a test (number or shortcut): ").strip().lower()
+        
+        # Map shortcuts to test names
+        shortcut_map = {
+            '1': 'all', 'a': 'all',
+            '2': 'account-creation', 'c': 'account-creation',
+            '3': 'account-search', 's': 'account-search',
+            '4': 'file-upload', 'u': 'file-upload',
+            '5': 'account-deletion', 'd': 'account-deletion',
+            '6': 'account-filter', 'f': 'account-filter',
+            '7': 'account-file-retrieval', 'r': 'account-file-retrieval',
+            '8': 'account-file-deletion', 'x': 'account-file-deletion',
+            '9': 'quit', 'q': 'quit'
+        }
+        
+        if choice in shortcut_map:
+            return shortcut_map[choice]
+        print("Invalid choice. Please try again.")
+
 def main():
     parser = argparse.ArgumentParser(description='Run Salesforce sync tests')
     parser.add_argument('--test', choices=[
@@ -106,7 +139,7 @@ def main():
         'account-filter',
         'account-file-retrieval',
         'account-file-deletion'
-    ], default='all', help='Specify which test to run')
+    ], help='Specify which test to run')
     parser.add_argument('--debug', action='store_true', help='Enable debug logging')
     
     args = parser.parse_args()
@@ -131,23 +164,68 @@ def main():
     # Set up test environment
     test_dir, run_dir = setup_test_environment()
     
-    # Initialize Playwright
-    with sync_playwright() as p:
-        browser, page = get_salesforce_page(p)
-        try:
-            # Run selected test(s)
-            if args.test == 'all':
-                tests = [
-                    ('Account Creation', test_account_creation),
-                    ('Account Search', test_search_account),
-                    ('File Upload', test_account_file_upload),
-                    ('Account Deletion', test_account_deletion),
-                    ('Account Filter', test_account_filter),
-                    ('Account File Retrieval', test_account_file_retrieval),
-                    ('Account File Deletion', test_account_file_deletion)
-                ]
-            else:
+    # If no test specified, show interactive menu
+    if not args.test:
+        while True:
+            selected_test = show_test_menu()
+            if selected_test == 'quit':
+                print("Exiting...")
+                sys.exit(0)
+            
+            # Run the selected test
+            with sync_playwright() as p:
+                browser, page = get_salesforce_page(p)
+                try:
+                    test_map = {
+                        'all': [
+                            ('Account Creation', test_account_creation),
+                            ('Account Search', test_search_account),
+                            ('File Upload', test_account_file_upload),
+                            ('Account Deletion', test_account_deletion),
+                            ('Account Filter', test_account_filter),
+                            ('Account File Retrieval', test_account_file_retrieval),
+                            ('Account File Deletion', test_account_file_deletion)
+                        ],
+                        'account-creation': [('Account Creation', test_account_creation)],
+                        'account-search': [('Account Search', test_search_account)],
+                        'file-upload': [('File Upload', test_account_file_upload)],
+                        'account-deletion': [('Account Deletion', test_account_deletion)],
+                        'account-filter': [('Account Filter', test_account_filter)],
+                        'account-file-retrieval': [('Account File Retrieval', test_account_file_retrieval)],
+                        'account-file-deletion': [('Account File Deletion', test_account_file_deletion)]
+                    }
+                    
+                    tests = test_map[selected_test]
+                    
+                    # Run tests
+                    for test_name, test_func in tests:
+                        logger.info(f"\nRunning {test_name} test...")
+                        start_time = time.time()
+                        success = run_test(test_func, browser, page, logger)
+                        duration = time.time() - start_time
+                        
+                        if success:
+                            logger.info(f"{test_name} test passed in {duration:.2f} seconds")
+                        else:
+                            logger.error(f"{test_name} test failed after {duration:.2f} seconds")
+                            sys.exit(1)
+                finally:
+                    browser.close()
+    else:
+        # Run the specified test
+        with sync_playwright() as p:
+            browser, page = get_salesforce_page(p)
+            try:
                 test_map = {
+                    'all': [
+                        ('Account Creation', test_account_creation),
+                        ('Account Search', test_search_account),
+                        ('File Upload', test_account_file_upload),
+                        ('Account Deletion', test_account_deletion),
+                        ('Account Filter', test_account_filter),
+                        ('Account File Retrieval', test_account_file_retrieval),
+                        ('Account File Deletion', test_account_file_deletion)
+                    ],
                     'account-creation': [('Account Creation', test_account_creation)],
                     'account-search': [('Account Search', test_search_account)],
                     'file-upload': [('File Upload', test_account_file_upload)],
@@ -156,22 +234,23 @@ def main():
                     'account-file-retrieval': [('Account File Retrieval', test_account_file_retrieval)],
                     'account-file-deletion': [('Account File Deletion', test_account_file_deletion)]
                 }
-                tests = test_map[args.test]
-            
-            # Run tests
-            for test_name, test_func in tests:
-                logger.info(f"\nRunning {test_name} test...")
-                start_time = time.time()
-                success = run_test(test_func, browser, page, logger)
-                duration = time.time() - start_time
                 
-                if success:
-                    logger.info(f"{test_name} test passed in {duration:.2f} seconds")
-                else:
-                    logger.error(f"{test_name} test failed after {duration:.2f} seconds")
-                    sys.exit(1)
-        finally:
-            browser.close()
+                tests = test_map[args.test]
+                
+                # Run tests
+                for test_name, test_func in tests:
+                    logger.info(f"\nRunning {test_name} test...")
+                    start_time = time.time()
+                    success = run_test(test_func, browser, page, logger)
+                    duration = time.time() - start_time
+                    
+                    if success:
+                        logger.info(f"{test_name} test passed in {duration:.2f} seconds")
+                    else:
+                        logger.error(f"{test_name} test failed after {duration:.2f} seconds")
+                        sys.exit(1)
+            finally:
+                browser.close()
 
 if __name__ == '__main__':
     main() 

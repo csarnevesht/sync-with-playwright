@@ -14,19 +14,18 @@ show_menu() {
     clear
     echo -e "${YELLOW}Salesforce Sync Test Runner${NC}"
     echo "====================================="
-    echo "1) Run All Tests"
-    echo "2) Account Creation Test"
-    echo "3) Account Search Test"
-    echo "4) Account File Upload Test"
-    echo "5) File Download Test"
-    echo "6) Account Deletion Test"
-    echo "7) Account Filter Test"
-    echo "8) Account File Retrieval Test"
-    echo "9) Account File Deletion Test"
-    echo "10) Toggle Debug Mode (Currently: ${DEBUG_MODE:-OFF})"
-    echo "11) Exit"
+    echo "1) (a) Run All Tests"
+    echo "2) (c) Account Creation Test"
+    echo "3) (s) Account Search Test"
+    echo "4) (u) File Upload Test"
+    echo "5) (d) Account Deletion Test"
+    echo "6) (f) Account Filter Test"
+    echo "7) (r) Account File Retrieval Test"
+    echo "8) (x) Account File Deletion Test"
+    echo "9) (t) Toggle Debug Mode (Currently: ${DEBUG_MODE:-OFF})"
+    echo "10) (q) Quit"
     echo "====================================="
-    echo -n "Enter your choice (1-11): "
+    echo -n "Enter your choice (number or shortcut): "
 }
 
 # Function to run the selected test
@@ -73,39 +72,37 @@ toggle_debug() {
 while true; do
     show_menu
     read choice
+    choice=$(echo "$choice" | tr '[:upper:]' '[:lower:]')  # Convert to lowercase
     
     case $choice in
-        1)
+        1|a)
             run_test "all"
             ;;
-        2)
+        2|c)
             run_test "account-creation"
             ;;
-        3)
+        3|s)
             run_test "account-search"
             ;;
-        4)
+        4|u)
             run_test "file-upload"
             ;;
-        5)
-            run_test "file-download"
-            ;;
-        6)
+        5|d)
             run_test "account-deletion"
             ;;
-        7)
+        6|f)
             run_test "account-filter"
             ;;
-        8)
+        7|r)
             run_test "account-file-retrieval"
             ;;
-        9)
+        8|x)
             run_test "account-file-deletion"
             ;;
-        10)
+        9|t)
             toggle_debug
             ;;
-        11)
+        10|q)
             echo -e "\n${GREEN}Goodbye!${NC}"
             exit 0
             ;;
