@@ -1,3 +1,3 @@
 #!/bin/bash
 
-python command_launcher.py 
+python src/command_launcher.py 
