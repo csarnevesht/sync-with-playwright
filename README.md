@@ -1,124 +1,79 @@
-# Dropbox to Salesforce CRM Synchronization
+# Command Launcher Chrome Extension
 
-This project synchronizes files from Dropbox to Salesforce CRM using Playwright for browser automation.
+This project includes a Chrome extension and a Python script to automatically install and run it.
 
 ## Prerequisites
 
-- Python 3.8 or higher
-- Chrome browser
-- Dropbox API token
-- Salesforce CRM access
+1. Python 3.7 or higher
+2. Google Chrome browser
+3. Required Python packages:
+   - websocket-client
+   - psutil
+   - python-dotenv
+   - requests
 
-## Setup
+## Installation
 
-1. Install the required dependencies:
+1. Clone this repository:
+```bash
+git clone <repository-url>
+cd <repository-directory>
+```
+
+2. Install required Python packages:
 ```bash
 pip install -r requirements.txt
 ```
 
-2. Install Playwright browsers:
+## Running the Extension
+
+1. Simply run:
 ```bash
-playwright install chromium
-```
-
-3. Create a `token.txt` file with your Dropbox API token, or the script will prompt you for it.
-
-4. First-time setup: Start Chrome with remote debugging enabled and log in to Salesforce CRM:
-```bash
-/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir=./chrome-debug-profile
-```
-Then:
-- Log in to Salesforce CRM in this Chrome instance
-- Your login session, cookies, and other data will be saved in the `chrome-debug-profile` directory
-- You can close this Chrome window after logging in
-
-5. For subsequent runs: Start Chrome with the same user data directory:
-```bash
-/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir=./chrome-debug-profile
-```
-The script will use this Chrome instance with your saved session.
-
-## Configuration
-
-Copy `env.example` to `.env` and modify the values as needed:
-
-```bash
-cp env.example .env
-```
-
-### Environment Variables
-
-#### Dropbox Configuration
-- `DROPBOX_ROOT_FOLDER`: The root folder in Dropbox containing account folders (default: "Wealth Management")
-
-#### Salesforce Configuration
-- `SALESFORCE_URL`: The URL of your Salesforce CRM instance
-
-#### File Pattern Configuration
-- `ACCOUNT_INFO_PATTERN`: Pattern for account info files (default: "*App.pdf")
-- `DRIVERS_LICENSE_PATTERN`: Pattern for driver's license files (default: "*DL.jpeg")
-
-#### Upload Configuration
-- `UPLOAD_TIMEOUT`: Maximum time to wait for file upload in seconds (default: 300)
-
-#### Browser Configuration
-- `CHROME_DEBUG_PORT`: Chrome debugging port (default: 9222)
-- `CHROME_USER_DATA_DIR`: Path to Chrome user data directory (default: "./chrome-debug-profile")
-
-#### Logging Configuration
-- `LOG_LEVEL`: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-
-#### Temporary Directory Configuration
-- `TEMP_DIR`: Base directory for temporary files
-
-#### Retry Configuration
-- `MAX_RETRIES`: Number of retries for failed uploads (default: 3)
-
-#### Batch Processing Configuration
-- `MAX_BATCH_SIZE`: Maximum number of files to upload in a single batch (default: 10)
-
-## Usage
-
-1. Start Chrome with remote debugging and your saved profile:
-```bash
-/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir=./chrome-debug-profile
-```
-⚠️ Important: Keep this Chrome window running while using the script.
-
-2. In a new terminal window, run the synchronization script:
-```bash
-python main.py
+python -m src.cmd_start
 ```
 
 The script will:
-- Connect to the running Chrome instance using the debugging port
-- Use the saved session data from `./chrome-debug-profile` (cookies, login state, etc.)
-- Connect to Dropbox using the provided token
-- Process each account folder in the root folder
-- Create or update accounts in Salesforce CRM
-- Synchronize files between Dropbox and Salesforce
+- Start Chrome with the extension automatically installed
+- Open the Salesforce URL
+- The extension will be available in the Chrome toolbar
 
 ## Troubleshooting
 
-If you see an error like `connect ECONNREFUSED ::1:9222`:
-1. Make sure Chrome is running with remote debugging enabled (step 1 above)
-2. Verify Chrome is running on port 9222 by visiting `http://localhost:9222` in another browser
-3. Check that you're using the correct user data directory path
-4. Ensure no other Chrome instances are using the same debugging port
+If you encounter any issues:
 
-## File Structure
+1. Make sure Chrome is installed in the default location for your operating system:
+   - macOS: `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
+   - Windows: `C:\Program Files\Google\Chrome\Application\chrome.exe`
+   - Linux: `/usr/bin/google-chrome`
 
-- `main.py`: Main script that orchestrates the synchronization process
-- `dropbox_client.py`: Dropbox API integration
-- `salesforce/pages/accounts_page.py`: Salesforce page objects
-- `config.py`: Configuration settings
-- `requirements.txt`: Python dependencies
-- `env.example`: Example environment variables
-- `README.design.md`: Detailed design documentation
+2. If Chrome is installed in a different location, you can set the `CHROME_PATH` environment variable:
+```bash
+# macOS/Linux
+export CHROME_PATH="/path/to/your/chrome"
 
-## Notes
+# Windows
+set CHROME_PATH=C:\path\to\your\chrome.exe
+```
 
-- The script uses the existing Chrome browser session where you're already logged into Salesforce CRM
-- Files are downloaded from Dropbox with their modification date as a prefix
-- The script handles both new accounts and existing accounts
-- File upload dialog handling is implemented with progress monitoring and verification 
+3. If you want to use a different user data directory, set the `CHROME_USER_DATA_DIR` environment variable:
+```bash
+# macOS/Linux
+export CHROME_USER_DATA_DIR="/path/to/your/chrome/profile"
+
+# Windows
+set CHROME_USER_DATA_DIR=C:\path\to\your\chrome\profile
+```
+
+## Development
+
+The extension is located in the `chrome_extension` directory. To modify the extension:
+
+1. Make your changes to the extension files
+2. Run the script again to test your changes
+
+## Support
+
+If you encounter any issues, please:
+1. Check the `sync_services.log` file for error messages
+2. Make sure Chrome is up to date
+3. Try running Chrome with a clean profile 

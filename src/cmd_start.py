@@ -8,6 +8,8 @@ import json
 import signal
 import atexit
 import psutil
+import requests
+import websocket
 from pathlib import Path
 from dotenv import load_dotenv
 from sync.config import SALESFORCE_URL, CHROME_DEBUG_PORT
@@ -27,16 +29,24 @@ def kill_chrome_processes():
     for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
         try:
             if 'chrome' in proc.info['name'].lower():
-                # Check if this Chrome process is using our debug port
+                # Only kill Chrome processes using our debug port
                 cmdline = proc.info['cmdline']
                 if cmdline and any(f'--remote-debugging-port={CHROME_DEBUG_PORT}' in arg for arg in cmdline):
-                    logging.info(f"Killing existing Chrome process (PID: {proc.info['pid']})")
+                    logging.info(f"Killing Chrome process (PID: {proc.info['pid']})")
                     proc.kill()
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             pass
+    
+    # Wait a moment for processes to be killed
+    time.sleep(2)
 
 def get_chrome_path():
     """Get the path to Chrome executable based on the platform."""
+    # Allow override via environment variable
+    custom_path = os.getenv('CHROME_PATH')
+    if custom_path:
+        return custom_path
+        
     if platform.system() == 'Darwin':  # macOS
         return '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
     elif platform.system() == 'Windows':
@@ -52,6 +62,22 @@ def get_extension_path():
     if not extension_path.exists():
         raise FileNotFoundError(f"Chrome extension directory not found at: {extension_path}")
     return str(extension_path)
+
+def get_user_data_dir():
+    """Get the user data directory path."""
+    # Allow override via environment variable
+    custom_dir = os.getenv('CHROME_USER_DATA_DIR')
+    if custom_dir:
+        return Path(custom_dir)
+        
+    # Create a separate debug profile directory
+    debug_dir = Path.home() / '.chrome-debug-profile'
+    if debug_dir.exists():
+        # Remove existing debug profile to ensure clean state
+        import shutil
+        shutil.rmtree(debug_dir)
+    debug_dir.mkdir(exist_ok=True)
+    return debug_dir
 
 def read_manifest_file(manifest_path):
     """Read and parse a JSON file."""
@@ -128,143 +154,130 @@ def setup_chrome_preferences(user_data_dir):
     preferences_dir = user_data_dir / 'Default'
     preferences_dir.mkdir(exist_ok=True)
     
+    # Get the extension path
+    extension_path = get_extension_path()
+    logging.info(f"Setting up Chrome preferences with extension path: {extension_path}")
+    
+    # Read the manifest to get extension details
+    manifest = read_manifest()
+    if not manifest:
+        raise Exception("Could not read manifest.json")
+    
+    logging.info(f"Manifest contents: {json.dumps(manifest, indent=2)}")
+    
+    # Generate a unique extension ID (this is a simplified version)
+    extension_id = "igdglpnaamkkfoojnlkindpbdmjebmhg"  # You might want to generate this dynamically
+    
+    # Read existing preferences if they exist
     preferences_file = preferences_dir / 'Preferences'
-    preferences = {
-        "extensions": {
-            "settings": {
-                "igdglpnaamkkfoojnlkindpbdmjebmhg": {
-                    "path": str(get_extension_path()),
-                    "state": 1,
-                    "installation_mode": "normal_installed",
-                    "manifest": {
-                        "name": "Command Launcher",
-                        "version": "1.0",
-                        "manifest_version": 3
-                    }
+    existing_preferences = {}
+    if preferences_file.exists():
+        try:
+            with open(preferences_file, 'r') as f:
+                existing_preferences = json.load(f)
+            logging.info("Loaded existing Chrome preferences")
+        except Exception as e:
+            logging.warning(f"Could not read existing preferences: {e}")
+    
+    # Update only the extension-related preferences
+    if 'extensions' not in existing_preferences:
+        existing_preferences['extensions'] = {}
+    if 'settings' not in existing_preferences['extensions']:
+        existing_preferences['extensions']['settings'] = {}
+    
+    # Add or update our extension settings
+    existing_preferences['extensions']['settings'][extension_id] = {
+        "path": extension_path,
+        "state": 1,  # 1 = enabled
+        "installation_mode": "normal_installed",
+        "manifest": manifest,
+        "location": 1,  # 1 = local
+        "preferences": {
+            "extensions": {
+                "toolbar": {
+                    "visible": True
                 }
             }
-        },
-        "browser": {
-            "enabled_labs_experiments": [
-                "extensions-toolbar-menu@1"
-            ]
         }
     }
     
+    # Ensure developer mode is enabled
+    if 'extensions' not in existing_preferences:
+        existing_preferences['extensions'] = {}
+    existing_preferences['extensions']['ui'] = {
+        "developer_mode": True
+    }
+    
+    # Add extension to toolbar
+    if 'browser' not in existing_preferences:
+        existing_preferences['browser'] = {}
+    if 'enabled_labs_experiments' not in existing_preferences['browser']:
+        existing_preferences['browser']['enabled_labs_experiments'] = []
+    if 'extensions_toolbar_visible' not in existing_preferences['browser']:
+        existing_preferences['browser']['extensions_toolbar_visible'] = True
+    
+    # Add extension to toolbar
+    if 'extensions' not in existing_preferences:
+        existing_preferences['extensions'] = {}
+    if 'toolbar' not in existing_preferences['extensions']:
+        existing_preferences['extensions']['toolbar'] = {}
+    if 'visible' not in existing_preferences['extensions']['toolbar']:
+        existing_preferences['extensions']['toolbar']['visible'] = True
+    
+    # Add extension to toolbar
+    if 'extensions' not in existing_preferences:
+        existing_preferences['extensions'] = {}
+    if 'toolbar' not in existing_preferences['extensions']:
+        existing_preferences['extensions']['toolbar'] = {}
+    if 'visible' not in existing_preferences['extensions']['toolbar']:
+        existing_preferences['extensions']['toolbar']['visible'] = True
+    
+    # Add extension to toolbar
+    if 'extensions' not in existing_preferences:
+        existing_preferences['extensions'] = {}
+    if 'toolbar' not in existing_preferences['extensions']:
+        existing_preferences['extensions']['toolbar'] = {}
+    if 'visible' not in existing_preferences['extensions']['toolbar']:
+        existing_preferences['extensions']['toolbar']['visible'] = True
+    
+    # Write back the updated preferences
     with open(preferences_file, 'w') as f:
-        json.dump(preferences, f)
-
-def start_browser():
-    """Launch Chrome with remote debugging and load the extension."""
-    # Load environment variables
-    load_dotenv()
-
-    # Kill any existing Chrome processes using our debug port
-    kill_chrome_processes()
-
-    chrome_path = get_chrome_path()
-    extension_path = get_extension_path()
-    user_data_dir = Path.cwd() / 'chrome-debug-profile'
+        json.dump(existing_preferences, f)
+    logging.info(f"Updated preferences file at: {preferences_file}")
     
-    # Clean up any existing Chrome debug profile
-    if user_data_dir.exists():
+    # Also update the Local State file to ensure extension is enabled
+    local_state_file = user_data_dir / 'Local State'
+    local_state = {}
+    if local_state_file.exists():
         try:
-            import shutil
-            for item in user_data_dir.iterdir():
-                try:
-                    if item.is_file():
-                        item.unlink()
-                    elif item.is_dir():
-                        shutil.rmtree(item)
-                except Exception as e:
-                    logging.warning(f"Could not remove {item}: {e}")
+            with open(local_state_file, 'r') as f:
+                local_state = json.load(f)
         except Exception as e:
-            logging.error(f"Error cleaning up Chrome debug profile: {e}")
-            return
-
-    user_data_dir.mkdir(exist_ok=True)
-
-    # Set up native messaging
-    setup_native_messaging()
+            logging.warning(f"Could not read Local State file: {e}")
     
-    # Set up Chrome preferences
-    setup_chrome_preferences(user_data_dir)
-
-    # Read manifest file
-    manifest = read_manifest()
-    if manifest:
-        extension_name = manifest.get('name')
-        extension_version = manifest.get('version')
-        logging.info(f"Extension name: {extension_name}")
-        logging.info(f"Extension version: {extension_version}")
-    else:
-        logging.error("Could not read manifest.json")
-        return
-
-    # Start Chrome with remote debugging and extension
-    cmd = [
-        chrome_path,
-        f'--remote-debugging-port={CHROME_DEBUG_PORT}',
-        f'--user-data-dir={user_data_dir}',
-        '--no-first-run',
-        '--no-default-browser-check',
-        '--enable-extensions',
-        '--enable-automation',
-        '--disable-extensions-file-access-check',
-        '--enable-features=ExtensionsToolbarMenu',
-        '--extensions-install-verification=false',
-        '--allow-insecure-localhost',
-        '--disable-web-security',
-        '--allow-file-access-from-files',
-        '--force-dev-mode-highlighting',
-        '--show-component-extension-options',
-        '--enable-extensions-http-throttling=false',
-        '--disable-extensions-http-throttling',
-        '--disable-features=ExtensionsMenu',
-        '--enable-features=ExtensionsToolbarMenu',
-        '--enable-logging',
-        '--v=1',
-        '--enable-extension-activity-logging',
-        '--enable-extension-activity-ui',
-        '--load-extension=' + extension_path,
-        '--remote-allow-origins=*',  # Allow all origins for WebSocket connections
-        SALESFORCE_URL
-    ]
-
-    logging.info(f"Starting Chrome with extension from: {extension_path}")
-    logging.info(f"Chrome command: {' '.join(cmd)}")
-    logging.info(f"User data directory: {user_data_dir}")
-
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if 'profile' not in local_state:
+        local_state['profile'] = {}
+    if 'default_content_setting_values' not in local_state['profile']:
+        local_state['profile']['default_content_setting_values'] = {}
+    local_state['profile']['default_content_setting_values']['extensions'] = 1
     
-    # Register cleanup handler
-    atexit.register(cleanup_chrome_process, process)
-    
-    # Log Chrome output
-    def log_output(pipe, prefix):
-        for line in pipe:
-            print(f"\n{prefix}: {line.strip()}")  # Print to console immediately
-            logging.info(f"{prefix}: {line.strip()}")  # Also log to file
-    
-    import threading
-    stdout_thread = threading.Thread(target=log_output, args=(process.stdout, "Chrome stdout"), daemon=True)
-    stderr_thread = threading.Thread(target=log_output, args=(process.stderr, "Chrome stderr"), daemon=True)
-    stdout_thread.start()
-    stderr_thread.start()
-    
-    # Wait for Chrome to start and check extension status
-    import time
-    import requests
-    import json
+    with open(local_state_file, 'w') as f:
+        json.dump(local_state, f)
+    logging.info(f"Updated Local State file at: {local_state_file}")
 
-    def check_extension_status():
+def check_extension_status():
+    """Continuously check for the extension until it's found or timeout."""
+    max_attempts = 30  # Try for 30 seconds
+    attempt = 0
+    
+    # Get extension path
+    extension_path = get_extension_path()
+    
+    while attempt < max_attempts:
         try:
-            # Wait for Chrome to start
-            print("\nWaiting for Chrome to start...")
-            time.sleep(5)
+            print(f"\nChecking for extension (attempt {attempt + 1}/{max_attempts})...")
             
             # Get list of pages from Chrome's debugging port
-            print("\nChecking Chrome debugging port...")
             response = requests.get(f'http://localhost:{CHROME_DEBUG_PORT}/json')
             pages = response.json()
             print(f"\nFound {len(pages)} pages in Chrome")
@@ -287,7 +300,6 @@ def start_browser():
                     if ws_url:
                         try:
                             print(f"\nConnecting to extension page: {ws_url}")
-                            import websocket
                             ext_ws = websocket.create_connection(ws_url)
                             
                             try:
@@ -383,35 +395,134 @@ def start_browser():
                                 ext_ws.close()
                         except Exception as e:
                             print(f"\nError connecting to extension page: {e}")
-            else:
-                print("\nCommand Launcher extension not found")
-                print("\nPlease make sure to:")
-                print("1. Type 'chrome://extensions' in the address bar")
-                print("2. Enable 'Developer mode' (top right)")
-                print("3. Click 'Load unpacked'")
-                print(f"4. Select this directory: {extension_path}")
-                return False
+            
+            print("\nCommand Launcher extension not found yet...")
+            print("\nPlease check the following:")
+            print("1. Open chrome://extensions in the browser")
+            print("2. Make sure 'Developer mode' is enabled (top right)")
+            print("3. Look for any error messages related to the extension")
+            print("4. Try clicking 'Load unpacked' and select:")
+            print(f"   {extension_path}")
+            
+            # Wait before next attempt
+            time.sleep(1)
+            attempt += 1
                 
         except Exception as e:
             print(f"\nERROR checking extension status: {e}")
-            print("\nPlease make sure to:")
-            print("1. Type 'chrome://extensions' in the address bar")
-            print("2. Enable 'Developer mode' (top right)")
-            print("3. Click 'Load unpacked'")
-            print(f"4. Select this directory: {extension_path}")
-            return False
+            print("\nPlease check the following:")
+            print("1. Open chrome://extensions in the browser")
+            print("2. Make sure 'Developer mode' is enabled (top right)")
+            print("3. Look for any error messages related to the extension")
+            print("4. Try clicking 'Load unpacked' and select:")
+            print(f"   {extension_path}")
+            
+            # Wait before next attempt
+            time.sleep(1)
+            attempt += 1
+    
+    print("\nTimed out waiting for extension to load.")
+    return False
 
+def start_browser():
+    """Launch Chrome with remote debugging and load the extension."""
+    # Load environment variables
+    load_dotenv()
+
+    # Kill any existing Chrome processes
+    kill_chrome_processes()
+
+    chrome_path = get_chrome_path()
+    extension_path = get_extension_path()
+    user_data_dir = get_user_data_dir()
+    
+    logging.info(f"Chrome path: {chrome_path}")
+    logging.info(f"Extension path: {extension_path}")
+    logging.info(f"User data directory: {user_data_dir}")
+    
+    # Set up native messaging
+    setup_native_messaging()
+    
+    # Set up Chrome preferences
+    setup_chrome_preferences(user_data_dir)
+
+    # Read manifest file
+    manifest = read_manifest()
+    if manifest:
+        extension_name = manifest.get('name')
+        extension_version = manifest.get('version')
+        logging.info(f"Extension name: {extension_name}")
+        logging.info(f"Extension version: {extension_version}")
+    else:
+        logging.error("Could not read manifest.json")
+        return
+
+    # Start Chrome with remote debugging and extension
+    cmd = [
+        chrome_path,
+        f'--remote-debugging-port={CHROME_DEBUG_PORT}',
+        f'--user-data-dir={user_data_dir}',
+        '--no-first-run',
+        '--no-default-browser-check',
+        '--enable-extensions',
+        '--enable-automation',
+        '--disable-extensions-file-access-check',
+        '--enable-features=ExtensionsToolbarMenu',
+        '--extensions-install-verification=false',
+        '--allow-insecure-localhost',
+        '--disable-web-security',
+        '--allow-file-access-from-files',
+        '--force-dev-mode-highlighting',
+        '--show-component-extension-options',
+        '--enable-extensions-http-throttling=false',
+        '--disable-extensions-http-throttling',
+        '--disable-features=ExtensionsMenu',
+        '--enable-features=ExtensionsToolbarMenu',
+        '--enable-logging',
+        '--v=1',
+        '--enable-extension-activity-logging',
+        '--enable-extension-activity-ui',
+        '--load-extension=' + extension_path,
+        '--remote-allow-origins=*',  # Allow all origins for WebSocket connections
+        '--enable-extensions-toolbar-menu',  # Ensure extensions toolbar is visible
+        '--show-extensions-toolbar',  # Show extensions toolbar
+        SALESFORCE_URL
+    ]
+
+    logging.info(f"Starting Chrome with extension from: {extension_path}")
+    logging.info(f"Chrome command: {' '.join(cmd)}")
+    logging.info(f"User data directory: {user_data_dir}")
+
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    
+    # Register cleanup handler
+    atexit.register(cleanup_chrome_process, process)
+    
+    # Log Chrome output
+    def log_output(pipe, prefix):
+        for line in pipe:
+            print(f"\n{prefix}: {line.strip()}")  # Print to console immediately
+            logging.info(f"{prefix}: {line.strip()}")  # Also log to file
+    
+    import threading
+    stdout_thread = threading.Thread(target=log_output, args=(process.stdout, "Chrome stdout"), daemon=True)
+    stderr_thread = threading.Thread(target=log_output, args=(process.stderr, "Chrome stderr"), daemon=True)
+    stdout_thread.start()
+    stderr_thread.start()
+    
+    # Wait for Chrome to start and check extension status
+    print(f"\nOpened {SALESFORCE_URL} in a new browser window.")
+    print("\nThe Command Launcher extension should be automatically installed and enabled.")
+    print("If you don't see the extension:")
+    print("1. Open chrome://extensions in the browser")
+    print("2. Make sure 'Developer mode' is enabled (top right)")
+    print("3. Look for any error messages related to the extension")
+    print("4. Try clicking 'Load unpacked' and select:")
+    print(f"   {extension_path}")
+    
     # Start extension status check in a separate thread
     status_thread = threading.Thread(target=check_extension_status, daemon=True)
     status_thread.start()
-    
-    print(f"\nOpened {SALESFORCE_URL} in a new browser window.")
-    print("\nChrome extension installation instructions:")
-    print("1. Type 'chrome://extensions' in the address bar")
-    print("2. Enable 'Developer mode' (top right)")
-    print("3. Click 'Load unpacked'")
-    print(f"4. Select this directory: {extension_path}")
-    print("\nAfter installing the extension, you can access it from the toolbar.")
     
     try:
         input("\nPress Enter to close the browser...")
