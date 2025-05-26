@@ -2,7 +2,9 @@
 
 /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9223 --user-data-dir=./chrome-debug-profile &
 
-run is as follows:
+run it as follows:
+
+clear && PYTHONPATH=src python -m sync.dropbox_client.cmd_analyze --help
 
 clear && python main.py 2>&1 | tee output.log
 
@@ -14,12 +16,12 @@ clear && python -m tests.test_accounts_query 2>&1 | tee output.log
 
 clear && python -m tests.test_account_files 2>&1 | tee output.log
 
-clear && python -m dropbox_renamer.cmd_rename 2>&1 | tee output.log
+clear && python -m dropbox_client.cmd_rename 2>&1 | tee output.log
 
-clear && python -m dropbox_renamer.cmd_analyze --accounts-file accounts/fuzzy-small.txt 2>&1 | tee output.log
+clear && python -m dropbox_client.cmd_analyze --accounts-file accounts/fuzzy-small.txt 2>&1 | tee output.log
 
 # list all dropbox account folders
-clear && python -m dropbox_renamer.cmd_analyze --show-all --folders-only
+clear && python -m dropbox_client.cmd_analyze --show-all --folders-only
 
 # list all dropbox account folders and files
 clear && python -m dropbox.cmd_analyze --show-all 

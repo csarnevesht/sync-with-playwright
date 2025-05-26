@@ -13,8 +13,15 @@ readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
     "playwright",
@@ -26,7 +33,42 @@ dependencies = [
 dev = [
     "pytest",
     "pytest-playwright",
+    "black",
+    "isort",
+    "mypy",
+    "flake8",
+    "pytest-cov",
 ]
 
+[project.scripts]
+cmd_analyzer = "sync.cmd_analyzer:main"
+cmd_ping = "sync.cmd_ping:main"
+cmd_cp = "sync.cmd_cp:main"
+
 [tool.hatch.build.targets.wheel]
-packages = ["sync"] 
+packages = ["src/sync"]
+
+[tool.black]
+line-length = 88
+target-version = ["py38"]
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+line_length = 88
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["src/tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=sync --cov-report=term-missing" 

@@ -6,8 +6,8 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Set PYTHONPATH to include the current directory
-export PYTHONPATH="$(pwd):$PYTHONPATH"
+# Set PYTHONPATH to include the src directory
+export PYTHONPATH="$(pwd)/src:$PYTHONPATH"
 
 # Function to display the menu
 show_menu() {
@@ -36,7 +36,7 @@ run_test() {
     echo "-------------------------------------"
     
     # Build the command with debug flag if enabled
-    local cmd="python3 test_sync.py --test \"$test_option\""
+    local cmd="python3 src/test_sync.py --test \"$test_option\""
     if [ "$DEBUG_MODE" = "ON" ]; then
         cmd="$cmd --debug"
     fi
