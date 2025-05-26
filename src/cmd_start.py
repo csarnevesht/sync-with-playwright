@@ -53,6 +53,27 @@ def get_extension_path():
         raise FileNotFoundError(f"Chrome extension directory not found at: {extension_path}")
     return str(extension_path)
 
+def read_manifest_file(manifest_path):
+    """Read and parse a JSON file."""
+    try:
+        with open(manifest_path) as f:
+            return json.load(f)
+    except Exception as e:
+        logging.error(f"Error reading file: {e}")
+        return None
+
+def read_manifest():
+    """Read the extension's manifest file."""
+    extension_path = get_extension_path()
+    manifest_path = Path(extension_path) / 'manifest.json'
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"manifest.json not found at: {manifest_path}")
+    
+    manifest = read_manifest_file(manifest_path)
+    if manifest:
+        logging.info(f"Manifest contents: {json.dumps(manifest, indent=2)}")
+    return manifest
+
 def setup_native_messaging():
     """Set up the native messaging host for the extension."""
     extension_path = get_extension_path()
@@ -169,6 +190,17 @@ def start_browser():
     # Set up Chrome preferences
     setup_chrome_preferences(user_data_dir)
 
+    # Read manifest file
+    manifest = read_manifest()
+    if manifest:
+        extension_name = manifest.get('name')
+        extension_version = manifest.get('version')
+        logging.info(f"Extension name: {extension_name}")
+        logging.info(f"Extension version: {extension_version}")
+    else:
+        logging.error("Could not read manifest.json")
+        return
+
     # Start Chrome with remote debugging and extension
     cmd = [
         chrome_path,
@@ -195,16 +227,185 @@ def start_browser():
         '--enable-extension-activity-logging',
         '--enable-extension-activity-ui',
         '--load-extension=' + extension_path,
+        '--remote-allow-origins=*',  # Allow all origins for WebSocket connections
         SALESFORCE_URL
     ]
 
     logging.info(f"Starting Chrome with extension from: {extension_path}")
-    process = subprocess.Popen(cmd)
+    logging.info(f"Chrome command: {' '.join(cmd)}")
+    logging.info(f"User data directory: {user_data_dir}")
+
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     
     # Register cleanup handler
     atexit.register(cleanup_chrome_process, process)
     
-    print(f"Opened {SALESFORCE_URL} in a new browser window.")
+    # Log Chrome output
+    def log_output(pipe, prefix):
+        for line in pipe:
+            print(f"\n{prefix}: {line.strip()}")  # Print to console immediately
+            logging.info(f"{prefix}: {line.strip()}")  # Also log to file
+    
+    import threading
+    stdout_thread = threading.Thread(target=log_output, args=(process.stdout, "Chrome stdout"), daemon=True)
+    stderr_thread = threading.Thread(target=log_output, args=(process.stderr, "Chrome stderr"), daemon=True)
+    stdout_thread.start()
+    stderr_thread.start()
+    
+    # Wait for Chrome to start and check extension status
+    import time
+    import requests
+    import json
+
+    def check_extension_status():
+        try:
+            # Wait for Chrome to start
+            print("\nWaiting for Chrome to start...")
+            time.sleep(5)
+            
+            # Get list of pages from Chrome's debugging port
+            print("\nChecking Chrome debugging port...")
+            response = requests.get(f'http://localhost:{CHROME_DEBUG_PORT}/json')
+            pages = response.json()
+            print(f"\nFound {len(pages)} pages in Chrome")
+            
+            # Look for our extension's pages
+            extension_pages = []
+            for page in pages:
+                url = page.get('url', '')
+                if 'chrome-extension://' in url:
+                    print(f"\nFound extension page: {url}")
+                    extension_pages.append(page)
+            
+            if extension_pages:
+                print(f"\nFound {len(extension_pages)} extension pages")
+                for page in extension_pages:
+                    print(f"- {page.get('url')}")
+                    
+                    # Try to connect to each extension page
+                    ws_url = page.get('webSocketDebuggerUrl')
+                    if ws_url:
+                        try:
+                            print(f"\nConnecting to extension page: {ws_url}")
+                            import websocket
+                            ext_ws = websocket.create_connection(ws_url)
+                            
+                            try:
+                                # Try to get extension info
+                                ext_ws.send(json.dumps({
+                                    "id": 1,
+                                    "method": "Runtime.evaluate",
+                                    "params": {
+                                        "expression": """
+                                        (function() {
+                                            try {
+                                                if (chrome && chrome.runtime) {
+                                                    const manifest = chrome.runtime.getManifest();
+                                                    console.log('Extension manifest:', manifest);
+                                                    return {
+                                                        id: chrome.runtime.id,
+                                                        manifest: manifest,
+                                                        lastError: chrome.runtime.lastError ? chrome.runtime.lastError.message : null
+                                                    };
+                                                }
+                                                return { error: 'Chrome runtime API not available' };
+                                            } catch (e) {
+                                                console.error('Error getting extension info:', e);
+                                                return { error: e.toString() };
+                                            }
+                                        })()
+                                        """
+                                    }
+                                }))
+                                
+                                response = json.loads(ext_ws.recv())
+                                print(f"\nExtension info response: {json.dumps(response, indent=2)}")
+                                
+                                if 'result' in response and 'result' in response['result']:
+                                    # Get the object ID
+                                    object_id = response['result']['result'].get('objectId')
+                                    if object_id:
+                                        # Request the object properties
+                                        ext_ws.send(json.dumps({
+                                            "id": 2,
+                                            "method": "Runtime.getProperties",
+                                            "params": {
+                                                "objectId": object_id,
+                                                "ownProperties": True
+                                            }
+                                        }))
+                                        
+                                        props_response = json.loads(ext_ws.recv())
+                                        print(f"\nProperties response: {json.dumps(props_response, indent=2)}")
+                                        
+                                        if 'result' in props_response and 'result' in props_response['result']:
+                                            properties = props_response['result']['result']
+                                            extension_id = None
+                                            manifest_obj_id = None
+                                            
+                                            for prop in properties:
+                                                if prop['name'] == 'id' and 'value' in prop:
+                                                    extension_id = prop['value'].get('value')
+                                                elif prop['name'] == 'manifest' and 'value' in prop:
+                                                    manifest_obj_id = prop['value'].get('objectId')
+                                            
+                                            if manifest_obj_id:
+                                                # Get manifest properties
+                                                ext_ws.send(json.dumps({
+                                                    "id": 3,
+                                                    "method": "Runtime.getProperties",
+                                                    "params": {
+                                                        "objectId": manifest_obj_id,
+                                                        "ownProperties": True
+                                                    }
+                                                }))
+                                                
+                                                manifest_response = json.loads(ext_ws.recv())
+                                                print(f"\nManifest properties: {json.dumps(manifest_response, indent=2)}")
+                                                
+                                                if 'result' in manifest_response and 'result' in manifest_response['result']:
+                                                    manifest_props = manifest_response['result']['result']
+                                                    manifest_data = {}
+                                                    for manifest_prop in manifest_props:
+                                                        if 'value' in manifest_prop:
+                                                            manifest_data[manifest_prop['name']] = manifest_prop['value'].get('value')
+                                                    
+                                                    print("\nFound extension manifest:")
+                                                    print(f"- ID: {extension_id}")
+                                                    print(f"- Name: {manifest_data.get('name')}")
+                                                    print(f"- Version: {manifest_data.get('version')}")
+                                                    
+                                                    if manifest_data.get('name') == "Command Launcher":
+                                                        print("\nCommand Launcher extension is loaded!")
+                                                        print(f"Extension ID: {extension_id}")
+                                                        return True
+                            finally:
+                                ext_ws.close()
+                        except Exception as e:
+                            print(f"\nError connecting to extension page: {e}")
+            else:
+                print("\nCommand Launcher extension not found")
+                print("\nPlease make sure to:")
+                print("1. Type 'chrome://extensions' in the address bar")
+                print("2. Enable 'Developer mode' (top right)")
+                print("3. Click 'Load unpacked'")
+                print(f"4. Select this directory: {extension_path}")
+                return False
+                
+        except Exception as e:
+            print(f"\nERROR checking extension status: {e}")
+            print("\nPlease make sure to:")
+            print("1. Type 'chrome://extensions' in the address bar")
+            print("2. Enable 'Developer mode' (top right)")
+            print("3. Click 'Load unpacked'")
+            print(f"4. Select this directory: {extension_path}")
+            return False
+
+    # Start extension status check in a separate thread
+    status_thread = threading.Thread(target=check_extension_status, daemon=True)
+    status_thread.start()
+    
+    print(f"\nOpened {SALESFORCE_URL} in a new browser window.")
     print("\nChrome extension installation instructions:")
     print("1. Type 'chrome://extensions' in the address bar")
     print("2. Enable 'Developer mode' (top right)")
