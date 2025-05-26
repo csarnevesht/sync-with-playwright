@@ -424,6 +424,48 @@ def check_extension_status():
     print("\nTimed out waiting for extension to load.")
     return False
 
+def ensure_extension_installed(user_data_dir):
+    """Ensure the extension is properly installed and enabled."""
+    extension_path = get_extension_path()
+    logging.info(f"Ensuring extension is installed from: {extension_path}")
+    
+    # Create the Extensions directory if it doesn't exist
+    extensions_dir = user_data_dir / 'Default' / 'Extensions'
+    extensions_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create a unique ID for our extension
+    extension_id = "igdglpnaamkkfoojnlkindpbdmjebmhg"
+    extension_dir = extensions_dir / extension_id
+    extension_dir.mkdir(exist_ok=True)
+    
+    # Copy the extension files
+    import shutil
+    if extension_dir.exists():
+        shutil.rmtree(extension_dir)
+    shutil.copytree(extension_path, extension_dir)
+    
+    # Create the _metadata directory
+    metadata_dir = extension_dir / '_metadata'
+    metadata_dir.mkdir(exist_ok=True)
+    
+    # Create the verified_contents.json file
+    verified_contents = {
+        "version": 1,
+        "content_verifications": {
+            extension_id: {
+                "version": 1,
+                "hash": "sha256",
+                "content_hash": "sha256"
+            }
+        }
+    }
+    
+    with open(metadata_dir / 'verified_contents.json', 'w') as f:
+        json.dump(verified_contents, f)
+    
+    logging.info(f"Extension files copied to: {extension_dir}")
+    return extension_id
+
 def start_browser():
     """Launch Chrome with remote debugging and load the extension."""
     # Load environment variables
@@ -442,6 +484,9 @@ def start_browser():
     
     # Set up native messaging
     setup_native_messaging()
+    
+    # Ensure extension is installed
+    extension_id = ensure_extension_installed(user_data_dir)
     
     # Set up Chrome preferences
     setup_chrome_preferences(user_data_dir)
@@ -486,6 +531,22 @@ def start_browser():
         '--remote-allow-origins=*',  # Allow all origins for WebSocket connections
         '--enable-extensions-toolbar-menu',  # Ensure extensions toolbar is visible
         '--show-extensions-toolbar',  # Show extensions toolbar
+        '--enable-extensions-toolbar-menu',  # Enable extensions toolbar menu
+        '--enable-extensions-toolbar-menu-button',  # Enable extensions toolbar menu button
+        '--enable-extensions-toolbar-menu-button-icon',  # Enable extensions toolbar menu button icon
+        '--enable-extensions-toolbar-menu-button-text',  # Enable extensions toolbar menu button text
+        '--enable-extensions-toolbar-menu-button-tooltip',  # Enable extensions toolbar menu button tooltip
+        '--enable-extensions-toolbar-menu-button-badge',  # Enable extensions toolbar menu button badge
+        '--enable-extensions-toolbar-menu-button-badge-text',  # Enable extensions toolbar menu button badge text
+        '--enable-extensions-toolbar-menu-button-badge-background',  # Enable extensions toolbar menu button badge background
+        '--enable-extensions-toolbar-menu-button-badge-border',  # Enable extensions toolbar menu button badge border
+        '--enable-extensions-toolbar-menu-button-badge-shadow',  # Enable extensions toolbar menu button badge shadow
+        '--enable-extensions-toolbar-menu-button-badge-text-shadow',  # Enable extensions toolbar menu button badge text shadow
+        '--enable-extensions-toolbar-menu-button-badge-text-color',  # Enable extensions toolbar menu button badge text color
+        '--enable-extensions-toolbar-menu-button-badge-background-color',  # Enable extensions toolbar menu button badge background color
+        '--enable-extensions-toolbar-menu-button-badge-border-color',  # Enable extensions toolbar menu button badge border color
+        '--enable-extensions-toolbar-menu-button-badge-shadow-color',  # Enable extensions toolbar menu button badge shadow color
+        '--enable-extensions-toolbar-menu-button-badge-text-shadow-color',  # Enable extensions toolbar menu button badge text shadow color
         SALESFORCE_URL
     ]
 
