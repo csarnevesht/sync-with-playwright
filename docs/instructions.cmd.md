@@ -10,3 +10,8 @@ Make sure to reuse code that has already been implemented for sync/cmd_ping.py a
 i want to create an installer which does all of this.  Can you do this?
 I don't want to manually specify the chrome_extension directory. It should be done by the installer. 
 then generate the code which allows the chrome_extension directory.
+
+
+ok, now let's work on an installer and packager for macos and windows, which includes the chrome_extension, and all the python code.
+The installer should:
+- 
