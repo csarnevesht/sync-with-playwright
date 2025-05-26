@@ -106,9 +106,25 @@ async function runCommand(index) {
     const result = await response.json();
     debugLog('Command result: ' + JSON.stringify(result));
     if (result.status === 'success') {
-      showOutput(result.output || 'Command executed successfully.');
+      // Prefer output, but if it's an object, stringify it
+      if (result.output && typeof result.output === 'object') {
+        showOutput(JSON.stringify(result.output, null, 2));
+      } else if (result.output && String(result.output).trim()) {
+        showOutput(result.output);
+      } else {
+        showOutput('Command executed successfully, but no output was returned.');
+      }
+    } else if (result.error) {
+      // Show error (stringify if it's an object)
+      if (typeof result.error === 'object') {
+        showOutput('Error: ' + JSON.stringify(result.error, null, 2));
+      } else {
+        showOutput('Error: ' + result.error);
+      }
+    } else if (result.message) {
+      showOutput('Error: ' + result.message);
     } else {
-      showOutput(`Error: ${result.error}`);
+      showOutput('Command failed with unknown error.');
     }
   } catch (error) {
     debugLog('Error running command: ' + error);
