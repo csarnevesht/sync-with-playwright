@@ -1346,12 +1346,15 @@ class AccountManager(BasePage):
             search_duration = time.time() - search_start
             self.logger.info(f"Search returned {search_result} matches (took {search_duration:.2f} seconds)")
             
+            # Get matching accounts for this search attempt
+            matching_accounts = self.get_account_names()
+            
             # Record this search attempt
             search_attempt = {
                 'type': search_type,
                 'query': search_key,
                 'matches': search_result,
-                'matching_accounts': [],
+                'matching_accounts': matching_accounts,
                 'duration': search_duration
             }
             result['search_attempts'].append(search_attempt)
@@ -1363,12 +1366,15 @@ class AccountManager(BasePage):
                 fallback_key = f"{name_parts['first_name']} {name_parts['last_name']}"
                 fallback_result = self.search_account(fallback_key, view_name=view_name)
                 
+                # Get matching accounts for fallback search
+                fallback_matching_accounts = self.get_account_names()
+                
                 # Record this fallback search attempt
                 fallback_attempt = {
                     'type': 'fallback_name',
                     'query': fallback_key,
                     'matches': fallback_result,
-                    'matching_accounts': [],
+                    'matching_accounts': fallback_matching_accounts,
                     'duration': time.time() - search_start
                 }
                 result['search_attempts'].append(fallback_attempt)
@@ -1377,6 +1383,7 @@ class AccountManager(BasePage):
                 if fallback_result > 0:
                     search_result = fallback_result
                     search_key = fallback_key
+                    matching_accounts = fallback_matching_accounts
                     self.logger.info(f"Found {fallback_result} matches with fallback search")
             
             # If still no matches found, return early
@@ -1467,6 +1474,26 @@ class AccountManager(BasePage):
                 'matching_process': matching_process_duration,
                 'total': total_duration
             }
+            
+            # Log search results to report logger
+            report_logger = logging.getLogger('report')
+            report_logger.info(f"\nSearch Results for '{folder_name}':")
+            report_logger.info(f"Status: {result['status']}")
+            if result['matches']:
+                report_logger.info("Matches found:")
+                for match in result['matches']:
+                    report_logger.info(f"  - {match}")
+            report_logger.info("\nSearch Attempts:")
+            for attempt in result['search_attempts']:
+                report_logger.info(f"  Type: {attempt['type']}")
+                report_logger.info(f"  Query: '{attempt['query']}'")
+                report_logger.info(f"  Matches found: {attempt['matches']}")
+                if attempt['matching_accounts']:
+                    report_logger.info("  Matching accounts:")
+                    for account in sorted(attempt['matching_accounts']):
+                        report_logger.info(f"    - {account}")
+                report_logger.info(f"  Duration: {attempt['duration']:.2f} seconds")
+                report_logger.info("")
             
             return result
             
