@@ -1369,12 +1369,14 @@ def start_browser():
                     const maxPwTries = 30;
                     function waitForPasswordField() {
                         log('Looking for password input after continue...');
-                        const password = document.querySelector('input[name=\"susi_password\"]');
+                        const password = document.querySelector('input[name=\"login_password\"]');
                         if (password) {
                             log('Password input found. Focusing and setting value.');
                             password.focus();
-                            password.value = '{DROPBOX_PASSWORD}';
+                            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                            nativeInputValueSetter.call(password, '{DROPBOX_PASSWORD}');
                             password.dispatchEvent(new Event('input', { bubbles: true }));
+                            password.dispatchEvent(new Event('change', { bubbles: true }));
                             log('Password value after set: ' + (password.value ? '******' : 'EMPTY'));
                         } else {
                             log('Dropbox password field not found after continue. Retrying in 1s...');
