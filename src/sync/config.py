@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Dropbox configuration
-DROPBOX_ROOT_FOLDER = os.getenv('DROPBOX_FOLDER', 'Accounts')
+DROPBOX_FOLDER = os.getenv('DROPBOX_FOLDER', 'Accounts')
 
 # Salesforce configuration
 SALESFORCE_URL = os.getenv('SALESFORCE_URL', 'https://capitalprotect.lightning.force.com')
