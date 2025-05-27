@@ -51,7 +51,8 @@ from src.config import (
     SALESFORCE_USERNAME, 
     SALESFORCE_PASSWORD,
     DROPBOX_FOLDER,
-    DROPBOX_USERNAME
+    DROPBOX_USERNAME,
+    DROPBOX_PASSWORD
 )
 
 # Configure logging
@@ -1314,41 +1315,69 @@ def start_browser():
                     ws.close()
 
             # After Salesforce, open Dropbox in a new tab
-            logging.info(f"Opening Dropbox folder {DROPBOX_FOLDER} in a new tab.")
+            logging.info(f"Opening Dropbox login page {DROPBOX_FOLDER} in a new tab.")
             try:
-                dropbox_url = DROPBOX_FOLDER 
-                # Open a new tab
-                response = requests.put(f'http://localhost:{CHROME_DEBUG_PORT}/json/new?{dropbox_url}')
+                dropbox_login_url = "https://www.dropbox.com/login"
+                # Open Dropbox login page in a new tab
+                response = requests.put(f'http://localhost:{CHROME_DEBUG_PORT}/json/new?{dropbox_login_url}')
                 if response.status_code == 200:
-                    logging.info(f"Opened Dropbox folder {dropbox_url} in a new tab.")
-                    # Get the new tab's websocket URL
+                    logging.info(f"Opened Dropbox login page {dropbox_login_url} in a new tab.")
                     new_tab_info = response.json()
                     ws_url = new_tab_info.get('webSocketDebuggerUrl')
                     if ws_url:
-                        # Wait for the page to load
                         time.sleep(3)
                         ws_dropbox = websocket.create_connection(ws_url)
                         try:
-                            logging.info(f"Entering Dropbox username: {DROPBOX_USERNAME}")
+                            logging.info(f"[Dropbox] Attempting to enter username: {DROPBOX_USERNAME}")
                             ws_dropbox.send(json.dumps({
                                 "id": 1,
                                 "method": "Runtime.evaluate",
                                 "params": {
                                     "expression": f"""
                                     (function() {{
-                                        const checkLogin = () => {{
-                                            // Try common Dropbox login selectors
+                                        function log(msg) {{
+                                            if (window && window.console) window.console.log('[Dropbox-AutoLogin]', msg);
+                                        }}
+                                        let retries = 0;
+                                        const maxRetries = 30;
+                                        const enterDropboxCredentials = () => {{
+                                            log('Current URL: ' + window.location.href);
                                             const email = document.querySelector('input[name=\"login_email\"], input[type=\"email\"]');
                                             if (email) {{
+                                                log('Email input found. Focusing and setting value.');
                                                 email.focus();
                                                 email.value = '{DROPBOX_USERNAME.replace("'", "\\'")}';
                                                 email.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                                                console.log('Dropbox username entered:', email.value);
+                                                log('Email value after set: ' + email.value);
+                                                // Step 2: Click Continue button
+                                                const continueBtn = document.querySelector('button[type=\"submit\"]:not([disabled])');
+                                                if (continueBtn) {{
+                                                    log('Continue button found. Clicking.');
+                                                    continueBtn.click();
+                                                    setTimeout(() => {{
+                                                        log('Looking for password input after continue...');
+                                                        const password = document.querySelector('input[name=\"login_password\"], input[type=\"password\"]');
+                                                        if (password) {{
+                                                            log('Password input found. Focusing and setting value.');
+                                                            password.focus();
+                                                            password.value = '{DROPBOX_PASSWORD.replace("'", "\\'")}';
+                                                            password.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                                                            log('Password value after set: ' + (password.value ? '******' : 'EMPTY'));
+                                                        }} else {{
+                                                            log('Dropbox password field not found after continue. Retrying in 1s...');
+                                                            if (++retries < maxRetries) setTimeout(enterDropboxCredentials, 1000);
+                                                        }}
+                                                    }}, 2000);
+                                                }} else {{
+                                                    log('Dropbox Continue button not found. Retrying in 1s...');
+                                                    if (++retries < maxRetries) setTimeout(enterDropboxCredentials, 1000);
+                                                }}
                                             }} else {{
-                                                setTimeout(checkLogin, 1000);
+                                                log('Email input not found. Retrying in 1s...');
+                                                if (++retries < maxRetries) setTimeout(enterDropboxCredentials, 1000);
                                             }}
                                         }};
-                                        checkLogin();
+                                        enterDropboxCredentials();
                                     }})();
                                     """
                                 }
@@ -1356,9 +1385,9 @@ def start_browser():
                         finally:
                             ws_dropbox.close()
                 else:
-                    logging.error(f"Failed to open Dropbox tab: {response.text}")
+                    logging.error(f"Failed to open Dropbox login tab: {response.text}")
             except Exception as e:
-                logging.error(f"Error opening Dropbox tab: {e}")
+                logging.error(f"Error opening Dropbox login tab: {e}")
     
     except Exception as e:
         logging.error(f"Error handling browser tabs: {e}")
