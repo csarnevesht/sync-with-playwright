@@ -554,7 +554,7 @@ def check_extension_status():
     Returns:
         bool: True if extension is found and loaded, False otherwise
     """
-    max_attempts = 30  # Try for 30 seconds
+    max_attempts = 3  # Try for 30 seconds
     attempt = 0
     
     # Get extension path
