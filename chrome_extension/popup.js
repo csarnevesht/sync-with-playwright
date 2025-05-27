@@ -106,16 +106,17 @@ async function runCommand(index) {
     const result = await response.json();
     debugLog('Command result: ' + JSON.stringify(result));
     if (result.status === 'success') {
-      // Prefer output, but if it's an object, stringify it
       if (result.output && typeof result.output === 'object') {
         showOutput(JSON.stringify(result.output, null, 2));
       } else if (result.output && String(result.output).trim()) {
         showOutput(result.output);
+      } else if (result.error && String(result.error).trim()) {
+        // Show error/logs even if status is success and output is empty
+        showOutput(result.error);
       } else {
         showOutput('Command executed successfully, but no output was returned.');
       }
     } else if (result.error) {
-      // Show error (stringify if it's an object)
       if (typeof result.error === 'object') {
         showOutput('Error: ' + JSON.stringify(result.error, null, 2));
       } else {
