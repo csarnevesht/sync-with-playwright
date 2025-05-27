@@ -37,6 +37,7 @@ from sync.salesforce_client.utils.browser import get_salesforce_page
 from sync.salesforce_client.utils.file_upload import upload_files_for_account
 from sync.salesforce_client.utils.mock_data import get_mock_accounts
 from playwright.sync_api import sync_playwright, TimeoutError
+from src.config import *
 
 # Configure logging
 logging.basicConfig(

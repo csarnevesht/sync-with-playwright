@@ -4,7 +4,7 @@ import re
 import os
 import time
 import logging
-from src.sync.config import SALESFORCE_URL
+from src.config import SALESFORCE_URL
 import sys
 from .base_page import BasePage
 
