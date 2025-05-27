@@ -1,0 +1,9 @@
+{
+  "name": "com.command_launcher",
+  "description": "Command Launcher Native Host",
+  "path": "ABSOLUTE_PATH_TO_NATIVE_HOST",
+  "type": "stdio",
+  "allowed_origins": [
+    "chchrome-extension://igdglpnaamkkfoojnlkindpbdmjebmhg/"
+  ]
+} 

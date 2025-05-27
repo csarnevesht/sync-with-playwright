@@ -12,7 +12,7 @@ This document explains the design and implementation details of the Dropbox to S
 class DropboxClient:
     def __init__(self, token: str):
         self.dbx = dropbox.Dropbox(token)
-        self.root_folder = DROPBOX_ROOT_FOLDER
+        self.root_folder = DROPBOX_FOLDER
 ```
 - **Purpose**: Manages all Dropbox API interactions
 - **Key Features**:
@@ -147,7 +147,7 @@ def verify_files_uploaded(self, file_names: List[str]) -> bool:
 
 #### 7.1 Environment Variables
 ```python
-DROPBOX_ROOT_FOLDER = os.getenv('DROPBOX_ROOT_FOLDER', 'Wealth Management')
+DROPBOX_FOLDER = os.getenv('DROPBOX_FOLDER', 'Wealth Management')
 ACCOUNT_INFO_PATTERN = os.getenv('ACCOUNT_INFO_PATTERN', '*App.pdf')
 DRIVERS_LICENSE_PATTERN = os.getenv('DRIVERS_LICENSE_PATTERN', '*DL.jpeg')
 ```
