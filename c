@@ -209,16 +209,15 @@ else:
 # Main loop
 while true; do
     show_menu
-    read choice
-    choice=$(echo "$choice" | tr '[:upper:]' '[:lower:]')  # Convert to lowercase
+    read -r choice arg  # Read both choice and potential argument
     
-    # Check if there's an argument after the choice
-    if [[ $choice =~ ^[5r]$ ]]; then
-        read -t 0.1 arg  # Try to read any additional input with a short timeout
-        if [ $? -eq 0 ]; then
-            run_command "$arg"
-            continue
-        fi
+    # Convert choice to lowercase
+    choice=$(echo "$choice" | tr '[:upper:]' '[:lower:]')
+    
+    # If choice is 'r' or '5' and an argument was provided, run the command
+    if [[ $choice =~ ^[5r]$ ]] && [ ! -z "$arg" ]; then
+        run_command "$arg"
+        continue
     fi
     
     case $choice in
