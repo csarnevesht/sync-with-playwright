@@ -1231,219 +1231,242 @@ def start_browser():
     try:
         response = requests.get(f'http://localhost:{CHROME_DEBUG_PORT}/json', timeout=5)
         pages = response.json()
-        
-        # Find the first tab
-        first_tab = next((page for page in pages if page.get('type') == 'page'), None)
-        if first_tab:
-            # Get WebSocket URL for the first tab
-            ws_url = first_tab.get('webSocketDebuggerUrl')
-            if ws_url:
-                # Connect to the first tab
-                ws = websocket.create_connection(ws_url)
-                
-                try:
-                    # Wait for Salesforce login page to load
-                    logging.info(f"Waiting for Salesforce login page to load... Using username: {SALESFORCE_USERNAME}")
-                    ws.send(json.dumps({
-                        "id": 1,
-                        "method": "Runtime.evaluate",
-                        "params": {
-                            "expression": f"""
-                            (function() {{
-                                const checkLogin = () => {{
-                                    // Try different possible selectors for Salesforce login form
-                                    const username = document.querySelector('input[name=\"username\"], input[id=\"username\"], input[type=\"email\"]');
-                                    const password = document.querySelector('input[name=\"pw\"], input[id=\"password\"], input[type=\"password\"]');
-                                    
-                                    if (username && password) {{
-                                        console.log('Found Salesforce login form');
-                                        
-                                        // Clear existing values
-                                        username.value = '';
-                                        password.value = '';
-                                        
-                                        // Focus and enter username
-                                        username.focus();
-                                        const usernameValue = '{SALESFORCE_USERNAME.replace("'", "\\'")}';
-                                        console.log('Setting Salesforce username to:', usernameValue);
-                                        username.value = usernameValue;
-                                        
-                                        // Focus and enter password
-                                        password.focus();
-                                        const passwordValue = '{SALESFORCE_PASSWORD.replace("'", "\\'")}';
-                                        console.log('Setting Salesforce password');
-                                        password.value = passwordValue;
-                                        
-                                        // Trigger input events to ensure the form recognizes the changes
-                                        username.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                                        password.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                                        
-                                        // Log the current values to verify
-                                        console.log('Current username value:', username.value);
-                                        console.log('Current password value:', password.value ? '******' : '');
-                                    }} else {{
-                                        console.log('Login form not found yet, retrying...');
-                                        setTimeout(checkLogin, 1000);
-                                    }}
-                                }};
-                                checkLogin();
-                            }})();
-                            """
-                        }
-                    }))
-                    
-                    # Wait for credentials to be entered
-                    # logging.info(f"Waiting for Salesforce credentials to be entered... Username: {SALESFORCE_USERNAME}")
-                    # time.sleep(5)
-                    
-                    # # Get the response from the credential entry
-                    # response = json.loads(ws.recv())
-                    # if 'result' in response and 'result' in response['result']:
-                    #     verification = response['result']['result']
-                    #     logging.info(f"Verification result: {verification}")
-                    #     if verification.get('usernameValue') == SALESFORCE_USERNAME:
-                    #         logging.info(f"Salesforce username verified: {SALESFORCE_USERNAME}")
-                    #     else:
-                    #         logging.warning(f"Salesforce username not properly entered. Expected: {SALESFORCE_USERNAME}, Got: {verification.get('usernameValue')}")
-                    #     if verification.get('passwordValue'):
-                    #         logging.info("Salesforce password verified")
-                    #     else:
-                    #         logging.warning("Salesforce password not properly entered")
-                    
-                    # logging.info("Salesforce credentials entry completed")
-                finally:
-                    ws.close()
-
-            # After Salesforce, open Dropbox in a new tab
-            logging.info(f"Opening Dropbox login page {DROPBOX_FOLDER} in a new tab.")
+    except Exception as e:
+        logging.error(f"Error getting Chrome pages: {e}")
+        pages = []
+    
+    # Find the first tab
+    first_tab = next((page for page in pages if page.get('type') == 'page'), None)
+    if first_tab:
+        # Get WebSocket URL for the first tab
+        ws_url = first_tab.get('webSocketDebuggerUrl')
+        if ws_url:
+            # Connect to the first tab
+            ws = websocket.create_connection(ws_url)
+            
             try:
-                dropbox_login_url = "https://www.dropbox.com/login"
-                # Open Dropbox login page in a new tab
-                response = requests.put(f'http://localhost:{CHROME_DEBUG_PORT}/json/new?{dropbox_login_url}')
-                if response.status_code == 200:
-                    logging.info(f"Opened Dropbox login page {dropbox_login_url} in a new tab.")
-                    new_tab_info = response.json()
-                    ws_url = new_tab_info.get('webSocketDebuggerUrl')
-                    if ws_url:
-                        time.sleep(3)
-                        ws_dropbox = websocket.create_connection(ws_url)
-                        try:
-                            logging.info(f"[Dropbox] Attempting to enter username: {DROPBOX_USERNAME}")
-                            ws_dropbox.send(json.dumps({
-                                "id": 1,
-                                "method": "Runtime.evaluate",
-                                "params": {
-                                    "expression": f"""
-                                    (function() {{
-                                        function log(msg) {{
-                                            if (window && window.console) window.console.log('[Dropbox-AutoLogin]', msg);
-                                        }}
-                                        let retries = 0;
-                                        const maxRetries = 30;
-                                        const enterDropboxCredentials = () => {{
-                                            log('Current URL: ' + window.location.href);
-                                            const email = document.querySelector('input[name=\"login_email\"], input[type=\"email\"]');
-                                            if (email) {{
-                                                log('Email input found. Focusing and setting value.');
-                                                email.focus();
-                                                email.value = '{DROPBOX_USERNAME.replace("'", "\\'")}';
-                                                email.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                                                log('Email value after set: ' + email.value);
-                                                // Step 2: Click Continue button
-                                                const continueBtn = document.querySelector('button[type=\"submit\"]:not([disabled])');
-                                                if (continueBtn) {{
-                                                    log('Continue button found. Clicking.');
-                                                    continueBtn.click();
-                                                    setTimeout(() => {{
-                                                        log('Looking for password input after continue...');
-                                                        const password = document.querySelector('input[name=\"login_password\"], input[type=\"password\"]');
-                                                        if (password) {{
-                                                            log('Password input found. Focusing and setting value.');
-                                                            password.focus();
-                                                            password.value = '{DROPBOX_PASSWORD.replace("'", "\\'")}';
-                                                            password.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                                                            log('Password value after set: ' + (password.value ? '******' : 'EMPTY'));
-                                                        }} else {{
-                                                            log('Dropbox password field not found after continue. Retrying in 1s...');
-                                                            if (++retries < maxRetries) setTimeout(enterDropboxCredentials, 1000);
-                                                        }}
-                                                    }}, 2000);
-                                                }} else {{
-                                                    log('Dropbox Continue button not found. Retrying in 1s...');
-                                                    if (++retries < maxRetries) setTimeout(enterDropboxCredentials, 1000);
-                                                }}
-                                            }} else {{
-                                                log('Email input not found. Retrying in 1s...');
-                                                if (++retries < maxRetries) setTimeout(enterDropboxCredentials, 1000);
-                                            }}
-                                        }};
-                                        enterDropboxCredentials();
-                                    }})();
-                                    """
-                                }
-                            }))
-                        finally:
-                            ws_dropbox.close()
+                # Wait for Salesforce login page to load
+                logging.info(f"Waiting for Salesforce login page to load... Using username: {SALESFORCE_USERNAME}")
+                ws.send(json.dumps({
+                    "id": 1,
+                    "method": "Runtime.evaluate",
+                    "params": {
+                        "expression": f"""
+                        (function() {{
+                            const checkLogin = () => {{
+                                // Try different possible selectors for Salesforce login form
+                                const username = document.querySelector('input[name=\"username\"], input[id=\"username\"], input[type=\"email\"]');
+                                const password = document.querySelector('input[name=\"pw\"], input[id=\"password\"], input[type=\"password\"]');
+                                
+                                if (username && password) {{
+                                    console.log('Found Salesforce login form');
+                                    
+                                    // Clear existing values
+                                    username.value = '';
+                                    password.value = '';
+                                    
+                                    // Focus and enter username
+                                    username.focus();
+                                    const usernameValue = '{SALESFORCE_USERNAME.replace("'", "\\'")}';
+                                    console.log('Setting Salesforce username to:', usernameValue);
+                                    username.value = usernameValue;
+                                    
+                                    // Focus and enter password
+                                    password.focus();
+                                    const passwordValue = '{SALESFORCE_PASSWORD.replace("'", "\\'")}';
+                                    console.log('Setting Salesforce password');
+                                    password.value = passwordValue;
+                                    
+                                    // Trigger input events to ensure the form recognizes the changes
+                                    username.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                                    password.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                                    
+                                    // Log the current values to verify
+                                    console.log('Current username value:', username.value);
+                                    console.log('Current password value:', password.value ? '******' : '');
+                                }} else {{
+                                    console.log('Login form not found yet, retrying...');
+                                    setTimeout(checkLogin, 1000);
+                                }}
+                            }};
+                            checkLogin();
+                        }})();
+                        """
+                    }
+                }))
+                
+                # Wait for credentials to be entered
+                # logging.info(f"Waiting for Salesforce credentials to be entered... Username: {SALESFORCE_USERNAME}")
+                # time.sleep(5)
+                
+                # # Get the response from the credential entry
+                # response = json.loads(ws.recv())
+                # if 'result' in response and 'result' in response['result']:
+                #     verification = response['result']['result']
+                #     logging.info(f"Verification result: {verification}")
+                #     if verification.get('usernameValue') == SALESFORCE_USERNAME:
+                #         logging.info(f"Salesforce username verified: {SALESFORCE_USERNAME}")
+                #     else:
+                #         logging.warning(f"Salesforce username not properly entered. Expected: {SALESFORCE_USERNAME}, Got: {verification.get('usernameValue')}")
+                #     if verification.get('passwordValue'):
+                #         logging.info("Salesforce password verified")
+                #     else:
+                #         logging.warning("Salesforce password not properly entered")
+                
+                # logging.info("Salesforce credentials entry completed")
+            finally:
+                ws.close()
+
+        # After Salesforce, open Dropbox in a new tab
+        logging.info(f"Opening Dropbox login page {DROPBOX_FOLDER} in a new tab.")
+        try:
+            dropbox_login_url = "https://www.dropbox.com/login"
+            response = requests.put(f'http://localhost:{CHROME_DEBUG_PORT}/json/new?{dropbox_login_url}')
+            if response.status_code == 200:
+                logging.info(f"Opened Dropbox login page {dropbox_login_url} in a new tab.")
+                new_tab_info = response.json()
+                ws_url = new_tab_info.get('webSocketDebuggerUrl')
+                if ws_url:
+                    time.sleep(3)
+                    ws_dropbox = websocket.create_connection(ws_url)
+                    try:
+                        logging.info(f"[Dropbox] Attempting to enter username: {DROPBOX_USERNAME}")
+                        js_code = """
+(function() {
+    function log(msg) {
+        if (window && window.console) window.console.log('[Dropbox-AutoLogin]', msg);
+    }
+    log('Script injected and running.');
+    let retries = 0;
+    const maxRetries = 30;
+    function waitForReadyAndRun() {
+        if (document.readyState !== 'complete') {
+            log('Document not ready, waiting... (' + document.readyState + ')');
+            if (++retries < maxRetries) setTimeout(waitForReadyAndRun, 500);
+            return;
+        }
+        log('Document ready, running credential entry.');
+        let innerRetries = 0;
+        const innerMaxRetries = 30;
+        const enterDropboxCredentials = () => {
+            log('Current URL: ' + window.location.href);
+            const email = document.querySelector('input[name=\"susi_email\"]');
+            if (email) {
+                log('Email input found. Focusing and setting value.');
+                email.focus();
+                // Use native setter for React compatibility
+                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                nativeInputValueSetter.call(email, '{DROPBOX_USERNAME}');
+                email.dispatchEvent(new Event('input', { bubbles: true }));
+                email.dispatchEvent(new Event('change', { bubbles: true }));
+                log('Email value after set: ' + email.value);
+                // Step 2: Click Continue button
+                const continueBtn = document.querySelector('button.email-submit-button[type=\"submit\"]:not([disabled])');
+                if (continueBtn) {
+                    log('Continue button found. Clicking.');
+                    continueBtn.click();
+                    let pwTries = 0;
+                    const maxPwTries = 30;
+                    function waitForPasswordField() {
+                        log('Looking for password input after continue...');
+                        const password = document.querySelector('input[name=\"susi_password\"]');
+                        if (password) {
+                            log('Password input found. Focusing and setting value.');
+                            password.focus();
+                            password.value = '{DROPBOX_PASSWORD}';
+                            password.dispatchEvent(new Event('input', { bubbles: true }));
+                            log('Password value after set: ' + (password.value ? '******' : 'EMPTY'));
+                        } else {
+                            log('Dropbox password field not found after continue. Retrying in 1s...');
+                            if (++pwTries < maxPwTries) setTimeout(waitForPasswordField, 1000);
+                        }
+                    }
+                    setTimeout(waitForPasswordField, 1500);
+                } else {
+                    log('Dropbox Continue button not found. Retrying in 1s...');
+                    if (++innerRetries < innerMaxRetries) setTimeout(enterDropboxCredentials, 1000);
+                }
+            } else {
+                log('Email input not found. Retrying in 1s...');
+                if (++innerRetries < innerMaxRetries) setTimeout(enterDropboxCredentials, 1000);
+            }
+        };
+        enterDropboxCredentials();
+    }
+    waitForReadyAndRun();
+})();
+""".replace('{DROPBOX_USERNAME}', DROPBOX_USERNAME.replace("'", "\\'"))\
+   .replace('{DROPBOX_PASSWORD}', DROPBOX_PASSWORD.replace("'", "\\'"))
+                        ws_dropbox.send(json.dumps({
+                            "id": 1,
+                            "method": "Runtime.evaluate",
+                            "params": {
+                                "expression": js_code
+                            }
+                        }))
+                    finally:
+                        ws_dropbox.close()
+                    logging.info(f"Opened Dropbox login page {DROPBOX_FOLDER} in a new tab.")
                 else:
                     logging.error(f"Failed to open Dropbox login tab: {response.text}")
-            except Exception as e:
-                logging.error(f"Error opening Dropbox login tab: {e}")
-    
-    except Exception as e:
-        logging.error(f"Error handling browser tabs: {e}")
-    
-    print(f"\nOpened {SALESFORCE_URL} in a new browser window.")
-    print(f"Opened Dropbox folder {DROPBOX_FOLDER } in a new tab.")
-    print("\nThe Command Launcher extension should be automatically installed and enabled.")
-    print("If you don't see the extension:")
-    print("1. Open chrome://extensions in the browser")
-    print("2. Make sure 'Developer mode' is enabled (top right)")
-    print("3. Look for any error messages related to the extension")
-    print("4. Try clicking 'Load unpacked' and select:")
-    print(f"   {extension_path}")
-    
-    # Start extension status check in a separate thread
-    status_thread = threading.Thread(target=check_extension_status, daemon=True)
-    status_thread.start()
-    
-    try:
-        while True:
-            print("\nCommands:")
-            print("  q - Quit (browser and server will keep running)")
-            print("  r - Restart server")
-            print("  s - Check server status")
-            print("  h - Show this help")
+        except Exception as e:
+            logging.error(f"Error opening Dropbox login tab: {e}")
             
-            cmd = input("\nEnter command (h for help): ").strip().lower()
+        except Exception as e:
+            logging.error(f"Error handling browser tabs: {e}")
             
-            if cmd == 'q':
-                print("\nExiting script. Browser and server will continue running.")
-                break
-            elif cmd == 'r':
-                print("\nRestarting server...")
-                kill_flask_server()
-                server_script = os.path.join(os.path.dirname(__file__), 'server.py')
-                server_watchdog = start_server_watchdog(server_script)
-                time.sleep(2)
-                if is_server_running():
-                    print("Server restarted successfully")
+        print(f"\nOpened {SALESFORCE_URL} in a new browser window.")
+        print(f"Opened Dropbox folder {DROPBOX_FOLDER } in a new tab.")
+        print("\nThe Command Launcher extension should be automatically installed and enabled.")
+        print("If you don't see the extension:")
+        print("1. Open chrome://extensions in the browser")
+        print("2. Make sure 'Developer mode' is enabled (top right)")
+        print("3. Look for any error messages related to the extension")
+        print("4. Try clicking 'Load unpacked' and select:")
+        print(f"   {extension_path}")
+        
+        # Start extension status check in a separate thread
+        status_thread = threading.Thread(target=check_extension_status, daemon=True)
+        status_thread.start()
+        
+        try:
+            while True:
+                print("\nCommands:")
+                print("  q - Quit (browser and server will keep running)")
+                print("  r - Restart server")
+                print("  s - Check server status")
+                print("  h - Show this help")
+                
+                cmd = input("\nEnter command (h for help): ").strip().lower()
+                
+                if cmd == 'q':
+                    print("\nExiting script. Browser and server will continue running.")
+                    break
+                elif cmd == 'r':
+                    print("\nRestarting server...")
+                    kill_flask_server()
+                    server_script = os.path.join(os.path.dirname(__file__), 'server.py')
+                    server_watchdog = start_server_watchdog(server_script)
+                    time.sleep(2)
+                    if is_server_running():
+                        print("Server restarted successfully")
+                    else:
+                        print("Failed to restart server")
+                elif cmd == 's':
+                    if is_server_running():
+                        print("Server is running")
+                    else:
+                        print("Server is not running")
+                elif cmd == 'h':
+                    continue
                 else:
-                    print("Failed to restart server")
-            elif cmd == 's':
-                if is_server_running():
-                    print("Server is running")
-                else:
-                    print("Server is not running")
-            elif cmd == 'h':
-                continue
-            else:
-                print("Unknown command. Type 'h' for help.")
-            
-    except KeyboardInterrupt:
-        print("\nExiting script. Browser and server will continue running.")
-    finally:
-        # Don't clean up processes - let them keep running
-        pass
+                    print("Unknown command. Type 'h' for help.")
+        
+        except KeyboardInterrupt:
+            print("\nExiting script. Browser and server will continue running.")
+        finally:
+            # Don't clean up processes - let them keep running
+            pass
 
 def main():
     """Main entry point for the script."""
