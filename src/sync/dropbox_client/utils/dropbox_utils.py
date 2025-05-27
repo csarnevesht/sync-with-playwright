@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 from .date_utils import has_date_prefix, get_folder_creation_date
 from .path_utils import clean_dropbox_path
 from .file_utils import log_renamed_file
-from .config import DROPBOX_ROOT_FOLDER, ACCOUNT_INFO_PATTERN, DRIVERS_LICENSE_PATTERN
+from .config import DROPBOX_FOLDER, ACCOUNT_INFO_PATTERN, DRIVERS_LICENSE_PATTERN
 
 # Configure logging
 logging.basicConfig(
@@ -40,7 +40,7 @@ class DropboxClient:
         self.dbx = dropbox.Dropbox(token)
         
         # Get the root folder from environment
-        folder = DROPBOX_ROOT_FOLDER
+        folder = DROPBOX_FOLDER
         if folder.startswith('http'):
             # Extract the path from the URL
             parsed_url = urllib.parse.urlparse(folder)

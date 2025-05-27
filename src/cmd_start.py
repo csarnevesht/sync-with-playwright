@@ -50,7 +50,7 @@ from sync.config import (
     CHROME_DEBUG_PORT, 
     SALESFORCE_USERNAME, 
     SALESFORCE_PASSWORD,
-    DROPBOX_ROOT_FOLDER
+    DROPBOX_FOLDER 
 )
 
 # Configure logging
@@ -648,29 +648,29 @@ def check_extension_status():
                                                     setTimeout(checkLogin, 1000);
                                                 }}
                                             }};
-                                            // checkLogin();
+                                            checkLogin();
                                         }})();
                                         """
                                     }
                                 }))
                                 
                                 # Wait for credentials to be entered
-                                logging.info(f"Waiting for Salesforce credentials to be entered... Username: {SALESFORCE_USERNAME}")
-                                time.sleep(5)
+                                # logging.info(f"Waiting for Salesforce credentials to be entered... Username: {SALESFORCE_USERNAME}")
+                                # time.sleep(5)
                                 
                                 # Get the response from the credential entry
-                                response = json.loads(ext_ws.recv())
-                                if 'result' in response and 'result' in response['result']:
-                                    verification = response['result']['result']
-                                    logging.info(f"Verification result: {verification}")
-                                    if verification.get('usernameValue') == SALESFORCE_USERNAME:
-                                        logging.info(f"Salesforce username verified: {SALESFORCE_USERNAME}")
-                                    else:
-                                        logging.warning(f"Salesforce username not properly entered. Expected: {SALESFORCE_USERNAME}, Got: {verification.get('usernameValue')}")
-                                    if verification.get('passwordValue'):
-                                        logging.info("Salesforce password verified")
-                                    else:
-                                        logging.warning("Salesforce password not properly entered")
+                                # response = json.loads(ext_ws.recv())
+                                # if 'result' in response and 'result' in response['result']:
+                                #     verification = response['result']['result']
+                                #     logging.info(f"Verification result: {verification}")
+                                #     if verification.get('usernameValue') == SALESFORCE_USERNAME:
+                                #         logging.info(f"Salesforce username verified: {SALESFORCE_USERNAME}")
+                                #     else:
+                                #         logging.warning(f"Salesforce username not properly entered. Expected: {SALESFORCE_USERNAME}, Got: {verification.get('usernameValue')}")
+                                #     if verification.get('passwordValue'):
+                                #         logging.info("Salesforce password verified")
+                                #     else:
+                                #         logging.warning("Salesforce password not properly entered")
                                 
                                 logging.info("Salesforce credentials entry completed")
                             finally:
@@ -1080,7 +1080,7 @@ def check_required_env_vars():
     required_vars = {
         'SALESFORCE_USERNAME': SALESFORCE_USERNAME,
         'SALESFORCE_PASSWORD': SALESFORCE_PASSWORD,
-        'DROPBOX_FOLDER': DROPBOX_ROOT_FOLDER
+        'DROPBOX_FOLDER': DROPBOX_FOLDER 
     }
     
     missing_vars = [var for var, value in required_vars.items() if not value]
@@ -1311,12 +1311,25 @@ def start_browser():
                     # logging.info("Salesforce credentials entry completed")
                 finally:
                     ws.close()
+
+            # After Salesforce, open Dropbox in a new tab
+            logging.info(f"Opening Dropbox folder {DROPBOX_FOLDER} in a new tab.")
+            try:
+                dropbox_url = DROPBOX_FOLDER 
+                # Open a new tab
+                response = requests.put(f'http://localhost:{CHROME_DEBUG_PORT}/json/new?{dropbox_url}')
+                if response.status_code == 200:
+                    logging.info(f"Opened Dropbox folder {dropbox_url} in a new tab.")
+                else:
+                    logging.error(f"Failed to open Dropbox tab: {response.text}")
+            except Exception as e:
+                logging.error(f"Error opening Dropbox tab: {e}")
     
     except Exception as e:
         logging.error(f"Error handling browser tabs: {e}")
     
     print(f"\nOpened {SALESFORCE_URL} in a new browser window.")
-    print(f"Opened Dropbox folder {DROPBOX_ROOT_FOLDER} in a new tab.")
+    print(f"Opened Dropbox folder {DROPBOX_FOLDER } in a new tab.")
     print("\nThe Command Launcher extension should be automatically installed and enabled.")
     print("If you don't see the extension:")
     print("1. Open chrome://extensions in the browser")

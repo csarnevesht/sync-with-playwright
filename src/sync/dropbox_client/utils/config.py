@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Dropbox folder configuration
-DROPBOX_ROOT_FOLDER = os.getenv('DROPBOX_FOLDER', 'Accounts')
+DROPBOX_FOLDER = os.getenv('DROPBOX_FOLDER', 'Accounts')
 
 # File patterns
 ACCOUNT_INFO_PATTERN = os.getenv('ACCOUNT_INFO_PATTERN', '*App.pdf')
