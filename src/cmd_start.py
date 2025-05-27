@@ -604,94 +604,75 @@ def check_extension_status():
                             ext_ws = websocket.create_connection(ws_url, timeout=5)
                             
                             try:
-                                # Try to get extension info
+                                # Wait for Salesforce login page to load
+                                logging.info(f"Waiting for Salesforce login page to load... Using username: {SALESFORCE_USERNAME}")
                                 ext_ws.send(json.dumps({
                                     "id": 1,
                                     "method": "Runtime.evaluate",
                                     "params": {
-                                        "expression": """
-                                        (function() {
-                                            try {
-                                                if (chrome && chrome.runtime) {
-                                                    const manifest = chrome.runtime.getManifest();
-                                                    console.log('Extension manifest:', manifest);
-                                                    return {
-                                                        id: chrome.runtime.id,
-                                                        manifest: manifest,
-                                                        lastError: chrome.runtime.lastError ? chrome.runtime.lastError.message : null
-                                                    };
-                                                }
-                                                return { error: 'Chrome runtime API not available' };
-                                            } catch (e) {
-                                                console.error('Error getting extension info:', e);
-                                                return { error: e.toString() };
-                                            }
-                                        })()
+                                        "expression": f"""
+                                        (function() {{
+                                            const checkLogin = () => {{
+                                                // Try different possible selectors for Salesforce login form
+                                                const username = document.querySelector('input[name=\"username\"], input[id=\"username\"], input[type=\"email\"]');
+                                                const password = document.querySelector('input[name=\"pw\"], input[id=\"password\"], input[type=\"password\"]');
+                                                
+                                                if (username && password) {{
+                                                    console.log('Found Salesforce login form');
+                                                    
+                                                    // Clear existing values
+                                                    username.value = '';
+                                                    password.value = '';
+                                                    
+                                                    // Focus and enter username
+                                                    username.focus();
+                                                    const usernameValue = '{SALESFORCE_USERNAME.replace("'", "\\'")}';
+                                                    console.log('Setting Salesforce username to:', usernameValue);
+                                                    username.value = usernameValue;
+                                                    
+                                                    // Focus and enter password
+                                                    password.focus();
+                                                    const passwordValue = '{SALESFORCE_PASSWORD.replace("'", "\\'")}';
+                                                    console.log('Setting Salesforce password');
+                                                    password.value = passwordValue;
+                                                    
+                                                    // Trigger input events to ensure the form recognizes the changes
+                                                    username.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                                                    password.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                                                    
+                                                    // Log the current values to verify
+                                                    console.log('Current username value:', username.value);
+                                                    console.log('Current password value:', password.value ? '******' : '');
+                                                }} else {{
+                                                    console.log('Login form not found yet, retrying...');
+                                                    setTimeout(checkLogin, 1000);
+                                                }}
+                                            }};
+                                            checkLogin();
+                                        }})();
                                         """
                                     }
                                 }))
                                 
-                                response = json.loads(ext_ws.recv())
-                                print(f"\nExtension info response: {json.dumps(response, indent=2)}")
+                                # Wait for credentials to be entered
+                                logging.info(f"Waiting for Salesforce credentials to be entered... Username: {SALESFORCE_USERNAME}")
+                                time.sleep(5)
                                 
+                                # Get the response from the credential entry
+                                response = json.loads(ext_ws.recv())
                                 if 'result' in response and 'result' in response['result']:
-                                    # Get the object ID
-                                    object_id = response['result']['result'].get('objectId')
-                                    if object_id:
-                                        # Request the object properties
-                                        ext_ws.send(json.dumps({
-                                            "id": 2,
-                                            "method": "Runtime.getProperties",
-                                            "params": {
-                                                "objectId": object_id,
-                                                "ownProperties": True
-                                            }
-                                        }))
-                                        
-                                        props_response = json.loads(ext_ws.recv())
-                                        print(f"\nProperties response: {json.dumps(props_response, indent=2)}")
-                                        
-                                        if 'result' in props_response and 'result' in props_response['result']:
-                                            properties = props_response['result']['result']
-                                            extension_id = None
-                                            manifest_obj_id = None
-                                            
-                                            for prop in properties:
-                                                if prop['name'] == 'id' and 'value' in prop:
-                                                    extension_id = prop['value'].get('value')
-                                                elif prop['name'] == 'manifest' and 'value' in prop:
-                                                    manifest_obj_id = prop['value'].get('objectId')
-                                            
-                                            if manifest_obj_id:
-                                                # Get manifest properties
-                                                ext_ws.send(json.dumps({
-                                                    "id": 3,
-                                                    "method": "Runtime.getProperties",
-                                                    "params": {
-                                                        "objectId": manifest_obj_id,
-                                                        "ownProperties": True
-                                                    }
-                                                }))
-                                                
-                                                manifest_response = json.loads(ext_ws.recv())
-                                                print(f"\nManifest properties: {json.dumps(manifest_response, indent=2)}")
-                                                
-                                                if 'result' in manifest_response and 'result' in manifest_response['result']:
-                                                    manifest_props = manifest_response['result']['result']
-                                                    manifest_data = {}
-                                                    for manifest_prop in manifest_props:
-                                                        if 'value' in manifest_prop:
-                                                            manifest_data[manifest_prop['name']] = manifest_prop['value'].get('value')
-                                                    
-                                                    print("\nFound extension manifest:")
-                                                    print(f"- ID: {extension_id}")
-                                                    print(f"- Name: {manifest_data.get('name')}")
-                                                    print(f"- Version: {manifest_data.get('version')}")
-                                                    
-                                                    if manifest_data.get('name') == "Command Launcher":
-                                                        print("\nCommand Launcher extension is loaded!")
-                                                        print(f"Extension ID: {extension_id}")
-                                                        return True
+                                    verification = response['result']['result']
+                                    logging.info(f"Verification result: {verification}")
+                                    if verification.get('usernameValue') == SALESFORCE_USERNAME:
+                                        logging.info(f"Salesforce username verified: {SALESFORCE_USERNAME}")
+                                    else:
+                                        logging.warning(f"Salesforce username not properly entered. Expected: {SALESFORCE_USERNAME}, Got: {verification.get('usernameValue')}")
+                                    if verification.get('passwordValue'):
+                                        logging.info("Salesforce password verified")
+                                    else:
+                                        logging.warning("Salesforce password not properly entered")
+                                
+                                logging.info("Salesforce credentials entry completed")
                             finally:
                                 ext_ws.close()
                         except Exception as e:
@@ -1260,87 +1241,74 @@ def start_browser():
                 
                 try:
                     # Wait for Salesforce login page to load
+                    logging.info(f"Waiting for Salesforce login page to load... Using username: {SALESFORCE_USERNAME}")
                     ws.send(json.dumps({
                         "id": 1,
                         "method": "Runtime.evaluate",
                         "params": {
-                            "expression": """
-                            (function() {
-                                return new Promise((resolve) => {
-                                    const checkLogin = () => {
-                                        const username = document.querySelector('input[name="username"]');
-                                        const password = document.querySelector('input[name="pw"]');
-                                        if (username && password) {
-                                            username.value = arguments[0];
-                                            password.value = arguments[1];
-                                            document.querySelector('input[name="Login"]').click();
-                                            resolve(true);
-                                        } else {
-                                            setTimeout(checkLogin, 1000);
-                                        }
-                                    };
-                                    checkLogin();
-                                });
-                            }
-                            """,
-                            "arguments": [SALESFORCE_USERNAME, SALESFORCE_PASSWORD]
+                            "expression": f"""
+                            (function() {{
+                                const checkLogin = () => {{
+                                    // Try different possible selectors for Salesforce login form
+                                    const username = document.querySelector('input[name=\"username\"], input[id=\"username\"], input[type=\"email\"]');
+                                    const password = document.querySelector('input[name=\"pw\"], input[id=\"password\"], input[type=\"password\"]');
+                                    
+                                    if (username && password) {{
+                                        console.log('Found Salesforce login form');
+                                        
+                                        // Clear existing values
+                                        username.value = '';
+                                        password.value = '';
+                                        
+                                        // Focus and enter username
+                                        username.focus();
+                                        const usernameValue = '{SALESFORCE_USERNAME.replace("'", "\\'")}';
+                                        console.log('Setting Salesforce username to:', usernameValue);
+                                        username.value = usernameValue;
+                                        
+                                        // Focus and enter password
+                                        password.focus();
+                                        const passwordValue = '{SALESFORCE_PASSWORD.replace("'", "\\'")}';
+                                        console.log('Setting Salesforce password');
+                                        password.value = passwordValue;
+                                        
+                                        // Trigger input events to ensure the form recognizes the changes
+                                        username.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                                        password.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                                        
+                                        // Log the current values to verify
+                                        console.log('Current username value:', username.value);
+                                        console.log('Current password value:', password.value ? '******' : '');
+                                    }} else {{
+                                        console.log('Login form not found yet, retrying...');
+                                        setTimeout(checkLogin, 1000);
+                                    }}
+                                }};
+                                checkLogin();
+                            }})();
+                            """
                         }
                     }))
                     
-                    # Wait for login to complete
+                    # Wait for credentials to be entered
+                    logging.info(f"Waiting for Salesforce credentials to be entered... Username: {SALESFORCE_USERNAME}")
                     time.sleep(5)
                     
-                    # Open Dropbox in a new tab
-                    ws.send(json.dumps({
-                        "id": 2,
-                        "method": "Target.createTarget",
-                        "params": {
-                            "url": f"https://www.dropbox.com/home/{DROPBOX_ROOT_FOLDER.lstrip('/')}",
-                            "newWindow": False
-                        }
-                    }))
-                    
-                    # Get the new tab's target ID
+                    # Get the response from the credential entry
                     response = json.loads(ws.recv())
-                    if 'result' in response and 'targetId' in response['result']:
-                        target_id = response['result']['targetId']
-                        
-                        # Create a new WebSocket connection for the new tab
-                        ws2 = websocket.create_connection(f"ws://localhost:{CHROME_DEBUG_PORT}/devtools/page/{target_id}")
-                        
-                        try:
-                            # Wait for Dropbox page to load
-                            time.sleep(5)
-                            
-                            # Handle Dropbox login if needed
-                            ws2.send(json.dumps({
-                                "id": 1,
-                                "method": "Runtime.evaluate",
-                                "params": {
-                                    "expression": """
-                                    (function() {
-                                        return new Promise((resolve) => {
-                                            const checkLogin = () => {
-                                                const email = document.querySelector('input[name="login_email"]');
-                                                const password = document.querySelector('input[name="login_password"]');
-                                                if (email && password) {
-                                                    email.value = arguments[0];
-                                                    password.value = arguments[1];
-                                                    document.querySelector('button[type="submit"]').click();
-                                                    resolve(true);
-                                                } else {
-                                                    setTimeout(checkLogin, 1000);
-                                                }
-                                            };
-                                            checkLogin();
-                                        });
-                                    }
-                                    """,
-                                    "arguments": [os.getenv('DROPBOX_USERNAME'), os.getenv('DROPBOX_PASSWORD')]
-                                }
-                            }))
-                        finally:
-                            ws2.close()
+                    if 'result' in response and 'result' in response['result']:
+                        verification = response['result']['result']
+                        logging.info(f"Verification result: {verification}")
+                        if verification.get('usernameValue') == SALESFORCE_USERNAME:
+                            logging.info(f"Salesforce username verified: {SALESFORCE_USERNAME}")
+                        else:
+                            logging.warning(f"Salesforce username not properly entered. Expected: {SALESFORCE_USERNAME}, Got: {verification.get('usernameValue')}")
+                        if verification.get('passwordValue'):
+                            logging.info("Salesforce password verified")
+                        else:
+                            logging.warning("Salesforce password not properly entered")
+                    
+                    logging.info("Salesforce credentials entry completed")
                 finally:
                     ws.close()
     
