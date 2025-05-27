@@ -30,5 +30,9 @@
   {
     "description": "start browser with salesforce and dropbox",
     "command": "python -m cmd_start"
+  },
+  {
+    "description": "analyze accounts in accounts/fuzzy-small.txt",
+    "command": "python -m sync.cmd_analyzer --dropbox-accounts --salesforce-accounts --dropbox-accounts-file accounts/fuzzy-small.txt"
   }
 ]
