@@ -63,6 +63,8 @@ import sys
 import argparse
 from playwright.sync_api import sync_playwright, TimeoutError
 import logging
+from datetime import datetime
+from pathlib import Path
 from src.sync.salesforce_client.pages.account_manager import AccountManager
 from src.sync.salesforce_client.pages.file_manager import FileManager
 from src.sync.salesforce_client.utils.browser import get_salesforce_page
@@ -88,14 +90,6 @@ class Colors:
     BOLD = '\033[1m'
     ENDC = '\033[0m'
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-
-logger = logging.getLogger(__name__)
-
 # Custom formatter to add colors to specific log messages
 class ColoredFormatter(logging.Formatter):
     def format(self, record):
@@ -103,9 +97,61 @@ class ColoredFormatter(logging.Formatter):
             record.msg = f"{Colors.BLUE}{Colors.BOLD}{record.msg}{Colors.ENDC}"
         return super().format(record)
 
-# Apply the colored formatter
-for handler in logger.handlers:
-    handler.setFormatter(ColoredFormatter('%(asctime)s - %(levelname)s - %(message)s'))
+# Custom formatter for report logging (no timestamp or level)
+class ReportFormatter(logging.Formatter):
+    def format(self, record):
+        return record.getMessage()
+
+def setup_logging():
+    """Configure logging to write to both file and console with colored output."""
+    # Create logs directory with date-based subfolder
+    log_date = datetime.now().strftime('%Y-%m-%d')
+    log_dir = Path('logs') / log_date
+    log_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create log file with timestamp
+    timestamp = datetime.now().strftime('%H-%M-%S')
+    log_file = log_dir / f'analyzer_{timestamp}.log'
+    report_file = log_dir / f'report_{timestamp}.log'
+    
+    # Create formatters
+    file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    console_formatter = ColoredFormatter('%(asctime)s - %(levelname)s - %(message)s')
+    report_formatter = ReportFormatter()
+    
+    # Create file handler for main log
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setFormatter(file_formatter)
+    
+    # Create file handler for report log
+    report_handler = logging.FileHandler(report_file)
+    report_handler.setFormatter(report_formatter)
+    
+    # Create console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(console_formatter)
+    
+    # Configure root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    
+    # Remove any existing handlers
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+    
+    # Add handlers
+    root_logger.addHandler(file_handler)
+    root_logger.addHandler(console_handler)
+    
+    # Create a separate logger for reports
+    report_logger = logging.getLogger('report')
+    report_logger.setLevel(logging.INFO)
+    report_logger.addHandler(report_handler)
+    
+    return root_logger, report_logger
+
+# Initialize loggers
+logger, report_logger = setup_logging()
 
 def parse_args():
     """Parse command line arguments."""
@@ -323,9 +369,9 @@ def accounts_fuzzy_search(args):
 
     if args.dropbox_accounts_only:
         total_folders = len(ACCOUNT_FOLDERS)
-        print(f"Dropbox account folder names:")
+        logger.info(f"Dropbox account folder names:")
         for index, folder_name in enumerate(ACCOUNT_FOLDERS, 1):
-            print(f"    {index}. {folder_name}")
+            logger.info(f"    {index}. {folder_name}")
         return
 
     # List to store results for summary
@@ -419,50 +465,50 @@ def accounts_fuzzy_search(args):
             
             # Print results summary
             if args.salesforce_accounts:
-                print("\n=== SALESFORCE ACCOUNT MATCHES ===")
+                report_logger.info("\n=== SALESFORCE ACCOUNT MATCHES ===")
             for folder_name, result in results.items():
-                print(f"\nDropbox account folder name: {folder_name}")
+                report_logger.info(f"\nDropbox account folder name: {folder_name}")
                 
                 # Get exact matches
                 exact_matches = [match for match in result['matches'] if match in [attempt['query'] for attempt in result['search_attempts']]]
                 
                 # Show Salesforce account name based on exact matches
                 if exact_matches:
-                    print(f"Salesforce account name: {exact_matches[0]}")  # Show first exact match
+                    report_logger.info(f"Salesforce account name: {exact_matches[0]}")  # Show first exact match
                 else:
-                    print("Salesforce account name: None")
+                    report_logger.info("Salesforce account name: None")
                 
                 # Show search details if there are any matches
                 if result['matches']:
-                    print("\n📝 Search details:")
+                    report_logger.info("\n📝 Search details:")
                     for attempt in result['search_attempts']:
                         if attempt['matching_accounts']:
-                            print(f"\n   Search type: {attempt['type']}")
-                            print(f"   Query used: '{attempt['query']}'")
-                            print(f"   Found {attempt['matches']} matches:")
+                            report_logger.info(f"\n   Search type: {attempt['type']}")
+                            report_logger.info(f"   Query used: '{attempt['query']}'")
+                            report_logger.info(f"   Found {attempt['matches']} matches:")
                             for account in sorted(attempt['matching_accounts']):
-                                print(f"      - {account}")
+                                report_logger.info(f"      - {account}")
                 
                 if args.dropbox_account_files:
                     # Show Dropbox files
-                    print("\n📁 Dropbox account files:")
+                    report_logger.info("\n📁 Dropbox account files:")
                     for summary in summary_results:
                         if summary['dropbox_name'] == folder_name and summary['dropbox_files']:
                             sorted_files = sorted(summary['dropbox_files'], key=lambda x: x.name)
                             for i, file in enumerate(sorted_files, 1):
-                                print(f"   + {i}. {file.name}")
+                                report_logger.info(f"   + {i}. {file.name}")
                 # Show file comparison if available
                 if args.dropbox_account_files and args.salesforce_account_files:
                     # Show Salesforce files
-                    print("\n📁 Salesforce account files:")
+                    report_logger.info("\n📁 Salesforce account files:")
                     for summary in summary_results:
                         if summary['dropbox_name'] == folder_name and summary['salesforce_files']:
                             sorted_files = sorted(summary['salesforce_files'], 
                                 key=lambda x: int(x.split('.')[0]) if x.split('.')[0].isdigit() else float('inf'))
                             for file in sorted_files:
-                                print(f"   + {file}")
+                                report_logger.info(f"   + {file}")
                     # Show comparison results
-                    print("\n📁 File Comparison:")
+                    report_logger.info("\n📁 File Comparison:")
                     for summary in summary_results:
                         if summary['dropbox_name'] == folder_name and summary['file_comparison']:
                             file_details = summary['file_comparison'].get('file_details', {})
@@ -471,52 +517,53 @@ def accounts_fuzzy_search(args):
                                 sf_file = detail.get('salesforce_file', '')
                                 match_type = detail.get('match_type', '')
                                 reason = detail.get('reason', '')
-                                print(f"   {status} {file_name}")
+                                report_logger.info(f"   {status} {file_name}")
                                 if sf_file:
-                                    print(f"      Matched Salesforce file: {sf_file} ({match_type})")
+                                    report_logger.info(f"      Matched Salesforce file: {sf_file} ({match_type})")
                                 if reason:
-                                    print(f"      {reason}")
+                                    report_logger.info(f"      {reason}")
                                 potential_matches = detail.get('potential_matches', [])
                                 if potential_matches:
-                                    print(f"      Potential matches: {potential_matches}")
+                                    report_logger.info(f"      Potential matches: {potential_matches}")
                 
-                print("=" * 50)
+                report_logger.info("=" * 50)
             
             # Print final summary
-            print("\n=== SUMMARY ===")
+            report_logger.info("\n=== SUMMARY ===")
             for result in summary_results:
-                print(f"\nDropbox account folder name: {result['dropbox_name']}")
+                report_logger.info(f"\nDropbox account folder name: {result['dropbox_name']}")
                 salesforce_name = result['salesforce_name']
                 if salesforce_name == "--":
-                    print(f"Salesforce account name: -- [No exact match found]")
+                    report_logger.info(f"Salesforce account name: -- [No exact match found]")
                 else:
-                    print(f"Salesforce account name: {salesforce_name} [Exact Match]")
+                    report_logger.info(f"Salesforce account name: {salesforce_name} [Exact Match]")
                 # Show file summary if available
                 if args.dropbox_account_files and args.salesforce_account_files:
-                    print("\nFile Migration Status:")
+                    report_logger.info("\nFile Migration Status:")
                     file_comparison = result.get('file_comparison')
                     if file_comparison:
                         matched = file_comparison.get('matched_files', 0)
                         total = file_comparison.get('total_files', 0)
-                        print(f"   {matched}/{total} files matched")
+                        report_logger.info(f"   {matched}/{total} files matched")
                         missing_files = file_comparison.get('missing_files', [])
                         extra_files = file_comparison.get('extra_files', [])
                         if missing_files:
-                            print("   Missing files in Salesforce:")
+                            report_logger.info("   Missing files in Salesforce:")
                             for f in missing_files:
-                                print(f"      - {f}")
+                                report_logger.info(f"      - {f}")
                         if extra_files:
-                            print("   Extra files in Salesforce:")
+                            report_logger.info("   Extra files in Salesforce:")
                             for f in extra_files:
-                                print(f"      - {f}")
+                                report_logger.info(f"      - {f}")
                     else:
-                        print("   No files to compare")
+                        report_logger.info("   No files to compare")
             
         except Exception as e:
             logger.error(f"Test failed with error: {str(e)}")
         finally:
             browser.close()
             logger.info(f"\n=== ANALYSIS COMPLETE ===")
+            report_logger.info(f"\n=== ANALYSIS COMPLETE ===")
 
 if __name__ == "__main__":
     args = parse_args()
