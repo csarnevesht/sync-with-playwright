@@ -26,5 +26,9 @@
   {
     "description": "ping dropbox and salesforce",
     "command": "python -m sync.cmd_ping"
+  },
+  {
+    "description": "start browser with salesforce and dropbox",
+    "command": "python -m cmd_start"
   }
-] 
+]
