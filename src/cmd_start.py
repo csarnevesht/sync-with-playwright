@@ -648,7 +648,7 @@ def check_extension_status():
                                                     setTimeout(checkLogin, 1000);
                                                 }}
                                             }};
-                                            checkLogin();
+                                            // checkLogin();
                                         }})();
                                         """
                                     }
@@ -1291,24 +1291,24 @@ def start_browser():
                     }))
                     
                     # Wait for credentials to be entered
-                    logging.info(f"Waiting for Salesforce credentials to be entered... Username: {SALESFORCE_USERNAME}")
-                    time.sleep(5)
+                    # logging.info(f"Waiting for Salesforce credentials to be entered... Username: {SALESFORCE_USERNAME}")
+                    # time.sleep(5)
                     
-                    # Get the response from the credential entry
-                    response = json.loads(ws.recv())
-                    if 'result' in response and 'result' in response['result']:
-                        verification = response['result']['result']
-                        logging.info(f"Verification result: {verification}")
-                        if verification.get('usernameValue') == SALESFORCE_USERNAME:
-                            logging.info(f"Salesforce username verified: {SALESFORCE_USERNAME}")
-                        else:
-                            logging.warning(f"Salesforce username not properly entered. Expected: {SALESFORCE_USERNAME}, Got: {verification.get('usernameValue')}")
-                        if verification.get('passwordValue'):
-                            logging.info("Salesforce password verified")
-                        else:
-                            logging.warning("Salesforce password not properly entered")
+                    # # Get the response from the credential entry
+                    # response = json.loads(ws.recv())
+                    # if 'result' in response and 'result' in response['result']:
+                    #     verification = response['result']['result']
+                    #     logging.info(f"Verification result: {verification}")
+                    #     if verification.get('usernameValue') == SALESFORCE_USERNAME:
+                    #         logging.info(f"Salesforce username verified: {SALESFORCE_USERNAME}")
+                    #     else:
+                    #         logging.warning(f"Salesforce username not properly entered. Expected: {SALESFORCE_USERNAME}, Got: {verification.get('usernameValue')}")
+                    #     if verification.get('passwordValue'):
+                    #         logging.info("Salesforce password verified")
+                    #     else:
+                    #         logging.warning("Salesforce password not properly entered")
                     
-                    logging.info("Salesforce credentials entry completed")
+                    # logging.info("Salesforce credentials entry completed")
                 finally:
                     ws.close()
     
