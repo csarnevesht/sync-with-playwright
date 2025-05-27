@@ -6,7 +6,7 @@ import time
 from . import file_manager
 from .base_page import BasePage
 from playwright.sync_api import Page, TimeoutError
-from src.sync.config import SALESFORCE_URL
+from src.config import SALESFORCE_URL
 import sys
 import os
 from .accounts_page import AccountsPage

@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 from .date_utils import has_date_prefix, get_folder_creation_date
 from .path_utils import clean_dropbox_path
 from .file_utils import log_renamed_file
-from .config import DROPBOX_FOLDER, ACCOUNT_INFO_PATTERN, DRIVERS_LICENSE_PATTERN
+from src.config import DROPBOX_FOLDER, ACCOUNT_INFO_PATTERN, DRIVERS_LICENSE_PATTERN
 
 # Configure logging
 logging.basicConfig(

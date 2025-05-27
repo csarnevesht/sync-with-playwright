@@ -148,7 +148,7 @@ def main():
     logger = configure_logging(args.debug)
     
     # Import test modules after logging is configured
-    from sync.config import SALESFORCE_URL
+    from src.config import SALESFORCE_URL
     from sync.salesforce_client import Salesforce
     from sync.salesforce_client.utils.browser import get_salesforce_page
     

@@ -6,7 +6,7 @@ import os
 import sys
 from playwright.sync_api import sync_playwright, Browser, Page
 import logging
-from src.sync.config import SALESFORCE_URL, SALESFORCE_USERNAME, SALESFORCE_PASSWORD, CHROME_DEBUG_PORT
+from src.config import SALESFORCE_URL, SALESFORCE_USERNAME, SALESFORCE_PASSWORD, CHROME_DEBUG_PORT
 
 def get_salesforce_page(playwright) -> tuple[Browser, Page]:
     """

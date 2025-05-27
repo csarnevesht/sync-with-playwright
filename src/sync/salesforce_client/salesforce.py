@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Union, Any
 from pathlib import Path
 
 from playwright.sync_api import Page
-from src.sync.config import SALESFORCE_URL
+from src.config import SALESFORCE_URL
 from .pages.account_manager import AccountManager
 from .utils.browser import get_salesforce_page
 from .utils.mock_data import get_mock_accounts

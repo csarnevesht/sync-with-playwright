@@ -45,7 +45,7 @@ import threading
 import shutil
 from pathlib import Path
 from dotenv import load_dotenv
-from sync.config import (
+from src.config import (
     SALESFORCE_URL, 
     CHROME_DEBUG_PORT, 
     SALESFORCE_USERNAME, 

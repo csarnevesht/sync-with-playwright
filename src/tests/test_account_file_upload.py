@@ -29,6 +29,7 @@ from src.sync.salesforce_client.pages.account_manager import AccountManager
 from src.sync.salesforce_client.utils.browser import get_salesforce_page
 from src.sync.salesforce_client.utils.mock_data import get_mock_accounts
 from src.sync.salesforce_client.pages.file_manager import FileManager
+from src.config import *
 
 # Configure logging
 logging.basicConfig(
