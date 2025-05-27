@@ -50,7 +50,8 @@ from sync.config import (
     CHROME_DEBUG_PORT, 
     SALESFORCE_USERNAME, 
     SALESFORCE_PASSWORD,
-    DROPBOX_FOLDER 
+    DROPBOX_FOLDER,
+    DROPBOX_USERNAME
 )
 
 # Configure logging
@@ -1320,6 +1321,40 @@ def start_browser():
                 response = requests.put(f'http://localhost:{CHROME_DEBUG_PORT}/json/new?{dropbox_url}')
                 if response.status_code == 200:
                     logging.info(f"Opened Dropbox folder {dropbox_url} in a new tab.")
+                    # Get the new tab's websocket URL
+                    new_tab_info = response.json()
+                    ws_url = new_tab_info.get('webSocketDebuggerUrl')
+                    if ws_url:
+                        # Wait for the page to load
+                        time.sleep(3)
+                        ws_dropbox = websocket.create_connection(ws_url)
+                        try:
+                            logging.info(f"Entering Dropbox username: {DROPBOX_USERNAME}")
+                            ws_dropbox.send(json.dumps({
+                                "id": 1,
+                                "method": "Runtime.evaluate",
+                                "params": {
+                                    "expression": f"""
+                                    (function() {{
+                                        const checkLogin = () => {{
+                                            // Try common Dropbox login selectors
+                                            const email = document.querySelector('input[name=\"login_email\"], input[type=\"email\"]');
+                                            if (email) {{
+                                                email.focus();
+                                                email.value = '{DROPBOX_USERNAME.replace("'", "\\'")}';
+                                                email.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                                                console.log('Dropbox username entered:', email.value);
+                                            }} else {{
+                                                setTimeout(checkLogin, 1000);
+                                            }}
+                                        }};
+                                        checkLogin();
+                                    }})();
+                                    """
+                                }
+                            }))
+                        finally:
+                            ws_dropbox.close()
                 else:
                     logging.error(f"Failed to open Dropbox tab: {response.text}")
             except Exception as e:
