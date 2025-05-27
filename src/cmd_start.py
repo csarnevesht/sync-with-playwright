@@ -45,7 +45,13 @@ import threading
 import shutil
 from pathlib import Path
 from dotenv import load_dotenv
-from sync.config import SALESFORCE_URL, CHROME_DEBUG_PORT
+from sync.config import (
+    SALESFORCE_URL, 
+    CHROME_DEBUG_PORT, 
+    SALESFORCE_USERNAME, 
+    SALESFORCE_PASSWORD,
+    DROPBOX_ROOT_FOLDER
+)
 
 # Configure logging
 logging.basicConfig(
@@ -1083,6 +1089,29 @@ def kill_flask_server():
     # Wait a moment for the port to be released
     time.sleep(1)
 
+def check_required_env_vars():
+    """
+    Check if all required environment variables are set.
+    
+    Returns:
+        bool: True if all required variables are set, False otherwise
+    """
+    required_vars = {
+        'SALESFORCE_USERNAME': SALESFORCE_USERNAME,
+        'SALESFORCE_PASSWORD': SALESFORCE_PASSWORD,
+        'DROPBOX_FOLDER': DROPBOX_ROOT_FOLDER
+    }
+    
+    missing_vars = [var for var, value in required_vars.items() if not value]
+    
+    if missing_vars:
+        logging.error("Missing required environment variables:")
+        for var in missing_vars:
+            logging.error(f"- {var}")
+        return False
+    
+    return True
+
 def start_browser():
     """
     Launch Chrome with remote debugging and load the extension.
@@ -1093,9 +1122,15 @@ def start_browser():
     3. Configures Chrome preferences
     4. Launches Chrome with the extension
     5. Monitors extension status
+    6. Opens multiple tabs and handles login
     """
     # Load environment variables
     load_dotenv()
+    
+    # Check required environment variables
+    if not check_required_env_vars():
+        logging.error("Missing required environment variables. Please check your .env file.")
+        return
 
     # Kill any existing Chrome processes
     kill_chrome_processes()
@@ -1206,8 +1241,114 @@ def start_browser():
     stdout_thread.start()
     stderr_thread.start()
     
-    # Wait for Chrome to start and check extension status
+    # Wait for Chrome to start
+    time.sleep(5)
+    
+    # Get list of pages from Chrome's debugging port
+    try:
+        response = requests.get(f'http://localhost:{CHROME_DEBUG_PORT}/json', timeout=5)
+        pages = response.json()
+        
+        # Find the first tab
+        first_tab = next((page for page in pages if page.get('type') == 'page'), None)
+        if first_tab:
+            # Get WebSocket URL for the first tab
+            ws_url = first_tab.get('webSocketDebuggerUrl')
+            if ws_url:
+                # Connect to the first tab
+                ws = websocket.create_connection(ws_url)
+                
+                try:
+                    # Wait for Salesforce login page to load
+                    ws.send(json.dumps({
+                        "id": 1,
+                        "method": "Runtime.evaluate",
+                        "params": {
+                            "expression": """
+                            (function() {
+                                return new Promise((resolve) => {
+                                    const checkLogin = () => {
+                                        const username = document.querySelector('input[name="username"]');
+                                        const password = document.querySelector('input[name="pw"]');
+                                        if (username && password) {
+                                            username.value = arguments[0];
+                                            password.value = arguments[1];
+                                            document.querySelector('input[name="Login"]').click();
+                                            resolve(true);
+                                        } else {
+                                            setTimeout(checkLogin, 1000);
+                                        }
+                                    };
+                                    checkLogin();
+                                });
+                            }
+                            """,
+                            "arguments": [SALESFORCE_USERNAME, SALESFORCE_PASSWORD]
+                        }
+                    }))
+                    
+                    # Wait for login to complete
+                    time.sleep(5)
+                    
+                    # Open Dropbox in a new tab
+                    ws.send(json.dumps({
+                        "id": 2,
+                        "method": "Target.createTarget",
+                        "params": {
+                            "url": f"https://www.dropbox.com/home/{DROPBOX_ROOT_FOLDER.lstrip('/')}",
+                            "newWindow": False
+                        }
+                    }))
+                    
+                    # Get the new tab's target ID
+                    response = json.loads(ws.recv())
+                    if 'result' in response and 'targetId' in response['result']:
+                        target_id = response['result']['targetId']
+                        
+                        # Create a new WebSocket connection for the new tab
+                        ws2 = websocket.create_connection(f"ws://localhost:{CHROME_DEBUG_PORT}/devtools/page/{target_id}")
+                        
+                        try:
+                            # Wait for Dropbox page to load
+                            time.sleep(5)
+                            
+                            # Handle Dropbox login if needed
+                            ws2.send(json.dumps({
+                                "id": 1,
+                                "method": "Runtime.evaluate",
+                                "params": {
+                                    "expression": """
+                                    (function() {
+                                        return new Promise((resolve) => {
+                                            const checkLogin = () => {
+                                                const email = document.querySelector('input[name="login_email"]');
+                                                const password = document.querySelector('input[name="login_password"]');
+                                                if (email && password) {
+                                                    email.value = arguments[0];
+                                                    password.value = arguments[1];
+                                                    document.querySelector('button[type="submit"]').click();
+                                                    resolve(true);
+                                                } else {
+                                                    setTimeout(checkLogin, 1000);
+                                                }
+                                            };
+                                            checkLogin();
+                                        });
+                                    }
+                                    """,
+                                    "arguments": [os.getenv('DROPBOX_USERNAME'), os.getenv('DROPBOX_PASSWORD')]
+                                }
+                            }))
+                        finally:
+                            ws2.close()
+                finally:
+                    ws.close()
+    
+    except Exception as e:
+        logging.error(f"Error handling browser tabs: {e}")
+    
     print(f"\nOpened {SALESFORCE_URL} in a new browser window.")
+    print(f"Opened Dropbox folder {DROPBOX_ROOT_FOLDER} in a new tab.")
     print("\nThe Command Launcher extension should be automatically installed and enabled.")
     print("If you don't see the extension:")
     print("1. Open chrome://extensions in the browser")
