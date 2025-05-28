@@ -1766,12 +1766,13 @@ Name Variations:
 
         return result
 
-    def fuzzy_search_account(self, folder_name: str) -> dict:
+    def fuzzy_search_account(self, folder_name: str, view_name: str = "All Clients") -> dict:
         """
         Perform a fuzzy search for an account based on a folder name.
         
         Args:
             folder_name: The Dropbox folder name to search for
+            view_name: The name of the list view to use (default: "All Clients")
             
         Returns:
             dict: A dictionary containing:
@@ -1793,116 +1794,69 @@ Name Variations:
         try:
             # Extract name parts
             name_parts = self.extract_name_parts(folder_name)
-            if not name_parts:
-                self.log_helper.log(self.logger, 'error', f"Failed to extract name parts from folder name: {folder_name}")
-                self.log_helper.dedent()
-                self.log_helper.log(self.logger, 'info', f"Dropbox account folder name: {folder_name} [No match found]")
-                total_duration = time.time() - start_time
-                self.log_helper.log(self.logger, 'info', f"Total timing: {self.log_helper.format_duration(total_duration)}")
-                return result
-            
-            # Get normalized names for comparison
-            normalized_names = name_parts.get('normalized_names', [])
-            if not normalized_names:
-                self.log_helper.log(self.logger, 'error', f"No normalized names found for folder name: {folder_name}")
-                self.log_helper.dedent()
-                self.log_helper.log(self.logger, 'info', f"Dropbox account folder name: {folder_name} [No match found]")
-                total_duration = time.time() - start_time
-                self.log_helper.log(self.logger, 'info', f"Total timing: {self.log_helper.format_duration(total_duration)}")
-                return result
-            
-            # Get swapped names for comparison
-            swapped_names = name_parts.get('swapped_names', [])
-            
-            # Keep track of performed searches and their results
-            performed_searches = {}  # Dict to store search query -> results mapping
-            
-            # Search by last name first
             last_name = name_parts.get('last_name', '')
-            if last_name:
-                last_name_result = self.search_by_last_name(last_name)
-                if last_name_result:
-                    performed_searches[last_name] = last_name_result
-                    result['search_attempts'].append({
-                        'type': 'Last Name',
-                        'query': last_name,
-                        'matching_accounts': last_name_result,
-                        'matches': len(last_name_result)
-                    })
-                    # Add matches to the result
-                    result['matches'].extend(last_name_result)
+            first_name = name_parts.get('first_name', '')
+            middle_name = name_parts.get('middle_name', '')
+            full_name = name_parts.get('full_name', '')
             
-            # Search by full name variations
-            for name in normalized_names + swapped_names:
-                # Skip if we've already performed this search and got results
-                if name in performed_searches and performed_searches[name]:
-                    self.log_helper.log(self.logger, 'info', f"Skipping duplicate search for: {name}")
-                    continue
-                    
-                full_name_result = self.search_by_full_name(name)
-                if full_name_result:
-                    performed_searches[name] = full_name_result
-                    result['search_attempts'].append({
-                        'type': 'Full Name',
-                        'query': name,
-                        'matching_accounts': full_name_result,
-                        'matches': len(full_name_result)
-                    })
-                    # Add matches to the result
-                    result['matches'].extend(full_name_result)
+            # Log the extracted parts
+            self.log_helper.log(self.logger, 'info', f"Extracted name parts from '{folder_name}':")
+            self.log_helper.log(self.logger, 'info', f"  Last name: {last_name}")
+            self.log_helper.log(self.logger, 'info', f"  First name: {first_name}")
+            self.log_helper.log(self.logger, 'info', f"  Middle name: {middle_name}")
+            self.log_helper.log(self.logger, 'info', f"  Full name: {full_name}")
             
-            # Remove duplicates from matches
-            result['matches'] = list(set(result['matches']))
+            # Try searching by last name first
+            self.log_helper.log(self.logger, 'info', f"Searching by last name: {last_name}")
+            matching_accounts = self.search_account(last_name, view_name=view_name)
             
-            # Check for exact matches (case-insensitive, including expected_matches)
-            expected_names = name_parts.get('expected_matches', [])
-            all_expected = [n.lower() for n in normalized_names + swapped_names + expected_names]
-            exact_matches = []
-            for match in result['matches']:
-                if match.lower() in all_expected:
-                    exact_matches.append(match)
+            # If no matches found by last name, try full name
+            if not matching_accounts:
+                self.log_helper.log(self.logger, 'info', f"No matches found by last name, trying full name: {full_name}")
+                matching_accounts = self.search_account(full_name, view_name=view_name)
             
-            # Filter matches to ensure at least one word matches exactly
-            filtered_matches = []
-            search_words = set(word.lower() for word in folder_name.split())
+            # If still no matches, try first name + last name
+            if not matching_accounts and first_name and last_name:
+                combined_name = f"{first_name} {last_name}"
+                self.log_helper.log(self.logger, 'info', f"No matches found by full name, trying combined name: {combined_name}")
+                matching_accounts = self.search_account(combined_name, view_name=view_name)
             
-            for match in result['matches']:
-                match_words = set(word.lower() for word in match.split())
-                # Check if at least one word matches exactly
-                if search_words.intersection(match_words):
-                    filtered_matches.append(match)
+            # Store the search attempts
+            result['search_attempts'] = [
+                {
+                    'type': 'Last Name',
+                    'query': last_name,
+                    'matching_accounts': matching_accounts if last_name else []
+                },
+                {
+                    'type': 'Full Name',
+                    'query': full_name,
+                    'matching_accounts': matching_accounts if full_name else []
+                }
+            ]
             
-            # Update result status and matches
-            if exact_matches:
-                result['status'] = 'Exact Match'
-                result['matches'] = exact_matches
-            elif filtered_matches:
-                result['status'] = 'Partial Match'
-                result['matches'] = filtered_matches
-            else:
-                result['status'] = 'No Match'
-                result['matches'] = []
+            if first_name and last_name:
+                result['search_attempts'].append({
+                    'type': 'Combined Name',
+                    'query': f"{first_name} {last_name}",
+                    'matching_accounts': matching_accounts
+                })
+            
+            # Update result based on matches
+            if matching_accounts:
+                result['matches'] = matching_accounts
+                # Check for exact match
+                if any(account.lower() == folder_name.lower() for account in matching_accounts):
+                    result['status'] = 'Exact Match'
+                else:
+                    result['status'] = 'Partial Match'
             
             # Add timing information
             total_duration = time.time() - start_time
             result['timing'] = {
                 'total_duration': total_duration,
-                'name_extraction': name_parts.get('timing', {}).get('total', 0)
+                'formatted_duration': self.log_helper.format_duration(total_duration)
             }
-            
-            # Log the summary with only the Dropbox folder name and match status
-            if result['status'] == 'No Match':
-                self.log_helper.log(self.logger, 'info', f"Dropbox account folder name: {folder_name} [No match found]")
-                if hasattr(self.logger, 'report_logger') and self.logger.report_logger:
-                    self.logger.report_logger.info(f"Dropbox account folder name: {folder_name} [No match found]")
-            else:
-                self.log_helper.log(self.logger, 'info', f"Dropbox account folder name: {folder_name} [{result['status']}]")
-                # Add matching Salesforce account names
-                for match in result['matches']:
-                    self.log_helper.log(self.logger, 'info', f"Salesforce account name: {match}")
-            
-            # Log total timing
-            self.log_helper.log(self.logger, 'info', f"Total timing: {self.log_helper.format_duration(total_duration)}")
             
             self.log_helper.log_timing(self.logger, f"fuzzy_search_account for folder: {folder_name}")
             self.log_helper.dedent()

@@ -491,7 +491,7 @@ def accounts_fuzzy_search(args):
                     continue
 
                 # Perform fuzzy search
-                result = account_manager.fuzzy_search_account(folder_name)
+                result = account_manager.fuzzy_search_account(folder_name, view_name="All Clients")
                 results[folder_name] = result
                 
                 # Get matches for summary (show all matches, not just exact)
@@ -617,6 +617,12 @@ def accounts_fuzzy_search(args):
             
             # Print final summary
             report_logger.info("\n=== SUMMARY ===")
+            
+            # Initialize counters for match types
+            total_exact_matches = 0
+            total_partial_matches = 0
+            total_no_matches = 0
+            
             for result in summary_results:
                 salesforce_name = result['salesforce_name']
                 # Determine expected names for exact match (case-insensitive)
@@ -643,6 +649,14 @@ def accounts_fuzzy_search(args):
                             match_status = "Exact Match"
                         else:
                             match_status = "Partial Match"
+
+                # Update counters based on match status
+                if match_status == "Exact Match":
+                    total_exact_matches += 1
+                elif match_status == "Partial Match":
+                    total_partial_matches += 1
+                else:
+                    total_no_matches += 1
 
                 # Log the summary with match status
                 report_logger.info(f"\nDropbox account folder name: {result['dropbox_name']} [{match_status}]")
@@ -673,6 +687,13 @@ def accounts_fuzzy_search(args):
                                 report_logger.info(f"      - {f}")
                     else:
                         report_logger.info("   No files to compare")
+            
+            # Print match statistics
+            report_logger.info("\n=== MATCH STATISTICS ===")
+            report_logger.info(f"Total Exact Matches: {total_exact_matches}")
+            report_logger.info(f"Total Partial Matches: {total_partial_matches}")
+            report_logger.info(f"Total No Matches: {total_no_matches}")
+            report_logger.info(f"Total Accounts Processed: {len(summary_results)}")
             
         except Exception as e:
             logger.error(f"Test failed with error: {str(e)}")
