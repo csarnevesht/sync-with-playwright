@@ -449,6 +449,8 @@ def accounts_fuzzy_search(args):
             
             logger.info(f"\nStarting to process {total_folders} folders...")
             report_logger.info(f"\nStarting to process {total_folders} folders...")
+
+            account_manager.refresh_page()
             
             # Process each folder name
             for index, folder_name in enumerate(ACCOUNT_FOLDERS, 1):
