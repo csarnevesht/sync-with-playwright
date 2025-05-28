@@ -1803,6 +1803,10 @@ Name Variations:
             last_name = name_parts.get('last_name', '')
             full_name = name_parts.get('full_name', '')
             
+            # Add normalized and swapped names to result
+            result['normalized_names'] = name_parts.get('normalized_names', [])
+            result['swapped_names'] = name_parts.get('swapped_names', [])
+            
             self.logger.info(f"\nExtracted name parts for '{folder_name}':")
             self.logger.info(f"    First name: {name_parts.get('first_name', '')}")
             self.logger.info(f"    Last name: {last_name}")

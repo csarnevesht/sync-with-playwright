@@ -557,7 +557,15 @@ def accounts_fuzzy_search(args):
                 report_logger.info(f"\nDropbox account folder name: {folder_name}")
                 
                 # Get exact matches
-                exact_matches = [match for match in result['matches'] if match in [attempt['query'] for attempt in result['search_attempts']]]
+                exact_matches = []
+                for match in result['matches']:
+                    match_lower = match.lower()
+                    # Check if this match is in any of the normalized names
+                    if any(match_lower == normalized.lower() for normalized in result.get('normalized_names', [])):
+                        exact_matches.append(match)
+                    # Also check if this match is in any of the swapped names
+                    elif any(match_lower == swapped.lower() for swapped in result.get('swapped_names', [])):
+                        exact_matches.append(match)
                 
                 # Show Salesforce account name based on exact matches
                 if exact_matches:
