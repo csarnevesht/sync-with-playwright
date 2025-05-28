@@ -104,22 +104,43 @@ class ReportFormatter(logging.Formatter):
     def format(self, record):
         return record.getMessage()
 
-def setup_logging():
-    """Configure logging to write to both file and console with colored output."""
+def format_args_for_logging(args):
+    """Format command line arguments for logging.
+    
+    Args:
+        args: The parsed command line arguments
+        
+    Returns:
+        str: Formatted string of arguments
+    """
+    # Get all non-None arguments
+    arg_dict = {k: v for k, v in vars(args).items() if v is not None}
+    
+    # Format the arguments
+    formatted_args = []
+    for key, value in arg_dict.items():
+        if isinstance(value, bool):
+            if value:  # Only include True boolean flags
+                formatted_args.append(f"--{key}")
+        else:
+            formatted_args.append(f"--{key}={value}")
+    
+    return " ".join(formatted_args)
+
+def setup_logging(args):
+    """Configure logging to write to both file and console with colored output.
+    
+    Args:
+        args: The parsed command line arguments
+    """
     # Create logs directory with date and time-based subfolder
     timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     log_dir = Path('logs') / timestamp
     log_dir.mkdir(parents=True, exist_ok=True)
     
-    # Create separate directories for analyzer and report logs
-    analyzer_dir = log_dir / 'analyzer'
-    report_dir = log_dir / 'report'
-    analyzer_dir.mkdir(exist_ok=True)
-    report_dir.mkdir(exist_ok=True)
-    
-    # Create log files
-    log_file = analyzer_dir / 'analyzer.log'
-    report_file = report_dir / 'report.log'
+    # Create log files directly in the timestamped folder
+    log_file = log_dir / 'analyzer.log'
+    report_file = log_dir / 'report.log'
     
     # Create formatters
     file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
@@ -155,14 +176,16 @@ def setup_logging():
     report_logger.setLevel(logging.INFO)
     report_logger.addHandler(report_handler)
     
+    # Log the command and arguments
+    command = f"python -m sync.cmd_analyzer {format_args_for_logging(args)}"
+    root_logger.info(f"Command: {command}")
+    report_logger.info(f"Command: {command}")
+    
     # Log the log file locations
     root_logger.info(f"Main log file: {log_file}")
     root_logger.info(f"Report log file: {report_file}")
     
     return root_logger, report_logger
-
-# Initialize loggers
-logger, report_logger = setup_logging()
 
 def parse_args():
     """Parse command line arguments."""
@@ -276,6 +299,7 @@ def accounts_fuzzy_search(args):
     if args.dropbox_account_name:
         if args.dropbox_account_name in ignored_folders:
             logger.warning(f"Account {args.dropbox_account_name} is in the ignore list. Skipping...")
+            report_logger.info(f"\nAccount {args.dropbox_account_name} is in the ignore list. Skipping...")
             return
         ACCOUNT_FOLDERS = [args.dropbox_account_name]
         logger.info(f"Using provided Dropbox account name: {args.dropbox_account_name}")
@@ -297,6 +321,7 @@ def accounts_fuzzy_search(args):
         dbx = initialize_dropbox_client()
         if not dbx:
             logger.error("Failed to initialize Dropbox client. Exiting...")
+            report_logger.info("\nFailed to initialize Dropbox client. Exiting...")
             return
             
         logger.info("Retrieving all Dropbox account folders...")
@@ -305,6 +330,7 @@ def accounts_fuzzy_search(args):
             root_folder = get_DROPBOX_FOLDER(args.env_file)
             if not root_folder:
                 logger.error("Could not get DROPBOX_FOLDER from environment")
+                report_logger.info("\nCould not get DROPBOX_FOLDER from environment")
                 return
                 
             logger.info(f"Raw root folder from environment: {root_folder}")
@@ -315,10 +341,12 @@ def accounts_fuzzy_search(args):
                 logger.info(f"Cleaned Dropbox path: {clean_path}")
             except ValueError as e:
                 logger.error(f"Invalid path format: {str(e)}")
+                report_logger.info(f"\nInvalid path format: {str(e)}")
                 return
                 
             if not clean_path:
                 logger.error(f"Invalid path: {root_folder}")
+                report_logger.info(f"\nInvalid path: {root_folder}")
                 return
                 
             # Try to get metadata first to check if path exists
@@ -333,6 +361,11 @@ def accounts_fuzzy_search(args):
                     logger.error("1. The path exists in your Dropbox")
                     logger.error("2. You have permission to access this path")
                     logger.error("3. The path is correctly formatted")
+                    report_logger.info(f"\nPath not found: {clean_path}")
+                    report_logger.info("Please check:")
+                    report_logger.info("1. The path exists in your Dropbox")
+                    report_logger.info("2. You have permission to access this path")
+                    report_logger.info("3. The path is correctly formatted")
                     return
                 raise
                 
@@ -355,6 +388,8 @@ def accounts_fuzzy_search(args):
             if not ACCOUNT_FOLDERS:
                 logger.warning(f"No valid folders found in path: {clean_path}")
                 logger.info("Please check your Dropbox folder path and permissions")
+                report_logger.info(f"\nNo valid folders found in path: {clean_path}")
+                report_logger.info("Please check your Dropbox folder path and permissions")
                 return
                 
             logger.info(f"Successfully retrieved {len(ACCOUNT_FOLDERS)} folders from Dropbox (after filtering {ignored_count} ignored folders)")
@@ -366,9 +401,15 @@ def accounts_fuzzy_search(args):
             logger.error("1. Invalid path format")
             logger.error("2. Insufficient permissions")
             logger.error("3. Network connectivity issues")
+            report_logger.info(f"\nError listing folders: {str(e)}")
+            report_logger.info("This could be due to:")
+            report_logger.info("1. Invalid path format")
+            report_logger.info("2. Insufficient permissions")
+            report_logger.info("3. Network connectivity issues")
             return
         except Exception as e:
             logger.error(f"Unexpected error: {str(e)}")
+            report_logger.info(f"\nUnexpected error: {str(e)}")
             return
 
     # Apply batch size and start-from if specified
@@ -381,8 +422,10 @@ def accounts_fuzzy_search(args):
     if args.dropbox_accounts_only:
         total_folders = len(ACCOUNT_FOLDERS)
         logger.info(f"Dropbox account folder names:")
+        report_logger.info("\n=== DROPBOX ACCOUNT FOLDERS ===")
         for index, folder_name in enumerate(ACCOUNT_FOLDERS, 1):
             logger.info(f"    {index}. {folder_name}")
+            report_logger.info(f"{index}. {folder_name}")
         return
 
     # List to store results for summary
@@ -399,15 +442,23 @@ def accounts_fuzzy_search(args):
             results = {}
             total_folders = len(ACCOUNT_FOLDERS)
             
+            if total_folders == 0:
+                logger.warning("No Dropbox accounts to process")
+                report_logger.info("\nNo Dropbox accounts to process")
+                return
+            
             logger.info(f"\nStarting to process {total_folders} folders...")
+            report_logger.info(f"\nStarting to process {total_folders} folders...")
             
             # Process each folder name
             for index, folder_name in enumerate(ACCOUNT_FOLDERS, 1):
                 logger.info(f"\n[{index}/{total_folders}] Processing Dropbox account folder: {folder_name}")
+                report_logger.info(f"\n[{index}/{total_folders}] Processing Dropbox account folder: {folder_name}")
                 
                 # Navigate to accounts page
                 if not account_manager.navigate_to_accounts_list_page():
                     logger.error("Failed to navigate to accounts page")
+                    report_logger.info("Failed to navigate to accounts page")
                     continue
                 
                 # Get Dropbox files if requested
@@ -417,6 +468,7 @@ def accounts_fuzzy_search(args):
                     dbx = initialize_dropbox_client()
                     if not dbx:
                         logger.error(f"Failed to initialize Dropbox client for folder {folder_name}. Skipping...")
+                        report_logger.info(f"Failed to initialize Dropbox client for folder {folder_name}. Skipping...")
                         continue
                         
                     try:
@@ -424,6 +476,7 @@ def accounts_fuzzy_search(args):
                         logger.info(f"Successfully retrieved {len(dropbox_files)} files from Dropbox")
                     except ApiError as e:
                         logger.error(f"Failed to get files for folder {folder_name}: {str(e)}")
+                        report_logger.info(f"Failed to get files for folder {folder_name}: {str(e)}")
                         continue
                 
                 if not args.salesforce_accounts:
@@ -454,14 +507,17 @@ def accounts_fuzzy_search(args):
                             num_files = account_manager.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
                             if num_files == -1:
                                 logging.error("Failed to navigate to Files")
+                                report_logger.info("Failed to navigate to Files")
                                 return []
                             
                             salesforce_files = file_manager.get_all_file_names()
                             logger.info(f"Found {len(salesforce_files)} files in Salesforce")
                         else:
                             logger.error(f"Could not verify account page or get account ID for: {account_to_check}")
+                            report_logger.info(f"Could not verify account page or get account ID for: {account_to_check}")
                     else:
                         logger.error(f"Could not navigate to Salesforce account: {account_to_check}")
+                        report_logger.info(f"Could not navigate to Salesforce account: {account_to_check}")
                 
                 # Compare files if both Dropbox and Salesforce files are available
                 file_comparison = None
@@ -579,6 +635,7 @@ def accounts_fuzzy_search(args):
             
         except Exception as e:
             logger.error(f"Test failed with error: {str(e)}")
+            report_logger.info(f"\nTest failed with error: {str(e)}")
         finally:
             browser.close()
             logger.info(f"\n=== ANALYSIS COMPLETE ===")
@@ -586,4 +643,5 @@ def accounts_fuzzy_search(args):
 
 if __name__ == "__main__":
     args = parse_args()
+    logger, report_logger = setup_logging(args)
     accounts_fuzzy_search(args) 

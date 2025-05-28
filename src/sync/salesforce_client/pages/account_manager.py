@@ -132,113 +132,118 @@ class AccountManager(BasePage):
             self.logger.error(f"Error navigating to list view URL: {str(e)}")
             return False
 
-    def search_account(self, account_name: str, view_name: str = "All Accounts") -> int:
-        """Search for an account by name and return the number of items found.
+    def search_account(self, search_term: str, view_name: str = "All Clients") -> bool:
+        """
+        Search for an account in Salesforce.
         
         Args:
-            account_name: The name of the account to search for
-            view_name: The name of the list view to use (default: "All Accounts")
+            search_term: The term to search for
+            view_name: The name of the list view to use
             
         Returns:
-            int: The number of items found
+            bool: True if search was successful, False otherwise
         """
         try:
-            self.logger.info(f"Searching for account: {account_name} in view: {view_name}")
+            # Navigate to accounts page if not already there
+            if not self.navigate_to_accounts_list_page():
+                return False
             
-            # Navigate to the list view
-            if not self._navigate_to_accounts_list_view_url(view_name):
-                self.logger.error("Failed to navigate to list view")
-                return 0
+            # Clear any existing search
+            self.clear_search()
             
-            # Wait for the search input to be visible with increased timeout
-            self.logger.info("Waiting for search input...")
-            search_input = self.page.wait_for_selector('input[placeholder="Search this list..."]', timeout=20000)
-            if not search_input:
-                self.logger.error("Search input not found")
-                self._take_screenshot("search-input-not-found")
-                return 0
+            # Enter search term
+            search_input = self.page.locator("input[placeholder='Search this list...']")
+            search_input.fill(search_term)
+            search_input.press("Enter")
             
-            # Ensure the search input is visible and clickable
-            search_input.scroll_into_view_if_needed()
-            self.page.wait_for_timeout(500)  # Short wait for scroll to complete
-            
-            # Click the search input to ensure it's focused
-            search_input.click()
-            self.page.wait_for_timeout(500)  # Short wait for focus
-            
-            # Clear and fill the search input
-            search_input.fill("")
-            self.page.wait_for_timeout(500)  # Short wait for clear
-            search_input.fill(account_name)
-            self.page.wait_for_timeout(500)  # Short wait for fill
-            
-            # Verify the text was entered correctly
-            actual_text = search_input.input_value()
-            if actual_text != account_name:
-                self.logger.error(f"Search text mismatch. Expected: {account_name}, Got: {actual_text}")
-                self._take_screenshot("search-text-mismatch")
-                return 0
-            
-            # Press Enter and wait for results
-            self.page.keyboard.press("Enter")
-            
-            # Wait for search results with a more specific check
-            self.logger.info("Waiting for search results...")
+            # Wait for search results
             try:
-                # First wait for the loading spinner to disappear
+                # Wait for the loading spinner to disappear
                 self.page.wait_for_selector('div.slds-spinner_container', state='hidden', timeout=5000)
-                self.logger.info("Loading spinner disappeared")
                 
-                # Wait a moment for results to appear
-                self.page.wait_for_timeout(1000)  # Reduced wait time
+                # Wait for the table to be visible
+                table = self.page.wait_for_selector('table.slds-table', timeout=10000)
+                if not table:
+                    self.logger.error("Search results table not found")
+                    return False
                 
-                # Check the item count in the status message
-                try:
-                    # Try multiple selectors for the status message
-                    status_selectors = [
-                        'span.countSortedByFilteredBy',
-                        'span.slds-text-body_small',
-                        'div.slds-text-body_small',
-                        'span[class*="count"]'
-                    ]
-                    
-                    for selector in status_selectors:
-                        try:
-                            status_message = self.page.wait_for_selector(selector, timeout=5000)
-                            if status_message:
-                                status_text = status_message.text_content()
-                                self.logger.info(f"Status message: {status_text}")
-                                
-                                # Extract the number of items
-                                match = re.search(r'(\d+\+?)\s+items?\s+•', status_text)
-                                if match:
-                                    item_count_str = match.group(1)
-                                    # Remove the plus sign if present and convert to int
-                                    item_count = int(item_count_str.rstrip('+'))
-                                    self.logger.info(f"Found {item_count} items in search results")
-                                    return item_count
-                        except Exception as e:
-                            self.logger.info(f"Selector {selector} failed: {str(e)}")
-                            continue
-                    
-                    # If we get here, none of the selectors worked
-                    self.logger.info("Could not find status message with any selector")
-                    self._take_screenshot("status-message-not-found")
-                    return 0
-                    
-                except Exception as e:
-                    self.logger.info(f"Error checking status message: {str(e)}")
-                    return 0
+                # Wait for any rows to be visible
+                rows = self.page.locator('table.slds-table tbody tr').all()
+                if not rows:
+                    self.logger.info(f"No results found for search term: {search_term}")
+                    return True  # Return True because the search was successful, just no results
+                
+                # Log the number of results found
+                self.logger.info(f"Found {len(rows)} results for search term: {search_term}")
+                
+                # Log each result
+                for row in rows:
+                    try:
+                        name_cell = row.locator('td:nth-child(2) a').first
+                        if name_cell:
+                            name = name_cell.text_content().strip()
+                            self.logger.info(f"Found account: {name}")
+                    except Exception as e:
+                        self.logger.warning(f"Error getting account name from row: {str(e)}")
+                        continue
+                
+                return True
                 
             except Exception as e:
-                self.logger.info(f"Error waiting for search results: {str(e)}")
-                return 0
+                self.logger.error(f"Error waiting for search results: {str(e)}")
+                return False
             
         except Exception as e:
-            self.logger.error(f"Error searching for account: {e}")
-            self._take_screenshot("search-error")
-            return 0
+            self.logger.error(f"Error searching for account: {str(e)}")
+            return False
+
+    def clear_search(self):
+        """Clear the search field."""
+        try:
+            search_input = self.page.locator("input[placeholder='Search this list...']")
+            search_input.fill("")
+            search_input.press("Enter")
+            self.page.wait_for_timeout(1000)  # Wait for search to clear
+        except Exception as e:
+            self.logger.error(f"Error clearing search: {str(e)}")
+
+    def get_account_names(self) -> List[str]:
+        """
+        Get the names of all accounts in the current search results.
+        
+        Returns:
+            List[str]: List of account names
+        """
+        try:
+            # Wait for the table to be visible
+            table = self.page.wait_for_selector('table.slds-table', timeout=10000)
+            if not table:
+                self.logger.error("Search results table not found")
+                return []
             
+            # Get all account names from the table
+            account_elements = self.page.locator('table.slds-table tbody tr td:nth-child(2) a').all()
+            if not account_elements:
+                self.logger.info("No account names found in search results")
+                return []
+            
+            account_names = []
+            for element in account_elements:
+                try:
+                    name = element.text_content().strip()
+                    if name:
+                        account_names.append(name)
+                except Exception as e:
+                    self.logger.warning(f"Error getting account name: {str(e)}")
+                    continue
+                
+            self.logger.info(f"Found {len(account_names)} account names in search results")
+            return account_names
+            
+        except Exception as e:
+            self.logger.error(f"Error getting account names: {str(e)}")
+            return []
+
     def account_exists(self, account_name: str, view_name: str = "All Accounts") -> bool:
         """Check if an account exists with the exact name.
         
@@ -1150,81 +1155,6 @@ class AccountManager(BasePage):
             self.page.screenshot(path="delete-error.png")
             return False
 
-    def get_account_names(self) -> list:
-        """
-        Extract account names from the current page.
-        
-        Returns:
-            list: List of account names found on the page
-        """
-        account_names = []
-        try:
-            # Wait for table with timeout
-            try:
-                self.page.wait_for_selector('table[role="grid"]', timeout=5000)
-            except Exception as e:
-                self.logger.error(f"Table with role='grid' not found: {str(e)}")
-                return []
-            
-            # Get all account rows immediately
-            rows = self.page.locator('table[role="grid"] tr').all()
-            self.logger.info(f"Found {len(rows)} rows in the table")
-            if not rows or len(rows) <= 1:
-                self.logger.error("No data rows found in the accounts table (or only header row present)")
-                return []
-            
-            # Skip header row
-            for i, row in enumerate(rows[1:], 1):  # Skip the first row (header)
-                try:
-                    # Prioritize extracting from <th scope="row"> a
-                    name_cell = row.locator('th[scope="row"] a')
-                    if name_cell.count() > 0:
-                        try:
-                            account_name = name_cell.nth(0).text_content(timeout=1000)
-                            if account_name and account_name.strip():
-                                account_names.append(account_name.strip())
-                                self.logger.info(f"Found account using <th scope='row'> a: {account_name.strip()}")
-                                continue
-                        except Exception as e:
-                            self.logger.warning(f"Timeout or error getting text for <th scope='row'> a in row {i}: {str(e)}")
-                    # Fallback to previous selectors if needed
-                    selectors = [
-                        'td:first-child a',  # Standard link in first cell
-                        'td:first-child',    # First cell if no link
-                        'td a',              # Any link in the row
-                        'td'                 # Any cell
-                    ]
-                    found = False
-                    for selector in selectors:
-                        element = row.locator(selector).first
-                        if element.count() > 0:
-                            try:
-                                account_name = element.text_content(timeout=1000)
-                                if account_name and account_name.strip():
-                                    account_names.append(account_name.strip())
-                                    self.logger.info(f"Found account using selector '{selector}': {account_name.strip()}")
-                                    found = True
-                                    break
-                            except Exception as e:
-                                self.logger.warning(f"Timeout or error getting text for selector '{selector}' in row {i}: {str(e)}")
-                                continue
-                    if not found:
-                        # Log the row's HTML for debugging
-                        try:
-                            row_html = row.inner_html(timeout=1000)
-                            self.logger.warning(f"Could not find account name in row {i}. Row HTML: {row_html}")
-                        except Exception as e:
-                            self.logger.warning(f"Could not get HTML for row {i}: {str(e)}")
-                        continue
-                except Exception as e:
-                    self.logger.warning(f"Error getting account name for row {i}: {str(e)}")
-                    continue
-        except Exception as e:
-            self.logger.error(f"Error extracting account names: {str(e)}")
-        self.logger.info(f"Total accounts extracted: {len(account_names)}")
-        self.logger.info(f"Extracted accounts: {account_names}")
-        return account_names
-
     def extract_name_parts(self, name: str) -> dict:
         """Extract name parts from a name string.
         
@@ -1382,112 +1312,138 @@ class AccountManager(BasePage):
         
         return result
 
-    def fuzzy_search_account(self, folder_name: str, view_name: str = "All Clients") -> dict:
+    def fuzzy_search_account(self, folder_name: str) -> dict:
         """
-        Perform a fuzzy search for an account using a folder name.
+        Perform a fuzzy search for an account based on a folder name.
         
         Args:
-            folder_name: The folder name to search for
-            view_name: The name of the list view to use (default: "All Clients")
+            folder_name: The Dropbox folder name to search for
             
         Returns:
-            dict: Dictionary containing:
-                - status: 'Exact Match', 'Partial Match', or 'Not Found'
+            dict: A dictionary containing:
+                - status: 'Exact Match', 'Partial Match', or 'No Match'
                 - matches: List of matching account names
-                - search_attempts: List of search attempts with their results
+                - search_attempts: List of search attempts with details
+                - timing: Dictionary with timing information
         """
         start_time = time.time()
-        self.logger.info(f"Starting fuzzy search for folder: '{folder_name}' in view: '{view_name}'")
-        
-        # Initialize result
         result = {
-            'status': 'Not Found',
+            'status': 'No Match',
             'matches': [],
-            'search_attempts': []
+            'search_attempts': [],
+            'timing': {}
         }
         
         try:
             # Extract name parts
-            name_extraction_start = time.time()
-            self.logger.info(f"Extracting name parts from folder name: '{folder_name}'")
             name_parts = self.extract_name_parts(folder_name)
-            name_extraction_duration = time.time() - name_extraction_start
-            self.logger.info(f"Extracted name parts: {name_parts}")
-            self.logger.info(f"Normalized names for comparison: {name_parts['normalized_names']}")
-            self.logger.info(f"Swapped names for comparison: {name_parts['swapped_names']}")
-            self.logger.info(f"Name extraction took {name_extraction_duration:.2f} seconds")
-            
-            # Check if this is a special case with expected matches
-            if 'expected_matches' in name_parts:
-                self.logger.info(f"Found special case with expected matches: {name_parts['expected_matches']}")
-                # Search for each expected match
-                for expected_match in name_parts['expected_matches']:
-                    search_start = time.time()
-                    self.logger.info(f"Searching for expected match: '{expected_match}'")
-                    search_result = self.search_account(expected_match, view_name=view_name)
-                    search_duration = time.time() - search_start
-                    
-                    # Get matching accounts for this search attempt
-                    matching_accounts = self.get_account_names()
-                    
-                    # Record this search attempt
-                    search_attempt = {
-                        'type': 'expected_match',
-                        'query': expected_match,
-                        'matches': search_result,
-                        'matching_accounts': matching_accounts,
-                        'duration': search_duration
-                    }
-                    result['search_attempts'].append(search_attempt)
-                    
-                    # If we found an exact match, add it to our matches
-                    if expected_match in matching_accounts:
-                        result['matches'].append(expected_match)
-                
-                # Update status based on matches found
-                if result['matches']:
-                    result['status'] = 'Exact Match'
-                    self.logger.info(f"Found {len(result['matches'])} exact matches for special case")
-                else:
-                    self.logger.info("No exact matches found for special case")
-                
-                total_duration = time.time() - start_time
-                self.logger.info(f"Fuzzy search completed with status: {result['status']} (total time: {total_duration:.2f} seconds)")
-                
-                # Add timing information to the result
-                result['timing'] = {
-                    'name_extraction': name_extraction_duration,
-                    'search': search_duration,
-                    'total': total_duration
-                }
-                
-                # Log search results to report logger
-                report_logger = logging.getLogger('report')
-                report_logger.info(f"\nSearch Results for '{folder_name}':")
-                report_logger.info(f"Status: {result['status']}")
-                if result['matches']:
-                    report_logger.info("Matches found:")
-                    for match in result['matches']:
-                        report_logger.info(f"  - {match}")
-                report_logger.info("\nSearch Attempts:")
-                for attempt in result['search_attempts']:
-                    report_logger.info(f"  Type: {attempt['type']}")
-                    report_logger.info(f"  Query: '{attempt['query']}'")
-                    report_logger.info(f"  Matches found: {attempt['matches']}")
-                    if attempt['matching_accounts']:
-                        report_logger.info("  Matching accounts:")
-                        for account in sorted(attempt['matching_accounts']):
-                            report_logger.info(f"    - {account}")
-                    report_logger.info(f"  Duration: {attempt['duration']:.2f} seconds")
-                    report_logger.info("")
-                
+            if not name_parts:
+                self.logger.error(f"Failed to extract name parts from folder name: {folder_name}")
                 return result
             
-            # Continue with normal search process for non-special cases
-            # ... rest of the existing fuzzy_search_account code ...
+            # Get normalized names for comparison
+            normalized_names = name_parts.get('normalized_names', [])
+            if not normalized_names:
+                self.logger.error(f"No normalized names found for folder name: {folder_name}")
+                return result
+            
+            # Get swapped names for comparison
+            swapped_names = name_parts.get('swapped_names', [])
+            
+            # Search by last name first
+            last_name = name_parts.get('last_name', '')
+            if last_name:
+                last_name_result = self.search_by_last_name(last_name)
+                if last_name_result:
+                    result['search_attempts'].append({
+                        'type': 'Last Name',
+                        'query': last_name,
+                        'matching_accounts': last_name_result,
+                        'matches': len(last_name_result)
+                    })
+                    # Add matches to the result
+                    result['matches'].extend(last_name_result)
+            
+            # Search by full name variations
+            for name in normalized_names + swapped_names:
+                full_name_result = self.search_by_full_name(name)
+                if full_name_result:
+                    result['search_attempts'].append({
+                        'type': 'Full Name',
+                        'query': name,
+                        'matching_accounts': full_name_result,
+                        'matches': len(full_name_result)
+                    })
+                    # Add matches to the result
+                    result['matches'].extend(full_name_result)
+            
+            # Remove duplicates from matches
+            result['matches'] = list(set(result['matches']))
+            
+            # Check for exact matches
+            exact_matches = []
+            for match in result['matches']:
+                match_lower = match.lower()
+                if any(match_lower == name.lower() for name in normalized_names + swapped_names):
+                    exact_matches.append(match)
+            
+            # Update result status and matches
+            if exact_matches:
+                result['status'] = 'Exact Match'
+                result['matches'] = exact_matches
+            elif result['matches']:
+                result['status'] = 'Partial Match'
+            
+            # Add timing information
+            result['timing'] = {
+                'total_duration': time.time() - start_time,
+                'name_extraction': name_parts.get('timing', {}).get('total', 0)
+            }
+            
+            return result
             
         except Exception as e:
-            total_duration = time.time() - start_time
-            self.logger.error(f"Error in fuzzy search: {str(e)} (total time: {total_duration:.2f} seconds)")
-            self.logger.exception("Full traceback:")
+            self.logger.error(f"Error during fuzzy search: {str(e)}")
+            result['status'] = 'Error'
+            result['error'] = str(e)
             return result
+
+    def search_by_last_name(self, last_name: str) -> List[str]:
+        """
+        Search for accounts by last name.
+        
+        Args:
+            last_name: The last name to search for
+            
+        Returns:
+            List[str]: List of matching account names
+        """
+        try:
+            # Search for the last name
+            self.search_account(last_name)
+            # Get matching accounts
+            matching_accounts = self.get_account_names()
+            return matching_accounts
+        except Exception as e:
+            self.logger.error(f"Error searching by last name: {str(e)}")
+            return []
+
+    def search_by_full_name(self, full_name: str) -> List[str]:
+        """
+        Search for accounts by full name.
+        
+        Args:
+            full_name: The full name to search for
+            
+        Returns:
+            List[str]: List of matching account names
+        """
+        try:
+            # Search for the full name
+            self.search_account(full_name)
+            # Get matching accounts
+            matching_accounts = self.get_account_names()
+            return matching_accounts
+        except Exception as e:
+            self.logger.error(f"Error searching by full name: {str(e)}")
+            return []
