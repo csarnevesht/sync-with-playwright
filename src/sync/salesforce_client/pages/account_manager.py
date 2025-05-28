@@ -214,7 +214,7 @@ class AccountManager(BasePage):
             self.log_helper.dedent()
             return False
 
-    def search_account(self, search_term: str, view_name: str = "All Clients") -> bool:
+    def search_account(self, search_term: str, view_name: str = "All Clients") -> List[str]:
         """
         Search for an account in Salesforce.
         
@@ -358,7 +358,7 @@ class AccountManager(BasePage):
                     return True
                 
                 self.log_helper.dedent()
-                return True
+                return found_account_names
                 
             except Exception as e:
                 self.log_helper.log(self.logger, 'error', f"Error waiting for search results: {str(e)}")
@@ -368,7 +368,7 @@ class AccountManager(BasePage):
         except Exception as e:
             self.log_helper.log(self.logger, 'error', f"Error searching for account: {str(e)}")
             self.log_helper.dedent()
-            return False
+            return []
 
     def clear_search(self):
         """Clear the search field."""
@@ -382,7 +382,7 @@ class AccountManager(BasePage):
             self.log_helper.log(self.logger, 'error', f"Error clearing search: {str(e)}")
         self.log_helper.dedent()
 
-    def get_account_names(self) -> List[str]:
+    def deprecated_get_account_names(self) -> List[str]:
         """
         Get the names of all accounts in the current search results.
         
@@ -1677,9 +1677,9 @@ class AccountManager(BasePage):
         try:
             self.log_helper.log(self.logger, 'info', f"INFO: ***search_by_last_name: searching for last name: {last_name}")
             # Search for the last name
-            self.search_account(last_name)
-            # Get matching accounts
-            matching_accounts = self.get_account_names()
+            matching_accounts = self.search_account(last_name)
+            # # Get matching accounts
+            # matching_accounts = self.get_account_names()
             self.log_helper.dedent()
             return matching_accounts
         except Exception as e:
@@ -1701,9 +1701,9 @@ class AccountManager(BasePage):
         try:
             self.log_helper.log(self.logger, 'info', f"INFO: search_by_full_name ***searching for full name: {full_name}")
             # Search for the full name
-            self.search_account(full_name)
-            # Get matching accounts
-            matching_accounts = self.get_account_names()
+            macthing_accounts = self.search_account(full_name)
+            # # Get matching accounts
+            # matching_accounts = self.get_account_names()
             self.log_helper.dedent()
             return matching_accounts
         except Exception as e:
