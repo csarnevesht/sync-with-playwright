@@ -18,6 +18,7 @@ class LoggingHelper:
     """Helper class to manage logging indentation and color based on call depth and keyword."""
     _indent_level = 0
     _indent_str = "  "  # 2 spaces per level
+    _timing_stack = []  # Stack to track timing of nested operations
 
     # ANSI color codes
     COLORS = {
@@ -29,8 +30,35 @@ class LoggingHelper:
         'search_by_last_name': '\033[95m',   # Pink (Bright Magenta)
         'search_by_full_name': '\033[95m',   # Pink (Bright Magenta)
         'fuzzy_search_account': '\033[1;37m',# Bold White
+        'timing': '\033[1;33m',             # Bold Yellow
         'default': '',
     }
+
+    @classmethod
+    def format_duration(cls, seconds: float) -> str:
+        """Format duration in seconds to a human-readable string."""
+        if seconds < 60:
+            return f"{seconds:.2f} seconds"
+        elif seconds < 3600:
+            minutes = seconds / 60
+            return f"{minutes:.2f} minutes"
+        else:
+            hours = seconds / 3600
+            return f"{hours:.2f} hours"
+
+    @classmethod
+    def start_timing(cls):
+        """Start timing an operation."""
+        cls._timing_stack.append(time.time())
+
+    @classmethod
+    def end_timing(cls) -> float:
+        """End timing an operation and return the duration in seconds."""
+        if not cls._timing_stack:
+            return 0.0
+        start_time = cls._timing_stack.pop()
+        duration = time.time() - start_time
+        return duration
 
     @classmethod
     def indent(cls):
@@ -65,6 +93,8 @@ class LoggingHelper:
             color = cls.COLORS['search_by_full_name']
         elif 'fuzzy_search_account' in msg:
             color = cls.COLORS['fuzzy_search_account']
+        elif 'timing' in msg:
+            color = cls.COLORS['timing']
         if color:
             return f"{color}{msg}{cls.COLORS['reset']}"
         return msg
@@ -77,6 +107,13 @@ class LoggingHelper:
             msg = f"{indent}{msg}"
             msg = cls.colorize(msg)
         getattr(logger, level)(msg, *args, **kwargs)
+
+    @classmethod
+    def log_timing(cls, logger, operation_name: str):
+        """Log the timing of an operation."""
+        duration = cls.end_timing()
+        formatted_duration = cls.format_duration(duration)
+        cls.log(logger, 'info', f"Timing for {operation_name}: {formatted_duration}")
 
 class AccountManager(BasePage):
     """Handles account-related operations in Salesforce."""
@@ -146,6 +183,7 @@ class AccountManager(BasePage):
         Returns:
             bool: True if navigation was successful, False otherwise
         """
+        self.log_helper.start_timing()
         self.log_helper.indent()
         try:
             # Navigate to the list view
@@ -170,10 +208,12 @@ class AccountManager(BasePage):
                 
             self.log_helper.log(self.logger, 'info', "Successfully navigated to Accounts page")
             self.log_helper.dedent()
+            self.log_helper.log_timing(self.logger, f"navigate_to_accounts_list_page for view: {view_name}")
             return True
             
         except Exception as e:
             self.log_helper.log(self.logger, 'error', f"Error navigating to Accounts page: {str(e)}")
+            self.log_helper.log_timing(self.logger, f"navigate_to_accounts_list_page (error) for view: {view_name}")
             self._take_screenshot("accounts-navigation-error")
             self.log_helper.dedent()
             return False
@@ -225,6 +265,7 @@ class AccountManager(BasePage):
         Returns:
             bool: True if search was successful, False otherwise
         """
+        self.log_helper.start_timing()
         found_account_names = []  # Initialize once before the loop
         self.log_helper.indent()
         try:
@@ -232,7 +273,6 @@ class AccountManager(BasePage):
             if not self.navigate_to_accounts_list_page():
                 self.log_helper.dedent()
                 return found_account_names
-
             
             # Clear any existing search
             self.clear_search()
@@ -359,6 +399,7 @@ class AccountManager(BasePage):
                     return found_account_names
                 
                 self.log_helper.dedent()
+                self.log_helper.log_timing(self.logger, f"search_account for term: {search_term}")
                 return found_account_names
                 
             except Exception as e:
@@ -368,6 +409,7 @@ class AccountManager(BasePage):
             
         except Exception as e:
             self.log_helper.log(self.logger, 'error', f"Error searching for account: {str(e)}")
+            self.log_helper.log_timing(self.logger, f"search_account (error) for term: {search_term}")
             self.log_helper.dedent()
             return []
 
@@ -439,8 +481,15 @@ class AccountManager(BasePage):
         
         # If we get here, all attempts failed
         self.log_helper.log(self.logger, 'error', f"Failed to clear search after {max_attempts} attempts")
+        # Call navigate_to_salesforce and refresh_page before exiting
+        self.log_helper.log(self.logger, 'info', "Navigating to Salesforce base URL and refreshing page after failed clear_search attempts.")
+        self.navigate_to_salesforce()
+        self.refresh_page()
+        if not self.navigate_to_accounts_list_page():
+            self.log_helper.log(self.logger, 'error', "Failed to navigate to accounts list page after failed clear_search attempts.")
+            self.log_helper.dedent()
+            sys.exit(1)
         self.log_helper.dedent()
-        sys.exit(1)
 
     def deprecated_get_account_names(self) -> List[str]:
         """
@@ -695,6 +744,7 @@ class AccountManager(BasePage):
                           middle_name: Optional[str] = None, 
                           account_info: Optional[Dict[str, str]] = None) -> bool:
         """Create a new account with the given information."""
+        self.log_helper.start_timing()
         self.log_helper.indent()
         try:
             full_name = self.get_full_name(first_name, last_name, middle_name)
@@ -833,6 +883,7 @@ class AccountManager(BasePage):
                 
                 self.log_helper.log(self.logger, 'info', "Successfully created new account")
                 self.log_helper.dedent()
+                self.log_helper.log_timing(self.logger, f"create_new_account for: {first_name} {last_name}")
                 return True
                 
             except Exception as e:
@@ -843,6 +894,7 @@ class AccountManager(BasePage):
             
         except Exception as e:
             self.log_helper.log(self.logger, 'error', f"Error creating new account: {str(e)}")
+            self.log_helper.log_timing(self.logger, f"create_new_account (error) for: {first_name} {last_name}")
             self._take_screenshot("account-creation-error")
             sys.exit(1)
             
@@ -1334,6 +1386,7 @@ class AccountManager(BasePage):
         Returns:
             bool: True if deletion was successful, False otherwise
         """
+        self.log_helper.start_timing()
         self.log_helper.indent()
         try:
             # Search for the account
@@ -1442,6 +1495,7 @@ class AccountManager(BasePage):
                 self.page.wait_for_selector('div.slds-notify_toast, div.slds-notify--toast', timeout=15000)
                 self.log_helper.log(self.logger, 'info', f"Successfully deleted account: {full_name}")
                 self.log_helper.dedent()
+                self.log_helper.log_timing(self.logger, f"delete_account for: {full_name}")
                 return True
             except Exception as e:
                 self.log_helper.log(self.logger, 'warning', f"Could not confirm account deletion by toast: {str(e)}. Checking if account still exists.")
@@ -1458,6 +1512,7 @@ class AccountManager(BasePage):
                     return False
         except Exception as e:
             self.log_helper.log(self.logger, 'error', f"Error deleting account {full_name}: {str(e)}")
+            self.log_helper.log_timing(self.logger, f"delete_account (error) for: {full_name}")
             self.page.screenshot(path="delete-error.png")
             self.log_helper.dedent()
             return False
@@ -1635,6 +1690,7 @@ class AccountManager(BasePage):
                 - search_attempts: List of search attempts with details
                 - timing: Dictionary with timing information
         """
+        self.log_helper.start_timing()
         start_time = time.time()
         result = {
             'status': 'No Match',
@@ -1650,6 +1706,9 @@ class AccountManager(BasePage):
             if not name_parts:
                 self.log_helper.log(self.logger, 'error', f"Failed to extract name parts from folder name: {folder_name}")
                 self.log_helper.dedent()
+                self.log_helper.log(self.logger, 'info', f"Dropbox account folder name: {folder_name} [No match found]")
+                total_duration = time.time() - start_time
+                self.log_helper.log(self.logger, 'info', f"Total timing: {self.log_helper.format_duration(total_duration)}")
                 return result
             
             # Get normalized names for comparison
@@ -1657,6 +1716,9 @@ class AccountManager(BasePage):
             if not normalized_names:
                 self.log_helper.log(self.logger, 'error', f"No normalized names found for folder name: {folder_name}")
                 self.log_helper.dedent()
+                self.log_helper.log(self.logger, 'info', f"Dropbox account folder name: {folder_name} [No match found]")
+                total_duration = time.time() - start_time
+                self.log_helper.log(self.logger, 'info', f"Total timing: {self.log_helper.format_duration(total_duration)}")
                 return result
             
             # Get swapped names for comparison
@@ -1710,26 +1772,55 @@ class AccountManager(BasePage):
                 if match.lower() in all_expected:
                     exact_matches.append(match)
             
+            # Filter matches to ensure at least one word matches exactly
+            filtered_matches = []
+            search_words = set(word.lower() for word in folder_name.split())
+            
+            for match in result['matches']:
+                match_words = set(word.lower() for word in match.split())
+                # Check if at least one word matches exactly
+                if search_words.intersection(match_words):
+                    filtered_matches.append(match)
+            
             # Update result status and matches
             if exact_matches:
                 result['status'] = 'Exact Match'
                 result['matches'] = exact_matches
-            elif result['matches']:
+            elif filtered_matches:
                 result['status'] = 'Partial Match'
+                result['matches'] = filtered_matches
+            else:
+                result['status'] = 'No Match'
+                result['matches'] = []
             
             # Add timing information
+            total_duration = time.time() - start_time
             result['timing'] = {
-                'total_duration': time.time() - start_time,
+                'total_duration': total_duration,
                 'name_extraction': name_parts.get('timing', {}).get('total', 0)
             }
             
+            # Log the summary
+            if result['status'] == 'No Match':
+                self.log_helper.log(self.logger, 'info', f"Dropbox account folder name: {folder_name} [No match found]")
+            else:
+                self.log_helper.log(self.logger, 'info', f"Dropbox account folder name: {folder_name} [{result['status']}]")
+            
+            # Log total timing
+            self.log_helper.log(self.logger, 'info', f"Total timing: {self.log_helper.format_duration(total_duration)}")
+            
+            self.log_helper.log_timing(self.logger, f"fuzzy_search_account for folder: {folder_name}")
             self.log_helper.dedent()
             return result
             
         except Exception as e:
             self.log_helper.log(self.logger, 'error', f"Error during fuzzy search: {str(e)}")
+            self.log_helper.log_timing(self.logger, f"fuzzy_search_account (error) for folder: {folder_name}")
             result['status'] = 'Error'
             result['error'] = str(e)
+            self.log_helper.log(self.logger, 'info', f"Dropbox account folder name: {folder_name} [No match found]")
+            total_duration = time.time() - start_time
+            self.log_helper.log(self.logger, 'info', f"Total timing: {self.log_helper.format_duration(total_duration)}")
             self.log_helper.dedent()
             return result
 
@@ -1790,11 +1881,11 @@ class AccountManager(BasePage):
             self.page.reload()
             
             # Wait for network to be idle
-            self.page.wait_for_load_state('networkidle', timeout=1000)
+            self.page.wait_for_load_state('networkidle', timeout=10000)
             self.log_helper.log(self.logger, 'info', "Network is idle after refresh")
             
             # Wait for DOM content to be loaded
-            self.page.wait_for_load_state('domcontentloaded', timeout=1000)
+            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
             self.log_helper.log(self.logger, 'info', "DOM content loaded after refresh")
             
             # Verify we're still on the same page
