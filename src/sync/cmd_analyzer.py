@@ -556,20 +556,32 @@ def accounts_fuzzy_search(args):
             for folder_name, result in results.items():
                 report_logger.info(f"\nDropbox account folder name: {folder_name}")
                 
-                # Get exact matches
+                # Get exact matches from the fuzzy search results
                 exact_matches = []
-                for match in result['matches']:
-                    match_lower = match.lower()
-                    # Check if this match is in any of the normalized names
-                    if any(match_lower == normalized.lower() for normalized in result.get('normalized_names', [])):
-                        exact_matches.append(match)
-                    # Also check if this match is in any of the swapped names
-                    elif any(match_lower == swapped.lower() for swapped in result.get('swapped_names', [])):
-                        exact_matches.append(match)
+                if result['status'] == 'exact_match':
+                    # If the fuzzy search found exact matches, use those
+                    for match in result['matches']:
+                        match_lower = match.lower()
+                        # Check normalized names
+                        for normalized in result.get('normalized_names', []):
+                            normalized_lower = normalized.lower()
+                            if match_lower in normalized_lower or normalized_lower in match_lower:
+                                if match not in exact_matches:
+                                    exact_matches.append(match)
+                                    report_logger.info(f"Found exact match: {match} (matches normalized name: {normalized})")
+                        
+                        # Check swapped names
+                        for swapped in result.get('swapped_names', []):
+                            swapped_lower = swapped.lower()
+                            if match_lower in swapped_lower or swapped_lower in match_lower:
+                                if match not in exact_matches:
+                                    exact_matches.append(match)
+                                    report_logger.info(f"Found exact match: {match} (matches swapped name: {swapped})")
                 
-                # Show Salesforce account name based on exact matches
+                # Show all exact matches
                 if exact_matches:
-                    report_logger.info(f"Salesforce account name: {exact_matches[0]}")  # Show first exact match
+                    for match in exact_matches:
+                        report_logger.info(f"Salesforce account name: {match}")
                 else:
                     report_logger.info("Salesforce account name: None")
                 
