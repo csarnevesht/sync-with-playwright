@@ -1528,10 +1528,13 @@ class AccountManager(BasePage):
            - If there are 3 words and no '&'/'and', last name is 3rd word, middle name is 2nd word
         3. Special cases can override these rules
         """
+        logging.info(f"INFO: extract_name_parts ***name: {name}")
+        
         # Check for special case first
         if self._is_special_case(name):
             self.log_helper.log(self.logger, 'info', f"Found special case for folder: {name}")
             special_case = self._get_special_case_rules(name)
+            self.log_helper.log(self.logger, 'info', f"Special case rules: {special_case}")
             result = {
                 'last_name': special_case['last_name'],
                 'first_name': '',
@@ -1550,6 +1553,7 @@ class AccountManager(BasePage):
                 if len(parts) >= 2:
                     swapped = f"{parts[1]} {parts[0]}"
                     result['normalized_names'].append(swapped.lower().strip())
+                    self.log_helper.log(self.logger, 'info', f"Added swapped name: {swapped}")
             
             self.log_helper.dedent()
             return result
@@ -1565,32 +1569,41 @@ class AccountManager(BasePage):
         
         # Extract additional info in parentheses
         if '(' in name:
+            self.log_helper.log(self.logger, 'info', f"Found parentheses in name: {name}")
             parts = name.split('(')
             main_name = parts[0].strip()
             result['additional_info'] = parts[1].rstrip(')').strip()
+            self.log_helper.log(self.logger, 'info', f"Extracted main name: {main_name}, additional info: {result['additional_info']}")
         else:
             main_name = name
+            self.log_helper.log(self.logger, 'info', f"No parentheses found, using full name: {main_name}")
         
         # Handle names with commas
         if ',' in main_name:
+            self.log_helper.log(self.logger, 'info', f"Found comma in name: {main_name}")
             parts = main_name.split(',')
             result['last_name'] = parts[0].strip()
+            self.log_helper.log(self.logger, 'info', f"Extracted last name: {result['last_name']}")
             if len(parts) > 1:
                 # Split the remaining part into first and middle names
                 name_parts = parts[1].strip().split()
                 if name_parts:
                     result['first_name'] = name_parts[0]
+                    self.log_helper.log(self.logger, 'info', f"Extracted first name: {result['first_name']}")
                     if len(name_parts) > 1:
                         result['middle_name'] = ' '.join(name_parts[1:])
+                        self.log_helper.log(self.logger, 'info', f"Extracted middle name: {result['middle_name']}")
         else:
             # Split the name into words
             name_parts = main_name.split()
+            self.log_helper.log(self.logger, 'info', f"Split name into parts: {name_parts}")
             
             # Check for '&' or 'and'
             has_ampersand = '&' in main_name
             has_and = ' and ' in main_name.lower()
             
             if has_ampersand or has_and:
+                self.log_helper.log(self.logger, 'info', f"Found {'&' if has_ampersand else 'and'} in name")
                 # Handle names with '&' or 'and'
                 if has_ampersand:
                     parts = main_name.split('&')
@@ -1599,79 +1612,132 @@ class AccountManager(BasePage):
                 
                 # First part is the main name
                 main_parts = parts[0].strip().split()
+                self.log_helper.log(self.logger, 'info', f"Main parts before &/and: {main_parts}")
                 if len(main_parts) >= 2:
                     result['first_name'] = main_parts[0]
                     result['last_name'] = main_parts[1]
+                    self.log_helper.log(self.logger, 'info', f"Extracted first name: {result['first_name']}, last name: {result['last_name']}")
                     if len(main_parts) > 2:
                         result['middle_name'] = ' '.join(main_parts[2:])
+                        self.log_helper.log(self.logger, 'info', f"Extracted middle name: {result['middle_name']}")
                 
                 # Everything after & or 'and' is additional info
                 if len(parts) > 1:
                     result['additional_info'] = parts[1].strip()
+                    self.log_helper.log(self.logger, 'info', f"Extracted additional info: {result['additional_info']}")
             else:
                 # Handle names without '&' or 'and'
                 if len(name_parts) == 2:
+                    self.log_helper.log(self.logger, 'info', "Two word name detected")
                     # Two words: first word is first name, second word is last name
                     result['first_name'] = name_parts[0]
                     result['last_name'] = name_parts[1]
+                    self.log_helper.log(self.logger, 'info', f"Extracted first name: {result['first_name']}, last name: {result['last_name']}")
                 elif len(name_parts) == 3:
+                    self.log_helper.log(self.logger, 'info', "Three word name detected")
                     # Three words: first word is first name, second word is middle name, third word is last name
                     result['first_name'] = name_parts[0]
                     result['middle_name'] = name_parts[1]
                     result['last_name'] = name_parts[2]
+                    self.log_helper.log(self.logger, 'info', f"Extracted first name: {result['first_name']}, middle name: {result['middle_name']}, last name: {result['last_name']}")
                 elif len(name_parts) > 3:
+                    self.log_helper.log(self.logger, 'info', f"Name with more than 3 words detected: {len(name_parts)} words")
                     # More than three words: first word is first name, last word is last name, everything in between is middle name
                     result['first_name'] = name_parts[0]
                     result['last_name'] = name_parts[-1]
                     result['middle_name'] = ' '.join(name_parts[1:-1])
+                    self.log_helper.log(self.logger, 'info', f"Extracted first name: {result['first_name']}, middle name: {result['middle_name']}, last name: {result['last_name']}")
                 else:
+                    self.log_helper.log(self.logger, 'info', "Single word name detected")
                     # Single word: treat as last name
                     result['last_name'] = main_name
+                    self.log_helper.log(self.logger, 'info', f"Using single word as last name: {result['last_name']}")
         
         # Normalize the name parts
         result['last_name'] = result['last_name'].strip()
         result['first_name'] = result['first_name'].strip()
         result['middle_name'] = result['middle_name'].strip()
         result['additional_info'] = result['additional_info'].strip()
+        self.log_helper.log(self.logger, 'info', f"Normalized name parts: {result}")
         
         # Create normalized versions of the name
         result['normalized_names'] = []
         
         # Add the original name
         result['normalized_names'].append(name.lower().strip())
+        self.log_helper.log(self.logger, 'info', f"Added original name to normalized names: {name.lower().strip()}")
         
         # Add comma-separated version
         if result['first_name'] and result['last_name']:
-            result['normalized_names'].append(f"{result['last_name']}, {result['first_name']}".lower().strip())
-            result['normalized_names'].append(f"{result['last_name']},{result['first_name']}".lower().strip())
+            comma_name = f"{result['last_name']}, {result['first_name']}".lower().strip()
+            result['normalized_names'].append(comma_name)
+            self.log_helper.log(self.logger, 'info', f"Added comma-separated name: {comma_name}")
+            
+            no_space_comma_name = f"{result['last_name']},{result['first_name']}".lower().strip()
+            result['normalized_names'].append(no_space_comma_name)
+            self.log_helper.log(self.logger, 'info', f"Added comma-separated name without space: {no_space_comma_name}")
             
             # Add comma-separated version with middle name
             if result['middle_name']:
-                result['normalized_names'].append(f"{result['last_name']}, {result['first_name']} {result['middle_name']}".lower().strip())
-                result['normalized_names'].append(f"{result['last_name']},{result['first_name']} {result['middle_name']}".lower().strip())
+                comma_name_with_middle = f"{result['last_name']}, {result['first_name']} {result['middle_name']}".lower().strip()
+                result['normalized_names'].append(comma_name_with_middle)
+                self.log_helper.log(self.logger, 'info', f"Added comma-separated name with middle name: {comma_name_with_middle}")
+                
+                no_space_comma_name_with_middle = f"{result['last_name']},{result['first_name']} {result['middle_name']}".lower().strip()
+                result['normalized_names'].append(no_space_comma_name_with_middle)
+                self.log_helper.log(self.logger, 'info', f"Added comma-separated name with middle name without space: {no_space_comma_name_with_middle}")
             
             # Add swapped name variations
-            result['swapped_names'].append(f"{result['first_name']} {result['last_name']}".lower().strip())
+            swapped_name = f"{result['first_name']} {result['last_name']}".lower().strip()
+            result['swapped_names'].append(swapped_name)
+            self.log_helper.log(self.logger, 'info', f"Added swapped name: {swapped_name}")
+            
             if result['middle_name']:
-                result['swapped_names'].append(f"{result['first_name']} {result['middle_name']} {result['last_name']}".lower().strip())
+                swapped_name_with_middle = f"{result['first_name']} {result['middle_name']} {result['last_name']}".lower().strip()
+                result['swapped_names'].append(swapped_name_with_middle)
+                self.log_helper.log(self.logger, 'info', f"Added swapped name with middle name: {swapped_name_with_middle}")
             
             # Add version with additional info
             if result['additional_info']:
-                result['normalized_names'].append(f"{result['first_name']} {result['last_name']} & {result['additional_info']}".lower().strip())
-                result['normalized_names'].append(f"{result['first_name']} {result['last_name']} and {result['additional_info']}".lower().strip())
+                with_ampersand = f"{result['first_name']} {result['last_name']} & {result['additional_info']}".lower().strip()
+                result['normalized_names'].append(with_ampersand)
+                self.log_helper.log(self.logger, 'info', f"Added name with additional info (ampersand): {with_ampersand}")
+                
+                with_and = f"{result['first_name']} {result['last_name']} and {result['additional_info']}".lower().strip()
+                result['normalized_names'].append(with_and)
+                self.log_helper.log(self.logger, 'info', f"Added name with additional info (and): {with_and}")
         
         # Add space-separated version
         if result['first_name'] and result['last_name']:
-            result['normalized_names'].append(f"{result['first_name']} {result['last_name']}".lower().strip())
+            space_name = f"{result['first_name']} {result['last_name']}".lower().strip()
+            result['normalized_names'].append(space_name)
+            self.log_helper.log(self.logger, 'info', f"Added space-separated name: {space_name}")
         
         # Add version with middle name
         if result['middle_name']:
             if result['first_name'] and result['last_name']:
-                result['normalized_names'].append(f"{result['first_name']} {result['middle_name']} {result['last_name']}".lower().strip())
+                space_name_with_middle = f"{result['first_name']} {result['middle_name']} {result['last_name']}".lower().strip()
+                result['normalized_names'].append(space_name_with_middle)
+                self.log_helper.log(self.logger, 'info', f"Added space-separated name with middle name: {space_name_with_middle}")
         
         # Remove duplicates and empty strings
         result['normalized_names'] = list(set(n for n in result['normalized_names'] if n))
         result['swapped_names'] = list(set(n for n in result['swapped_names'] if n))
+        self.log_helper.log(self.logger, 'info', f"Final normalized names: {result['normalized_names']}")
+        self.log_helper.log(self.logger, 'info', f"Final swapped names: {result['swapped_names']}")
+        
+        # Add summary log
+        summary = f"\nName Parsing Summary for '{name}':\n"
+        summary += f"  First Name: {result['first_name']}\n"
+        summary += f"  Middle Name: {result['middle_name']}\n"
+        summary += f"  Last Name: {result['last_name']}\n"
+        if result['additional_info']:
+            summary += f"  Additional Info: {result['additional_info']}\n"
+        summary += f"  Number of normalized names: {len(result['normalized_names'])}\n"
+        summary += f"  Number of swapped names: {len(result['swapped_names'])}\n"
+        summary += f"  Normalized Names: {', '.join(result['normalized_names'])}\n"
+        summary += f"  Swapped Names: {', '.join(result['swapped_names'])}\n"
+        self.log_helper.log(self.logger, 'info', summary)
         
         self.log_helper.dedent()
         return result
@@ -1805,6 +1871,9 @@ class AccountManager(BasePage):
                 self.log_helper.log(self.logger, 'info', f"Dropbox account folder name: {folder_name} [No match found]")
             else:
                 self.log_helper.log(self.logger, 'info', f"Dropbox account folder name: {folder_name} [{result['status']}]")
+                # Add matching Salesforce account names
+                for match in result['matches']:
+                    self.log_helper.log(self.logger, 'info', f"Salesforce account name: {match}")
             
             # Log total timing
             self.log_helper.log(self.logger, 'info', f"Total timing: {self.log_helper.format_duration(total_duration)}")
