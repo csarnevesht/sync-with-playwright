@@ -250,8 +250,10 @@ class AccountManager(BasePage):
                         self.logger.warning(f"Error getting account name from row: {str(e)}")
                         continue
                 # Only log if no account names were found (use the correct variable)
+                self.logger.info(f"DEBUG: found_account_names = {found_account_names}")
+                self.logger.info(f"DEBUG: len(found_account_names) = {len(found_account_names)}")
                 if len(found_account_names) == 0:
-                    self.logger.info("No account names found in search results")
+                    self.logger.info("***No account names found in search results")
                 
                 # Compare the parsed number of items to the number of rows
                 if num_items is not None:
@@ -301,8 +303,9 @@ class AccountManager(BasePage):
             
             # Get all account names from the table
             account_elements = self.page.locator('table.slds-table tbody tr td:nth-child(2) a').all()
+            logging.info(f"INFO: ***account_elements = {account_elements}")
             if not account_elements:
-                self.logger.info("No account names found in search results")
+                self.logger.info("+++No account names found in search results")
                 return []
             
             account_names = []
@@ -1497,6 +1500,7 @@ class AccountManager(BasePage):
             List[str]: List of matching account names
         """
         try:
+            logging.info(f"INFO: ***searching for last name: {last_name}")
             # Search for the last name
             self.search_account(last_name)
             # Get matching accounts
@@ -1517,6 +1521,7 @@ class AccountManager(BasePage):
             List[str]: List of matching account names
         """
         try:
+            logging.info(f"INFO: ***searching for full name: {full_name}")
             # Search for the full name
             self.search_account(full_name)
             # Get matching accounts
