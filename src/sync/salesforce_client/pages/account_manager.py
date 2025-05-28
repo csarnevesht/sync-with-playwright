@@ -1848,14 +1848,7 @@ Name Variations:
             
             # Update matches if found
             if search_result:
-                result['matches'] = search_result
-                result['status'] = 'partial_match'
-                result['view'] = view_name
-                self.logger.info(f"\nDropbox account folder name: {folder_name} [{result['status']}] [{result['view']}]")
-                for match in result['matches']:
-                    self.logger.info(f"  Salesforce account name: {match}")
-                
-                # Check for exact matches
+                # Check for exact matches first
                 exact_matches = []
                 for match in search_result:
                     match_lower = match.lower()
@@ -1877,17 +1870,26 @@ Name Variations:
                 
                 if exact_matches:
                     result['status'] = 'exact_match'
+                    result['matches'] = exact_matches  # Only include exact matches
                     self.logger.info(f"Found {len(exact_matches)} exact matches: {exact_matches}")
-            
-            # Add timing information
-            result['timing'] = {
-                'total': time.time() - start_time,
-                'search': 0  # No timing info from search_by_last_name
-            }
-            
-            self.logger.info(f"  Timing for fuzzy_search_account for folder: {folder_name}: {result['timing']['total']:.2f} seconds")
-            self.logger.info(f"Returning from fuzzy_search_account: {result}")
-            return result
+                else:
+                    result['matches'] = search_result
+                    result['status'] = 'partial_match'
+                
+                result['view'] = view_name
+                self.logger.info(f"\nDropbox account folder name: {folder_name} [{result['status']}] [{result['view']}]")
+                for match in result['matches']:
+                    self.logger.info(f"  Salesforce account name: {match}")
+                
+                # Add timing information
+                result['timing'] = {
+                    'total': time.time() - start_time,
+                    'search': 0  # No timing info from search_by_last_name
+                }
+                
+                self.logger.info(f"  Timing for fuzzy_search_account for folder: {folder_name}: {result['timing']['total']:.2f} seconds")
+                self.logger.info(f"Returning from fuzzy_search_account: {result}")
+                return result
             
         except Exception as e:
             self.logger.error(f"Error in fuzzy_search_account: {str(e)}")
