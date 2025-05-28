@@ -225,12 +225,14 @@ class AccountManager(BasePage):
         Returns:
             bool: True if search was successful, False otherwise
         """
+        found_account_names = []  # Initialize once before the loop
         self.log_helper.indent()
         try:
             # Navigate to accounts page if not already there
             if not self.navigate_to_accounts_list_page():
                 self.log_helper.dedent()
-                return False
+                return found_account_names
+
             
             # Clear any existing search
             self.clear_search()
@@ -256,7 +258,7 @@ class AccountManager(BasePage):
                 if empty_content and empty_content.is_visible():
                     self.log_helper.log(self.logger, 'info', f"No items to display for search term: {search_term}")
                     self.log_helper.dedent()
-                    return True
+                    return found_account_names
             except Exception as e:
                 self.log_helper.log(self.logger, 'warning', f"Error waiting for empty content or table: {str(e)}")
             
@@ -270,7 +272,7 @@ class AccountManager(BasePage):
                 if not table:
                     self.log_helper.log(self.logger, 'error', "Search results table not found")
                     self.log_helper.dedent()
-                    return False
+                    return found_account_names
                 
                 # Parse the number of items from the status bar (e.g., '0 items' or '50+ items')
                 num_items = None
@@ -310,12 +312,11 @@ class AccountManager(BasePage):
                     if empty_content and empty_content.is_visible():
                         self.log_helper.log(self.logger, 'info', f"No items to display for search term: {search_term}")
                         self.log_helper.dedent()
-                        return True
+                        return found_account_names
                     else:
                         self.log_helper.log(self.logger, 'info', f"***Table loaded with {num_rows} rows for search term: {search_term}")
                 
                 # Log each result
-                found_account_names = []  # Initialize once before the loop
                 for row in rows:
                     try:
                         # Try several selectors for the account name
@@ -355,7 +356,7 @@ class AccountManager(BasePage):
                 if num_items == 0 or num_rows == 0:
                     self.log_helper.log(self.logger, 'info', f"No results found for search term: {search_term}")
                     self.log_helper.dedent()
-                    return True
+                    return found_account_names
                 
                 self.log_helper.dedent()
                 return found_account_names
@@ -363,7 +364,7 @@ class AccountManager(BasePage):
             except Exception as e:
                 self.log_helper.log(self.logger, 'error', f"Error waiting for search results: {str(e)}")
                 self.log_helper.dedent()
-                return False
+                return found_account_names
             
         except Exception as e:
             self.log_helper.log(self.logger, 'error', f"Error searching for account: {str(e)}")
@@ -1688,21 +1689,12 @@ class AccountManager(BasePage):
             return []
 
     def search_by_full_name(self, full_name: str) -> List[str]:
-        """
-        Search for accounts by full name.
-        
-        Args:
-            full_name: The full name to search for
-            
-        Returns:
-            List[str]: List of matching account names
-        """
         self.log_helper.indent()
         try:
             self.log_helper.log(self.logger, 'info', f"INFO: search_by_full_name ***searching for full name: {full_name}")
             # Search for the full name
-            macthing_accounts = self.search_account(full_name)
-            # # Get matching accounts
+            matching_accounts = self.search_account(full_name)
+            # Get matching accounts
             # matching_accounts = self.get_account_names()
             self.log_helper.dedent()
             return matching_accounts
@@ -1710,3 +1702,5 @@ class AccountManager(BasePage):
             self.log_helper.log(self.logger, 'error', f"Error searching by full name: {str(e)}")
             self.log_helper.dedent()
             return []
+
+    
