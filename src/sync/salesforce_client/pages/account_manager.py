@@ -14,14 +14,82 @@ import os
 from .accounts_page import AccountsPage
 from ..utils.selectors import Selectors
 
+class LoggingHelper:
+    """Helper class to manage logging indentation and color based on call depth and keyword."""
+    _indent_level = 0
+    _indent_str = "  "  # 2 spaces per level
+
+    # ANSI color codes
+    COLORS = {
+        'reset': '\033[0m',
+        'search_account': '\033[1;36m',      # Bold Cyan
+        'found_account_names': '\033[1;32m', # Bold Green
+        'get_account_names': '\033[1;35m',   # Bold Magenta
+        'account_elements': '\033[1;34m',    # Bold Blue
+        'search_by_last_name': '\033[1;33m', # Bold Yellow
+        'search_by_full_name': '\033[1;31m', # Bold Red
+        'fuzzy_search_account': '\033[1;37m',# Bold White
+        'default': '',
+    }
+
+    @classmethod
+    def indent(cls):
+        """Increase indentation level."""
+        cls._indent_level += 1
+
+    @classmethod
+    def dedent(cls):
+        """Decrease indentation level."""
+        cls._indent_level = max(0, cls._indent_level - 1)
+
+    @classmethod
+    def get_indent(cls):
+        """Get current indentation string."""
+        return cls._indent_str * cls._indent_level
+
+    @classmethod
+    def colorize(cls, msg: str) -> str:
+        # Assign color based on keyword in the message
+        color = None
+        if 'search_account' in msg:
+            color = cls.COLORS['search_account']
+        elif 'found_account_names' in msg:
+            color = cls.COLORS['found_account_names']
+        elif 'get_account_names' in msg:
+            color = cls.COLORS['get_account_names']
+        elif 'account_elements' in msg:
+            color = cls.COLORS['account_elements']
+        elif 'search_by_last_name' in msg:
+            color = cls.COLORS['search_by_last_name']
+        elif 'search_by_full_name' in msg:
+            color = cls.COLORS['search_by_full_name']
+        elif 'fuzzy_search_account' in msg:
+            color = cls.COLORS['fuzzy_search_account']
+        if color:
+            return f"{color}{msg}{cls.COLORS['reset']}"
+        return msg
+
+    @classmethod
+    def log(cls, logger, level, msg, *args, **kwargs):
+        """Log a message with current indentation."""
+        indent = cls.get_indent()
+        if isinstance(msg, str):
+            msg = f"{indent}{msg}"
+            msg = cls.colorize(msg)
+        getattr(logger, level)(msg, *args, **kwargs)
+
 class AccountManager(BasePage):
     """Handles account-related operations in Salesforce."""
+    
+    log_helper = LoggingHelper()  # fallback for class-level access
     
     def __init__(self, page: Page, debug_mode: bool = False):
         super().__init__(page, debug_mode)
         self.current_account_id = None
         self.accounts_page = AccountsPage(page, debug_mode)
         self.special_cases = self._load_special_cases()
+        if not hasattr(self, 'log_helper') or self.log_helper is None:
+            self.log_helper = LoggingHelper()
         
     def _load_special_cases(self) -> dict:
         """Load special cases from the configuration file.
@@ -29,18 +97,22 @@ class AccountManager(BasePage):
         Returns:
             dict: Dictionary mapping folder names to their special case rules
         """
+        self.log_helper.indent()
         try:
             special_cases_file = Path('accounts/special_cases.json')
             if not special_cases_file.exists():
-                self.logger.info("No special cases file found")
+                self.log_helper.log(self.logger, 'info', "No special cases file found")
+                self.log_helper.dedent()
                 return {}
                 
             with open(special_cases_file, 'r') as f:
                 data = json.load(f)
                 # Convert list to dictionary for easier lookup
+                self.log_helper.dedent()
                 return {case['folder_name']: case for case in data.get('special_cases', [])}
         except Exception as e:
-            self.logger.error(f"Error loading special cases: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"Error loading special cases: {str(e)}")
+            self.log_helper.dedent()
             return {}
             
     def _is_special_case(self, folder_name: str) -> bool:
@@ -74,30 +146,36 @@ class AccountManager(BasePage):
         Returns:
             bool: True if navigation was successful, False otherwise
         """
+        self.log_helper.indent()
         try:
             # Navigate to the list view
             if not self._navigate_to_accounts_list_view_url(view_name):
-                self.logger.error("Failed to navigate to list view")
+                self.log_helper.log(self.logger, 'error', "Failed to navigate to list view")
                 self._take_screenshot("accounts-navigation-error")
+                self.log_helper.dedent()
                 return False
                 
             # Wait for the search input
             if not self._wait_for_selector('ACCOUNT', 'search_input', timeout=20000):
-                self.logger.error("Search input not found")
+                self.log_helper.log(self.logger, 'error', "Search input not found")
                 self._take_screenshot("accounts-navigation-error")
+                self.log_helper.dedent()
                 return False
                 
             # Verify the accounts table is visible
             if not self._wait_for_selector('ACCOUNT', 'account_table'):
-                self.logger.error("Accounts table not visible")
+                self.log_helper.log(self.logger, 'error', "Accounts table not visible")
+                self.log_helper.dedent()
                 return False
                 
-            self.logger.info("Successfully navigated to Accounts page")
+            self.log_helper.log(self.logger, 'info', "Successfully navigated to Accounts page")
+            self.log_helper.dedent()
             return True
             
         except Exception as e:
-            self.logger.error(f"Error navigating to Accounts page: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"Error navigating to Accounts page: {str(e)}")
             self._take_screenshot("accounts-navigation-error")
+            self.log_helper.dedent()
             return False
 
     def _navigate_to_accounts_list_view_url(self, view_name: str) -> bool:
@@ -109,6 +187,7 @@ class AccountManager(BasePage):
         Returns:
             bool: True if navigation was successful, False otherwise
         """
+        self.log_helper.indent()
         try:
             # Construct the URL with the correct list view filter
             # Convert view_name to the format expected by Salesforce (e.g., "All Clients" -> "AllClients")
@@ -118,18 +197,21 @@ class AccountManager(BasePage):
             # Check if we're already on the correct URL
             current_url = self.page.url
             if current_url == url:
-                self.logger.info(f"Already on the correct list view URL: {url}")
+                self.log_helper.log(self.logger, 'info', f"Already on the correct list view URL: {url}")
+                self.log_helper.dedent()
                 return True
                 
-            self.logger.info(f"Navigating directly to list view URL: {url}")
+            self.log_helper.log(self.logger, 'info', f"Navigating directly to list view URL: {url}")
             
             # Navigate to the URL
             self.page.goto(url)
             self.page.wait_for_load_state('networkidle', timeout=10000)
             self.page.wait_for_load_state('domcontentloaded', timeout=10000)
+            self.log_helper.dedent()
             return True
         except Exception as e:
-            self.logger.error(f"Error navigating to list view URL: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"Error navigating to list view URL: {str(e)}")
+            self.log_helper.dedent()
             return False
 
     def search_account(self, search_term: str, view_name: str = "All Clients") -> bool:
@@ -143,21 +225,24 @@ class AccountManager(BasePage):
         Returns:
             bool: True if search was successful, False otherwise
         """
+        self.log_helper.indent()
         try:
             # Navigate to accounts page if not already there
             if not self.navigate_to_accounts_list_page():
+                self.log_helper.dedent()
                 return False
             
             # Clear any existing search
             self.clear_search()
             
+            self.log_helper.log(self.logger, 'info', f"INFO: search_account ***searching for search term: {search_term}")
+
             # Enter search term
             search_input = self.page.locator("input[placeholder='Search this list...']")
             search_input.fill(search_term)
             search_input.press("Enter")
-            logging.info(f"Pressed Enter for search term: {search_term}")
-           
-            logging.info(f"Waiting for 1 second(s)...")
+            self.log_helper.log(self.logger, 'info', f"Pressed Enter for search term: {search_term}")
+            self.log_helper.log(self.logger, 'info', f"Waiting for 1 second(s)...")
             self.page.wait_for_timeout(1000)
             # After pressing Enter, check for empty content before checking for rows
             try:
@@ -169,10 +254,11 @@ class AccountManager(BasePage):
                 # Check if the empty content is visible
                 empty_content = self.page.locator('div.emptyContent.slds-is-absolute').first
                 if empty_content and empty_content.is_visible():
-                    self.logger.info(f"No items to display for search term: {search_term}")
+                    self.log_helper.log(self.logger, 'info', f"No items to display for search term: {search_term}")
+                    self.log_helper.dedent()
                     return True
             except Exception as e:
-                self.logger.warning(f"Error waiting for empty content or table: {str(e)}")
+                self.log_helper.log(self.logger, 'warning', f"Error waiting for empty content or table: {str(e)}")
             
             # Wait for search results
             try:
@@ -182,7 +268,8 @@ class AccountManager(BasePage):
                 # Wait for the table to be visible
                 table = self.page.wait_for_selector('table.slds-table', timeout=10000)
                 if not table:
-                    self.logger.error("Search results table not found")
+                    self.log_helper.log(self.logger, 'error', "Search results table not found")
+                    self.log_helper.dedent()
                     return False
                 
                 # Parse the number of items from the status bar (e.g., '0 items' or '50+ items')
@@ -198,33 +285,34 @@ class AccountManager(BasePage):
                             num_items_str = match.group(1)
                             if num_items_str.endswith('+'):
                                 num_items = int(num_items_str[:-1])
-                                self.logger.info(f"Salesforce reports {num_items_str} items (50+ means 50 or more) for search term: {search_term}")
+                                self.log_helper.log(self.logger, 'info', f"Salesforce reports {num_items_str} items (50+ means 50 or more) for search term: {search_term}")
                             else:
                                 num_items = int(num_items_str)
-                                self.logger.info(f"Salesforce reports {num_items} items for search term: {search_term}")
+                                self.log_helper.log(self.logger, 'info', f"Salesforce reports {num_items} items for search term: {search_term}")
                         else:
-                            self.logger.warning(f"Could not parse number of items from status bar: '{status_text}'")
+                            self.log_helper.log(self.logger, 'warning', f"Could not parse number of items from status bar: '{status_text}'")
                     else:
-                        self.logger.warning("Status bar element not found for item count.")
+                        self.log_helper.log(self.logger, 'warning', "Status bar element not found for item count.")
                 except Exception as e:
-                    self.logger.warning(f"Error parsing number of items from status bar: {str(e)}")
+                    self.log_helper.log(self.logger, 'warning', f"Error parsing number of items from status bar: {str(e)}")
                 
                 # CAROLINA HERE HERE
                 # Wait for any rows to be visible
                 rows = self.page.locator('table.slds-table tbody tr').all()
                 num_rows = len(rows)
-                self.logger.info(f"Found {num_rows} rows in table for search term: {search_term}")
+                self.log_helper.log(self.logger, 'info', f"Found {num_rows} rows in table for search term: {search_term}")
 
                 # If status bar says 50+ and num_rows < 50, warn about lazy loading
                 if num_items is not None and isinstance(num_items, int) and num_rows < num_items:
-                    self.logger.warning(f"Table may not have loaded all rows: status bar says {num_items}+ items, but only {num_rows} rows are visible. Consider implementing scrolling or pagination.")
+                    self.log_helper.log(self.logger, 'warning', f"Table may not have loaded all rows: status bar says {num_items}+ items, but only {num_rows} rows are visible. Consider implementing scrolling or pagination.")
                     # After warning, check for the empty content indicator
                     empty_content = self.page.locator('div.emptyContent.slds-is-absolute').first
                     if empty_content and empty_content.is_visible():
-                        self.logger.info(f"No items to display for search term: {search_term}")
+                        self.log_helper.log(self.logger, 'info', f"No items to display for search term: {search_term}")
+                        self.log_helper.dedent()
                         return True
                     else:
-                        self.logger.info(f"***Table loaded with {num_rows} rows for search term: {search_term}")
+                        self.log_helper.log(self.logger, 'info', f"***Table loaded with {num_rows} rows for search term: {search_term}")
                 
                 # Log each result
                 found_account_names = []  # Initialize once before the loop
@@ -240,52 +328,59 @@ class AccountManager(BasePage):
                                     break
                             except Exception:
                                 continue
+                        # CAROLINA HERE found account name in name_cell
                         if name_cell:
                             name = name_cell.text_content(timeout=2000).strip()
-                            self.logger.info(f"Found account: {name}")
+                            self.log_helper.log(self.logger, 'info', f"Found account: {name} in name_cell")
                             found_account_names.append(name)
                         else:
-                            self.logger.warning(f"Could not find account name link in row for search term: {search_term}")
+                            self.log_helper.log(self.logger, 'warning', f"Could not find account name link in row for search term: {search_term}")
                     except Exception as e:
-                        self.logger.warning(f"Error getting account name from row: {str(e)}")
+                        self.log_helper.log(self.logger, 'warning', f"Error getting account name from row: {str(e)}")
                         continue
                 # Only log if no account names were found (use the correct variable)
-                self.logger.info(f"DEBUG: found_account_names = {found_account_names}")
-                self.logger.info(f"DEBUG: len(found_account_names) = {len(found_account_names)}")
+                self.log_helper.log(self.logger, 'info', f"DEBUG: found_account_names = {found_account_names}")
+                self.log_helper.log(self.logger, 'info', f"DEBUG: len(found_account_names) = {len(found_account_names)}")
                 if len(found_account_names) == 0:
-                    self.logger.info("***No account names found in search results")
+                    self.log_helper.log(self.logger, 'info', "***No account names found in search results")
                 
                 # Compare the parsed number of items to the number of rows
                 if num_items is not None:
                     if num_items != num_rows:
-                        self.logger.warning(f"Discrepancy: Salesforce reports {num_items} items, but found {num_rows} rows in table for search term: {search_term}")
+                        self.log_helper.log(self.logger, 'warning', f"Discrepancy: Salesforce reports {num_items} items, but found {num_rows} rows in table for search term: {search_term}")
                     else:
-                        self.logger.info(f"Number of items matches number of rows for search term: {search_term}")
+                        self.log_helper.log(self.logger, 'info', f"Number of items matches number of rows for search term: {search_term}")
                 
                 # If 0 items, log and return
                 if num_items == 0 or num_rows == 0:
-                    self.logger.info(f"No results found for search term: {search_term}")
+                    self.log_helper.log(self.logger, 'info', f"No results found for search term: {search_term}")
+                    self.log_helper.dedent()
                     return True
                 
+                self.log_helper.dedent()
                 return True
                 
             except Exception as e:
-                self.logger.error(f"Error waiting for search results: {str(e)}")
+                self.log_helper.log(self.logger, 'error', f"Error waiting for search results: {str(e)}")
+                self.log_helper.dedent()
                 return False
             
         except Exception as e:
-            self.logger.error(f"Error searching for account: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"Error searching for account: {str(e)}")
+            self.log_helper.dedent()
             return False
 
     def clear_search(self):
         """Clear the search field."""
+        self.log_helper.indent()
         try:
             search_input = self.page.locator("input[placeholder='Search this list...']")
             search_input.fill("")
             search_input.press("Enter")
             self.page.wait_for_timeout(1000)  # Wait for search to clear
         except Exception as e:
-            self.logger.error(f"Error clearing search: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"Error clearing search: {str(e)}")
+        self.log_helper.dedent()
 
     def get_account_names(self) -> List[str]:
         """
@@ -294,18 +389,23 @@ class AccountManager(BasePage):
         Returns:
             List[str]: List of account names
         """
+        self.log_helper.indent()
         try:
+            logging.info(f"INFO: get_account_names")
             # Wait for the table to be visible
             table = self.page.wait_for_selector('table.slds-table', timeout=10000)
             if not table:
-                self.logger.error("Search results table not found")
+                self.log_helper.log(self.logger, 'error', "Search results table not found")
+                self.log_helper.dedent()
                 return []
             
+            # CAROLINA HERE account_elements
             # Get all account names from the table
             account_elements = self.page.locator('table.slds-table tbody tr td:nth-child(2) a').all()
-            logging.info(f"INFO: ***account_elements = {account_elements}")
+            self.log_helper.log(self.logger, 'info', f"INFO: ***account_elements = {account_elements}")
             if not account_elements:
-                self.logger.info("+++No account names found in search results")
+                self.log_helper.log(self.logger, 'info', "+++No account names found in search results")
+                self.log_helper.dedent()
                 return []
             
             account_names = []
@@ -315,14 +415,16 @@ class AccountManager(BasePage):
                     if name:
                         account_names.append(name)
                 except Exception as e:
-                    self.logger.warning(f"Error getting account name: {str(e)}")
+                    self.log_helper.log(self.logger, 'warning', f"Error getting account name: {str(e)}")
                     continue
                 
-            self.logger.info(f"Found {len(account_names)} account names in search results")
+            self.log_helper.log(self.logger, 'info', f"Found {len(account_names)} account names in search results")
+            self.log_helper.dedent()
             return account_names
             
         except Exception as e:
-            self.logger.error(f"Error getting account names: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"Error getting account names: {str(e)}")
+            self.log_helper.dedent()
             return []
 
     def account_exists(self, account_name: str, view_name: str = "All Accounts") -> bool:
@@ -335,20 +437,23 @@ class AccountManager(BasePage):
         Returns:
             bool: True if the account exists, False otherwise
         """
-        self.logger.info(f"Checking if account exists: {account_name} in view: {view_name}")
+        self.log_helper.log(self.logger, 'info', f"Checking if account exists: {account_name} in view: {view_name}")
         
+        self.log_helper.indent()
         try:
             # Navigate to the list view
             if not self._navigate_to_accounts_list_view_url(view_name):
-                self.logger.error("Failed to navigate to list view")
+                self.log_helper.log(self.logger, 'error', "Failed to navigate to list view")
+                self.log_helper.dedent()
                 return False
             
             # Wait for the search input to be visible
-            self.logger.info("Waiting for search input...")
+            self.log_helper.log(self.logger, 'info', "Waiting for search input...")
             search_input = self.page.wait_for_selector('input[placeholder="Search this list..."]', timeout=20000)
             if not search_input:
-                self.logger.error("Search input not found")
+                self.log_helper.log(self.logger, 'error', "Search input not found")
                 self._take_screenshot("search-input-not-found")
+                self.log_helper.dedent()
                 return False
             
             # Ensure the search input is visible and clickable
@@ -368,19 +473,20 @@ class AccountManager(BasePage):
             # Verify the text was entered correctly
             actual_text = search_input.input_value()
             if actual_text != account_name:
-                self.logger.error(f"Search text mismatch. Expected: {account_name}, Got: {actual_text}")
+                self.log_helper.log(self.logger, 'error', f"Search text mismatch. Expected: {account_name}, Got: {actual_text}")
                 self._take_screenshot("search-text-mismatch")
+                self.log_helper.dedent()
                 return False
             
             # Press Enter and wait for results
             self.page.keyboard.press("Enter")
             
             # Wait for search results
-            self.logger.info("Waiting for search results...")
+            self.log_helper.log(self.logger, 'info', "Waiting for search results...")
             try:
                 # Wait for the loading spinner to disappear
                 self.page.wait_for_selector('.slds-spinner_container', state='hidden', timeout=5000)
-                self.logger.info("Loading spinner disappeared")
+                self.log_helper.log(self.logger, 'info', "Loading spinner disappeared")
                 
                 # Wait a moment for results to appear
                 self.page.wait_for_timeout(1000)  # Reduced wait time
@@ -388,22 +494,27 @@ class AccountManager(BasePage):
                 # Check for the exact account name
                 account_link = self.page.locator(f'a[title="{account_name}"]').first
                 if account_link and account_link.is_visible():
-                    self.logger.info(f"Account exists: {account_name}")
+                    self.log_helper.log(self.logger, 'info', f"Account exists: {account_name}")
+                    self.log_helper.dedent()
                     return True
                 
-                self.logger.info(f"Account does not exist: {account_name}")
+                self.log_helper.log(self.logger, 'info', f"Account does not exist: {account_name}")
+                self.log_helper.dedent()
                 return False
                 
             except Exception as e:
-                self.logger.error(f"Error waiting for search results: {str(e)}")
+                self.log_helper.log(self.logger, 'error', f"Error waiting for search results: {str(e)}")
+                self.log_helper.dedent()
                 return False
             
         except Exception as e:
-            self.logger.error(f"Error checking if account exists: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"Error checking if account exists: {str(e)}")
+            self.log_helper.dedent()
             return False
 
     def click_account_name(self, account_name: str) -> bool:
         """Click on the account name in the search results."""
+        self.log_helper.indent()
         try:
             # Try the most specific and reliable selectors first
             selectors = [
@@ -431,21 +542,25 @@ class AccountManager(BasePage):
                             account_id_match = re.search(r'/Account/([^/]+)/view', current_url)
                             if account_id_match:
                                 self.current_account_id = account_id_match.group(1)
+                                self.log_helper.dedent()
                                 return True
                 except Exception:
                     continue
             
-            self.logger.error(f"Could not find or click account link for: {account_name}")
+            self.log_helper.log(self.logger, 'error', f"Could not find or click account link for: {account_name}")
+            self.log_helper.dedent()
             return False
             
         except Exception as e:
-            self.logger.error(f"Error clicking account name: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"Error clicking account name: {str(e)}")
+            self.log_helper.dedent()
             return False
 
     def click_save_button(self) -> bool:
         """Click the Save button."""
         # Save the account
-        logging.info("Clicking Save button...")
+        self.log_helper.log(self.logger, 'info', "Clicking Save button...")
+        self.log_helper.indent()
         try:
             # First try to find and click the visible Save button directly
             save_button = self.page.locator('button:has-text("Save")').first
@@ -453,7 +568,8 @@ class AccountManager(BasePage):
                 save_button.scroll_into_view_if_needed()
                 self.page.wait_for_timeout(500)
                 save_button.click()
-                logging.info("Successfully clicked visible Save button")
+                self.log_helper.log(self.logger, 'info', "Successfully clicked visible Save button")
+                self.log_helper.dedent()
                 return True
 
             # If no visible Save button found, try finding it through all buttons
@@ -468,23 +584,25 @@ class AccountManager(BasePage):
                             button.scroll_into_view_if_needed()
                             self.page.wait_for_timeout(500)
                             button.click()
-                            logging.info("Successfully clicked visible Save button")
+                            self.log_helper.log(self.logger, 'info', "Successfully clicked visible Save button")
+                            self.log_helper.dedent()
                             return True
                 except Exception:
                     continue
 
             raise Exception("Could not find an enabled Save button to click")
         except Exception as e:
-            logging.error(f"Error clicking Save button: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"Error clicking Save button: {str(e)}")
             self.page.screenshot(path="save-button-error.png")
-            logging.info("Error screenshot saved as save-button-error.png")
+            self.log_helper.log(self.logger, 'info', "Error screenshot saved as save-button-error.png")
+            self.log_helper.dedent()
             raise Exception("Could not click Save button")
             
 
     def click_next_button(self) -> bool:    
         """Click the Next button."""
         
-        logging.info("Clicking Next button...")
+        self.log_helper.log(self.logger, 'info', "Clicking Next button...")
         next_button = self.page.wait_for_selector('button:has-text("Next")', timeout=4000)
         if next_button:
             # Use JavaScript to click the Next button
@@ -517,63 +635,64 @@ class AccountManager(BasePage):
                           middle_name: Optional[str] = None, 
                           account_info: Optional[Dict[str, str]] = None) -> bool:
         """Create a new account with the given information."""
+        self.log_helper.indent()
         try:
             full_name = self.get_full_name(first_name, last_name, middle_name)
-            self.logger.info(f"Creating new account for: {full_name}")
+            self.log_helper.log(self.logger, 'info', f"Creating new account for: {full_name}")
             
             # Click New button
-            self.logger.info("Step 1: Attempting to click New button...")
+            self.log_helper.log(self.logger, 'info', "Step 1: Attempting to click New button...")
             if not self._click_element('ACCOUNT', 'new_button'):
-                self.logger.error("Could not find or click New button")
+                self.log_helper.log(self.logger, 'error', "Could not find or click New button")
                 self._take_screenshot("new-button-error")
                 sys.exit(1)
-            self.logger.info("Successfully clicked New button")
+            self.log_helper.log(self.logger, 'info', "Successfully clicked New button")
                 
             # Select Client radio button
-            self.logger.info("Step 2: Attempting to select Client radio button...")
+            self.log_helper.log(self.logger, 'info', "Step 2: Attempting to select Client radio button...")
             # Log the page content for debugging
             # self.logger.info("Current page content:")
             # self.logger.info(self.page.content())
             
             # Click Next button
-            self.logger.info("Step 3: Attempting to click Next button...")
+            self.log_helper.log(self.logger, 'info', "Step 3: Attempting to click Next button...")
             self.click_next_button()
-            self.logger.info("Successfully clicked Next button")
+            self.log_helper.log(self.logger, 'info', "Successfully clicked Next button")
                 
             # Fill name fields
-            self.logger.info("Step 4: Attempting to fill First Name field...")
+            self.log_helper.log(self.logger, 'info', "Step 4: Attempting to fill First Name field...")
             if not self._fill_input('FORM', 'first_name', first_name):
-                self.logger.error("Could not fill First Name field")
+                self.log_helper.log(self.logger, 'error', "Could not fill First Name field")
                 self._take_screenshot("first-name-error")
                 sys.exit(1)
-            self.logger.info(f"Successfully filled First Name with: {first_name}")
+            self.log_helper.log(self.logger, 'info', f"Successfully filled First Name with: {first_name}")
                 
-            self.logger.info("Step 5: Attempting to fill Last Name field...")
+            self.log_helper.log(self.logger, 'info', "Step 5: Attempting to fill Last Name field...")
             if not self._fill_input('FORM', 'last_name', last_name):
-                self.logger.error("Could not fill Last Name field")
+                self.log_helper.log(self.logger, 'error', "Could not fill Last Name field")
                 self._take_screenshot("last-name-error")
                 sys.exit(1)
-            self.logger.info(f"Successfully filled Last Name with: {last_name}")
+            self.log_helper.log(self.logger, 'info', f"Successfully filled Last Name with: {last_name}")
                 
             if middle_name:
-                self.logger.info("Step 6: Attempting to fill Middle Name field...")
+                self.log_helper.log(self.logger, 'info', "Step 6: Attempting to fill Middle Name field...")
                 if not self._fill_input('FORM', 'middle_name', middle_name):
-                    self.logger.error("Could not fill Middle Name field")
+                    self.log_helper.log(self.logger, 'error', "Could not fill Middle Name field")
                     self._take_screenshot("middle-name-error")
                     sys.exit(1)
-                self.logger.info(f"Successfully filled Middle Name with: {middle_name}")
+                self.log_helper.log(self.logger, 'info', f"Successfully filled Middle Name with: {middle_name}")
                 
             # Fill additional account info if provided
             if account_info and 'phone' in account_info:
-                self.logger.info("Step 7: Attempting to fill Phone field...")
+                self.log_helper.log(self.logger, 'info', "Step 7: Attempting to fill Phone field...")
                 if not self._fill_input('FORM', 'phone_field', account_info['phone']):
-                    self.logger.error("Could not fill Phone field")
+                    self.log_helper.log(self.logger, 'error', "Could not fill Phone field")
                     self._take_screenshot("phone-field-error")
                     sys.exit(1)
-                self.logger.info(f"Successfully filled Phone with: {account_info['phone']}")
+                self.log_helper.log(self.logger, 'info', f"Successfully filled Phone with: {account_info['phone']}")
                     
             # Click Save button
-            self.logger.info("Step 8: Attempting to click Save button...")
+            self.log_helper.log(self.logger, 'info', "Step 8: Attempting to click Save button...")
             # if not self._click_element('ACCOUNT', 'save_button'):
             #     self.logger.error("Could not find or click Save button")
             #     self._take_screenshot("save-button-error")
@@ -582,7 +701,7 @@ class AccountManager(BasePage):
             self.click_save_button()
                 
             # Wait for save confirmation with increased timeout
-            self.logger.info("Step 9: Waiting for save confirmation...")
+            self.log_helper.log(self.logger, 'info', "Step 9: Waiting for save confirmation...")
             try:
                 # Wait for network to be idle
                 self.page.wait_for_load_state('networkidle', timeout=60000)  # 60 second timeout
@@ -590,36 +709,36 @@ class AccountManager(BasePage):
                 # Try multiple confirmation methods
                 confirmation_found = False
                 
-                logging.info(f"****Waiting for save confirmation")
-                logging.info(f"Method 1: Check for toast message")
+                self.log_helper.log(self.logger, 'info', f"****Waiting for save confirmation")
+                self.log_helper.log(self.logger, 'info', f"Method 1: Check for toast message")
                 # Method 1: Check for toast message
                 try:
                     toast = self.page.wait_for_selector('div.slds-notify_toast, div.slds-notify--toast', timeout=40000)
                     if toast and toast.is_visible():
                         toast_text = toast.text_content()
-                        self.logger.info(f"Found toast message: {toast_text}")
+                        self.log_helper.log(self.logger, 'info', f"Found toast message: {toast_text}")
                         if 'success' in toast_text.lower() or 'was created' in toast_text.lower():
                             confirmation_found = True
                 except Exception as e:
-                    self.logger.info(f"No toast message found: {str(e)}")
+                    self.log_helper.log(self.logger, 'info', f"No toast message found: {str(e)}")
                 
-                logging.info(f"Method 2: Check URL change")
+                self.log_helper.log(self.logger, 'info', f"Method 2: Check URL change")
                 # Method 2: Check URL change
-                logging.info(f"confirmation_found: {confirmation_found}")
+                self.log_helper.log(self.logger, 'info', f"confirmation_found: {confirmation_found}")
                 if not confirmation_found:
                     try:
                         # Wait for URL to change to view page
                         self.page.wait_for_url(lambda url: '/view' in url, timeout=40000)
-                        self.logger.info("URL changed to view page")
+                        self.log_helper.log(self.logger, 'info', "URL changed to view page")
                         confirmation_found = True
                         
                         # Additional wait for page load after URL change
                         self.page.wait_for_load_state('networkidle', timeout=20000)
                         self.page.wait_for_load_state('domcontentloaded', timeout=20000)
                     except Exception as e:
-                        self.logger.info(f"URL did not change: {str(e)}")
+                        self.log_helper.log(self.logger, 'info', f"URL did not change: {str(e)}")
                 
-                logging.info(f"Method 3: Check for account name")
+                self.log_helper.log(self.logger, 'info', f"Method 3: Check for account name")
                 # Method 3: Check for account name
                 if not confirmation_found:
                     account_name = f"{first_name} {middle_name} {last_name}" if middle_name else f"{first_name} {last_name}"
@@ -632,35 +751,38 @@ class AccountManager(BasePage):
                     for selector in name_selectors:
                         try:
                             if self.page.locator(selector).first.is_visible():
-                                self.logger.info(f"Account name found with selector: {selector}")
+                                self.log_helper.log(self.logger, 'info', f"Account name found with selector: {selector}")
                                 confirmation_found = True
                                 break
                         except Exception as e:
-                            self.logger.info(f"Selector {selector} failed: {str(e)}")
+                            self.log_helper.log(self.logger, 'info', f"Selector {selector} failed: {str(e)}")
                 
                 if not confirmation_found:
                     raise Exception("Could not confirm save operation completed")
                 
-                self.logger.info("Save confirmation received")
+                self.log_helper.log(self.logger, 'info', "Save confirmation received")
                 
                 # Verify account creation
-                self.logger.info("Step 10: Verifying account creation...")
+                self.log_helper.log(self.logger, 'info', "Step 10: Verifying account creation...")
                 if not self._verify_account_creation(first_name, last_name, middle_name):
-                    self.logger.error("Could not verify account creation")
+                    self.log_helper.log(self.logger, 'error', "Could not verify account creation")
                     self._take_screenshot("account-verification-error")
+                    self.log_helper.dedent()
                     return False
-                self.logger.info("Successfully verified account creation")
+                self.log_helper.log(self.logger, 'info', "Successfully verified account creation")
                 
-                self.logger.info("Successfully created new account")
+                self.log_helper.log(self.logger, 'info', "Successfully created new account")
+                self.log_helper.dedent()
                 return True
                 
             except Exception as e:
-                self.logger.error(f"Error during save confirmation: {str(e)}")
+                self.log_helper.log(self.logger, 'error', f"Error during save confirmation: {str(e)}")
                 self._take_screenshot("save-confirmation-error")
+                self.log_helper.dedent()
                 return False
             
         except Exception as e:
-            self.logger.error(f"Error creating new account: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"Error creating new account: {str(e)}")
             self._take_screenshot("account-creation-error")
             sys.exit(1)
             
@@ -682,6 +804,7 @@ class AccountManager(BasePage):
     def _verify_account_creation(self, first_name: str, last_name: str, 
                                middle_name: Optional[str] = None) -> bool:
         """Verify that the account was created successfully."""
+        self.log_helper.indent()
         try:
             # # Wait for the page to fully load
             # self.page.wait_for_load_state('networkidle')
@@ -689,21 +812,21 @@ class AccountManager(BasePage):
             
             # Verify URL contains /view and extract account ID
             current_url = self.page.url
-            self.logger.info(f"Current URL: {current_url}")
+            self.log_helper.log(self.logger, 'info', f"Current URL: {current_url}")
             if '/view' not in current_url:
                 raise Exception(f"Not on account view page. Current URL: {current_url}")
             
             # Extract account ID from URL
-            account_id_match = re.search(r'/Account/([^/]+)/view', current_url)
+            account_id_match = re.search(r'/Account/(\w+)/view', current_url)
             if not account_id_match:
                 raise Exception(f"Could not extract account ID from URL: {current_url}")
             
             account_id = account_id_match.group(1)
-            self.logger.info(f"Extracted account ID from URL: {account_id}")
+            self.log_helper.log(self.logger, 'info', f"Extracted account ID from URL: {account_id}")
             
             # If this is after account creation, store the ID
             self.current_account_id = account_id
-            self.logger.info(f"Stored created account ID: {account_id}")
+            self.log_helper.log(self.logger, 'info', f"Stored created account ID: {account_id}")
             
             # Verify the account name is visible on the page
             account_name = f"{first_name} {middle_name} {last_name}" if middle_name else f"{first_name} {last_name}"
@@ -718,23 +841,26 @@ class AccountManager(BasePage):
             for selector in name_selectors:
                 try:
                     if self.page.locator(selector).first.is_visible():
-                        self.logger.info(f"Account name '{account_name}' is visible on the page (selector: {selector})")
+                        self.log_helper.log(self.logger, 'info', f"Account name '{account_name}' is visible on the page (selector: {selector})")
                         name_found = True
                         break
                 except Exception as e:
-                    self.logger.info(f"Account name selector {selector} failed: {str(e)}")
+                    self.log_helper.log(self.logger, 'info', f"Account name selector {selector} failed: {str(e)}")
                     
             if not name_found:
-                self.logger.error(f"Could not find account name '{account_name}' on the page after Save.")
+                self.log_helper.log(self.logger, 'error', f"Could not find account name '{account_name}' on the page after Save.")
                 self.page.screenshot(path="account-name-not-found.png")
+                self.log_helper.dedent()
                 return False
                 
-            self.logger.info("Successfully verified account creation")
+            self.log_helper.log(self.logger, 'info', "Successfully verified account creation")
+            self.log_helper.dedent()
             return True
             
         except Exception as e:
-            self.logger.error(f"Error verifying account creation: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"Error verifying account creation: {str(e)}")
             self.page.screenshot(path="account-creation-verification-error.png")
+            self.log_helper.dedent()
             return False
             
 
@@ -747,12 +873,13 @@ class AccountManager(BasePage):
         Returns:
             bool: True if navigation was successful, False otherwise
         """
-        self.logger.info(f"Navigating to account with ID: {account_id}")
+        self.log_helper.log(self.logger, 'info', f"Navigating to account with ID: {account_id}")
         
+        self.log_helper.indent()
         try:
             # Construct the URL for the account
             url = f"{SALESFORCE_URL}/lightning/r/Account/{account_id}/view"
-            self.logger.info(f"Navigating to URL: {url}")
+            self.log_helper.log(self.logger, 'info', f"Navigating to URL: {url}")
             
             # Navigate to the URL
             self.page.goto(url)
@@ -761,42 +888,44 @@ class AccountManager(BasePage):
             # Verify we're on the correct account page
             current_url = self.page.url
             if f"/Account/{account_id}/view" not in current_url:
-                self.logger.error(f"Navigation failed. Expected URL containing /Account/{account_id}/view, got: {current_url}")
+                self.log_helper.log(self.logger, 'error', f"Navigation failed. Expected URL containing /Account/{account_id}/view, got: {current_url}")
                 self._take_screenshot("account-navigation-error")
                 sys.exit(1)
                 
             # Store the account ID
             self.current_account_id = account_id
-            self.logger.info(f"Successfully navigated to account {account_id}")
+            self.log_helper.log(self.logger, 'info', f"Successfully navigated to account {account_id}")
+            self.log_helper.dedent()
             return True
             
         except Exception as e:
-            self.logger.error(f"Error navigating to account {account_id}: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"Error navigating to account {account_id}: {str(e)}")
             self._take_screenshot("account-navigation-error")
             sys.exit(1)
             
     def navigate_back_to_account_page(self):
         """Navigate back to the current account page."""
-        logging.info("Navigating back to account page...")
+        self.log_helper.log(self.logger, 'info', "Navigating back to account page...")
         if not self.current_account_id:
-            logging.error("No current account ID available")
+            self.log_helper.log(self.logger, 'error', "No current account ID available")
             self._take_screenshot("account-navigation-error")
             sys.exit(1)
             
+        self.log_helper.indent()
         try:
             url = f"{SALESFORCE_URL}/lightning/r/Account/{self.current_account_id}/view"
-            logging.info(f"Navigating to URL: {url}")
+            self.log_helper.log(self.logger, 'info', f"Navigating to URL: {url}")
             self.page.goto(url)
             # self.page.wait_for_load_state('networkidle')
             # checking url 
             current_url = self.page.url
             if f"/Account/{self.current_account_id}/view" not in current_url:
-                logging.error(f"Navigation failed. Expected URL containing /Account/{self.current_account_id}/view, got: {current_url}")
+                self.log_helper.log(self.logger, 'error', f"Navigation failed. Expected URL containing /Account/{self.current_account_id}/view, got: {current_url}")
                 self._take_screenshot("account-navigation-error")
                 sys.exit(1)
-            logging.info("Back on account page")
+            self.log_helper.log(self.logger, 'info', "Back on account page")
         except Exception as e:
-            logging.error(f"Error navigating back to account page: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"Error navigating back to account page: {str(e)}")
             self._take_screenshot("account-navigation-error")
             sys.exit(1) 
 
@@ -806,28 +935,30 @@ class AccountManager(BasePage):
         Returns either an integer or a string (e.g. "50+") representing the number of files.
         """
         files_url = f"{SALESFORCE_URL}/lightning/r/Account/{account_id}/related/AttachedContentDocuments/view"
-        logging.info(f"Checking current URL for account {account_id}")
+        self.log_helper.log(self.logger, 'info', f"Checking current URL for account {account_id}")
         
         # Check if we're already on the correct files URL
         current_url = self.page.url
         if current_url != files_url:
-            logging.info(f"Navigating to Files page for account {account_id}: {files_url}")
+            self.log_helper.log(self.logger, 'info', f"Navigating to Files page for account {account_id}: {files_url}")
             self.page.goto(files_url)
         else:
-            logging.info(f"Already on Files page for account {account_id}")
+            self.log_helper.log(self.logger, 'info', f"Already on Files page for account {account_id}")
             
         file_manager_instance = file_manager.FileManager(self.page)
         num_files = file_manager_instance.extract_files_count_from_status()
-        logging.info(f"Initial number of files: {num_files}")
+        self.log_helper.log(self.logger, 'info', f"Initial number of files: {num_files}")
         
         # Scroll to load all files if we see a "50+" count
         if isinstance(num_files, str) and '+' in str(num_files):
-            logging.info("Found '{num_files}+' count, scrolling to load all files...")
+            self.log_helper.log(self.logger, 'info', f"Found '{num_files}+' count, scrolling to load all files...")
             actual_count = file_manager_instance.scroll_to_bottom_of_page()
             if actual_count > 0:
-                logging.info(f"Final number of files after scrolling: {actual_count}")
+                self.log_helper.log(self.logger, 'info', f"Final number of files after scrolling: {actual_count}")
+                self.log_helper.dedent()
                 return actual_count
             
+        self.log_helper.dedent()
         return num_files
 
     def get_all_file_names_for_account(self, account_id: str) -> List[str]:
@@ -840,23 +971,27 @@ class AccountManager(BasePage):
         Returns:
             List[str]: List of file names found in the account
         """
-        self.logger.info(f"Getting all file names for account {account_id}")
+        self.log_helper.log(self.logger, 'info', f"Getting all file names for account {account_id}")
         
+        self.log_helper.indent()
         try:
             # Navigate to files section
-            logging.info("Navigating to files section")
-            logging.info(f"account_id: {account_id}")
+            self.log_helper.log(self.logger, 'info', "Navigating to files section")
+            self.log_helper.log(self.logger, 'info', f"account_id: {account_id}")
             num_files = self.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
             if num_files == -1:
-                logging.error("Failed to navigate to Files")
+                self.log_helper.log(self.logger, 'error', "Failed to navigate to Files")
+                self.log_helper.dedent()
                 return []
                 
             # Use FileManager to get file names
             file_manager_instance = file_manager.FileManager(self.page)
+            self.log_helper.dedent()
             return file_manager_instance.get_all_file_names()
             
         except Exception as e:
-            self.logger.error(f"Error getting file names: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"Error getting file names: {str(e)}")
+            self.log_helper.dedent()
             return []
 
     def get_default_condition(self):
@@ -875,47 +1010,52 @@ class AccountManager(BasePage):
         Returns:
             List[Dict[str, str]]: List of account dictionaries with 'name' and 'id' keys
         """
+        self.log_helper.indent()
         try:
-            self.logger.debug(f"Getting accounts base: {view_name}")
+            self.log_helper.log(self.logger, 'debug', f"Getting accounts base: {view_name}")
             # Navigate to accounts page
-            self.logger.debug(f"Navigating to Accounts page: {SALESFORCE_URL}/lightning/o/Account/list?filterName=__Recent")
+            self.log_helper.log(self.logger, 'debug', f"Navigating to Accounts page: {SALESFORCE_URL}/lightning/o/Account/list?filterName=__Recent")
             if not self.navigate_to_accounts_list_page():
-                self.logger.error("Failed to navigate to Accounts page")
+                self.log_helper.log(self.logger, 'error', "Failed to navigate to Accounts page")
+                self.log_helper.dedent()
                 return []
 
             # Select the specified list view
-            self.logger.debug(f"Selecting list view: {view_name}")
+            self.log_helper.log(self.logger, 'debug', f"Selecting list view: {view_name}")
             if not self._navigate_to_accounts_list_view_url(view_name):
+                self.log_helper.dedent()
                 return []
 
             # Wait for table to be visible
-            self.logger.debug(f"Waiting for table to be visible")
+            self.log_helper.log(self.logger, 'debug', f"Waiting for table to be visible")
             try:
                 table = self.page.wait_for_selector('table[role="grid"]', timeout=10000)
                 if not table:
-                    self.logger.error("Table element not found")
+                    self.log_helper.log(self.logger, 'error', "Table element not found")
+                    self.log_helper.dedent()
                     return []
-                self.logger.debug("Table element found")
+                self.log_helper.log(self.logger, 'debug', "Table element found")
             except Exception as e:
-                self.logger.error(f"Table not found after 10 seconds: {str(e)}")
+                self.log_helper.log(self.logger, 'error', f"Table not found after 10 seconds: {str(e)}")
+                self.log_helper.dedent()
                 return []
 
             # Wait for table to be populated and visible
-            self.logger.debug(f"Waiting for table to be populated and visible")
+            self.log_helper.log(self.logger, 'debug', f"Waiting for table to be populated and visible")
             try:
                 # Wait for the table to be fully loaded
-                self.logger.debug("Waiting for network to be idle")
+                self.log_helper.log(self.logger, 'debug', "Waiting for network to be idle")
                 self.page.wait_for_load_state('networkidle', timeout=10000)
                 
                 # Wait for the loading spinner to disappear (if present)
                 try:
-                    self.logger.debug("Waiting for loading spinner to disappear")
+                    self.log_helper.log(self.logger, 'debug', "Waiting for loading spinner to disappear")
                     self.page.wait_for_selector('.slds-spinner_container', state='hidden', timeout=5000)
                 except:
-                    self.logger.debug("No loading spinner found")
+                    self.log_helper.log(self.logger, 'debug', "No loading spinner found")
                 
                 # Force the table to be visible by evaluating JavaScript
-                self.logger.debug("Forcing table visibility with JavaScript")
+                self.log_helper.log(self.logger, 'debug', "Forcing table visibility with JavaScript")
                 self.page.evaluate("""
                     () => {
                         const table = document.querySelector('table[role="grid"]');
@@ -936,20 +1076,22 @@ class AccountManager(BasePage):
                 """)
                 
                 # Get all rows
-                self.logger.debug("Getting all table rows")
+                self.log_helper.log(self.logger, 'debug', "Getting all table rows")
                 rows = self.page.locator('table[role="grid"] tr').all()
                 if not rows:
-                    self.logger.error("No rows found in table")
+                    self.log_helper.log(self.logger, 'error', "No rows found in table")
+                    self.log_helper.dedent()
                     return []
                 
-                self.logger.debug(f"Found {len(rows)} rows in table")
+                self.log_helper.log(self.logger, 'debug', f"Found {len(rows)} rows in table")
                 
                 # Additional wait to ensure table is fully rendered
-                self.logger.debug("Waiting for table to stabilize")
+                self.log_helper.log(self.logger, 'debug', "Waiting for table to stabilize")
                 self.page.wait_for_timeout(2000)
                 
             except Exception as e:
-                self.logger.error(f"Error waiting for table rows: {str(e)}")
+                self.log_helper.log(self.logger, 'error', f"Error waiting for table rows: {str(e)}")
+                self.log_helper.dedent()
                 return []
 
             accounts = []
@@ -963,7 +1105,7 @@ class AccountManager(BasePage):
                         for handler in logging.getLogger().handlers:
                             handler.flush()
                     except Exception as e:
-                        self.logger.warning(f"Could not get outer HTML for row {idx}: {e}")
+                        self.log_helper.log(self.logger, 'warning', f"Could not get outer HTML for row {idx}: {e}")
                     # Skip header rows
                     first_cell = row.locator('th, td').nth(0)
                     if first_cell.count() > 0:
@@ -989,20 +1131,22 @@ class AccountManager(BasePage):
                                 'name': name,
                                 'id': account_id
                             })
-                        self.logger.debug(f"***Account name: {name} found")
-                        self.logger.debug(f"***Account id: {account_id} found")
+                        self.log_helper.log(self.logger, 'debug', f"***Account name: {name} found")
+                        self.log_helper.log(self.logger, 'debug', f"***Account id: {account_id} found")
                        
                     except Exception as e:
-                        self.logger.warning(f"Error getting text content for row: {str(e)}")
+                        self.log_helper.log(self.logger, 'warning', f"Error getting text content for row: {str(e)}")
                         continue
                 except Exception as e:
-                    self.logger.warning(f"Error processing account row: {str(e)}")
+                    self.log_helper.log(self.logger, 'warning', f"Error processing account row: {str(e)}")
                     continue
             
+            self.log_helper.dedent()
             return accounts
             
         except Exception as e:
-            self.logger.error(f"Error getting accounts: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"Error getting accounts: {str(e)}")
+            self.log_helper.dedent()
             return []
 
     def get_accounts_matching_condition(
@@ -1020,7 +1164,7 @@ class AccountManager(BasePage):
         processed_accounts = []
         the_condition = condition if condition is not None else self.get_default_condition()
         for account in all_accounts:
-            logging.debug(f"Processing account: {account['name']}")
+            self.log_helper.log(self.logger, 'debug', f"Processing account: {account['name']}")
             files_count = self.navigate_to_files_and_get_number_of_files_for_this_account(account['id'])
             account['files_count'] = files_count
             processed_accounts.append(account)
@@ -1028,9 +1172,10 @@ class AccountManager(BasePage):
                 accounts.append(account)
                 if len(accounts) >= max_number:
                     break
-        logging.info(f"Total accounts processed: {len(processed_accounts)}")
+        self.log_helper.log(self.logger, 'info', f"Total accounts processed: {len(processed_accounts)}")
         for acc in processed_accounts:
-            logging.info(f"Processed account: Name={acc['name']}, ID={acc['id']}, Files={acc['files_count']}")
+            self.log_helper.log(self.logger, 'info', f"Processed account: Name={acc['name']}, ID={acc['id']}, Files={acc['files_count']}")
+        self.log_helper.dedent()
         return accounts
 
     def verify_account_page_url(self) -> tuple[bool, Optional[str]]:
@@ -1041,27 +1186,32 @@ class AccountManager(BasePage):
                 - bool: True if the URL is valid, False otherwise
                 - Optional[str]: The account ID if found, None otherwise
         """
+        self.log_helper.indent()
         try:
             current_url = self.page.url
-            self.logger.info(f"Current URL: {current_url}")
+            self.log_helper.log(self.logger, 'info', f"Current URL: {current_url}")
             
             # Check if we're on an account page
             if not re.match(r'.*Account/\w+/view.*', current_url):
-                self.logger.error(f"Not on account page. Current URL: {current_url}")
+                self.log_helper.log(self.logger, 'error', f"Not on account page. Current URL: {current_url}")
+                self.log_helper.dedent()
                 return False, None
             
             # Extract account ID from URL
             account_id_match = re.search(r'/Account/(\w+)/view', current_url)
             if not account_id_match:
-                self.logger.error(f"Could not extract account ID from URL: {current_url}")
+                self.log_helper.log(self.logger, 'error', f"Could not extract account ID from URL: {current_url}")
+                self.log_helper.dedent()
                 return False, None
             
             account_id = account_id_match.group(1)
-            self.logger.info(f"Extracted account ID from URL: {account_id}")
+            self.log_helper.log(self.logger, 'info', f"Extracted account ID from URL: {account_id}")
+            self.log_helper.dedent()
             return True, account_id
             
         except Exception as e:
-            self.logger.error(f"Error verifying account page URL: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"Error verifying account page URL: {str(e)}")
+            self.log_helper.dedent()
             return False, None
 
     def account_has_files(self, account_id: str) -> bool:
@@ -1071,7 +1221,9 @@ class AccountManager(BasePage):
         num_files = self.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
         if isinstance(num_files, str):
             # If we have a string like "50+", we know there are files
+            self.log_helper.dedent()
             return True
+        self.log_helper.dedent()
         return num_files > 0
     
     
@@ -1080,9 +1232,10 @@ class AccountManager(BasePage):
         Check if the account has files.
         """
         account_url = f"{SALESFORCE_URL}/lightning/r/{account_id}/view"
-        logging.info(f"Navigating to account view page: {account_url}")
+        self.log_helper.log(self.logger, 'info', f"Navigating to account view page: {account_url}")
         self.page.goto(account_url)
         # self.page.wait_for_load_state('networkidle', timeout=30000)
+        self.log_helper.indent()
         try:
             # Find all matching <a> elements
             files_links = self.page.locator('a.slds-card__header-link.baseCard__header-title-container')
@@ -1101,14 +1254,15 @@ class AccountManager(BasePage):
                         files_number = int(files_number_str.rstrip('+'))
                     else:
                         files_number = 0
-                    logging.info(f"Account {account_id} Files count: {files_number}")
+                    self.log_helper.log(self.logger, 'info', f"Account {account_id} Files count: {files_number}")
                     found = True
+                    self.log_helper.dedent()
                     return files_number > 0
             if not found:
-                logging.error(f"Files card not found for account {account_id}")
+                self.log_helper.log(self.logger, 'error', f"Files card not found for account {account_id}")
                 sys.exit(1)
         except Exception as e:
-            logging.error(f"Could not extract files count for account {account_id}: {e}")
+            self.log_helper.log(self.logger, 'error', f"Could not extract files count for account {account_id}: {e}")
             sys.exit(1)
 
     def delete_account(self, full_name: str, view_name: str = "Recent") -> bool:
@@ -1120,21 +1274,25 @@ class AccountManager(BasePage):
         Returns:
             bool: True if deletion was successful, False otherwise
         """
+        self.log_helper.indent()
         try:
             # Search for the account
             if not self.account_exists(full_name, view_name=view_name):
-                self.logger.error(f"Account {full_name} does not exist")
+                self.log_helper.log(self.logger, 'error', f"Account {full_name} does not exist")
+                self.log_helper.dedent()
                 return False
             # Click on the account name to navigate to it
             if not self.click_account_name(full_name):
-                self.logger.error(f"Failed to navigate to account view page for: {full_name}")
+                self.log_helper.log(self.logger, 'error', f"Failed to navigate to account view page for: {full_name}")
+                self.log_helper.dedent()
                 return False
             # Verify we're on the correct account page
             is_valid, account_id = self.verify_account_page_url()
             if not is_valid:
-                self.logger.error("Not on a valid account page")
+                self.log_helper.log(self.logger, 'error', "Not on a valid account page")
+                self.log_helper.dedent()
                 return False
-            self.logger.info(f"Successfully navigated to account {full_name} with ID {account_id}")
+            self.log_helper.log(self.logger, 'info', f"Successfully navigated to account {full_name} with ID {account_id}")
             # Wait for page to load completely and stabilize
             self.page.wait_for_load_state('networkidle')
             self.page.wait_for_timeout(2000)
@@ -1156,83 +1314,92 @@ class AccountManager(BasePage):
                             enabled = el.is_enabled()
                             text = el.text_content()
                             attrs = el.get_attribute('outerHTML')
-                            self.logger.info(f"Delete button candidate: selector={selector}, visible={visible}, enabled={enabled}, text={text}, outerHTML={attrs}")
+                            self.log_helper.log(self.logger, 'info', f"Delete button candidate: selector={selector}, visible={visible}, enabled={enabled}, text={text}, outerHTML={attrs}")
                             if visible and enabled:
                                 delete_btn = el
                                 break
                         except Exception as e:
-                            self.logger.info(f"Error checking delete button candidate: {e}")
+                            self.log_helper.log(self.logger, 'info', f"Error checking delete button candidate: {e}")
                     if delete_btn:
-                        self.logger.info(f"Found delete button with selector: {selector}")
+                        self.log_helper.log(self.logger, 'info', f"Found delete button with selector: {selector}")
                         break
                 except Exception as e:
-                    self.logger.info(f"Error finding delete button with selector {selector}: {e}")
+                    self.log_helper.log(self.logger, 'info', f"Error finding delete button with selector {selector}: {e}")
                     continue
             if not delete_btn:
-                self.logger.error("Could not find enabled/visible left-panel Delete button with any selector")
+                self.log_helper.log(self.logger, 'error', "Could not find enabled/visible left-panel Delete button with any selector")
                 self.page.screenshot(path="delete-btn-not-found.png")
+                self.log_helper.dedent()
                 return False
             try:
                 delete_btn.click()
-                self.logger.info("Clicked left-panel Delete button.")
+                self.log_helper.log(self.logger, 'info', "Clicked left-panel Delete button.")
             except Exception as e:
-                self.logger.error(f"Error clicking left-panel Delete button: {e}")
+                self.log_helper.log(self.logger, 'error', f"Error clicking left-panel Delete button: {e}")
                 self.page.screenshot(path="delete-btn-click-error.png")
+                self.log_helper.dedent()
                 return False
             self.page.wait_for_timeout(1000)
             # Step 2: Wait for the modal and confirm deletion
             try:
                 self.page.wait_for_selector('button[title="Delete"] span.label.bBody', timeout=5000)
             except Exception:
-                self.logger.error("Delete confirmation modal did not appear after clicking delete button")
+                self.log_helper.log(self.logger, 'error', "Delete confirmation modal did not appear after clicking delete button")
                 self.page.screenshot(path="delete-modal-not-found.png")
+                self.log_helper.dedent()
                 return False
             # Log modal text for debugging
             try:
                 modal = self.page.query_selector('div[role="dialog"]')
                 if modal:
                     modal_text = modal.text_content()
-                    self.logger.info(f"Delete modal text: {modal_text}")
+                    self.log_helper.log(self.logger, 'info', f"Delete modal text: {modal_text}")
             except Exception:
                 pass
             # Click the modal's Delete button using the provided selector
             try:
                 modal_delete_btn_span = self.page.wait_for_selector('button[title="Delete"] span.label.bBody', timeout=5000)
                 if not modal_delete_btn_span:
-                    self.logger.error("Could not find modal Delete button span.label.bBody")
+                    self.log_helper.log(self.logger, 'error', "Could not find modal Delete button span.label.bBody")
                     self.page.screenshot(path="modal-delete-btn-not-found.png")
+                    self.log_helper.dedent()
                     return False
                 modal_delete_btn_span.click()
-                self.logger.info("Clicked modal Delete button.")
+                self.log_helper.log(self.logger, 'info', "Clicked modal Delete button.")
             except Exception as e:
-                self.logger.error(f"Error clicking modal Delete button: {e}")
+                self.log_helper.log(self.logger, 'error', f"Error clicking modal Delete button: {e}")
                 self.page.screenshot(path="modal-delete-btn-click-error.png")
+                self.log_helper.dedent()
                 return False
             # Wait for the modal to close
             try:
                 self.page.wait_for_selector('button[title="Delete"] span.label.bBody', state='detached', timeout=8000)
-                self.logger.info("Delete confirmation modal closed.")
+                self.log_helper.log(self.logger, 'info', "Delete confirmation modal closed.")
             except Exception:
-                self.logger.warning("Delete confirmation modal did not close in time.")
+                self.log_helper.log(self.logger, 'warning', "Delete confirmation modal did not close in time.")
             # Wait for deletion confirmation (toast)
             try:
                 self.page.wait_for_selector('div.slds-notify_toast, div.slds-notify--toast', timeout=15000)
-                self.logger.info(f"Successfully deleted account: {full_name}")
+                self.log_helper.log(self.logger, 'info', f"Successfully deleted account: {full_name}")
+                self.log_helper.dedent()
                 return True
             except Exception as e:
-                self.logger.warning(f"Could not confirm account deletion by toast: {str(e)}. Checking if account still exists.")
+                self.log_helper.log(self.logger, 'warning', f"Could not confirm account deletion by toast: {str(e)}. Checking if account still exists.")
                 # Fallback: check if account still exists
                 self.navigate_to_accounts_list_page()
                 if not self.account_exists(full_name):
-                    self.logger.info(f"Account {full_name} no longer exists. Deletion successful.")
+                    self.log_helper.log(self.logger, 'info', f"Account {full_name} no longer exists. Deletion successful.")
+                    self.log_helper.dedent()
                     return True
                 else:
-                    self.logger.error(f"Account {full_name} still exists after attempted deletion.")
+                    self.log_helper.log(self.logger, 'error', f"Account {full_name} still exists after attempted deletion.")
                     self.page.screenshot(path="delete-toast-not-found.png")
+                    self.log_helper.dedent()
                     return False
         except Exception as e:
-            self.logger.error(f"Error deleting account {full_name}: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"Error deleting account {full_name}: {str(e)}")
             self.page.screenshot(path="delete-error.png")
+            self.log_helper.dedent()
             return False
 
     def extract_name_parts(self, name: str) -> dict:
@@ -1248,7 +1415,7 @@ class AccountManager(BasePage):
         """
         # Check for special case first
         if self._is_special_case(name):
-            self.logger.info(f"Found special case for folder: {name}")
+            self.log_helper.log(self.logger, 'info', f"Found special case for folder: {name}")
             special_case = self._get_special_case_rules(name)
             result = {
                 'last_name': special_case['last_name'],
@@ -1269,6 +1436,7 @@ class AccountManager(BasePage):
                     swapped = f"{parts[1]} {parts[0]}"
                     result['normalized_names'].append(swapped.lower().strip())
             
+            self.log_helper.dedent()
             return result
             
         # Continue with normal name parsing if not a special case
@@ -1390,6 +1558,7 @@ class AccountManager(BasePage):
         result['normalized_names'] = list(set(n for n in result['normalized_names'] if n))
         result['swapped_names'] = list(set(n for n in result['swapped_names'] if n))
         
+        self.log_helper.dedent()
         return result
 
     def fuzzy_search_account(self, folder_name: str) -> dict:
@@ -1414,17 +1583,20 @@ class AccountManager(BasePage):
             'timing': {}
         }
         
+        self.log_helper.indent()
         try:
             # Extract name parts
             name_parts = self.extract_name_parts(folder_name)
             if not name_parts:
-                self.logger.error(f"Failed to extract name parts from folder name: {folder_name}")
+                self.log_helper.log(self.logger, 'error', f"Failed to extract name parts from folder name: {folder_name}")
+                self.log_helper.dedent()
                 return result
             
             # Get normalized names for comparison
             normalized_names = name_parts.get('normalized_names', [])
             if not normalized_names:
-                self.logger.error(f"No normalized names found for folder name: {folder_name}")
+                self.log_helper.log(self.logger, 'error', f"No normalized names found for folder name: {folder_name}")
+                self.log_helper.dedent()
                 return result
             
             # Get swapped names for comparison
@@ -1481,12 +1653,14 @@ class AccountManager(BasePage):
                 'name_extraction': name_parts.get('timing', {}).get('total', 0)
             }
             
+            self.log_helper.dedent()
             return result
             
         except Exception as e:
-            self.logger.error(f"Error during fuzzy search: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"Error during fuzzy search: {str(e)}")
             result['status'] = 'Error'
             result['error'] = str(e)
+            self.log_helper.dedent()
             return result
 
     def search_by_last_name(self, last_name: str) -> List[str]:
@@ -1499,15 +1673,18 @@ class AccountManager(BasePage):
         Returns:
             List[str]: List of matching account names
         """
+        self.log_helper.indent()
         try:
-            logging.info(f"INFO: ***searching for last name: {last_name}")
+            self.log_helper.log(self.logger, 'info', f"INFO: ***search_by_last_name: searching for last name: {last_name}")
             # Search for the last name
             self.search_account(last_name)
             # Get matching accounts
             matching_accounts = self.get_account_names()
+            self.log_helper.dedent()
             return matching_accounts
         except Exception as e:
-            self.logger.error(f"Error searching by last name: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"Error searching by last name: {str(e)}")
+            self.log_helper.dedent()
             return []
 
     def search_by_full_name(self, full_name: str) -> List[str]:
@@ -1520,13 +1697,16 @@ class AccountManager(BasePage):
         Returns:
             List[str]: List of matching account names
         """
+        self.log_helper.indent()
         try:
-            logging.info(f"INFO: ***searching for full name: {full_name}")
+            self.log_helper.log(self.logger, 'info', f"INFO: search_by_full_name ***searching for full name: {full_name}")
             # Search for the full name
             self.search_account(full_name)
             # Get matching accounts
             matching_accounts = self.get_account_names()
+            self.log_helper.dedent()
             return matching_accounts
         except Exception as e:
-            self.logger.error(f"Error searching by full name: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"Error searching by full name: {str(e)}")
+            self.log_helper.dedent()
             return []
