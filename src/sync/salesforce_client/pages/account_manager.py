@@ -155,6 +155,24 @@ class AccountManager(BasePage):
             search_input = self.page.locator("input[placeholder='Search this list...']")
             search_input.fill(search_term)
             search_input.press("Enter")
+            logging.info(f"Pressed Enter for search term: {search_term}")
+           
+            logging.info(f"Waiting for 1 second(s)...")
+            self.page.wait_for_timeout(1000)
+            # After pressing Enter, check for empty content before checking for rows
+            try:
+                # Wait for either the empty content or the table to appear
+                self.page.wait_for_selector(
+                    'div.emptyContent.slds-is-absolute, table.slds-table',
+                    timeout=10000
+                )
+                # Check if the empty content is visible
+                empty_content = self.page.locator('div.emptyContent.slds-is-absolute').first
+                if empty_content and empty_content.is_visible():
+                    self.logger.info(f"No items to display for search term: {search_term}")
+                    return True
+            except Exception as e:
+                self.logger.warning(f"Error waiting for empty content or table: {str(e)}")
             
             # Wait for search results
             try:
@@ -167,14 +185,45 @@ class AccountManager(BasePage):
                     self.logger.error("Search results table not found")
                     return False
                 
+                # Parse the number of items from the status bar (e.g., '0 items' or '50+ items')
+                num_items = None
+                try:
+                    status_bar = self.page.locator('span.countSortedByFilteredBy[role="status"]').first
+                    if status_bar:
+                        status_bar.wait_for(state='visible', timeout=5000)
+                        status_text = status_bar.text_content().strip()
+                        import re
+                        match = re.search(r'(\d+\+?) items?', status_text)
+                        if match:
+                            num_items_str = match.group(1)
+                            if num_items_str.endswith('+'):
+                                num_items = int(num_items_str[:-1])
+                                self.logger.info(f"Salesforce reports {num_items_str} items (50+ means 50 or more) for search term: {search_term}")
+                            else:
+                                num_items = int(num_items_str)
+                                self.logger.info(f"Salesforce reports {num_items} items for search term: {search_term}")
+                        else:
+                            self.logger.warning(f"Could not parse number of items from status bar: '{status_text}'")
+                    else:
+                        self.logger.warning("Status bar element not found for item count.")
+                except Exception as e:
+                    self.logger.warning(f"Error parsing number of items from status bar: {str(e)}")
+                
                 # Wait for any rows to be visible
                 rows = self.page.locator('table.slds-table tbody tr').all()
-                if not rows:
-                    self.logger.info(f"No results found for search term: {search_term}")
-                    return True  # Return True because the search was successful, just no results
-                
-                # Log the number of results found
-                self.logger.info(f"Found {len(rows)} results for search term: {search_term}")
+                num_rows = len(rows)
+                self.logger.info(f"Found {num_rows} rows in table for search term: {search_term}")
+
+                # If status bar says 50+ and num_rows < 50, warn about lazy loading
+                if num_items is not None and isinstance(num_items, int) and num_rows < num_items:
+                    self.logger.warning(f"Table may not have loaded all rows: status bar says {num_items}+ items, but only {num_rows} rows are visible. Consider implementing scrolling or pagination.")
+                    # After warning, check for the empty content indicator
+                    empty_content = self.page.locator('div.emptyContent.slds-is-absolute').first
+                    if empty_content and empty_content.is_visible():
+                        self.logger.info(f"No items to display for search term: {search_term}")
+                        return True
+                    else:
+                        self.logger.info(f"***Table loaded with {num_rows} rows for search term: {search_term}")
                 
                 # Log each result
                 for row in rows:
@@ -186,6 +235,18 @@ class AccountManager(BasePage):
                     except Exception as e:
                         self.logger.warning(f"Error getting account name from row: {str(e)}")
                         continue
+                
+                # Compare the parsed number of items to the number of rows
+                if num_items is not None:
+                    if num_items != num_rows:
+                        self.logger.warning(f"Discrepancy: Salesforce reports {num_items} items, but found {num_rows} rows in table for search term: {search_term}")
+                    else:
+                        self.logger.info(f"Number of items matches number of rows for search term: {search_term}")
+                
+                # If 0 items, log and return
+                if num_items == 0 or num_rows == 0:
+                    self.logger.info(f"No results found for search term: {search_term}")
+                    return True
                 
                 return True
                 
