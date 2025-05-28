@@ -572,7 +572,7 @@ def accounts_fuzzy_search(args):
                         if attempt['matching_accounts']:
                             report_logger.info(f"\n   Search type: {attempt['type']}")
                             report_logger.info(f"   Query used: '{attempt['query']}'")
-                            report_logger.info(f"   Found {attempt['matches']} matches:")
+                            report_logger.info(f"   Found {len(attempt['matching_accounts'])} matches:")
                             for account in sorted(attempt['matching_accounts']):
                                 report_logger.info(f"      - {account}")
                 
