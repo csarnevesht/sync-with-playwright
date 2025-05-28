@@ -229,10 +229,21 @@ class AccountManager(BasePage):
                 # Log each result
                 for row in rows:
                     try:
-                        name_cell = row.locator('td:nth-child(2) a').first
+                        # Try several selectors for the account name
+                        name_cell = None
+                        for selector in ['td:nth-child(2) a', 'th[scope="row"] a', 'td:first-child a']:
+                            candidate = row.locator(selector).first
+                            try:
+                                if candidate and candidate.is_visible(timeout=1000):
+                                    name_cell = candidate
+                                    break
+                            except Exception:
+                                continue
                         if name_cell:
-                            name = name_cell.text_content().strip()
+                            name = name_cell.text_content(timeout=2000).strip()
                             self.logger.info(f"Found account: {name}")
+                        else:
+                            self.logger.warning(f"Could not find account name link in row for search term: {search_term}")
                     except Exception as e:
                         self.logger.warning(f"Error getting account name from row: {str(e)}")
                         continue
