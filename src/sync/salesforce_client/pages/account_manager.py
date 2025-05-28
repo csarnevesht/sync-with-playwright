@@ -286,6 +286,7 @@ class AccountManager(BasePage):
             self.log_helper.log(self.logger, 'info', f"Pressed Enter for search term: {search_term}")
             self.log_helper.log(self.logger, 'info', f"Waiting for 1 second(s)...")
             self.page.wait_for_timeout(1000)
+            
             # After pressing Enter, check for empty content before checking for rows
             try:
                 # Wait for either the empty content or the table to appear
@@ -338,7 +339,6 @@ class AccountManager(BasePage):
                 except Exception as e:
                     self.log_helper.log(self.logger, 'warning', f"Error parsing number of items from status bar: {str(e)}")
                 
-                # CAROLINA HERE HERE
                 # Wait for any rows to be visible
                 rows = self.page.locator('table.slds-table tbody tr').all()
                 num_rows = len(rows)
@@ -369,7 +369,7 @@ class AccountManager(BasePage):
                                     break
                             except Exception:
                                 continue
-                        # CAROLINA HERE found account name in name_cell
+                        
                         if name_cell:
                             name = name_cell.text_content(timeout=2000).strip()
                             self.log_helper.log(self.logger, 'info', f"Found account: {name} in name_cell")
@@ -379,7 +379,8 @@ class AccountManager(BasePage):
                     except Exception as e:
                         self.log_helper.log(self.logger, 'warning', f"Error getting account name from row: {str(e)}")
                         continue
-                # Only log if no account names were found (use the correct variable)
+                
+                # Only log if no account names were found
                 self.log_helper.log(self.logger, 'info', f"DEBUG: found_account_names = {found_account_names}")
                 self.log_helper.log(self.logger, 'info', f"DEBUG: len(found_account_names) = {len(found_account_names)}")
                 if len(found_account_names) == 0:
@@ -1718,6 +1719,19 @@ class AccountManager(BasePage):
             
             # Add version with additional info
             if result['additional_info']:
+                # Check if additional_info is a single word that could be a first name
+                additional_parts = result['additional_info'].split()
+                if len(additional_parts) == 1:
+                    # Add normalized name for additional_info last_name combination
+                    additional_name = f"{result['additional_info']} {result['last_name']}".lower().strip()
+                    result['normalized_names'].append(additional_name)
+                    self.log_helper.log(self.logger, 'info', f"Added name with additional info as first name: {additional_name}")
+                    
+                    # Add swapped version for additional_info last_name
+                    additional_swapped = f"{result['last_name']} {result['additional_info']}".lower().strip()
+                    result['swapped_names'].append(additional_swapped)
+                    self.log_helper.log(self.logger, 'info', f"Added swapped name with additional info: {additional_swapped}")
+                
                 with_ampersand = f"{result['first_name']} {result['last_name']} & {result['additional_info']}".lower().strip()
                 result['normalized_names'].append(with_ampersand)
                 self.log_helper.log(self.logger, 'info', f"Added name with additional info (ampersand): {with_ampersand}")
@@ -1810,6 +1824,8 @@ Name Variations:
             self.logger.info(f"\nExtracted name parts for '{folder_name}':")
             self.logger.info(f"    First name: {name_parts.get('first_name', '')}")
             self.logger.info(f"    Last name: {last_name}")
+            self.logger.info(f"    Normalized names: {result['normalized_names']}")
+            self.logger.info(f"    Swapped names: {result['swapped_names']}")
             
             # Search by last name first
             self.logger.info(f"\nSearching in view: {view_name}")
@@ -1838,6 +1854,30 @@ Name Variations:
                 self.logger.info(f"\nDropbox account folder name: {folder_name} [{result['status']}] [{result['view']}]")
                 for match in result['matches']:
                     self.logger.info(f"  Salesforce account name: {match}")
+                
+                # Check for exact matches
+                exact_matches = []
+                for match in search_result:
+                    match_lower = match.lower()
+                    # Check normalized names
+                    for normalized in result['normalized_names']:
+                        normalized_lower = normalized.lower()
+                        if match_lower in normalized_lower or normalized_lower in match_lower:
+                            if match not in exact_matches:
+                                exact_matches.append(match)
+                                self.logger.info(f"Found exact match: {match} (matches normalized name: {normalized})")
+                    
+                    # Check swapped names
+                    for swapped in result['swapped_names']:
+                        swapped_lower = swapped.lower()
+                        if match_lower in swapped_lower or swapped_lower in match_lower:
+                            if match not in exact_matches:
+                                exact_matches.append(match)
+                                self.logger.info(f"Found exact match: {match} (matches swapped name: {swapped})")
+                
+                if exact_matches:
+                    result['status'] = 'exact_match'
+                    self.logger.info(f"Found {len(exact_matches)} exact matches: {exact_matches}")
             
             # Add timing information
             result['timing'] = {
@@ -1871,6 +1911,9 @@ Name Variations:
             self.log_helper.log(self.logger, 'info', f"INFO: ***search_by_last_name: searching for last name: {last_name}")
             # Search for the last name
             matching_accounts = self.search_account(last_name, view_name=view_name)
+            self.log_helper.log(self.logger, 'info', f"Found {len(matching_accounts)} matching accounts:")
+            for account in matching_accounts:
+                self.log_helper.log(self.logger, 'info', f"  - {account}")
             self.log_helper.dedent()
             return matching_accounts
         except Exception as e:
