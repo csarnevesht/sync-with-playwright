@@ -1771,54 +1771,39 @@ Name Variations:
         Perform a fuzzy search for an account based on a folder name.
         
         Args:
-            folder_name: The Dropbox folder name to search for
-            view_name: The name of the list view to use (default: "All Clients")
+            folder_name: The folder name to search for
+            view_name: The name of the list view to use
             
         Returns:
-            dict: A dictionary containing:
-                - status: 'Exact Match', 'Partial Match', or 'No Match'
-                - matches: List of matching account names
-                - search_attempts: List of search attempts with details
-                - timing: Dictionary with timing information
+            dict: Search results including matches and status
         """
-        self.log_helper.start_timing()
+        self.log_helper.indent()
         start_time = time.time()
         result = {
+            'folder_name': folder_name,
             'status': 'No Match',
             'matches': [],
             'search_attempts': [],
             'timing': {}
         }
         
-        self.log_helper.indent()
         try:
             # Extract name parts
             name_parts = self.extract_name_parts(folder_name)
-            last_name = name_parts.get('last_name', '')
-            first_name = name_parts.get('first_name', '')
-            middle_name = name_parts.get('middle_name', '')
-            full_name = name_parts.get('full_name', '')
+            first_name = name_parts.get('first_name')
+            last_name = name_parts.get('last_name')
+            full_name = name_parts.get('full_name')
             
-            # Log the extracted parts
-            self.log_helper.log(self.logger, 'info', f"Extracted name parts from '{folder_name}':")
-            self.log_helper.log(self.logger, 'info', f"  Last name: {last_name}")
-            self.log_helper.log(self.logger, 'info', f"  First name: {first_name}")
-            self.log_helper.log(self.logger, 'info', f"  Middle name: {middle_name}")
-            self.log_helper.log(self.logger, 'info', f"  Full name: {full_name}")
+            # Search by last name first
+            matching_accounts = self.search_by_last_name(last_name, view_name=view_name)
             
-            # Try searching by last name first
-            self.log_helper.log(self.logger, 'info', f"Searching by last name: {last_name}")
-            matching_accounts = self.search_account(last_name, view_name=view_name)
-            
-            # If no matches found by last name, try full name
-            if not matching_accounts:
-                self.log_helper.log(self.logger, 'info', f"No matches found by last name, trying full name: {full_name}")
+            # If no matches found with last name, try full name
+            if not matching_accounts and full_name:
                 matching_accounts = self.search_account(full_name, view_name=view_name)
             
-            # If still no matches, try first name + last name
+            # If still no matches and we have both first and last name, try combined name
             if not matching_accounts and first_name and last_name:
                 combined_name = f"{first_name} {last_name}"
-                self.log_helper.log(self.logger, 'info', f"No matches found by full name, trying combined name: {combined_name}")
                 matching_accounts = self.search_account(combined_name, view_name=view_name)
             
             # Store the search attempts
@@ -1873,12 +1858,13 @@ Name Variations:
             self.log_helper.dedent()
             return result
 
-    def search_by_last_name(self, last_name: str) -> List[str]:
+    def search_by_last_name(self, last_name: str, view_name: str = "All Clients") -> List[str]:
         """
         Search for accounts by last name.
         
         Args:
             last_name: The last name to search for
+            view_name: The name of the list view to use
             
         Returns:
             List[str]: List of matching account names
@@ -1887,9 +1873,7 @@ Name Variations:
         try:
             self.log_helper.log(self.logger, 'info', f"INFO: ***search_by_last_name: searching for last name: {last_name}")
             # Search for the last name
-            matching_accounts = self.search_account(last_name)
-            # # Get matching accounts
-            # matching_accounts = self.get_account_names()
+            matching_accounts = self.search_account(last_name, view_name=view_name)
             self.log_helper.dedent()
             return matching_accounts
         except Exception as e:
