@@ -416,7 +416,7 @@ class AccountManager(BasePage):
     def clear_search(self):
         """Clear the search field by searching for '--' and verifying no results."""
         self.log_helper.indent()
-        max_attempts = 5
+        max_attempts = 2
         attempt = 1
         
         while attempt <= max_attempts:
@@ -1800,7 +1800,7 @@ class AccountManager(BasePage):
                 'name_extraction': name_parts.get('timing', {}).get('total', 0)
             }
             
-            # Log the summary
+            # Log the summary with only the Dropbox folder name and match status
             if result['status'] == 'No Match':
                 self.log_helper.log(self.logger, 'info', f"Dropbox account folder name: {folder_name} [No match found]")
             else:
