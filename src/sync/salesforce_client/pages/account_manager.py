@@ -209,6 +209,7 @@ class AccountManager(BasePage):
                 except Exception as e:
                     self.logger.warning(f"Error parsing number of items from status bar: {str(e)}")
                 
+                # CAROLINA HERE HERE
                 # Wait for any rows to be visible
                 rows = self.page.locator('table.slds-table tbody tr').all()
                 num_rows = len(rows)
@@ -823,7 +824,6 @@ class AccountManager(BasePage):
         self.logger.info(f"Getting all file names for account {account_id}")
         
         try:
-            # CAROLINA HERE
             # Navigate to files section
             logging.info("Navigating to files section")
             logging.info(f"account_id: {account_id}")
