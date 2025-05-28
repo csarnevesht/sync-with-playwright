@@ -227,6 +227,7 @@ class AccountManager(BasePage):
                         self.logger.info(f"***Table loaded with {num_rows} rows for search term: {search_term}")
                 
                 # Log each result
+                found_account_names = []  # Initialize once before the loop
                 for row in rows:
                     try:
                         # Try several selectors for the account name
@@ -242,11 +243,15 @@ class AccountManager(BasePage):
                         if name_cell:
                             name = name_cell.text_content(timeout=2000).strip()
                             self.logger.info(f"Found account: {name}")
+                            found_account_names.append(name)
                         else:
                             self.logger.warning(f"Could not find account name link in row for search term: {search_term}")
                     except Exception as e:
                         self.logger.warning(f"Error getting account name from row: {str(e)}")
                         continue
+                # Only log if no account names were found (use the correct variable)
+                if len(found_account_names) == 0:
+                    self.logger.info("No account names found in search results")
                 
                 # Compare the parsed number of items to the number of rows
                 if num_items is not None:
@@ -1452,11 +1457,12 @@ class AccountManager(BasePage):
             # Remove duplicates from matches
             result['matches'] = list(set(result['matches']))
             
-            # Check for exact matches
+            # Check for exact matches (case-insensitive, including expected_matches)
+            expected_names = name_parts.get('expected_matches', [])
+            all_expected = [n.lower() for n in normalized_names + swapped_names + expected_names]
             exact_matches = []
             for match in result['matches']:
-                match_lower = match.lower()
-                if any(match_lower == name.lower() for name in normalized_names + swapped_names):
+                if match.lower() in all_expected:
                     exact_matches.append(match)
             
             # Update result status and matches
