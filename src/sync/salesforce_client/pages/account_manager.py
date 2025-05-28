@@ -372,16 +372,75 @@ class AccountManager(BasePage):
             return []
 
     def clear_search(self):
-        """Clear the search field."""
+        """Clear the search field by searching for '--' and verifying no results."""
         self.log_helper.indent()
-        try:
-            search_input = self.page.locator("input[placeholder='Search this list...']")
-            search_input.fill("")
-            search_input.press("Enter")
-            self.page.wait_for_timeout(1000)  # Wait for search to clear
-        except Exception as e:
-            self.log_helper.log(self.logger, 'error', f"Error clearing search: {str(e)}")
+        max_attempts = 5
+        attempt = 1
+        
+        while attempt <= max_attempts:
+            try:
+                self.log_helper.log(self.logger, 'info', f"Clear search attempt {attempt}/{max_attempts}")
+                
+                # Clear and fill search input
+                search_input = self.page.locator("input[placeholder='Search this list...']")
+                self.log_helper.log(self.logger, 'info', "Found search input field")
+                
+                search_input.fill("--")
+                self.log_helper.log(self.logger, 'info', "Filled search input with '--'")
+                
+                search_input.press("Enter")
+                self.log_helper.log(self.logger, 'info', "Pressed Enter")
+                
+                self.page.wait_for_timeout(1000)  # Wait for search to complete
+                self.log_helper.log(self.logger, 'info', "Waited for search to complete")
+                
+                # Wait for the status bar to be visible
+                status_bar = self.page.locator('span.countSortedByFilteredBy[role="status"]').first
+                if status_bar:
+                    self.log_helper.log(self.logger, 'info', "Found status bar element")
+                    status_bar.wait_for(state='visible', timeout=5000)
+                    status_text = status_bar.text_content().strip()
+                    self.log_helper.log(self.logger, 'info', f"Status bar text: '{status_text}'")
+                    
+                    import re
+                    match = re.search(r'(\d+\+?) items?', status_text)
+                    if match:
+                        num_items_str = match.group(1)
+                        if num_items_str.endswith('+'):
+                            num_items = int(num_items_str[:-1])
+                        else:
+                            num_items = int(num_items_str)
+                        
+                        self.log_helper.log(self.logger, 'info', f"Found {num_items_str} items")
+                        
+                        if num_items == 0:
+                            self.log_helper.log(self.logger, 'info', "Successfully cleared search (0 items found)")
+                            self.log_helper.dedent()
+                            return True
+                        else:
+                            self.log_helper.log(self.logger, 'warning', f"Attempt {attempt}: Found {num_items_str} items, expected 0")
+                    else:
+                        self.log_helper.log(self.logger, 'warning', f"Attempt {attempt}: Could not parse number of items from status bar: '{status_text}'")
+                else:
+                    self.log_helper.log(self.logger, 'warning', f"Attempt {attempt}: Status bar element not found")
+                
+                # If we get here, the attempt failed
+                if attempt < max_attempts:
+                    self.log_helper.log(self.logger, 'info', f"Retrying in 1 second...")
+                    self.page.wait_for_timeout(1000)
+                attempt += 1
+                
+            except Exception as e:
+                self.log_helper.log(self.logger, 'error', f"Attempt {attempt} failed with error: {str(e)}")
+                if attempt < max_attempts:
+                    self.log_helper.log(self.logger, 'info', f"Retrying in 1 second...")
+                    self.page.wait_for_timeout(1000)
+                attempt += 1
+        
+        # If we get here, all attempts failed
+        self.log_helper.log(self.logger, 'error', f"Failed to clear search after {max_attempts} attempts")
         self.log_helper.dedent()
+        sys.exit(1)
 
     def deprecated_get_account_names(self) -> List[str]:
         """
@@ -1603,11 +1662,15 @@ class AccountManager(BasePage):
             # Get swapped names for comparison
             swapped_names = name_parts.get('swapped_names', [])
             
+            # Keep track of performed searches and their results
+            performed_searches = {}  # Dict to store search query -> results mapping
+            
             # Search by last name first
             last_name = name_parts.get('last_name', '')
             if last_name:
                 last_name_result = self.search_by_last_name(last_name)
                 if last_name_result:
+                    performed_searches[last_name] = last_name_result
                     result['search_attempts'].append({
                         'type': 'Last Name',
                         'query': last_name,
@@ -1619,8 +1682,14 @@ class AccountManager(BasePage):
             
             # Search by full name variations
             for name in normalized_names + swapped_names:
+                # Skip if we've already performed this search and got results
+                if name in performed_searches and performed_searches[name]:
+                    self.log_helper.log(self.logger, 'info', f"Skipping duplicate search for: {name}")
+                    continue
+                    
                 full_name_result = self.search_by_full_name(name)
                 if full_name_result:
+                    performed_searches[name] = full_name_result
                     result['search_attempts'].append({
                         'type': 'Full Name',
                         'query': name,
@@ -1703,4 +1772,51 @@ class AccountManager(BasePage):
             self.log_helper.dedent()
             return []
 
+    def refresh_page(self) -> bool:
+        """Refresh the current page and wait for it to load.
+        
+        Returns:
+            bool: True if refresh was successful, False otherwise
+        """
+        self.log_helper.indent()
+        try:
+            self.log_helper.log(self.logger, 'info', "Refreshing page...")
+            
+            # Store current URL for verification
+            current_url = self.page.url
+            self.log_helper.log(self.logger, 'info', f"Current URL before refresh: {current_url}")
+            
+            # Refresh the page
+            self.page.reload()
+            
+            # Wait for network to be idle
+            self.page.wait_for_load_state('networkidle', timeout=1000)
+            self.log_helper.log(self.logger, 'info', "Network is idle after refresh")
+            
+            # Wait for DOM content to be loaded
+            self.page.wait_for_load_state('domcontentloaded', timeout=1000)
+            self.log_helper.log(self.logger, 'info', "DOM content loaded after refresh")
+            
+            # Verify we're still on the same page
+            new_url = self.page.url
+            if new_url != current_url:
+                self.log_helper.log(self.logger, 'warning', f"URL changed after refresh. Old: {current_url}, New: {new_url}")
+            
+            # Wait for any loading spinners to disappear
+            try:
+                self.page.wait_for_selector('.slds-spinner_container', state='hidden', timeout=5000)
+                self.log_helper.log(self.logger, 'info', "Loading spinner disappeared")
+            except Exception as e:
+                self.log_helper.log(self.logger, 'info', f"No loading spinner found or already disappeared: {str(e)}")
+            
+            self.log_helper.log(self.logger, 'info', "Page refresh completed successfully")
+            self.log_helper.dedent()
+            return True
+            
+        except Exception as e:
+            self.log_helper.log(self.logger, 'error', f"Error refreshing page: {str(e)}")
+            self._take_screenshot("page-refresh-error")
+            self.log_helper.dedent()
+            return False
+    
     
