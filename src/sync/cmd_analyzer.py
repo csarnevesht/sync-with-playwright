@@ -608,7 +608,6 @@ def accounts_fuzzy_search(args):
             # Print final summary
             report_logger.info("\n=== SUMMARY ===")
             for result in summary_results:
-                report_logger.info(f"\nDropbox account folder name: {result['dropbox_name']}")
                 salesforce_name = result['salesforce_name']
                 # Determine expected names for exact match (case-insensitive)
                 expected_names = []
@@ -618,19 +617,32 @@ def accounts_fuzzy_search(args):
                 else:
                     # Use normalized names from the search term, or just the dropbox name
                     expected_names = [result['dropbox_name'].lower()]
-                if salesforce_name == "--" or not salesforce_name:
-                    report_logger.info(f"Salesforce account name: -- [No match found]")
-                elif isinstance(salesforce_name, list):
-                    for name in salesforce_name:
-                        if name.lower() in expected_names:
-                            report_logger.info(f"Salesforce account name: {name} [Exact Match]")
-                        else:
-                            report_logger.info(f"Salesforce account name: {name} [Partial Match]")
-                else:
-                    if salesforce_name.lower() in expected_names:
-                        report_logger.info(f"Salesforce account name: {salesforce_name} [Exact Match]")
+
+                # Determine match status
+                match_status = "No match found"
+                if salesforce_name != "--" and salesforce_name:
+                    if isinstance(salesforce_name, list):
+                        for name in salesforce_name:
+                            if name.lower() in expected_names:
+                                match_status = "Exact Match"
+                                break
+                        if match_status != "Exact Match":
+                            match_status = "Partial Match"
                     else:
-                        report_logger.info(f"Salesforce account name: {salesforce_name} [Partial Match]")
+                        if salesforce_name.lower() in expected_names:
+                            match_status = "Exact Match"
+                        else:
+                            match_status = "Partial Match"
+
+                # Log the summary with match status
+                report_logger.info(f"\nDropbox account folder name: {result['dropbox_name']} [{match_status}]")
+                if salesforce_name != "--" and salesforce_name:
+                    if isinstance(salesforce_name, list):
+                        for name in salesforce_name:
+                            report_logger.info(f"Salesforce account name: {name}")
+                    else:
+                        report_logger.info(f"Salesforce account name: {salesforce_name}")
+
                 # Show file summary if available
                 if args.dropbox_account_files and args.salesforce_account_files:
                     report_logger.info("\nFile Migration Status:")
