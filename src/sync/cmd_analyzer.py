@@ -89,12 +89,14 @@ class Colors:
     RED = '\033[91m'
     BOLD = '\033[1m'
     ENDC = '\033[0m'
+    CYAN = '\033[96m'  # Add cyan color for better visibility
 
 # Custom formatter to add colors to specific log messages
 class ColoredFormatter(logging.Formatter):
     def format(self, record):
         if "Processing Dropbox account folder" in record.msg:
-            record.msg = f"{Colors.BLUE}{Colors.BOLD}{record.msg}{Colors.ENDC}"
+            # Make the message bold and cyan for better visibility
+            record.msg = f"{Colors.CYAN}{Colors.BOLD}{record.msg}{Colors.ENDC}"
         return super().format(record)
 
 # Custom formatter for report logging (no timestamp or level)
@@ -104,15 +106,20 @@ class ReportFormatter(logging.Formatter):
 
 def setup_logging():
     """Configure logging to write to both file and console with colored output."""
-    # Create logs directory with date-based subfolder
-    log_date = datetime.now().strftime('%Y-%m-%d')
-    log_dir = Path('logs') / log_date
+    # Create logs directory with date and time-based subfolder
+    timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    log_dir = Path('logs') / timestamp
     log_dir.mkdir(parents=True, exist_ok=True)
     
-    # Create log file with timestamp
-    timestamp = datetime.now().strftime('%H-%M-%S')
-    log_file = log_dir / f'analyzer_{timestamp}.log'
-    report_file = log_dir / f'report_{timestamp}.log'
+    # Create separate directories for analyzer and report logs
+    analyzer_dir = log_dir / 'analyzer'
+    report_dir = log_dir / 'report'
+    analyzer_dir.mkdir(exist_ok=True)
+    report_dir.mkdir(exist_ok=True)
+    
+    # Create log files
+    log_file = analyzer_dir / 'analyzer.log'
+    report_file = report_dir / 'report.log'
     
     # Create formatters
     file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
@@ -147,6 +154,10 @@ def setup_logging():
     report_logger = logging.getLogger('report')
     report_logger.setLevel(logging.INFO)
     report_logger.addHandler(report_handler)
+    
+    # Log the log file locations
+    root_logger.info(f"Main log file: {log_file}")
+    root_logger.info(f"Report log file: {report_file}")
     
     return root_logger, report_logger
 
@@ -424,15 +435,17 @@ def accounts_fuzzy_search(args):
                 
                 # Get exact matches for summary
                 if result['status'] == 'Exact Match' and result['matches']:
-                    salesforce_name = result['matches'][0]
+                    salesforce_name = result['matches']  # Store all matches as a list
                 else:
                     salesforce_name = "--"
                 
                 # Get Salesforce files if requested and account was found
                 salesforce_files = []
                 if args.salesforce_account_files and salesforce_name != "--":
+                    # For multiple matches, we'll check files for the first match
+                    account_to_check = salesforce_name[0] if isinstance(salesforce_name, list) else salesforce_name
                     # Navigate to the account and get its ID
-                    if account_manager.click_account_name(salesforce_name):
+                    if account_manager.click_account_name(account_to_check):
                         is_valid, account_id = account_manager.verify_account_page_url()
                         if is_valid and account_id:
                             # Navigate to files section
@@ -446,9 +459,9 @@ def accounts_fuzzy_search(args):
                             salesforce_files = file_manager.get_all_file_names()
                             logger.info(f"Found {len(salesforce_files)} files in Salesforce")
                         else:
-                            logger.error(f"Could not verify account page or get account ID for: {salesforce_name}")
+                            logger.error(f"Could not verify account page or get account ID for: {account_to_check}")
                     else:
-                        logger.error(f"Could not navigate to Salesforce account: {salesforce_name}")
+                        logger.error(f"Could not navigate to Salesforce account: {account_to_check}")
                 
                 # Compare files if both Dropbox and Salesforce files are available
                 file_comparison = None
@@ -536,7 +549,13 @@ def accounts_fuzzy_search(args):
                 if salesforce_name == "--":
                     report_logger.info(f"Salesforce account name: -- [No exact match found]")
                 else:
-                    report_logger.info(f"Salesforce account name: {salesforce_name} [Exact Match]")
+                    # Handle multiple matches
+                    if isinstance(salesforce_name, list):
+                        report_logger.info(f"Salesforce account names: [Multiple Exact Matches]")
+                        for name in salesforce_name:
+                            report_logger.info(f"  - {name}")
+                    else:
+                        report_logger.info(f"Salesforce account name: {salesforce_name} [Exact Match]")
                 # Show file summary if available
                 if args.dropbox_account_files and args.salesforce_account_files:
                     report_logger.info("\nFile Migration Status:")

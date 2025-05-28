@@ -2,6 +2,8 @@ from typing import Callable, Optional, Dict, List, Union
 import logging
 import re
 import time
+import json
+from pathlib import Path
 
 from . import file_manager
 from .base_page import BasePage
@@ -19,6 +21,49 @@ class AccountManager(BasePage):
         super().__init__(page, debug_mode)
         self.current_account_id = None
         self.accounts_page = AccountsPage(page, debug_mode)
+        self.special_cases = self._load_special_cases()
+        
+    def _load_special_cases(self) -> dict:
+        """Load special cases from the configuration file.
+        
+        Returns:
+            dict: Dictionary mapping folder names to their special case rules
+        """
+        try:
+            special_cases_file = Path('accounts/special_cases.json')
+            if not special_cases_file.exists():
+                self.logger.info("No special cases file found")
+                return {}
+                
+            with open(special_cases_file, 'r') as f:
+                data = json.load(f)
+                # Convert list to dictionary for easier lookup
+                return {case['folder_name']: case for case in data.get('special_cases', [])}
+        except Exception as e:
+            self.logger.error(f"Error loading special cases: {str(e)}")
+            return {}
+            
+    def _is_special_case(self, folder_name: str) -> bool:
+        """Check if a folder name is a special case.
+        
+        Args:
+            folder_name: The folder name to check
+            
+        Returns:
+            bool: True if the folder name is a special case, False otherwise
+        """
+        return folder_name in self.special_cases
+        
+    def _get_special_case_rules(self, folder_name: str) -> dict:
+        """Get the special case rules for a folder name.
+        
+        Args:
+            folder_name: The folder name to get rules for
+            
+        Returns:
+            dict: The special case rules or None if not found
+        """
+        return self.special_cases.get(folder_name)
         
     def navigate_to_accounts_list_page(self, view_name: str = "All Clients") -> bool:
         """Navigate to the Accounts page with a specific list view.
@@ -1181,12 +1226,48 @@ class AccountManager(BasePage):
         return account_names
 
     def extract_name_parts(self, name: str) -> dict:
-        """Extract name parts from a name string."""
+        """Extract name parts from a name string.
+        
+        Rules:
+        1. If there's a comma, everything before the comma is the last name
+        2. If there's no comma:
+           - If there are 2 words, the last name is the 2nd word
+           - If there's '&' or 'and', first word is first name, second word is last name, and anything after &/'and' is additional info
+           - If there are 3 words and no '&'/'and', last name is 3rd word, middle name is 2nd word
+        3. Special cases can override these rules
+        """
+        # Check for special case first
+        if self._is_special_case(name):
+            self.logger.info(f"Found special case for folder: {name}")
+            special_case = self._get_special_case_rules(name)
+            result = {
+                'last_name': special_case['last_name'],
+                'first_name': '',
+                'middle_name': '',
+                'additional_info': '',
+                'swapped_names': [],
+                'normalized_names': [],
+                'expected_matches': special_case['expected_matches']
+            }
+            
+            # Add normalized versions for the expected matches
+            for match in special_case['expected_matches']:
+                result['normalized_names'].append(match.lower().strip())
+                # Also add the swapped version
+                parts = match.split()
+                if len(parts) >= 2:
+                    swapped = f"{parts[1]} {parts[0]}"
+                    result['normalized_names'].append(swapped.lower().strip())
+            
+            return result
+            
+        # Continue with normal name parsing if not a special case
         result = {
             'last_name': '',
             'first_name': '',
             'middle_name': '',
-            'additional_info': ''
+            'additional_info': '',
+            'swapped_names': []
         }
         
         # Extract additional info in parentheses
@@ -1209,26 +1290,56 @@ class AccountManager(BasePage):
                     if len(name_parts) > 1:
                         result['middle_name'] = ' '.join(name_parts[1:])
         else:
-            # Handle names with ampersands
-            if '&' in main_name:
-                parts = main_name.split('&')
-                main_name = parts[0].strip()
-            
-            # Split remaining name parts
+            # Split the name into words
             name_parts = main_name.split()
-            if len(name_parts) >= 2:
-                # Take the last word as the last name
-                result['last_name'] = name_parts[-1]
-                result['first_name'] = name_parts[0]
-                if len(name_parts) > 2:
-                    result['middle_name'] = ' '.join(name_parts[1:-1])
+            
+            # Check for '&' or 'and'
+            has_ampersand = '&' in main_name
+            has_and = ' and ' in main_name.lower()
+            
+            if has_ampersand or has_and:
+                # Handle names with '&' or 'and'
+                if has_ampersand:
+                    parts = main_name.split('&')
+                else:
+                    parts = main_name.lower().split(' and ')
+                
+                # First part is the main name
+                main_parts = parts[0].strip().split()
+                if len(main_parts) >= 2:
+                    result['first_name'] = main_parts[0]
+                    result['last_name'] = main_parts[1]
+                    if len(main_parts) > 2:
+                        result['middle_name'] = ' '.join(main_parts[2:])
+                
+                # Everything after & or 'and' is additional info
+                if len(parts) > 1:
+                    result['additional_info'] = parts[1].strip()
             else:
-                result['last_name'] = main_name
+                # Handle names without '&' or 'and'
+                if len(name_parts) == 2:
+                    # Two words: first word is first name, second word is last name
+                    result['first_name'] = name_parts[0]
+                    result['last_name'] = name_parts[1]
+                elif len(name_parts) == 3:
+                    # Three words: first word is first name, second word is middle name, third word is last name
+                    result['first_name'] = name_parts[0]
+                    result['middle_name'] = name_parts[1]
+                    result['last_name'] = name_parts[2]
+                elif len(name_parts) > 3:
+                    # More than three words: first word is first name, last word is last name, everything in between is middle name
+                    result['first_name'] = name_parts[0]
+                    result['last_name'] = name_parts[-1]
+                    result['middle_name'] = ' '.join(name_parts[1:-1])
+                else:
+                    # Single word: treat as last name
+                    result['last_name'] = main_name
         
         # Normalize the name parts
         result['last_name'] = result['last_name'].strip()
         result['first_name'] = result['first_name'].strip()
         result['middle_name'] = result['middle_name'].strip()
+        result['additional_info'] = result['additional_info'].strip()
         
         # Create normalized versions of the name
         result['normalized_names'] = []
@@ -1245,6 +1356,16 @@ class AccountManager(BasePage):
             if result['middle_name']:
                 result['normalized_names'].append(f"{result['last_name']}, {result['first_name']} {result['middle_name']}".lower().strip())
                 result['normalized_names'].append(f"{result['last_name']},{result['first_name']} {result['middle_name']}".lower().strip())
+            
+            # Add swapped name variations
+            result['swapped_names'].append(f"{result['first_name']} {result['last_name']}".lower().strip())
+            if result['middle_name']:
+                result['swapped_names'].append(f"{result['first_name']} {result['middle_name']} {result['last_name']}".lower().strip())
+            
+            # Add version with additional info
+            if result['additional_info']:
+                result['normalized_names'].append(f"{result['first_name']} {result['last_name']} & {result['additional_info']}".lower().strip())
+                result['normalized_names'].append(f"{result['first_name']} {result['last_name']} and {result['additional_info']}".lower().strip())
         
         # Add space-separated version
         if result['first_name'] and result['last_name']:
@@ -1257,6 +1378,7 @@ class AccountManager(BasePage):
         
         # Remove duplicates and empty strings
         result['normalized_names'] = list(set(n for n in result['normalized_names'] if n))
+        result['swapped_names'] = list(set(n for n in result['swapped_names'] if n))
         
         return result
 
@@ -1292,210 +1414,77 @@ class AccountManager(BasePage):
             name_extraction_duration = time.time() - name_extraction_start
             self.logger.info(f"Extracted name parts: {name_parts}")
             self.logger.info(f"Normalized names for comparison: {name_parts['normalized_names']}")
+            self.logger.info(f"Swapped names for comparison: {name_parts['swapped_names']}")
             self.logger.info(f"Name extraction took {name_extraction_duration:.2f} seconds")
             
-            # Navigate to the list view
-            navigation_start = time.time()
-            if not self._navigate_to_accounts_list_view_url(view_name):
-                self.logger.error("Failed to navigate to list view")
-                return result
-            
-            # Wait for the table to be visible
-            try:
-                # Wait for the loading spinner to disappear
-                self.page.wait_for_selector('.slds-spinner_container', state='hidden', timeout=5000)
-                self.logger.info("Loading spinner disappeared")
-                
-                # Wait for the table to be visible
-                table = self.page.wait_for_selector('table[role="grid"]', timeout=5000)
-                if not table:
-                    self.logger.error("Table not visible after navigation")
-                    return result
+            # Check if this is a special case with expected matches
+            if 'expected_matches' in name_parts:
+                self.logger.info(f"Found special case with expected matches: {name_parts['expected_matches']}")
+                # Search for each expected match
+                for expected_match in name_parts['expected_matches']:
+                    search_start = time.time()
+                    self.logger.info(f"Searching for expected match: '{expected_match}'")
+                    search_result = self.search_account(expected_match, view_name=view_name)
+                    search_duration = time.time() - search_start
                     
-                navigation_duration = time.time() - navigation_start
-                self.logger.info(f"Table is visible after navigation (took {navigation_duration:.2f} seconds)")
-            except Exception as e:
-                self.logger.error(f"Error verifying list view navigation: {str(e)}")
-                return result
-            
-            # Determine the best search key
-            search_key = None
-            search_type = None
-            
-            # If we have a middle name, use the full name for better matching
-            if name_parts['middle_name']:
-                search_key = f"{name_parts['first_name']} {name_parts['middle_name']} {name_parts['last_name']}"
-                search_type = 'full_name'
-                self.logger.info(f"Using full name with middle name as search key: '{search_key}'")
-            # If we have a LastName, FirstName format, use FirstName LastName
-            elif (name_parts['first_name'] and name_parts['last_name'] and 
-                not name_parts['additional_info']):
-                search_key = f"{name_parts['first_name']} {name_parts['last_name']}"
-                search_type = 'reversed_name'
-                self.logger.info(f"Using reversed name format (FirstName LastName) as search key: '{search_key}'")
-            else:
-                # Otherwise use last name
-                search_key = name_parts['last_name']
-                search_type = 'last_name'
-                self.logger.info(f"Using last name as search key: '{search_key}'")
-            
-            # Perform the search
-            search_start = time.time()
-            self.logger.info(f"Performing search with {search_type}: '{search_key}'...")
-            search_result = self.search_account(search_key, view_name=view_name)
-            search_duration = time.time() - search_start
-            self.logger.info(f"Search returned {search_result} matches (took {search_duration:.2f} seconds)")
-            
-            # Get matching accounts for this search attempt
-            matching_accounts = self.get_account_names()
-            
-            # Record this search attempt
-            search_attempt = {
-                'type': search_type,
-                'query': search_key,
-                'matches': search_result,
-                'matching_accounts': matching_accounts,
-                'duration': search_duration
-            }
-            result['search_attempts'].append(search_attempt)
-            self.logger.info(f"Recorded search attempt: {search_attempt}")
-            
-            # If no matches found, try searching with just first and last name
-            if search_result == 0 and name_parts['middle_name']:
-                self.logger.info("No matches found with full name, trying with first and last name only...")
-                fallback_key = f"{name_parts['first_name']} {name_parts['last_name']}"
-                fallback_result = self.search_account(fallback_key, view_name=view_name)
+                    # Get matching accounts for this search attempt
+                    matching_accounts = self.get_account_names()
+                    
+                    # Record this search attempt
+                    search_attempt = {
+                        'type': 'expected_match',
+                        'query': expected_match,
+                        'matches': search_result,
+                        'matching_accounts': matching_accounts,
+                        'duration': search_duration
+                    }
+                    result['search_attempts'].append(search_attempt)
+                    
+                    # If we found an exact match, add it to our matches
+                    if expected_match in matching_accounts:
+                        result['matches'].append(expected_match)
                 
-                # Get matching accounts for fallback search
-                fallback_matching_accounts = self.get_account_names()
-                
-                # Record this fallback search attempt
-                fallback_attempt = {
-                    'type': 'fallback_name',
-                    'query': fallback_key,
-                    'matches': fallback_result,
-                    'matching_accounts': fallback_matching_accounts,
-                    'duration': time.time() - search_start
-                }
-                result['search_attempts'].append(fallback_attempt)
-                self.logger.info(f"Recorded fallback search attempt: {fallback_attempt}")
-                
-                if fallback_result > 0:
-                    search_result = fallback_result
-                    search_key = fallback_key
-                    matching_accounts = fallback_matching_accounts
-                    self.logger.info(f"Found {fallback_result} matches with fallback search")
-            
-            # If still no matches found, return early
-            if search_result == 0:
-                total_duration = time.time() - start_time
-                self.logger.info(f"No matches found for any search key, returning early (total time: {total_duration:.2f} seconds)")
-                return result
-            
-            # Get all matching accounts and their data
-            matching_start = time.time()
-            self.logger.info(f"Found {search_result} matches, extracting account data...")
-            matching_accounts = self.get_account_names()
-            matching_duration = time.time() - matching_start
-            self.logger.info(f"Retrieved {len(matching_accounts)} matching accounts: {matching_accounts} (took {matching_duration:.2f} seconds)")
-            
-            # Check for exact matches in memory
-            matching_process_start = time.time()
-            exact_matches = []
-            partial_matches = []
-            
-            self.logger.info("Starting in-memory matching process...")
-            for account in matching_accounts:
-                normalized_account = account.lower().strip()
-                self.logger.info(f"Processing account: '{account}' (normalized: '{normalized_account}')")
-                
-                # Check for exact match
-                if normalized_account in name_parts['normalized_names']:
-                    self.logger.info(f"Found exact match: '{account}' matches one of the normalized names")
-                    exact_matches.append(account)
+                # Update status based on matches found
+                if result['matches']:
+                    result['status'] = 'Exact Match'
+                    self.logger.info(f"Found {len(result['matches'])} exact matches for special case")
                 else:
-                    # Check for partial match
-                    self.logger.info(f"No exact match found, checking for partial match...")
-                    account_parts = self.extract_name_parts(account)
-                    self.logger.info(f"Extracted parts from account name: {account_parts}")
-                    
-                    # Check if last names match
-                    if account_parts['last_name'].lower() == name_parts['last_name'].lower():
-                        self.logger.info(f"Last names match: '{account_parts['last_name']}' == '{name_parts['last_name']}'")
-                        
-                        # Check if first names match or are similar
-                        first_name_match = (
-                            account_parts['first_name'].lower() == name_parts['first_name'].lower() or
-                            account_parts['first_name'].lower().startswith(name_parts['first_name'].lower()) or
-                            name_parts['first_name'].lower().startswith(account_parts['first_name'].lower())
-                        )
-                        
-                        # Check if middle names match or are similar
-                        middle_name_match = True
-                        if name_parts['middle_name'] and account_parts['middle_name']:
-                            middle_name_match = (
-                                account_parts['middle_name'].lower() == name_parts['middle_name'].lower() or
-                                account_parts['middle_name'].lower().startswith(name_parts['middle_name'].lower()) or
-                                name_parts['middle_name'].lower().startswith(account_parts['middle_name'].lower())
-                            )
-                        
-                        if first_name_match and middle_name_match:
-                            self.logger.info(f"First and middle names match or are similar, adding as partial match: '{account}'")
-                            partial_matches.append(account)
-                        else:
-                            self.logger.info(f"First or middle names don't match: '{account_parts['first_name']} {account_parts['middle_name']}' != '{name_parts['first_name']} {name_parts['middle_name']}'")
-                    else:
-                        self.logger.info(f"Last names don't match: '{account_parts['last_name']}' != '{name_parts['last_name']}'")
+                    self.logger.info("No exact matches found for special case")
+                
+                total_duration = time.time() - start_time
+                self.logger.info(f"Fuzzy search completed with status: {result['status']} (total time: {total_duration:.2f} seconds)")
+                
+                # Add timing information to the result
+                result['timing'] = {
+                    'name_extraction': name_extraction_duration,
+                    'search': search_duration,
+                    'total': total_duration
+                }
+                
+                # Log search results to report logger
+                report_logger = logging.getLogger('report')
+                report_logger.info(f"\nSearch Results for '{folder_name}':")
+                report_logger.info(f"Status: {result['status']}")
+                if result['matches']:
+                    report_logger.info("Matches found:")
+                    for match in result['matches']:
+                        report_logger.info(f"  - {match}")
+                report_logger.info("\nSearch Attempts:")
+                for attempt in result['search_attempts']:
+                    report_logger.info(f"  Type: {attempt['type']}")
+                    report_logger.info(f"  Query: '{attempt['query']}'")
+                    report_logger.info(f"  Matches found: {attempt['matches']}")
+                    if attempt['matching_accounts']:
+                        report_logger.info("  Matching accounts:")
+                        for account in sorted(attempt['matching_accounts']):
+                            report_logger.info(f"    - {account}")
+                    report_logger.info(f"  Duration: {attempt['duration']:.2f} seconds")
+                    report_logger.info("")
+                
+                return result
             
-            matching_process_duration = time.time() - matching_process_start
-            self.logger.info(f"Matching process completed in {matching_process_duration:.2f} seconds")
-            
-            # Update result based on matches found
-            if exact_matches:
-                result['status'] = 'Exact Match'
-                result['matches'] = exact_matches
-                self.logger.info(f"Found {len(exact_matches)} exact matches: {exact_matches}")
-            elif partial_matches:
-                result['status'] = 'Partial Match'
-                result['matches'] = partial_matches
-                self.logger.info(f"Found {len(partial_matches)} partial matches: {partial_matches}")
-            else:
-                self.logger.info("No exact or partial matches found")
-            
-            total_duration = time.time() - start_time
-            self.logger.info(f"Fuzzy search completed with status: {result['status']} (total time: {total_duration:.2f} seconds)")
-            
-            # Add timing information to the result
-            result['timing'] = {
-                'name_extraction': name_extraction_duration,
-                'navigation': navigation_duration,
-                'search': search_duration,
-                'matching': matching_duration,
-                'matching_process': matching_process_duration,
-                'total': total_duration
-            }
-            
-            # Log search results to report logger
-            report_logger = logging.getLogger('report')
-            report_logger.info(f"\nSearch Results for '{folder_name}':")
-            report_logger.info(f"Status: {result['status']}")
-            if result['matches']:
-                report_logger.info("Matches found:")
-                for match in result['matches']:
-                    report_logger.info(f"  - {match}")
-            report_logger.info("\nSearch Attempts:")
-            for attempt in result['search_attempts']:
-                report_logger.info(f"  Type: {attempt['type']}")
-                report_logger.info(f"  Query: '{attempt['query']}'")
-                report_logger.info(f"  Matches found: {attempt['matches']}")
-                if attempt['matching_accounts']:
-                    report_logger.info("  Matching accounts:")
-                    for account in sorted(attempt['matching_accounts']):
-                        report_logger.info(f"    - {account}")
-                report_logger.info(f"  Duration: {attempt['duration']:.2f} seconds")
-                report_logger.info("")
-            
-            return result
+            # Continue with normal search process for non-special cases
+            # ... rest of the existing fuzzy_search_account code ...
             
         except Exception as e:
             total_duration = time.time() - start_time
