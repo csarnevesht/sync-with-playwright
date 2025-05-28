@@ -1739,7 +1739,31 @@ class AccountManager(BasePage):
         summary += f"  Swapped Names: {', '.join(result['swapped_names'])}\n"
         self.log_helper.log(self.logger, 'info', summary)
         
-        self.log_helper.dedent()
+        # Create a summary of the name parsing results
+        summary = f"""
+Name Parsing Summary for: {name}
+----------------------------------------
+Extracted Components:
+  First Name: {result['first_name']}
+  Middle Name: {result['middle_name']}
+  Last Name: {result['last_name']}
+  Additional Info: {result['additional_info']}
+
+Statistics:
+  Normalized Names: {len(result['normalized_names'])}
+  Swapped Names: {len(result['swapped_names'])}
+
+Name Variations:
+  Normalized Names:
+{chr(10).join('    - ' + name for name in result['normalized_names'])}
+  Swapped Names:
+{chr(10).join('    - ' + name for name in result['swapped_names'])}
+"""
+        # Log to both main logger and report logger
+        self.log_helper.log(self.logger, 'info', summary)
+        if hasattr(self.logger, 'report_logger') and self.logger.report_logger:
+            self.logger.report_logger.info(summary)
+
         return result
 
     def fuzzy_search_account(self, folder_name: str) -> dict:
@@ -1869,6 +1893,8 @@ class AccountManager(BasePage):
             # Log the summary with only the Dropbox folder name and match status
             if result['status'] == 'No Match':
                 self.log_helper.log(self.logger, 'info', f"Dropbox account folder name: {folder_name} [No match found]")
+                if hasattr(self.logger, 'report_logger') and self.logger.report_logger:
+                    self.logger.report_logger.info(f"Dropbox account folder name: {folder_name} [No match found]")
             else:
                 self.log_helper.log(self.logger, 'info', f"Dropbox account folder name: {folder_name} [{result['status']}]")
                 # Add matching Salesforce account names

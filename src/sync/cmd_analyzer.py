@@ -436,6 +436,7 @@ def accounts_fuzzy_search(args):
         try:
             # Initialize account manager and file manager
             account_manager = AccountManager(page, debug_mode=True)
+            account_manager.logger.report_logger = report_logger  # Add report logger
             file_manager = FileManager(page, debug_mode=True)
             
             # Dictionary to store results for each folder
@@ -498,6 +499,15 @@ def accounts_fuzzy_search(args):
                     salesforce_name = result['matches']  # Store all matches as a list
                 else:
                     salesforce_name = "--"
+                
+                # Add summary to report log
+                report_logger.info(f"\nDropbox account folder name: {folder_name} [{result['status']}]")
+                if salesforce_name != "--" and salesforce_name:
+                    if isinstance(salesforce_name, list):
+                        for name in salesforce_name:
+                            report_logger.info(f"Salesforce account name: {name}")
+                    else:
+                        report_logger.info(f"Salesforce account name: {salesforce_name}")
                 
                 # Get Salesforce files if requested and account was found
                 salesforce_files = []
