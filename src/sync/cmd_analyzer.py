@@ -450,6 +450,11 @@ def accounts_fuzzy_search(args):
             logger.info(f"\nStarting to process {total_folders} folders...")
             report_logger.info(f"\nStarting to process {total_folders} folders...")
 
+        # Navigate to Salesforce base URL
+            if not account_manager.navigate_to_salesforce():
+                logger.error("Failed to navigate to Salesforce base URL")
+                report_logger.info("Failed to navigate to Salesforce base URL")
+                return
             account_manager.refresh_page()
             
             # Process each folder name
