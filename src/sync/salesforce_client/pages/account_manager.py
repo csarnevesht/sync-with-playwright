@@ -26,8 +26,8 @@ class LoggingHelper:
         'found_account_names': '\033[1;32m', # Bold Green
         'get_account_names': '\033[1;35m',   # Bold Magenta
         'account_elements': '\033[1;34m',    # Bold Blue
-        'search_by_last_name': '\033[1;33m', # Bold Yellow
-        'search_by_full_name': '\033[1;31m', # Bold Red
+        'search_by_last_name': '\033[95m',   # Pink (Bright Magenta)
+        'search_by_full_name': '\033[95m',   # Pink (Bright Magenta)
         'fuzzy_search_account': '\033[1;37m',# Bold White
         'default': '',
     }
