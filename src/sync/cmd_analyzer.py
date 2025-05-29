@@ -281,7 +281,7 @@ def initialize_dropbox_client():
         logger.error(f"Unexpected error initializing Dropbox client: {str(e)}")
         return None
 
-def extract_dropbox_account_info(dropbox_client, account_folder):
+def extract_dropbox_account_info(dropbox_client, account_folder, dropbox_files):
     """Extract detailed information about a Dropbox account folder.
     
     Args:
@@ -292,8 +292,11 @@ def extract_dropbox_account_info(dropbox_client, account_folder):
         dict: Dictionary containing account information
     """
     try:
+        logger.info(f"Extracting info for account: {account_folder}")
+        logger.info(f"Number of Dropbox files: {len(dropbox_files)}")     
         # Get folder path
         folder_path = clean_dropbox_path(f"{get_DROPBOX_FOLDER()}/{account_folder}")
+        logger.info(f"Folder path: {folder_path}")
         
         # Get folder metadata
         folder_metadata = dropbox_client.get_folder_metadata(folder_path)
@@ -332,7 +335,8 @@ def extract_dropbox_account_info(dropbox_client, account_folder):
             
             # Add to total size
             account_info['total_size'] += file.size
-        
+
+        logging.info(f"***Dropbox Account info: {account_info}")
         return account_info
         
     except Exception as e:
@@ -542,7 +546,7 @@ def analyze_accounts(args):
                 
                 # Get Dropbox files if requested
                 dropbox_files = []
-                if args.dropbox_account_files:
+                if args.dropbox_account_files or args.dropbox_account_info:
                     logger.info(f"Retrieving files for Dropbox account: {folder_name}")
                     dbx = initialize_dropbox_client()
                     if not dbx:
@@ -557,6 +561,12 @@ def analyze_accounts(args):
                         logger.error(f"Failed to get files for folder {folder_name}: {str(e)}")
                         report_logger.info(f"Failed to get files for folder {folder_name}: {str(e)}")
                         continue
+
+                if args.dropbox_account_info:
+                    dropbox_account_info = extract_dropbox_account_info(dbx, folder_name, dropbox_files)
+                    logger.info(f"Dropbox Account info: {dropbox_account_info}")
+                    report_logger.info(f"Dropbox Account info: {dropbox_account_info}")
+                    continue
                 
                 if not args.salesforce_accounts:
                     continue
