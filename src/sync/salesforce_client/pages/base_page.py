@@ -22,8 +22,8 @@ class BasePage:
         try:
             self.logger.info(f"Navigating to Salesforce URL: {SALESFORCE_URL}")
             self.page.goto(SALESFORCE_URL)
-            self.page.wait_for_load_state('networkidle', timeout=10000)
-            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
+            # self.page.wait_for_load_state('networkidle', timeout=20000)
+            # self.page.wait_for_load_state('domcontentloaded', timeout=20000)
             self.logger.info("Successfully navigated to Salesforce")
             return True
         except Exception as e:
