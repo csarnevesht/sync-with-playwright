@@ -76,6 +76,7 @@ from src.sync.dropbox_client.utils.dropbox_utils import (
     get_access_token,
     get_DROPBOX_FOLDER,
     clean_dropbox_path,
+    get_folder_metadata,
     get_root_path,
     list_folder_contents
 )
@@ -302,10 +303,15 @@ def extract_dropbox_account_info(dropbox_client, root_path, account_folder, drop
         
         # Get folder metadata
         logger.info(f"Getting folder metadata for: {folder_path}")
-        folder_metadata = dropbox_client.get_folder_metadata(folder_path)
-        
+        folder_metadata = get_folder_metadata(dropbox_client, folder_path)
+        logger.info(f"Folder metadata: {folder_metadata}")
+        logging.info(f"Folder metadata created: {folder_metadata.created.isoformat() if folder_metadata.created else None}")
+        logging.info(f"Folder metadata modified: {folder_metadata.modified.isoformat() if folder_metadata.modified else None}")
+
         # Get folder contents
-        folder_contents = list_folder_contents(dropbox_client, folder_path)
+        logger.info(f"Getting folder contents for: {folder_path}")
+        folder_contents = list_folder_contents(dropbox_client.dbx, folder_path)
+        logger.info(f"Folder contents length: {len(folder_contents)}")
         
         # Extract information
         account_info = {
@@ -485,8 +491,8 @@ def analyze_accounts(args):
     summary_results = []
 
     with sync_playwright() as p:
-        browser, page = get_salesforce_page(p)
         try:
+            browser, page = get_salesforce_page(p)
 
             # Initialize account manager and file manager
             account_manager = AccountManager(page, debug_mode=True)
