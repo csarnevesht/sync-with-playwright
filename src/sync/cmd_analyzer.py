@@ -500,9 +500,11 @@ def accounts_fuzzy_search(args):
 
                 # Get Salesforce files if requested and account was found
                 salesforce_files = []
-                if args.salesforce_account_files and salesforce_name != "--":
+                logger.info(f"*** result: {result}")
+                salesforce_matches  = result['matches']
+                if args.salesforce_account_files and salesforce_matches  != "--":
                     # For multiple matches, we'll check files for the first match
-                    account_to_check = salesforce_name[0] if isinstance(salesforce_name, list) else salesforce_name
+                    account_to_check = salesforce_matches [0] if isinstance(salesforce_matches , list) else salesforce_matches 
                     # Navigate to the account and get its ID
                     if account_manager.click_account_name(account_to_check):
                         is_valid, account_id = account_manager.verify_account_page_url()
@@ -532,11 +534,14 @@ def accounts_fuzzy_search(args):
                 
                 summary = {
                     'dropbox_name': folder_name,
-                    'salesforce_name': salesforce_name,
+                    'matches': result['matches'],
                     'dropbox_files': dropbox_files,
                     'salesforce_files': salesforce_files,
                     'file_comparison': file_comparison,
-                    'expected_matches': result.get('expected_matches', [])
+                    'expected_matches': result.get('expected_matches', []),
+                    'status': result['status'],
+                    'match_info': result['match_info'],
+                    'view': result['view']
                 }
                 summary_results.append(summary)
                 result['summary'] = summary;
@@ -599,44 +604,15 @@ def accounts_fuzzy_search(args):
             total_no_matches = 0
             
             for result in summary_results:
-                salesforce_name = result['salesforce_name']
-                # Determine expected names for exact match (case-insensitive)
-                expected_names = []
-                # Try to get expected matches from special case logic if available
-                if 'expected_matches' in result:
-                    expected_names = [n.lower() for n in result['expected_matches']]
-                else:
-                    # Use normalized names from the search term, or just the dropbox name
-                    expected_names = [result['dropbox_name'].lower()]
 
-                # Determine match status
-                match_status = "No match found"
-                if salesforce_name != "--" and salesforce_name:
-                    if isinstance(salesforce_name, list):
-                        for name in salesforce_name:
-                            if name.lower() in expected_names:
-                                match_status = "Exact Match"
-                                break
-                        if match_status != "Exact Match":
-                            match_status = "Partial Match"
-                    else:
-                        if salesforce_name.lower() in expected_names:
-                            match_status = "Exact Match"
-                        else:
-                            match_status = "Partial Match"
-
-                # Update counters based on match status
-                if match_status == "Exact Match":
-                    total_exact_matches += 1
-                elif match_status == "Partial Match":
-                    total_partial_matches += 1
-                else:
-                    total_no_matches += 1
-
+                logger.info(f"*** summary result: {result}")
                 report_logger.info(f"\nDropbox account folder name: {folder_name} status:[{result['status']}] match_status:[{result['match_info']['match_status']}] view:[{result['view']}]")
                 for match in result['matches']:
                     report_logger.info(f"  Salesforce account name: {match}")
-                
+                match_info = result['match_info']
+                total_exact_matches += match_info['total_exact_matches']
+                total_partial_matches += match_info['total_partial_matches']
+                total_no_matches += match_info['total_no_matches']  
 
                 # Show file summary if available
                 if args.dropbox_account_files and args.salesforce_account_files:
@@ -667,8 +643,13 @@ def accounts_fuzzy_search(args):
             report_logger.info(f"Total Accounts Processed: {len(summary_results)}")
             
         except Exception as e:
+            import traceback
             logger.error(f"Command analyzer failed with error: {str(e)}")
+            logger.error("Stack trace:")
+            logger.error(traceback.format_exc())
             report_logger.info(f"\nCommand analyzer with error: {str(e)}")
+            report_logger.info("\nStack trace:")
+            report_logger.info(traceback.format_exc())
         finally:
             browser.close()
             logger.info(f"\n=== ANALYSIS COMPLETE ===")
