@@ -471,6 +471,7 @@ def accounts_fuzzy_search(args):
                 report_logger.info(f"\n[{index}/{total_folders}] Processing Dropbox account folder: {folder_name}")
                 
                 # Navigate to accounts page
+                logger.info('navigating to accounts page')
                 if not account_manager.navigate_to_accounts_list_page():
                     logger.error("Failed to navigate to accounts page")
                     report_logger.info("Failed to navigate to accounts page")
@@ -509,11 +510,12 @@ def accounts_fuzzy_search(args):
 
                 # Get Salesforce files if requested and account was found
                 salesforce_files = []
-                logger.info(f"*** result: {result}")
+                # logger.info(f"*** result: {result}")
                 salesforce_matches  = result['matches']
-                if args.salesforce_account_files and salesforce_matches  != "--":
+                logger.info(f"*** salesforce_matches: {salesforce_matches}")
+                if args.salesforce_account_files and salesforce_matches and len(salesforce_matches) > 0 and salesforce_matches  != "--":
                     # For multiple matches, we'll check files for the first match
-                    account_to_check = salesforce_matches [0] if isinstance(salesforce_matches , list) else salesforce_matches 
+                    account_to_check = salesforce_matches[0] if isinstance(salesforce_matches, list) else salesforce_matches 
                     # Navigate to the account and get its ID
                     if account_manager.click_account_name(account_to_check):
                         is_valid, account_id = account_manager.verify_account_page_url()
@@ -539,6 +541,7 @@ def accounts_fuzzy_search(args):
                 # Compare files if both Dropbox and Salesforce files are available
                 file_comparison = None
                 if dropbox_files and salesforce_files:
+                    logger.info('comparing files for account: {folder_name}')
                     file_comparison = file_manager.compare_files(dropbox_files, salesforce_files)
                 
                 summary = {
@@ -555,11 +558,12 @@ def accounts_fuzzy_search(args):
                 summary_results.append(summary)
                 result['summary'] = summary;
             
-            # CAROLINA HERE HERE
             # Print results summary
             if args.salesforce_accounts:
                 report_logger.info("\n=== SALESFORCE ACCOUNT MATCHES ===")
             for folder_name, result in results.items():
+                logger.info(f"*** folder_name: {folder_name}")
+                logger.info(f"*** result: {result}")
                                 
                 report_logger.info(f"\nDropbox account folder name: {folder_name} match:[{result['match_info']['match_status']}] view:[{result['view']}]")
                 for match in result['matches']:
@@ -568,7 +572,10 @@ def accounts_fuzzy_search(args):
                 if args.dropbox_account_files:
                     # Show Dropbox files
                     report_logger.info("\n📁 Dropbox account files:")
+                    logger.info(f'summary_results: {summary_results}')
                     for summary in summary_results:
+                        logger.info(f'folder_name: {folder_name}')
+                        logger.info(f'summary: {summary}')
                         if summary['dropbox_name'] == folder_name and summary['dropbox_files']:
                             sorted_files = sorted(summary['dropbox_files'], key=lambda x: x.name)
                             for i, file in enumerate(sorted_files, 1):

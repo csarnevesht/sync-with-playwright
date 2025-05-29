@@ -1,6 +1,7 @@
 """Utility functions for Dropbox operations."""
 
 import os
+import sys
 import dropbox
 from dropbox.exceptions import ApiError
 from dropbox.files import FileMetadata
@@ -137,6 +138,7 @@ class DropboxClient:
     def get_account_files(self, account_folder: str) -> List[FileMetadata]:
         """Get all files in an account folder."""
         try:
+            logger.info('get_account_files')
             # Clean the account folder name to ensure it's properly formatted
             clean_account_folder = account_folder.strip()
             
@@ -151,7 +153,7 @@ class DropboxClient:
                 return []
                 
             logging.info(f"Listing files in path: {clean_path}")
-            logging.info(f"Full Dropbox path being used: /{clean_path}")
+            logging.info(f"Full Dropbox path being used: {clean_path}")
             
             # Initialize list to store all files
             all_files = []
@@ -212,6 +214,7 @@ class DropboxClient:
             
         except Exception as e:
             logging.error(f"Error getting account files: {e}")
+            sys.exit(1)
             return []
 
     def get_account_info_file(self, account_folder: str) -> Optional[FileMetadata]:
