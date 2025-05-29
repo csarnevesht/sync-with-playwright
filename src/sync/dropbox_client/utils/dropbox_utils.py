@@ -135,10 +135,54 @@ class DropboxClient:
             return parts[0], parts[-1], ' '.join(parts[1:-1])
         return folder_name, '', None
 
-    def get_account_files(self, account_folder: str) -> List[FileMetadata]:
-        """Get all files in an account folder."""
+    def construct_dropbox_path(self, account_folder: str) -> Optional[str]:
+        """
+        Construct and validate a Dropbox path from the root folder and account folder.
+        
+        Args:
+            account_folder (str): The account folder path to append to root folder
+            
+        Returns:
+            Optional[str]: The cleaned and validated Dropbox path, or None if invalid
+        """
         try:
-            logger.info('get_account_files')
+            clean_account_folder = account_folder.strip()
+            if not clean_account_folder:
+                logging.error("Account folder cannot be empty")
+                return None
+                
+            full_path = os.path.join(self.root_folder, clean_account_folder)
+            clean_path = clean_dropbox_path(full_path)
+            
+            if not clean_path:
+                logging.error(f"Invalid path constructed: {full_path}")
+                return None
+                
+            logging.debug(f"Constructed Dropbox path: {clean_path}")
+            return clean_path
+            
+        except Exception as e:
+            logging.error(f"Error constructing Dropbox path: {str(e)}")
+            return None
+
+    def list_files(self, account_folder: str) -> list:
+        """
+        List files in the specified Dropbox account folder.
+        
+        Args:
+            account_folder (str): The account folder path to list files from
+            
+        Returns:
+            list: List of files in the specified path
+        """
+        logging.info(f"Listing files in account folder: {account_folder}")
+        dropbox_path = self.construct_dropbox_path(account_folder)
+        if not dropbox_path:
+            return []
+            
+        logging.info(f"Listing files in Dropbox path: {dropbox_path}")
+        try:
+            logger.info('list_files')
             # Clean the account folder name to ensure it's properly formatted
             clean_account_folder = account_folder.strip()
             
@@ -146,14 +190,14 @@ class DropboxClient:
             full_path = os.path.join(self.root_folder, clean_account_folder)
             
             # Clean the full path to ensure it's in the correct format for Dropbox API
-            clean_path = clean_dropbox_path(full_path)
+            dropbox_path = clean_dropbox_path(full_path)
             
-            if not clean_path:
+            if not dropbox_path:
                 logging.error(f"Invalid path constructed: {full_path}")
                 return []
                 
-            logging.info(f"Listing files in path: {clean_path}")
-            logging.info(f"Full Dropbox path being used: {clean_path}")
+            logging.info(f"Listing files in path: {dropbox_path}")
+            logging.info(f"Full Dropbox path being used: {dropbox_path}")
             
             # Initialize list to store all files
             all_files = []
@@ -161,7 +205,7 @@ class DropboxClient:
             
             # Get first page of results
             try:
-                result = self._make_request(self.dbx.files_list_folder, f"/{clean_path}")
+                result = self._make_request(self.dbx.files_list_folder, f"/{dropbox_path}")
                 files = [entry for entry in result.entries if isinstance(entry, dropbox.files.FileMetadata)]
                 all_files.extend(files)
                 logging.info(f"Page {page_num}: Found {len(files)} files")
@@ -198,7 +242,7 @@ class DropboxClient:
             
             except ApiError as e:
                 if e.error.is_path() and e.error.get_path().is_not_found():
-                    logging.error(f"Path not found: /{clean_path}")
+                    logging.error(f"Path not found: /{dropbox_path}")
                     logging.error("Trying alternative path...")
                     alt_path = f"/A Work Documents/A WORK Documents/Principal Protection/{clean_account_folder}"
                     result = self._make_request(self.dbx.files_list_folder, alt_path)
@@ -219,7 +263,7 @@ class DropboxClient:
 
     def get_account_info_file(self, account_folder: str) -> Optional[FileMetadata]:
         """Get the account info file (*App.pdf) for an account."""
-        files = self.get_account_files(account_folder)
+        files = self.list_files(account_folder)
         pattern = ACCOUNT_INFO_PATTERN.replace('*', '.*')
         for file in files:
             if re.match(pattern, file.name):
@@ -228,7 +272,7 @@ class DropboxClient:
 
     def get_drivers_license_file(self, account_folder: str) -> Optional[FileMetadata]:
         """Get the driver's license file (*DL.jpeg) for an account."""
-        files = self.get_account_files(account_folder)
+        files = self.list_files(account_folder)
         pattern = DRIVERS_LICENSE_PATTERN.replace('*', '.*')
         for file in files:
             if re.match(pattern, file.name):
@@ -586,6 +630,39 @@ def get_DATA_DIRECTORY(env_file):
         update_env_file(env_file, directory=directory)
     
     return directory
+
+def get_root_path(env_file, report_logger) -> str:
+    """Get the root path from environment or prompt user."""
+    # Load environment variables
+    load_dotenv(env_file)
+    
+    # Try to get root path from environment
+    root_path = os.getenv('ROOT_PATH')
+    # Get the root folder from environment
+    root_folder = get_DROPBOX_FOLDER(env_file)
+    if not root_folder:
+        logger.error("Could not get DROPBOX_FOLDER from environment")
+        report_logger.info("\nCould not get DROPBOX_FOLDER from environment")
+        return ''
+        
+    logger.info(f"Raw root folder from environment: {root_folder}")
+
+    # Clean and validate the path
+    try:
+        root_path = clean_dropbox_path(root_folder)
+        logger.info(f"Cleaned Dropbox path: {root_path}")
+    except ValueError as e:
+        logger.error(f"Invalid path format: {str(e)}")
+        report_logger.info(f"\nInvalid path format: {str(e)}")
+        return ''
+        
+    if not root_path:
+        logger.error(f"Invalid path: {root_folder}")
+        report_logger.info(f"\nInvalid path: {root_folder}")
+        return ''
+    
+    return root_path
+
 
 def get_folder_structure(dbx, path=None):
     """

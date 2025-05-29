@@ -103,7 +103,7 @@ def main():
                         'last_name': last,
                         'middle_name': middle,
                         'account_info': dbx.extract_account_info(folder),
-                        'files': dbx.get_account_files(folder)
+                        'files': dbx.list_files(folder)
                     }
                     for folder in dbx.get_account_folders()
                     for first, last, middle in [dbx.parse_account_name(folder)]
