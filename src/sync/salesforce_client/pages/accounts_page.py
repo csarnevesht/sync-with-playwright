@@ -18,29 +18,6 @@ class AccountsPage:
         if debug_mode:
             logging.info("Debug mode is enabled for AccountsPage")
 
-    def _navigate_to_accounts_list_view_url(self, view_name: str) -> bool:
-        """Navigate to a specific list view URL.
-        
-        Args:
-            view_name: Name of the list view to navigate to
-            
-        Returns:
-            bool: True if navigation was successful, False otherwise
-        """
-        try:
-            # Construct the URL with the correct list view filter
-            filter_name = view_name.replace(" ", "")
-            url = f"{SALESFORCE_URL}/lightning/o/Account/list?filterName={filter_name}"
-            logging.info(f"Navigating directly to list view URL: {url}")
-            
-            # Navigate to the URL
-            self.page.goto(url)
-            self.page.wait_for_load_state('networkidle', timeout=10000)
-            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
-            return True
-        except Exception as e:
-            logging.error(f"Error navigating to list view URL: {str(e)}")
-            return False
 
     def _extract_files_count_from_files_card_in_account(self, account_id: str) -> Optional[int]:
         """
