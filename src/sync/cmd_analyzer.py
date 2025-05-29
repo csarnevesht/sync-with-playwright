@@ -62,6 +62,7 @@ import os
 import sys
 import argparse
 import time
+from src.sync.utils.duration import format_duration
 from playwright.sync_api import sync_playwright, TimeoutError
 import logging
 from datetime import datetime
@@ -663,10 +664,10 @@ def accounts_fuzzy_search(args):
             browser.close()
             logger.info(f"\n=== ANALYSIS COMPLETE ===")
             report_logger.info(f"\n=== ANALYSIS COMPLETE ===")
-            
+
     # Calculate and log total duration
     total_duration = time.time() - start_time
-    duration_message = f"Total sync duration: {total_duration:.2f} seconds"
+    duration_message = f"Total duration: {format_duration(total_duration)}"
     logging.info(duration_message)
     report_logger.info(duration_message)
 
