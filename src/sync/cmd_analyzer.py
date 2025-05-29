@@ -213,6 +213,9 @@ def parse_args():
     parser.add_argument('--dropbox-account-files',
                       help='List files for each Dropbox account',
                       action='store_true')
+    parser.add_argument('--dropbox-account-info',
+                      help='Extract info for each Dropbox account',
+                      action='store_true')
     parser.add_argument('--salesforce-accounts',
                       help='List all Salesforce accounts',
                       action='store_true')
@@ -278,9 +281,67 @@ def initialize_dropbox_client():
         logger.error(f"Unexpected error initializing Dropbox client: {str(e)}")
         return None
 
-def accounts_fuzzy_search(args):
+def extract_dropbox_account_info(dropbox_client, account_folder):
+    """Extract detailed information about a Dropbox account folder.
+    
+    Args:
+        dropbox_client: Initialized Dropbox client
+        account_folder: Name of the account folder
+        
+    Returns:
+        dict: Dictionary containing account information
     """
-    Account fuzzy search functionality for accounts using last names from folder names.
+    try:
+        # Get folder path
+        folder_path = clean_dropbox_path(f"{get_DROPBOX_FOLDER()}/{account_folder}")
+        
+        # Get folder metadata
+        folder_metadata = dropbox_client.get_folder_metadata(folder_path)
+        
+        # Get folder contents
+        folder_contents = list_folder_contents(dropbox_client, folder_path)
+        
+        # Extract information
+        account_info = {
+            'folder_name': account_folder,
+            'path': folder_path,
+            'created_at': folder_metadata.created.isoformat() if folder_metadata.created else None,
+            'modified_at': folder_metadata.modified.isoformat() if folder_metadata.modified else None,
+            'total_files': len(folder_contents),
+            'files_with_date_prefix': sum(1 for f in folder_contents if has_date_prefix(f.name)),
+            'file_types': {},
+            'largest_file': None,
+            'total_size': 0
+        }
+        
+        # Analyze files
+        max_size = 0
+        for file in folder_contents:
+            # Count file types
+            ext = os.path.splitext(file.name)[1].lower()
+            account_info['file_types'][ext] = account_info['file_types'].get(ext, 0) + 1
+            
+            # Track largest file
+            if file.size > max_size:
+                max_size = file.size
+                account_info['largest_file'] = {
+                    'name': file.name,
+                    'size': file.size,
+                    'modified': file.modified.isoformat() if file.modified else None
+                }
+            
+            # Add to total size
+            account_info['total_size'] += file.size
+        
+        return account_info
+        
+    except Exception as e:
+        logger.error(f"Error extracting info for account {account_folder}: {str(e)}")
+        return None
+
+def analyze_accounts(args):
+    """
+    Analyze the status of accounts from Dropbox to Salesforce
     
     Args:
         args: Command line arguments containing all options
@@ -458,12 +519,13 @@ def accounts_fuzzy_search(args):
             logger.info(f"\nStarting to process {total_folders} folders...")
             report_logger.info(f"\nStarting to process {total_folders} folders...")
 
-        # Navigate to Salesforce base URL
-            if not account_manager.navigate_to_salesforce():
-                logger.error("Failed to navigate to Salesforce base URL")
-                report_logger.info("Failed to navigate to Salesforce base URL")
-                return
-            account_manager.refresh_page()
+            # Navigate to Salesforce base URL
+            if args.salesforce_accounts:    
+                if not account_manager.navigate_to_salesforce():
+                    logger.error("Failed to navigate to Salesforce base URL")
+                    report_logger.info("Failed to navigate to Salesforce base URL")
+                    return
+                account_manager.refresh_page()
             
             # Process each folder name
             for index, folder_name in enumerate(ACCOUNT_FOLDERS, 1):
@@ -471,11 +533,12 @@ def accounts_fuzzy_search(args):
                 report_logger.info(f"\n[{index}/{total_folders}] Processing Dropbox account folder: {folder_name}")
                 
                 # Navigate to accounts page
-                logger.info('navigating to accounts page')
-                if not account_manager.navigate_to_accounts_list_page():
-                    logger.error("Failed to navigate to accounts page")
-                    report_logger.info("Failed to navigate to accounts page")
-                    continue
+                if args.salesforce_accounts:
+                    logger.info('navigating to accounts page')
+                    if not account_manager.navigate_to_accounts_list_page():
+                        logger.error("Failed to navigate to accounts page")
+                        report_logger.info("Failed to navigate to accounts page")
+                        continue
                 
                 # Get Dropbox files if requested
                 dropbox_files = []
@@ -683,4 +746,4 @@ def accounts_fuzzy_search(args):
 if __name__ == "__main__":
     args = parse_args()
     logger, report_logger = setup_logging(args)
-    accounts_fuzzy_search(args) 
+    analyze_accounts(args) 

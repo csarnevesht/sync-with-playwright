@@ -33,8 +33,8 @@ from src.sync.dropbox_client.utils.dropbox_utils import (
 from dropbox.exceptions import ApiError
 from dotenv import load_dotenv
 import argparse
-from dropbox_client.utils.path_utils import clean_dropbox_path
-from dropbox_client.utils.dropbox_utils import (
+from src.sync.dropbox_client.utils.path_utils import clean_dropbox_path
+from src.sync.dropbox_client.utils.dropbox_utils import (
     get_access_token,
     get_DROPBOX_FOLDER,
     update_env_file
