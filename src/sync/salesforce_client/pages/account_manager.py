@@ -1565,7 +1565,8 @@ class AccountManager(BasePage):
             'first_name': '',
             'middle_name': '',
             'additional_info': '',
-            'swapped_names': []
+            'swapped_names': [],
+            'normalized_names': []
         }
         
         # Extract additional info in parentheses
@@ -1585,15 +1586,46 @@ class AccountManager(BasePage):
             parts = main_name.split(',')
             result['last_name'] = parts[0].strip()
             self.log_helper.log(self.logger, 'info', f"Extracted last name: {result['last_name']}")
-            if len(parts) > 1:
+            
+            # Check for & or 'and' in the remaining part
+            remaining = parts[1].strip() if len(parts) > 1 else ""
+            if '&' in remaining or ' and ' in remaining.lower():
+                # Split by & or 'and'
+                if '&' in remaining:
+                    name_parts = remaining.split('&')
+                else:
+                    name_parts = remaining.split(' and ')
+                
+                # First part is the main name
+                main_parts = name_parts[0].strip().split()
+                if main_parts:
+                    result['first_name'] = main_parts[0]
+                    if len(main_parts) > 1:
+                        result['middle_name'] = ' '.join(main_parts[1:])
+                
+                # Everything after & or 'and' is additional info
+                if len(name_parts) > 1:
+                    result['additional_info'] = name_parts[1].strip()
+                    
+                    # Add variations for names after & or 'and'
+                    additional_parts = result['additional_info'].split()
+                    if additional_parts:
+                        # Add variation with first name after &
+                        additional_name = f"{result['last_name']}, {additional_parts[0]}".lower().strip()
+                        result['normalized_names'].append(additional_name)
+                        self.log_helper.log(self.logger, 'info', f"Added variation with additional name: {additional_name}")
+                        
+                        # Add variation without space after comma
+                        additional_name_no_space = f"{result['last_name']},{additional_parts[0]}".lower().strip()
+                        result['normalized_names'].append(additional_name_no_space)
+                        self.log_helper.log(self.logger, 'info', f"Added variation with additional name (no space): {additional_name_no_space}")
+            else:
                 # Split the remaining part into first and middle names
-                name_parts = parts[1].strip().split()
+                name_parts = remaining.split()
                 if name_parts:
                     result['first_name'] = name_parts[0]
-                    self.log_helper.log(self.logger, 'info', f"Extracted first name: {result['first_name']}")
                     if len(name_parts) > 1:
                         result['middle_name'] = ' '.join(name_parts[1:])
-                        self.log_helper.log(self.logger, 'info', f"Extracted middle name: {result['middle_name']}")
         else:
             # Split the name into words
             name_parts = main_name.split()
@@ -1616,28 +1648,11 @@ class AccountManager(BasePage):
                 main_parts = parts[0].strip().split()
                 self.log_helper.log(self.logger, 'info', f"Main parts before &/and: {main_parts}")
                 
-                # For names with 'and', check if the first word appears to be a surname
-                if has_and and len(main_parts) >= 2:
-                    # Check if the first word is capitalized and the second word is also capitalized
-                    # This indicates a surname-first format
-                    if main_parts[0][0].isupper() and main_parts[1][0].isupper():
-                        result['last_name'] = main_parts[0]
-                        result['first_name'] = main_parts[1]
-                        if len(main_parts) > 2:
-                            result['middle_name'] = ' '.join(main_parts[2:])
-                    else:
-                        # Standard parsing for other cases
-                        result['first_name'] = main_parts[0]
-                        result['last_name'] = main_parts[1]
-                        if len(main_parts) > 2:
-                            result['middle_name'] = ' '.join(main_parts[2:])
-                else:
-                    # Standard parsing for other cases
-                    if len(main_parts) >= 2:
-                        result['first_name'] = main_parts[0]
-                        result['last_name'] = main_parts[1]
-                        if len(main_parts) > 2:
-                            result['middle_name'] = ' '.join(main_parts[2:])
+                if len(main_parts) >= 2:
+                    result['first_name'] = main_parts[0]
+                    result['last_name'] = main_parts[1]
+                    if len(main_parts) > 2:
+                        result['middle_name'] = ' '.join(main_parts[2:])
                 
                 self.log_helper.log(self.logger, 'info', f"Extracted first name: {result['first_name']}, last name: {result['last_name']}")
                 
@@ -1645,6 +1660,19 @@ class AccountManager(BasePage):
                 if len(parts) > 1:
                     result['additional_info'] = parts[1].strip()
                     self.log_helper.log(self.logger, 'info', f"Extracted additional info: {result['additional_info']}")
+                    
+                    # Add variations for names after & or 'and'
+                    additional_parts = result['additional_info'].split()
+                    if additional_parts:
+                        # Add variation with first name after &
+                        additional_name = f"{result['last_name']}, {additional_parts[0]}".lower().strip()
+                        result['normalized_names'].append(additional_name)
+                        self.log_helper.log(self.logger, 'info', f"Added variation with additional name: {additional_name}")
+                        
+                        # Add variation without space after comma
+                        additional_name_no_space = f"{result['last_name']},{additional_parts[0]}".lower().strip()
+                        result['normalized_names'].append(additional_name_no_space)
+                        self.log_helper.log(self.logger, 'info', f"Added variation with additional name (no space): {additional_name_no_space}")
             else:
                 # Handle names without '&' or 'and'
                 if len(name_parts) == 2:
