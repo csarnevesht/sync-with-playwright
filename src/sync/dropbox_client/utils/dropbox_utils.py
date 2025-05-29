@@ -232,7 +232,7 @@ class DropboxClient:
         
     
 
-    def get_dropbox_account_info(self, account_name: str, account_data: dict) -> Dict[str, str]:
+    def get_dropbox_account_info(self, account_name: str, account_name_info: dict) -> Dict[str, str]:
         """Get account information for account_name from the (holiday) account info file.
         
         This method searches for and processes an account in the (holiday) account info file. 
@@ -275,31 +275,22 @@ class DropboxClient:
             }
         """
         try:
-            result = {
-                'account_data': account_data,
-                'folder_name': account_name,
-                'status': 'not_found',
-                'matches': [],
-                'search_attempts': [],
-                'timing': {},
-                'normalized_names': [],
-                'swapped_names': [],
-                'expected_matches': [],
-                'match_info': {
-                    'match_status': "No match found",
-                    'total_exact_matches': 0,
-                    'total_partial_matches': 0,
-                    'total_no_matches': 1
-                }
+            dropbox_account_data = {}
+            dropbox_account_info = {
+                'account_name_info': account_name_info,
+                'account_data': dropbox_account_data
             }
 
 
-            last_name = account_data.get('last_name', '')
-            full_name = account_data.get('full_name', '')
-            normalized_names = account_data.get('normalized_names', [])
-            swapped_names = account_data.get('swapped_names', [])
-            expected_matches = account_data.get('expected_matches', [])
-            logging.info(f"account_data: {account_data}")
+
+            logging.info(f"***account_name_info: {account_name_info}")
+
+            last_name = account_name_info.get('last_name', '')
+            full_name = account_name_info.get('full_name', '')
+            normalized_names = account_name_info.get('normalized_names', [])
+            swapped_names = account_name_info.get('swapped_names', [])
+            expected_matches = account_name_info.get('expected_matches', [])
+            logging.info(f"dropbox_account_info: {dropbox_account_info}")
             logging.info(f"last_name: {last_name}")
             logging.info(f"full_name: {full_name}")
             logging.info(f"normalized_names: {normalized_names}")
@@ -310,7 +301,7 @@ class DropboxClient:
             holiday_file = self.get_dropbox_holiday_file()
             if not holiday_file:
                 logging.error("Could not find holiday file")
-                return result
+                return dropbox_account_info
                 
             # Create a temporary file to store the downloaded XLSX
             with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as temp_file:
@@ -331,7 +322,7 @@ class DropboxClient:
                     
                     if not name_col:
                         logging.error("Could not find name column in holiday file")
-                        return result
+                        return dropbox_account_info
                     
                     # Find the row with matching account name
                     logging.info(f"searching for {last_name} in {name_col}")
@@ -339,52 +330,58 @@ class DropboxClient:
                     
                     if account_row.empty:
                         logging.warning(f"Could not find account '{last_name}' in holiday file")
-                        return result
+                        return dropbox_account_info
                     
                     logging.info(f"account_row: {account_row}")
                     # Extract information from the row
-                    result['name'] = account_row[name_col].iloc[0]
+                    dropbox_account_data['name'] = account_row[name_col].iloc[0]
                     
                     # Look for address
                     address_columns = ['Address']
                     address_col = next((col for col in address_columns if col in df.columns), None)
                     if address_col:
-                        result['address'] = account_row[address_col].iloc[0]
+                        dropbox_account_data['address'] = account_row[address_col].iloc[0]
 
                     # Look for City
                     city_columns = ['City']
                     city_col = next((col for col in city_columns if col in df.columns), None)
                     if city_col:
-                        result['city'] = account_row[city_col].iloc[0]
+                        dropbox_account_data['city'] = account_row[city_col].iloc[0]
                     
                     # Look for State    
                     state_columns = ['State']
                     state_col = next((col for col in state_columns if col in df.columns), None)
                     if state_col:
-                        result['state'] = account_row[state_col].iloc[0]
+                        dropbox_account_data['state'] = account_row[state_col].iloc[0]
                     
                     # Look for Zip Code 
                     zip_columns = ['Zip Code']
                     zip_col = next((col for col in zip_columns if col in df.columns), None)
                     if zip_col:
-                        result['zip'] = account_row[zip_col].iloc[0]
+                        dropbox_account_data['zip'] = account_row[zip_col].iloc[0]
                     
                     # Look for Email
                     email_columns = ['Email']
                     email_col = next((col for col in email_columns if col in df.columns), None)
                     if email_col:
-                        result['email'] = account_row[email_col].iloc[0]
+                        dropbox_account_data['email'] = account_row[email_col].iloc[0]
                     
                     
                     # Look for phone
                     phone_columns = ['Phone', 'Phone Number', 'Contact Number']
                     phone_col = next((col for col in phone_columns if col in df.columns), None)
                     if phone_col:
-                        result['phone'] = account_row[phone_col].iloc[0]
+                        dropbox_account_data['phone'] = account_row[phone_col].iloc[0]
                 
                     
                     logging.info(f"Successfully extracted account info for {account_name}")
-                    return result
+                    dropbox_account_info = {}
+                    dropbox_account_info['account_name_info'] = account_name_info
+                    dropbox_account_info['account_data'] = dropbox_account_data
+                    logging.info(f"***account_info: {dropbox_account_info}")
+
+
+                    return dropbox_account_info
                     
                 finally:
                     # Clean up the temporary file

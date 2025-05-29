@@ -461,7 +461,7 @@ def analyze_accounts(args):
                 
                 # TODO: account_manager.extract_name_parts is called twice, once here and once in fuzzy_search_account
                 # Extract name parts
-                account_name_data = account_manager.prepare_account_data_for_search(account_folder_name)
+                dropbox_account_name_data = account_manager.prepare_dropbox_account_data_for_search(account_folder_name)
                 
                 # Navigate to accounts page
                 if args.salesforce_accounts:
@@ -494,9 +494,13 @@ def analyze_accounts(args):
                         continue
 
                 if args.dropbox_account_info:
-                    dropbox_account_info = dropbox_client.get_dropbox_account_info(account_folder_name, account_name_data)
+                    account_name = account_folder_name
+                    dropbox_account_info = dropbox_client.get_dropbox_account_info(account_name, dropbox_account_name_data)
+                    dropbox_account_data = dropbox_account_info['account_data']
                     logger.info(f"Dropbox Account info: {dropbox_account_info}")
-                    report_logger.info(f"Dropbox Account info: {dropbox_account_info}")
+                    report_logger.info(f"\n👤 Dropbox Account Data:")
+                    for key, value in dropbox_account_data.items():
+                        report_logger.info(f"   {key.title()}: {value}")
                     continue
                 
                 if not args.salesforce_accounts:
