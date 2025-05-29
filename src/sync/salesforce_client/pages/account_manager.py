@@ -1896,6 +1896,20 @@ Name Variations:
                 self.logger.info(f"  Timing for fuzzy_search_account for folder: {folder_name}: {result['timing']['total']:.2f} seconds")
                 self.logger.info(f"Returning from fuzzy_search_account: {result}")
                 return result
+            else:
+                result['folder_name'] = folder_name
+                result['status'] = 'not_found'
+                result['matches'] = []
+                result['search_attempts'] = []
+                result['timing'] = {}
+                result['view'] = view_name
+                match_info = self.get_match_info(result)
+                result['match_info'] = match_info
+                result['timing'] = { 
+                    'total': time.time() - start_time,
+                    'search': 0 
+                }
+                return result
             
         except Exception as e:
             self.logger.error(f"Error in fuzzy_search_account: {str(e)}")
