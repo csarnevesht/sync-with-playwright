@@ -283,6 +283,13 @@ def initialize_dropbox_client():
     except Exception as e:
         logger.error(f"Unexpected error initializing Dropbox client: {str(e)}")
         return None
+    
+def get_holiday_list_file(dropbox_client, root_path):
+    logger.info(f"Getting holiday list file from: {root_path}")
+    folder_path = os.path.join(root_path, "Holiday List")
+    folder_contents = list_folder_contents(dropbox_client.dbx, folder_path)
+    logger.info(f"Folder contents length: {len(folder_contents)}")
+    return folder_contents
 
 def extract_dropbox_account_info(dropbox_client, root_path, account_folder, dropbox_files):
     """Extract detailed information about a Dropbox account folder.
