@@ -161,6 +161,8 @@ class AccountManager(BasePage):
         Returns:
             bool: True if the folder name is a special case, False otherwise
         """
+        logging.info(f"***_is_special_case: {folder_name}")
+        logging.info(f"***self.special_cases: {self.special_cases}")
         return folder_name in self.special_cases
         
     def _get_special_case_rules(self, folder_name: str) -> dict:
@@ -172,6 +174,8 @@ class AccountManager(BasePage):
         Returns:
             dict: The special case rules or None if not found
         """
+        logging.info(f"***_get_special_case_rules: {folder_name}")
+        logging.info(f"***self.special_cases: {self.special_cases}")
         return self.special_cases.get(folder_name)
         
     def navigate_to_accounts_list_page(self, view_name: str = "All Clients") -> bool:
@@ -233,7 +237,7 @@ class AccountManager(BasePage):
             # Convert view_name to the format expected by Salesforce (e.g., "All Clients" -> "AllClients")
             filter_name = view_name.replace(" ", "")
             url = f"{SALESFORCE_URL}/lightning/o/Account/list?filterName={filter_name}"
-            
+
             # Check if we're already on the correct URL
             current_url = self.page.url
             if current_url == url:
@@ -245,8 +249,8 @@ class AccountManager(BasePage):
             
             # Navigate to the URL
             self.page.goto(url)
-            self.page.wait_for_load_state('networkidle', timeout=10000)
-            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
+            # self.page.wait_for_load_state('networkidle', timeout=10000)
+            # self.page.wait_for_load_state('domcontentloaded', timeout=10000)
             self.log_helper.dedent()
             return True
         except Exception as e:
@@ -1821,6 +1825,7 @@ Name Variations:
         }
         
         try:
+            self.logger.info(f"***fuzzy_search_account: {folder_name}") 
             # Extract name parts
             name_parts = self.extract_name_parts(folder_name)
             last_name = name_parts.get('last_name', '')
@@ -1856,6 +1861,8 @@ Name Variations:
                 'view': view_name
             }
             result['search_attempts'].append(search_attempt)
+
+            self.logger.info(f"***search_result: {search_result}")
             
             # Update matches if found
             if search_result:
