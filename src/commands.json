@@ -34,5 +34,9 @@
   {
     "description": "analyze accounts in accounts/fuzzy-small.txt",
     "command": "python -m sync.cmd_analyzer --dropbox-accounts --salesforce-accounts --dropbox-accounts-file accounts/fuzzy-small.txt"
+  },
+  {
+    "description": "extract Dropbox account info from accounts/sample.txt",
+    "command": "ython -m sync.cmd_analyzer --dropbox-accounts --dropbox-account-files --dropbox-account-info --dropbox-accounts-file accounts/small.txt"
   }
 ]
