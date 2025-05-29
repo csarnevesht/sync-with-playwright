@@ -434,11 +434,13 @@ def accounts_fuzzy_search(args):
     with sync_playwright() as p:
         browser, page = get_salesforce_page(p)
         try:
+
             # Initialize account manager and file manager
             account_manager = AccountManager(page, debug_mode=True)
             account_manager.logger.report_logger = report_logger  # Add report logger
             file_manager = FileManager(page, debug_mode=True)
-            
+
+
             # Dictionary to store results for each folder
             results = {}
             total_folders = len(ACCOUNT_FOLDERS)
@@ -608,7 +610,7 @@ def accounts_fuzzy_search(args):
             for result in summary_results:
 
                 folder_name = result['dropbox_name']
-                report_logger.info(f"\nDropbox account folder name: {folder_name} match:[{result['match_info']['match_status']}] view:[{result['view']}]")
+                report_logger.info(f"\n[Summary] Dropbox account folder name: {folder_name} match:[{result['match_info']['match_status']}] view:[{result['view']}]")
                 for match in result['matches']:
                     report_logger.info(f"  Salesforce account name: {match}")
                 match_info = result['match_info']
@@ -643,6 +645,7 @@ def accounts_fuzzy_search(args):
             report_logger.info(f"Total Partial Matches: {total_partial_matches}")
             report_logger.info(f"Total No Matches: {total_no_matches}")
             report_logger.info(f"Total Accounts Processed: {len(summary_results)}")
+
             
         except Exception as e:
             import traceback
