@@ -607,7 +607,7 @@ def accounts_fuzzy_search(args):
             
             for result in summary_results:
 
-                logger.info(f"*** summary result: {result}")
+                folder_name = result['dropbox_name']
                 report_logger.info(f"\nDropbox account folder name: {folder_name} status:[{result['status']}] match_status:[{result['match_info']['match_status']}] view:[{result['view']}]")
                 for match in result['matches']:
                     report_logger.info(f"  Salesforce account name: {match}")
