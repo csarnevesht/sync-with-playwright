@@ -1523,7 +1523,7 @@ class AccountManager(BasePage):
             self.log_helper.dedent()
             return False
 
-    def extract_name_parts(self, name: str) -> dict:
+    def _extract_name_parts(self, name: str) -> dict:
         """Extract name parts from a name string.
         
         Rules:
@@ -1831,10 +1831,53 @@ Name Variations:
             self.logger.report_logger.info(summary)
 
         return result
+    
+
+
+    def prepare_account_data_for_search(self, account_name: str) -> dict:
+        """Get the name parts for the account name. (prepare_account_data_for_search)"""
+        name_parts = self._extract_name_parts(account_name)
+        result = {
+                'folder_name': account_name,
+                'first_name': name_parts.get('first_name', ''),
+                'last_name': name_parts.get('last_name', ''),
+                'middle_name': name_parts.get('middle_name', ''),
+                'additional_info': name_parts.get('additional_info', ''),
+                'full_name': name_parts.get('full_name', ''),
+                'normalized_names': name_parts.get('normalized_names', []),
+                'swapped_names': name_parts.get('swapped_names', []),
+                'expected_matches': name_parts.get('expected_matches', []),
+                'status': 'not_found',
+                'matches': [],
+                'search_attempts': [],
+                'timing': {},
+                'normalized_names': [],
+                'swapped_names': [],
+                'expected_matches': [],
+                'match_info': {
+                    'match_status': "No match found",
+                    'total_exact_matches': 0,
+                    'total_partial_matches': 0,
+                    'total_no_matches': 1
+                }
+        }
+
+        self.logger.info(f"\nExtracted name parts for '{account_name}':")
+        self.logger.info(f"    First name: {name_parts.get('first_name', '')}")
+        self.logger.info(f"    Last name: {name_parts.get('last_name', '')}")
+        self.logger.info(f"    Middle name: {name_parts.get('middle_name', '')}")
+        self.logger.info(f"    Additional info: {name_parts.get('additional_info', '')}")
+        self.logger.info(f"    Full name: {name_parts.get('full_name', '')}")
+        self.logger.info(f"    Normalized names: {result['normalized_names']}")
+        self.logger.info(f"    Swapped names: {result['swapped_names']}")
+        self.logger.info(f"    Expected matches: {result['expected_matches']}")
+        return result     
+        
 
     def fuzzy_search_account(self, folder_name: str, view_name: str = "All Clients") -> Dict[str, Any]:
         """Perform a fuzzy search based on a folder name."""
         start_time = time.time()
+        # TODO: use prepare_account_data_for_search instead
         result = {
             'folder_name': folder_name,
             'status': 'not_found',
@@ -1856,7 +1899,7 @@ Name Variations:
         try:
             self.logger.info(f"***fuzzy_search_account: {folder_name}") 
             # Extract name parts
-            name_parts = self.extract_name_parts(folder_name)
+            name_parts = self._extract_name_parts(folder_name)
             last_name = name_parts.get('last_name', '')
             full_name = name_parts.get('full_name', '')
             
