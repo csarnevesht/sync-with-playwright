@@ -625,7 +625,9 @@ class AccountManager(BasePage):
     def click_account_name(self, account_name: str) -> bool:
         """Click on the account name in the search results."""
         self.log_helper.indent()
+        self.log_helper.start_timing()
         try:
+            self.log_helper.log(self.logger, 'info', f"Clicking account name: {account_name}")
             # Try the most specific and reliable selectors first
             selectors = [
                 f'a[title="{account_name}"]',  # Most specific
@@ -644,7 +646,7 @@ class AccountManager(BasePage):
                         account_link.click()
                         
                         # Wait for navigation with a shorter timeout
-                        self.page.wait_for_load_state("networkidle", timeout=5000)
+                        # self.page.wait_for_load_state("networkidle", timeout=5000)
                         
                         # Verify we're on the account view page and extract ID
                         current_url = self.page.url
@@ -652,17 +654,21 @@ class AccountManager(BasePage):
                             account_id_match = re.search(r'/Account/([^/]+)/view', current_url)
                             if account_id_match:
                                 self.current_account_id = account_id_match.group(1)
+                                duration = self.log_helper.end_timing()
+                                self.log_helper.log(self.logger, 'info', f"Successfully clicked account name in {duration}")
                                 self.log_helper.dedent()
                                 return True
                 except Exception:
                     continue
             
-            self.log_helper.log(self.logger, 'error', f"Could not find or click account link for: {account_name}")
+            duration = self.log_helper.end_timing()
+            self.log_helper.log(self.logger, 'error', f"Could not find or click account link for: {account_name} after {duration}")
             self.log_helper.dedent()
             return False
             
         except Exception as e:
-            self.log_helper.log(self.logger, 'error', f"Error clicking account name: {str(e)}")
+            duration = self.log_helper.end_timing()
+            self.log_helper.log(self.logger, 'error', f"Error clicking account name after {duration}: {str(e)}")
             self.log_helper.dedent()
             return False
 
@@ -1953,7 +1959,7 @@ Name Variations:
                 }
                 
                 self.logger.info(f"  Timing for fuzzy_search_account for folder: {folder_name}: {result['timing']['total']:.2f} seconds")
-                self.logger.info(f"Returning from fuzzy_search_account: {result}")
+                # self.logger.info(f"Returning from fuzzy_search_account: {result}")
                 return result
             else:
                 result['folder_name'] = folder_name
@@ -2035,11 +2041,11 @@ Name Variations:
             self.page.reload()
             
             # Wait for network to be idle
-            self.page.wait_for_load_state('networkidle', timeout=10000)
-            self.log_helper.log(self.logger, 'info', "Network is idle after refresh")
+            # self.page.wait_for_load_state('networkidle', timeout=10000)
+            # self.log_helper.log(self.logger, 'info', "Network is idle after refresh")
             
             # Wait for DOM content to be loaded
-            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
+            # self.page.wait_for_load_state('domcontentloaded', timeout=10000)
             self.log_helper.log(self.logger, 'info', "DOM content loaded after refresh")
             
             # Verify we're still on the same page
