@@ -1808,7 +1808,16 @@ Name Variations:
             'matches': [],
             'search_attempts': [],
             'timing': {},
-            'view': view_name
+            'view': view_name,
+            'normalized_names': [],
+            'swapped_names': [],
+            'expected_matches': [],
+            'match_info': {
+                'match_status': "No match found",
+                'total_exact_matches': 0,
+                'total_partial_matches': 0,
+                'total_no_matches': 1
+            }
         }
         
         try:
@@ -1820,12 +1829,14 @@ Name Variations:
             # Add normalized and swapped names to result
             result['normalized_names'] = name_parts.get('normalized_names', [])
             result['swapped_names'] = name_parts.get('swapped_names', [])
+            result['expected_matches'] = name_parts.get('expected_matches', [])
             
             self.logger.info(f"\nExtracted name parts for '{folder_name}':")
             self.logger.info(f"    First name: {name_parts.get('first_name', '')}")
             self.logger.info(f"    Last name: {last_name}")
             self.logger.info(f"    Normalized names: {result['normalized_names']}")
             self.logger.info(f"    Swapped names: {result['swapped_names']}")
+            self.logger.info(f"    Expected matches: {result['expected_matches']}")
             
             # Search by last name first
             self.logger.info(f"\nSearching in view: {view_name}")
