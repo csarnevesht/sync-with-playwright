@@ -493,29 +493,11 @@ def accounts_fuzzy_search(args):
                 # Perform fuzzy search
                 result = account_manager.fuzzy_search_account(folder_name, view_name="All Clients")
                 results[folder_name] = result
-                
-                # Get matches for summary (show all matches, not just exact)
-                try:
-                    if result and result['matches']:
-                        salesforce_name = result['matches']  # Store all matches as a list
-                    else:
-                        salesforce_name = "--"
-                    
-                    # CAROLINA HERE
-                    # Add summary to report log
 
-                    
-                    report_logger.info(f"\n[Command Analyzer Add summary to report log] Dropbox account folder name: {folder_name} [{result['status']}]")
-                    if salesforce_name != "--" and salesforce_name:
-                        if isinstance(salesforce_name, list):
-                            for name in salesforce_name:
-                                report_logger.info(f"Salesforce account name: {name}")
-                        else:
-                            report_logger.info(f"Salesforce account name: {salesforce_name}")
-                except (KeyError, TypeError):
-                    salesforce_name = "--"
-                    report_logger.info(f"\n[Command Analyzer Add summary to report log] Dropbox account folder name: {folder_name} [not_found]")
-                
+                report_logger.info(f"\nDropbox account folder name: {folder_name} status:[{result['status']}] match_status:[{result['match_info']['match_status']}] view:[{result['view']}]")
+                for match in result['matches']:
+                    report_logger.info(f"  Salesforce account name: {match}")
+
                 # Get Salesforce files if requested and account was found
                 salesforce_files = []
                 if args.salesforce_account_files and salesforce_name != "--":
@@ -564,95 +546,11 @@ def accounts_fuzzy_search(args):
             if args.salesforce_accounts:
                 report_logger.info("\n=== SALESFORCE ACCOUNT MATCHES ===")
             for folder_name, result in results.items():
-                report_logger.info(f"\n[Command Analyzer Debug] Result for {folder_name}:")
-                report_logger.info(f"(Search) Result: {result}")
-                report_logger.info(f"Summary Results: {summary_results}")
-                
-                # Initialize counters for match types
-                total_exact_matches = 0
-                total_partial_matches = 0
-                total_no_matches = 0
-                # Determine expected names for exact match (case-insensitive)
-                expected_names = []
-                summary = result['summary']
-                salesforce_name = summary['salesforce_name']
-                report_logger.info(f"salesforce_name: {salesforce_name}")
+                                
+                report_logger.info(f"\nDropbox account folder name: {folder_name} status:[{result['status']}] match_status:[{result['match_info']['match_status']}] view:[{result['view']}]")
+                for match in result['matches']:
+                    report_logger.info(f"  Salesforce account name: {match}")
 
-                # Try to get expected matches from special case logic if available
-                if 'expected_matches' in result:
-                    expected_names = [n.lower() for n in result['expected_matches']]
-                else:
-                    # Use normalized names from the search term, or just the dropbox name
-                    expected_names = [result['folder_name'].lower()]
-                # Determine match status
-                
-                match_status = "No match found"
-                if salesforce_name != "--" and salesforce_name:
-                    if isinstance(salesforce_name, list):
-                        for name in salesforce_name:
-                            if name.lower() in expected_names:
-                                match_status = "Exact Match"
-                                break
-                        if result['status'] == 'exact_match':
-                            match_status = "Exact Match"
-                        if match_status != "Exact Match":
-                            match_status = "Partial Match"
-                    else:
-                        if salesforce_name.lower() in expected_names:
-                            match_status = "Exact Match"
-                        else:
-                            match_status = "Partial Match"
-
-                # Update counters based on match status
-                if match_status == "Exact Match":
-                    total_exact_matches += 1
-                elif match_status == "Partial Match":
-                    total_partial_matches += 1
-                else:
-                    total_no_matches += 1
-                report_logger.info(f"\n[Command Analyzer Results summary] Dropbox account folder name: {folder_name} result_status: [{result['status']}] match_status: {match_status} view_name: {result['view']}")
-                
-                # CAROLINA HERE: match_status code above is repeated here? which one is better?
-                # Get exact matches from the fuzzy search results
-                exact_matches = []
-                if result['status'] == 'exact_match':
-                    # If the fuzzy search found exact matches, use those
-                    for match in result['matches']:
-                        match_lower = match.lower()
-                        # Check normalized names
-                        for normalized in result.get('normalized_names', []):
-                            normalized_lower = normalized.lower()
-                            if match_lower in normalized_lower or normalized_lower in match_lower:
-                                if match not in exact_matches:
-                                    exact_matches.append(match)
-                                    report_logger.info(f"Found exact match: {match} (matches normalized name: {normalized})")
-                        
-                        # Check swapped names
-                        for swapped in result.get('swapped_names', []):
-                            swapped_lower = swapped.lower()
-                            if match_lower in swapped_lower or swapped_lower in match_lower:
-                                if match not in exact_matches:
-                                    exact_matches.append(match)
-                                    report_logger.info(f"Found exact match: {match} (matches swapped name: {swapped})")
-                
-                # Show all exact matches
-                if exact_matches:
-                    for match in exact_matches:
-                        report_logger.info(f"Salesforce account name: {match}")
-                else:
-                    report_logger.info("Salesforce account name: None")
-                
-                # Show search details if there are any matches
-                if result['matches']:
-                    report_logger.info("\n📝 Search details:")
-                    for attempt in result['search_attempts']:
-                        if attempt['matching_accounts']:
-                            report_logger.info(f"\n   Search type: {attempt['type']}")
-                            report_logger.info(f"   Query used: '{attempt['query']}'")
-                            report_logger.info(f"   Found {len(attempt['matching_accounts'])} matches:")
-                            for account in sorted(attempt['matching_accounts']):
-                                report_logger.info(f"      - {account}")
-                
                 if args.dropbox_account_files:
                     # Show Dropbox files
                     report_logger.info("\n📁 Dropbox account files:")
@@ -735,14 +633,10 @@ def accounts_fuzzy_search(args):
                 else:
                     total_no_matches += 1
 
-                # Log the summary with match status
-                report_logger.info(f"\n[Command Analyzer Summary with match status] Dropbox account folder name: {result['dropbox_name']} [{match_status}]")
-                if salesforce_name != "--" and salesforce_name:
-                    if isinstance(salesforce_name, list):
-                        for name in salesforce_name:
-                            report_logger.info(f"Salesforce account name: {name}")
-                    else:
-                        report_logger.info(f"Salesforce account name: {salesforce_name}")
+                report_logger.info(f"\nDropbox account folder name: {folder_name} status:[{result['status']}] match_status:[{result['match_info']['match_status']}] view:[{result['view']}]")
+                for match in result['matches']:
+                    report_logger.info(f"  Salesforce account name: {match}")
+                
 
                 # Show file summary if available
                 if args.dropbox_account_files and args.salesforce_account_files:
@@ -773,12 +667,15 @@ def accounts_fuzzy_search(args):
             report_logger.info(f"Total Accounts Processed: {len(summary_results)}")
             
         except Exception as e:
-            logger.error(f"Test failed with error: {str(e)}")
-            report_logger.info(f"\nTest failed with error: {str(e)}")
+            logger.error(f"Command analyzer failed with error: {str(e)}")
+            report_logger.info(f"\nCommand analyzer with error: {str(e)}")
         finally:
             browser.close()
             logger.info(f"\n=== ANALYSIS COMPLETE ===")
             report_logger.info(f"\n=== ANALYSIS COMPLETE ===")
+
+
+            
 
 if __name__ == "__main__":
     args = parse_args()

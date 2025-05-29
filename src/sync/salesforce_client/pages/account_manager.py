@@ -1878,7 +1878,12 @@ Name Variations:
                 
                 # CAROLINA HERE
                 result['view'] = view_name
-                self.logger.info(f"\n[Account Manager] Dropbox account folder name: {folder_name} [{result['status']}] [{result['view']}]")
+                match_info = self.get_match_info(result)
+                result['match_info'] = match_info
+                self.logger.info(f"match_info: {match_info}")
+                self.logger.info(f"result: {result}")
+
+                self.logger.info(f"\nDropbox account folder name: {folder_name} status:[{result['status']}] match_status:[{result['match_info']['match_status']}] view:[{result['view']}]")
                 for match in result['matches']:
                     self.logger.info(f"  Salesforce account name: {match}")
                 
@@ -1986,4 +1991,69 @@ Name Variations:
             self.log_helper.dedent()
             return False
     
-    
+    def get_match_info(self, result):
+        """
+        Get match info for a given result.
+        
+        Args:
+            result (dict): The search result dictionary
+        """
+        try:
+            logging.info(f"get_match_info: {result}")
+
+            salesforce_name = result['salesforce_name']
+            
+            # Initialize counters for match types
+            total_exact_matches = 0
+            total_partial_matches = 0
+            total_no_matches = 0
+            
+            # Determine expected names for exact match (case-insensitive)
+            expected_names = []
+            
+            # Try to get expected matches from special case logic if available
+            if 'expected_matches' in result:
+                expected_names = [n.lower() for n in result['expected_matches']]
+            else:
+                # Use normalized names from the search term, or just the dropbox name
+                expected_names = [result['folder_name'].lower()]
+            
+            # Determine match status
+            match_status = "No match found"
+            if salesforce_name != "--" and salesforce_name:
+                if isinstance(salesforce_name, list):
+                    for name in salesforce_name:
+                        if name.lower() in expected_names:
+                            match_status = "Exact Match"
+                            break
+                    if result['status'] == 'exact_match':
+                        match_status = "Exact Match"
+                    if match_status != "Exact Match":
+                        match_status = "Partial Match"
+                else:
+                    if salesforce_name.lower() in expected_names:
+                        match_status = "Exact Match"
+                    else:
+                        match_status = "Partial Match"
+            
+            # Update counters based on match status
+            if match_status == "Exact Match":
+                total_exact_matches += 1
+            elif match_status == "Partial Match":
+                total_partial_matches += 1
+            else:
+                total_no_matches += 1
+            
+            return {
+                'match_status': match_status,
+                'total_exact_matches': total_exact_matches,
+                'total_partial_matches': total_partial_matches,
+                'total_no_matches': total_no_matches
+            }
+        except (KeyError, TypeError) as e:
+            return {
+                'match_status': "No match found",
+                'total_exact_matches': 0,
+                'total_partial_matches': 0,
+                'total_no_matches': 1
+            }
