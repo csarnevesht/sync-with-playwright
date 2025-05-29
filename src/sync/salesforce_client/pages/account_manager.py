@@ -161,8 +161,6 @@ class AccountManager(BasePage):
         Returns:
             bool: True if the folder name is a special case, False otherwise
         """
-        logging.info(f"***_is_special_case: {folder_name}")
-        logging.info(f"***self.special_cases: {self.special_cases}")
         return folder_name in self.special_cases
         
     def _get_special_case_rules(self, folder_name: str) -> dict:
@@ -174,8 +172,6 @@ class AccountManager(BasePage):
         Returns:
             dict: The special case rules or None if not found
         """
-        logging.info(f"***_get_special_case_rules: {folder_name}")
-        logging.info(f"***self.special_cases: {self.special_cases}")
         return self.special_cases.get(folder_name)
         
     def navigate_to_accounts_list_page(self, view_name: str = "All Clients") -> bool:
@@ -1885,14 +1881,31 @@ Name Variations:
                             if match not in exact_matches:
                                 exact_matches.append(match)
                                 self.logger.info(f"Found exact match: {match} (matches swapped name: {swapped})")
+
+                    logging.info(f"***result['expected_matches']: {result['expected_matches']}")
+                    expected_matches_exists = result['expected_matches'] != []
+                    expected_match_found = False
+                    for expected_match in result['expected_matches']:
+                        expected_match_lower = expected_match.lower()
+                        if match_lower in expected_match_lower or expected_match_lower in match_lower:
+                            expected_match_found = True
+                            if match not in exact_matches:
+                                exact_matches.append(match)
+                                self.logger.info(f"Found exact match: {match} (matches expected match: {expected_match})")
+                        
                 
                 if exact_matches:
                     result['status'] = 'exact_match'
                     result['matches'] = exact_matches  # Only include exact matches
                     self.logger.info(f"Found {len(exact_matches)} exact matches: {exact_matches}")
                 else:
-                    result['matches'] = search_result
-                    result['status'] = 'partial_match'
+                    if expected_matches_exists and expected_match_found:
+                        result['matches'] = search_result 
+                        result['status'] = 'partial_match'
+                    else:
+                        self.logger.info(f'no expected match found, so no partial match found')
+                        result['matches'] = []
+                        result['status'] = 'no_match'
                 
                 # CAROLINA HERE
                 result['view'] = view_name
@@ -2049,6 +2062,7 @@ Name Variations:
             else:
                 # Use normalized names from the search term, or just the dropbox name
                 expected_names = [result['folder_name'].lower()]
+            
             
             # Determine match status
             match_status = "No match found"
