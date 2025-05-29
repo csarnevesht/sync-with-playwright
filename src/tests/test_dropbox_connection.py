@@ -24,11 +24,8 @@ import shutil
 import tempfile
 from src.sync.dropbox_client.utils.path_utils import clean_dropbox_path
 from src.sync.dropbox_client.utils.dropbox_utils import (
-    DropboxClient,
     get_access_token,
     get_DROPBOX_FOLDER,
-    clean_dropbox_path,
-    list_folder_contents
 )
 from dropbox.exceptions import ApiError
 from dotenv import load_dotenv
