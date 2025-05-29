@@ -717,6 +717,20 @@ def get_folder_structure(dbx, path=None):
             'not_allowed': 0,
             'files': 0
         }
+    
+
+def get_folder_metadata(dropbox_client, folder_path):
+    """Get the metadata of a folder in Dropbox."""
+    try:
+        logger.info(f"get_folder_metadata: {folder_path}")
+        return dropbox_client.dbx.files_get_metadata(folder_path)
+    except ApiError as e:
+        if e.error.is_path() and e.error.get_path().is_not_found():
+            # Path doesn't exist
+            print(f"Path not found: {folder_path}")
+        else:
+            # Other error (permissions, network, etc.)
+            print(f"Error accessing path: {e}")
 
 def display_summary(counts, folders_only=False, ignored_folders=None, account_folders=None):
     """
