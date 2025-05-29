@@ -1876,8 +1876,9 @@ Name Variations:
                     result['matches'] = search_result
                     result['status'] = 'partial_match'
                 
+                # CAROLINA HERE
                 result['view'] = view_name
-                self.logger.info(f"\nDropbox account folder name: {folder_name} [{result['status']}] [{result['view']}]")
+                self.logger.info(f"\n[Account Manager] Dropbox account folder name: {folder_name} [{result['status']}] [{result['view']}]")
                 for match in result['matches']:
                     self.logger.info(f"  Salesforce account name: {match}")
                 
