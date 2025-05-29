@@ -282,51 +282,8 @@ def initialize_dropbox_client():
         logger.error(f"Unexpected error initializing Dropbox client: {str(e)}")
         return None
     
-
-def extract_dropbox_account_info(dropbox_client, root_path, account_folder, dropbox_files):
-    """Extract detailed information about a Dropbox account folder.
     
-    Args:
-        dropbox_client: Initialized Dropbox client
-        account_folder: Name of the account folder
-        
-    Returns:
-        dict: Dictionary containing account information
-    """
-    try:
-        logger.info(f"Extracting info for account: {account_folder}")
-        logger.info(f"Number of Dropbox files: {len(dropbox_files)}")     
-        # Get folder path
-
-        folder_path = os.path.join(root_path, account_folder)
-        logger.info(f"Folder path: {folder_path}")
-        
-        # Get folder metadata
-        logger.info(f"Getting folder metadata for: {folder_path}")
-        folder_metadata = get_folder_metadata(dropbox_client, folder_path)
-        logger.info(f"Folder metadata: {folder_metadata}")
-        
-        # Get creation date using the helper function
-        creation_date = get_folder_creation_date(dropbox_client.dbx, folder_path)
-        logger.info(f"Folder creation date: {creation_date.isoformat() if creation_date else None}")
-    
-        
-        # Extract information
-        account_info = {
-            'folder_name': account_folder,
-            'path': folder_path,
-            'created_at': creation_date.isoformat() if creation_date else None,
-            'modified_at': None,  # FolderMetadata doesn't have server_modified
-            'total_files': len(dropbox_files),
-            'files_with_date_prefix': sum(1 for f in dropbox_files if has_date_prefix(f.name)),
-        }
-
-        logging.info(f"***Dropbox Account info: {account_info}")
-        return account_info
-        
-    except Exception as e:
-        logger.error(f"Error extracting info for account {account_folder}: {str(e)}")
-        return None
+      
 
 def analyze_accounts(args):
     """
@@ -533,7 +490,8 @@ def analyze_accounts(args):
                         continue
 
                 if args.dropbox_account_info:
-                    dropbox_account_info = extract_dropbox_account_info(dropbox_client, root_path, account_folder_name, dropbox_account_files)
+                    account_name = account_folder_name
+                    dropbox_account_info = dropbox_client.extract_dropbox_account_info(account_name)
                     logger.info(f"Dropbox Account info: {dropbox_account_info}")
                     report_logger.info(f"Dropbox Account info: {dropbox_account_info}")
                     continue
