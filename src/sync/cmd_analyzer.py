@@ -78,7 +78,8 @@ from src.sync.dropbox_client.utils.dropbox_utils import (
     clean_dropbox_path,
     get_folder_metadata,
     get_root_path,
-    list_folder_contents
+    list_folder_contents,
+    get_folder_creation_date
 )
 from src.sync.dropbox_client.utils.date_utils import has_date_prefix
 from dropbox.exceptions import ApiError
@@ -305,9 +306,11 @@ def extract_dropbox_account_info(dropbox_client, root_path, account_folder, drop
         logger.info(f"Getting folder metadata for: {folder_path}")
         folder_metadata = get_folder_metadata(dropbox_client, folder_path)
         logger.info(f"Folder metadata: {folder_metadata}")
-        logging.info(f"Folder metadata created: {folder_metadata.created.isoformat() if folder_metadata.created else None}")
-        logging.info(f"Folder metadata modified: {folder_metadata.modified.isoformat() if folder_metadata.modified else None}")
-
+        
+        # Get creation date using the helper function
+        creation_date = get_folder_creation_date(dropbox_client.dbx, folder_path)
+        logger.info(f"Folder creation date: {creation_date.isoformat() if creation_date else None}")
+        
         # Get folder contents
         logger.info(f"Getting folder contents for: {folder_path}")
         folder_contents = list_folder_contents(dropbox_client.dbx, folder_path)
@@ -317,33 +320,23 @@ def extract_dropbox_account_info(dropbox_client, root_path, account_folder, drop
         account_info = {
             'folder_name': account_folder,
             'path': folder_path,
-            'created_at': folder_metadata.created.isoformat() if folder_metadata.created else None,
-            'modified_at': folder_metadata.modified.isoformat() if folder_metadata.modified else None,
+            'created_at': creation_date.isoformat() if creation_date else None,
+            'modified_at': None,  # FolderMetadata doesn't have server_modified
             'total_files': len(folder_contents),
             'files_with_date_prefix': sum(1 for f in folder_contents if has_date_prefix(f.name)),
             'file_types': {},
-            'largest_file': None,
-            'total_size': 0
         }
         
         # Analyze files
         max_size = 0
         for file in folder_contents:
+            if not isinstance(file, dropbox.files.FileMetadata):
+                continue
+                
             # Count file types
             ext = os.path.splitext(file.name)[1].lower()
             account_info['file_types'][ext] = account_info['file_types'].get(ext, 0) + 1
-            
-            # Track largest file
-            if file.size > max_size:
-                max_size = file.size
-                account_info['largest_file'] = {
-                    'name': file.name,
-                    'size': file.size,
-                    'modified': file.modified.isoformat() if file.modified else None
-                }
-            
-            # Add to total size
-            account_info['total_size'] += file.size
+                
 
         logging.info(f"***Dropbox Account info: {account_info}")
         return account_info
