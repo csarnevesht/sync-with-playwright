@@ -496,7 +496,7 @@ def accounts_fuzzy_search(args):
 
                 logger.info(f"*** result: {result}")
 
-                report_logger.info(f"\nDropbox account folder name: {folder_name} status:[{result['status']}] match_status:[{result['match_info']['match_status']}] view:[{result['view']}]")
+                report_logger.info(f"\nDropbox account folder name: {folder_name} match_status:[{result['match_info']['match_status']}] view:[{result['view']}]")
                 for match in result['matches']:
                     report_logger.info(f"  Salesforce account name: {match}")
 
@@ -554,7 +554,7 @@ def accounts_fuzzy_search(args):
                 report_logger.info("\n=== SALESFORCE ACCOUNT MATCHES ===")
             for folder_name, result in results.items():
                                 
-                report_logger.info(f"\nDropbox account folder name: {folder_name} status:[{result['status']}] match_status:[{result['match_info']['match_status']}] view:[{result['view']}]")
+                report_logger.info(f"\nDropbox account folder name: {folder_name} match_status:[{result['match_info']['match_status']}] view:[{result['view']}]")
                 for match in result['matches']:
                     report_logger.info(f"  Salesforce account name: {match}")
 
@@ -608,7 +608,7 @@ def accounts_fuzzy_search(args):
             for result in summary_results:
 
                 folder_name = result['dropbox_name']
-                report_logger.info(f"\nDropbox account folder name: {folder_name} status:[{result['status']}] match_status:[{result['match_info']['match_status']}] view:[{result['view']}]")
+                report_logger.info(f"\nDropbox account folder name: {folder_name} match_status:[{result['match_info']['match_status']}] view:[{result['view']}]")
                 for match in result['matches']:
                     report_logger.info(f"  Salesforce account name: {match}")
                 match_info = result['match_info']
