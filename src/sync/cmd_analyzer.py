@@ -494,6 +494,8 @@ def accounts_fuzzy_search(args):
                 result = account_manager.fuzzy_search_account(folder_name, view_name="All Clients")
                 results[folder_name] = result
 
+                logger.info(f"*** result: {result}")
+
                 report_logger.info(f"\nDropbox account folder name: {folder_name} status:[{result['status']}] match_status:[{result['match_info']['match_status']}] view:[{result['view']}]")
                 for match in result['matches']:
                     report_logger.info(f"  Salesforce account name: {match}")
