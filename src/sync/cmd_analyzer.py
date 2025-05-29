@@ -76,6 +76,7 @@ from src.sync.dropbox_client.utils.dropbox_utils import (
     get_access_token,
     get_DROPBOX_FOLDER,
     clean_dropbox_path,
+    get_root_path,
     list_folder_contents
 )
 from src.sync.dropbox_client.utils.date_utils import has_date_prefix
@@ -281,7 +282,7 @@ def initialize_dropbox_client():
         logger.error(f"Unexpected error initializing Dropbox client: {str(e)}")
         return None
 
-def extract_dropbox_account_info(dropbox_client, account_folder, dropbox_files):
+def extract_dropbox_account_info(dropbox_client, root_path, account_folder, dropbox_files):
     """Extract detailed information about a Dropbox account folder.
     
     Args:
@@ -295,10 +296,12 @@ def extract_dropbox_account_info(dropbox_client, account_folder, dropbox_files):
         logger.info(f"Extracting info for account: {account_folder}")
         logger.info(f"Number of Dropbox files: {len(dropbox_files)}")     
         # Get folder path
-        folder_path = clean_dropbox_path(f"{get_DROPBOX_FOLDER()}/{account_folder}")
+
+        folder_path = os.path.join(root_path, account_folder)
         logger.info(f"Folder path: {folder_path}")
         
         # Get folder metadata
+        logger.info(f"Getting folder metadata for: {folder_path}")
         folder_metadata = dropbox_client.get_folder_metadata(folder_path)
         
         # Get folder contents
@@ -356,6 +359,8 @@ def analyze_accounts(args):
     # Initialize account folders list
     ACCOUNT_FOLDERS = []
 
+    root_path = get_root_path(args.env_file, report_logger)
+    
     # Always read ignored folders
     try:
         ignored_folders = read_ignored_folders()
@@ -396,42 +401,20 @@ def analyze_accounts(args):
             
         logger.info("Retrieving all Dropbox account folders...")
         try:
-            # Get the root folder from environment
-            root_folder = get_DROPBOX_FOLDER(args.env_file)
-            if not root_folder:
-                logger.error("Could not get DROPBOX_FOLDER from environment")
-                report_logger.info("\nCould not get DROPBOX_FOLDER from environment")
-                return
-                
-            logger.info(f"Raw root folder from environment: {root_folder}")
-            
-            # Clean and validate the path
-            try:
-                clean_path = clean_dropbox_path(root_folder)
-                logger.info(f"Cleaned Dropbox path: {clean_path}")
-            except ValueError as e:
-                logger.error(f"Invalid path format: {str(e)}")
-                report_logger.info(f"\nInvalid path format: {str(e)}")
-                return
-                
-            if not clean_path:
-                logger.error(f"Invalid path: {root_folder}")
-                report_logger.info(f"\nInvalid path: {root_folder}")
-                return
                 
             # Try to get metadata first to check if path exists
             try:
-                logger.info(f"Checking if path exists: {clean_path}")
-                metadata = dbx.dbx.files_get_metadata(clean_path)
+                logger.info(f"Checking if path exists: {root_path}")
+                metadata = dbx.dbx.files_get_metadata(root_path)
                 logger.info(f"Path exists, type: {type(metadata).__name__}")
             except ApiError as e:
                 if e.error.is_path() and e.error.get_path().is_not_found():
-                    logger.error(f"Path not found: {clean_path}")
+                    logger.error(f"Path not found: {root_path}")
                     logger.error("Please check:")
                     logger.error("1. The path exists in your Dropbox")
                     logger.error("2. You have permission to access this path")
                     logger.error("3. The path is correctly formatted")
-                    report_logger.info(f"\nPath not found: {clean_path}")
+                    report_logger.info(f"\nPath not found: {root_path}")
                     report_logger.info("Please check:")
                     report_logger.info("1. The path exists in your Dropbox")
                     report_logger.info("2. You have permission to access this path")
@@ -440,8 +423,8 @@ def analyze_accounts(args):
                 raise
                 
             # List all folders in the path
-            logger.info(f"Listing contents of: {clean_path}")
-            entries = list_folder_contents(dbx.dbx, clean_path)
+            logger.info(f"Listing contents of: {root_path}")
+            entries = list_folder_contents(dbx.dbx, root_path)
             all_folders = [entry.name for entry in entries if isinstance(entry, dropbox.files.FolderMetadata)]
             
             # Filter out ignored folders
@@ -456,14 +439,14 @@ def analyze_accounts(args):
                     logger.info(f"  - {folder}")
             
             if not ACCOUNT_FOLDERS:
-                logger.warning(f"No valid folders found in path: {clean_path}")
+                logger.warning(f"No valid folders found in path: {root_path}")
                 logger.info("Please check your Dropbox folder path and permissions")
-                report_logger.info(f"\nNo valid folders found in path: {clean_path}")
+                report_logger.info(f"\nNo valid folders found in path: {root_path}")
                 report_logger.info("Please check your Dropbox folder path and permissions")
                 return
                 
             logger.info(f"Successfully retrieved {len(ACCOUNT_FOLDERS)} folders from Dropbox (after filtering {ignored_count} ignored folders)")
-            logger.info(f"Dropbox path used: {clean_path}")
+            logger.info(f"Dropbox path used: {root_path}")
             
         except ApiError as e:
             logger.error(f"Error listing folders: {str(e)}")
@@ -555,7 +538,7 @@ def analyze_accounts(args):
                         continue
                         
                     try:
-                        dropbox_files = dbx.get_account_files(folder_name)
+                        dropbox_files = dbx.list_files(folder_name)
                         logger.info(f"Successfully retrieved {len(dropbox_files)} files from Dropbox")
                     except ApiError as e:
                         logger.error(f"Failed to get files for folder {folder_name}: {str(e)}")
@@ -563,7 +546,7 @@ def analyze_accounts(args):
                         continue
 
                 if args.dropbox_account_info:
-                    dropbox_account_info = extract_dropbox_account_info(dbx, folder_name, dropbox_files)
+                    dropbox_account_info = extract_dropbox_account_info(dbx, root_path, folder_name, dropbox_files)
                     logger.info(f"Dropbox Account info: {dropbox_account_info}")
                     report_logger.info(f"Dropbox Account info: {dropbox_account_info}")
                     continue
