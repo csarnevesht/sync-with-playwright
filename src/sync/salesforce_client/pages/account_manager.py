@@ -2001,7 +2001,7 @@ Name Variations:
         try:
             logging.info(f"get_match_info: {result}")
 
-            salesforce_name = result['salesforce_name']
+            matches = result['matches']
             
             # Initialize counters for match types
             total_exact_matches = 0
@@ -2020,9 +2020,9 @@ Name Variations:
             
             # Determine match status
             match_status = "No match found"
-            if salesforce_name != "--" and salesforce_name:
-                if isinstance(salesforce_name, list):
-                    for name in salesforce_name:
+            if matches != "--" and matches:
+                if isinstance(matches, list):
+                    for name in matches:
                         if name.lower() in expected_names:
                             match_status = "Exact Match"
                             break
@@ -2031,7 +2031,7 @@ Name Variations:
                     if match_status != "Exact Match":
                         match_status = "Partial Match"
                 else:
-                    if salesforce_name.lower() in expected_names:
+                    if matches.lower() in expected_names:
                         match_status = "Exact Match"
                     else:
                         match_status = "Partial Match"
