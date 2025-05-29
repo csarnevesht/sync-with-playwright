@@ -6,6 +6,7 @@ load_dotenv()
 
 # Dropbox configuration
 DROPBOX_FOLDER = os.getenv('DROPBOX_FOLDER', 'Accounts')
+DROPBOX_HOLIDAY_FOLDER = os.getenv('DROPBOX_HOLIDAY_FOLDER')
 DROPBOX_USERNAME = os.getenv('DROPBOX_USERNAME')
 DROPBOX_PASSWORD = os.getenv('DROPBOX_PASSWORD')
 

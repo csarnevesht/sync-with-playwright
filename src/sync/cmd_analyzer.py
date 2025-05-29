@@ -459,6 +459,10 @@ def analyze_accounts(args):
                 logger.info(f"\n[{index}/{total_folders}] Processing Dropbox account folder: {account_folder_name}")
                 report_logger.info(f"\n[{index}/{total_folders}] Processing Dropbox account folder: {account_folder_name}")
                 
+                # TODO: account_manager.extract_name_parts is called twice, once here and once in fuzzy_search_account
+                # Extract name parts
+                account_name_data = account_manager.prepare_account_data_for_search(account_folder_name)
+                
                 # Navigate to accounts page
                 if args.salesforce_accounts:
                     logger.info('navigating to accounts page')
@@ -490,8 +494,7 @@ def analyze_accounts(args):
                         continue
 
                 if args.dropbox_account_info:
-                    account_name = account_folder_name
-                    dropbox_account_info = dropbox_client.extract_dropbox_account_info(account_name)
+                    dropbox_account_info = dropbox_client.get_dropbox_account_info(account_folder_name, account_name_data)
                     logger.info(f"Dropbox Account info: {dropbox_account_info}")
                     report_logger.info(f"Dropbox Account info: {dropbox_account_info}")
                     continue
@@ -677,9 +680,9 @@ def analyze_accounts(args):
     total_duration = time.time() - start_time
     duration_message = f"Total duration: {format_duration(total_duration)}"
     logging.info(duration_message)
-    report_logger.info(duration_message)
+    report_logger.info(duration_message)   
 
-            
+
 
 if __name__ == "__main__":
     args = parse_args()

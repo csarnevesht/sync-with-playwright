@@ -16,11 +16,13 @@ import PyPDF2
 import logging
 import urllib.parse
 from dotenv import load_dotenv
+import pandas as pd
+from sync.salesforce_client.pages.account_manager import LoggingHelper
 
 from .date_utils import has_date_prefix, get_folder_creation_date
 from .path_utils import clean_dropbox_path
 from .file_utils import log_renamed_file
-from src.config import DROPBOX_FOLDER, ACCOUNT_INFO_PATTERN, DRIVERS_LICENSE_PATTERN
+from src.config import DROPBOX_FOLDER, ACCOUNT_INFO_PATTERN, DRIVERS_LICENSE_PATTERN, DROPBOX_HOLIDAY_FOLDER
 
 # Configure logging
 logging.basicConfig(
@@ -86,7 +88,23 @@ class DropboxClient:
         self.root_folder = folder
         self.root_path = clean_dropbox_path(folder)
 
+        # Get the holiday folder from environment
+        dropbox_holiday_folder = DROPBOX_HOLIDAY_FOLDER
+        if dropbox_holiday_folder and dropbox_holiday_folder.startswith('http'):
+            parsed_url = urllib.parse.urlparse(dropbox_holiday_folder)
+            path = parsed_url.path.lstrip('/')
+            if path.startswith('home/'):
+                path = path[5:]
+            dropbox_holiday_folder = urllib.parse.unquote(path)
+        
+        self.dropbox_holiday_folder = dropbox_holiday_folder
+        logging.info(f"Dropbox holiday folder: {dropbox_holiday_folder}")
+        self.dropbox_holiday_path = clean_dropbox_path(dropbox_holiday_folder) if dropbox_holiday_folder else None
+        logging.info(f"Dropbox holiday path: {self.dropbox_holiday_path}")
+
         logging.info(f"Initialized DropboxClient with root folder: {self.root_folder}")
+        if self.dropbox_holiday_folder:
+            logging.info(f"Holiday folder: {self.dropbox_holiday_folder}")
         if debug_mode:
             logging.info("Debug mode is enabled")
 
@@ -180,8 +198,204 @@ class DropboxClient:
             print(f"Error getting account files: {e}")
             return []
         
+    def get_dropbox_holiday_folder(self) -> Optional[str]:
+        """Get the configured Dropbox holiday folder path."""
+        return self.dropbox_holiday_path
     
+    def get_dropbox_holiday_file(self, holiday_file: str = 'HOLIDAY CLIENT LIST.xlsx') -> Optional[FileMetadata]:
+        """Get the specified holiday file from the holiday folder."""
+        if not self.dropbox_holiday_path:
+            logging.warning("Dropbox holiday folder path is not set.")
+            return None
+        logging.info(f"Getting holiday file: {holiday_file} from {self.dropbox_holiday_path}")
+
+        # Check if we already have the file info cached
+        if hasattr(self, 'dropbox_holiday_file_metadata') and \
+           self.dropbox_holiday_file_metadata and \
+           self.dropbox_holiday_file_metadata.name == holiday_file:
+            return self.dropbox_holiday_file_metadata
+
+        try:
+            entries = list_folder_contents(self.dbx, self.dropbox_holiday_path)
+            # log the entries' names
+            logging.info(f"Entries in holiday folder: {[entry.name for entry in entries]}")
+            for entry in entries:
+                if isinstance(entry, FileMetadata) and entry.name == holiday_file:
+                    self.dropbox_holiday_file_metadata = entry # Cache the file metadata
+                    logging.info(f"Found holiday file: {entry.name} in {self.dropbox_holiday_path}")
+                    return entry
+            logging.warning(f"Holiday file '{holiday_file}' not found in {self.dropbox_holiday_path}")
+            return None
+        except Exception as e:
+            logging.error(f"Error getting holiday file '{holiday_file}' from {self.dropbox_holiday_path}: {e}")
+            return None
+        
     
+
+    def get_dropbox_account_info(self, account_name: str, account_data: dict) -> Dict[str, str]:
+        """Get account information for account_name from the (holiday) account info file.
+        
+        This method searches for and processes an account in the (holiday) account info file. 
+        It extracts key personal information such as name, address, phone number, and email.
+        
+        The method follows these steps:
+        1. Locates the (holiday) account info file
+        2. Extracts text content from the XLSX
+        3. Parses the text to find specific information fields
+        4. Returns a dictionary of found information
+        
+        Args:
+            account_name (str): The name of the account to search for in the (holiday) account info file
+            
+        Returns:
+            Dict[str, str]: A dictionary containing extracted account information with the following keys:
+                - name (str): Full name of the account holder
+                - address (str): Physical address
+                - phone (str): Contact phone number
+                - email (str): Email address
+                
+            Returns an empty dictionary if:
+                - No account info file is found
+                - File cannot be downloaded
+                - Text extraction fails
+                - No information can be parsed from the text
+                
+        Raises:
+            Exception: Any error during the extraction process is caught and logged
+            
+        Example:
+            >>> client = DropboxClient(token)
+            >>> info = client.get_dropbox_account_info("John Smith")
+            >>> print(info)
+            {
+                'name': 'John Smith',
+                'address': '123 Main St, New York, NY 10001',
+                'phone': '(555) 123-4567',
+                'email': 'john.smith@example.com'
+            }
+        """
+        try:
+            result = {
+                'account_data': account_data,
+                'folder_name': account_name,
+                'status': 'not_found',
+                'matches': [],
+                'search_attempts': [],
+                'timing': {},
+                'normalized_names': [],
+                'swapped_names': [],
+                'expected_matches': [],
+                'match_info': {
+                    'match_status': "No match found",
+                    'total_exact_matches': 0,
+                    'total_partial_matches': 0,
+                    'total_no_matches': 1
+                }
+            }
+
+
+            last_name = account_data.get('last_name', '')
+            full_name = account_data.get('full_name', '')
+            normalized_names = account_data.get('normalized_names', [])
+            swapped_names = account_data.get('swapped_names', [])
+            expected_matches = account_data.get('expected_matches', [])
+            logging.info(f"account_data: {account_data}")
+            logging.info(f"last_name: {last_name}")
+            logging.info(f"full_name: {full_name}")
+            logging.info(f"normalized_names: {normalized_names}")
+            logging.info(f"swapped_names: {swapped_names}")
+            logging.info(f"expected_matches: {expected_matches}")
+            
+            # Get the holiday file
+            holiday_file = self.get_dropbox_holiday_file()
+            if not holiday_file:
+                logging.error("Could not find holiday file")
+                return result
+                
+            # Create a temporary file to store the downloaded XLSX
+            with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as temp_file:
+                temp_path = temp_file.name
+                
+                try:
+                    # Download the file
+                    self.dbx.files_download_to_file(temp_path, holiday_file.path_display)
+                    
+                    # Read the XLSX file
+                    df = pd.read_excel(temp_path)
+                    
+                    # Look for the account name in the dataframe
+                    # Assuming the name column is called 'Name' or similar
+                    name_columns = ['Last Name', 'First Name', 'Address', 'Email', 'Phone Number']
+                    name_col = next((col for col in name_columns if col in df.columns), None)
+                    logging.info(f"name_col: {name_col}")
+                    
+                    if not name_col:
+                        logging.error("Could not find name column in holiday file")
+                        return result
+                    
+                    # Find the row with matching account name
+                    logging.info(f"searching for {last_name} in {name_col}")
+                    account_row = df[df[name_col].str.contains(last_name, case=False, na=False)]
+                    
+                    if account_row.empty:
+                        logging.warning(f"Could not find account '{last_name}' in holiday file")
+                        return result
+                    
+                    logging.info(f"account_row: {account_row}")
+                    # Extract information from the row
+                    result['name'] = account_row[name_col].iloc[0]
+                    
+                    # Look for address
+                    address_columns = ['Address']
+                    address_col = next((col for col in address_columns if col in df.columns), None)
+                    if address_col:
+                        result['address'] = account_row[address_col].iloc[0]
+
+                    # Look for City
+                    city_columns = ['City']
+                    city_col = next((col for col in city_columns if col in df.columns), None)
+                    if city_col:
+                        result['city'] = account_row[city_col].iloc[0]
+                    
+                    # Look for State    
+                    state_columns = ['State']
+                    state_col = next((col for col in state_columns if col in df.columns), None)
+                    if state_col:
+                        result['state'] = account_row[state_col].iloc[0]
+                    
+                    # Look for Zip Code 
+                    zip_columns = ['Zip Code']
+                    zip_col = next((col for col in zip_columns if col in df.columns), None)
+                    if zip_col:
+                        result['zip'] = account_row[zip_col].iloc[0]
+                    
+                    # Look for Email
+                    email_columns = ['Email']
+                    email_col = next((col for col in email_columns if col in df.columns), None)
+                    if email_col:
+                        result['email'] = account_row[email_col].iloc[0]
+                    
+                    
+                    # Look for phone
+                    phone_columns = ['Phone', 'Phone Number', 'Contact Number']
+                    phone_col = next((col for col in phone_columns if col in df.columns), None)
+                    if phone_col:
+                        result['phone'] = account_row[phone_col].iloc[0]
+                
+                    
+                    logging.info(f"Successfully extracted account info for {account_name}")
+                    return result
+                    
+                finally:
+                    # Clean up the temporary file
+                    try:
+                        os.unlink(temp_path)
+                    except Exception as e:
+                        logging.warning(f"Failed to delete temporary file {temp_path}: {e}")
+
+        except Exception as e:
+            logging.error(f"Error getting account info for {account_name}: {e}")
+            return {}
 
     def parse_account_name(self, folder_name: str) -> Tuple[str, str, Optional[str]]:
         """Parse account name into first, last, and middle names."""

@@ -8,6 +8,7 @@ load_dotenv()
 
 # Dropbox folder configuration
 DROPBOX_FOLDER = os.getenv('DROPBOX_FOLDER', 'Accounts')
+DROPBOX_HOLIDAY_FOLDER = os.getenv('DROPBOX_HOLIDAY_FOLDER')
 
 # File patterns
 ACCOUNT_INFO_PATTERN = os.getenv('ACCOUNT_INFO_PATTERN', '*App.pdf')
