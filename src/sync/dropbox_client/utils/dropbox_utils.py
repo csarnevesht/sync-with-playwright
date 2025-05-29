@@ -180,12 +180,7 @@ class DropboxClient:
             print(f"Error getting account files: {e}")
             return []
         
-    def get_dropbox_holiday_list_file(self, root_path):
-        logger.info(f"Getting holiday list file from: {root_path}")
-        folder_path = os.path.join(root_path, "Holiday List")
-        folder_contents = list_folder_contents(self.dbx, folder_path)
-        logger.info(f"Folder contents length: {len(folder_contents)}")
-        return folder_contents
+    
     
 
     def parse_account_name(self, folder_name: str) -> Tuple[str, str, Optional[str]]:
@@ -383,22 +378,20 @@ class DropboxClient:
             logging.error(f"Error extracting driver's license info: {e}")
             return {}
 
-    def extract_account_info(self, account_folder: str) -> Dict[str, str]:
-        """Extract account information from the account info file in a Dropbox folder.
+    def get_dropbox_account_info(self, account_name: str) -> Dict[str, str]:
+        """Get account information for account_name from the (holiday) account info file.
         
-        This method searches for and processes an account information file (typically a PDF) within
-        the specified account folder. It extracts key personal information such as name, address,
-        phone number, and email using regex pattern matching.
+        This method searches for and processes an account in the (holiday) account info file. 
+        It extracts key personal information such as name, address, phone number, and email.
         
         The method follows these steps:
-        1. Locates the account info file in the specified folder
-        2. Downloads the file to a temporary directory
-        3. Extracts text content from the PDF
-        4. Parses the text to find specific information fields
-        5. Returns a dictionary of found information
+        1. Locates the (holiday) account info file
+        2. Extracts text content from the XLSX
+        3. Parses the text to find specific information fields
+        4. Returns a dictionary of found information
         
         Args:
-            account_folder (str): The name of the account folder in Dropbox where the info file is located
+            account_name (str): The name of the account to search for in the (holiday) account info file
             
         Returns:
             Dict[str, str]: A dictionary containing extracted account information with the following keys:
@@ -418,7 +411,7 @@ class DropboxClient:
             
         Example:
             >>> client = DropboxClient(token)
-            >>> info = client.extract_account_info("John Smith")
+            >>> info = client.get_dropbox_account_info("John Smith")
             >>> print(info)
             {
                 'name': 'John Smith',
@@ -428,48 +421,12 @@ class DropboxClient:
             }
         """
         try:
-            # Get the account info file
-            info_file = self.get_account_info_file(account_folder)
-            if not info_file:
-                logging.error(f"No account info file found for {account_folder}")
-                return {}
-
-            # Create a temporary directory for file processing
-            with tempfile.TemporaryDirectory() as temp_dir:
-                # Download the file
-                local_path = os.path.join(temp_dir, info_file.name)
-                self.dbx.files_download_to_file(local_path, info_file.path_display)
+            account_info = {}
                 
-                # Extract text from PDF
-                text = self._extract_text_from_pdf(local_path)
-                
-                # Parse the extracted text
-                account_info = {}
-                
-                # Extract Name
-                name_match = re.search(r'Name:?\s*([^\n]+)', text, re.IGNORECASE)
-                if name_match:
-                    account_info['name'] = name_match.group(1).strip()
-                
-                # Extract Address
-                address_match = re.search(r'Address:?\s*([^\n]+)', text, re.IGNORECASE)
-                if address_match:
-                    account_info['address'] = address_match.group(1).strip()
-                
-                # Extract Phone
-                phone_match = re.search(r'Phone:?\s*([^\n]+)', text, re.IGNORECASE)
-                if phone_match:
-                    account_info['phone'] = phone_match.group(1).strip()
-                
-                # Extract Email
-                email_match = re.search(r'Email:?\s*([^\n]+)', text, re.IGNORECASE)
-                if email_match:
-                    account_info['email'] = email_match.group(1).strip()
-                
-                return account_info
+            return account_info
 
         except Exception as e:
-            logging.error(f"Error extracting account info: {e}")
+            logging.error(f"Error getting account info for {account_name}: {e}")
             return {}
 
 def update_env_file(env_file, token=None, root_folder=None, directory=None):
