@@ -1914,7 +1914,7 @@ Name Variations:
                 self.logger.info(f"match_info: {match_info}")
                 self.logger.info(f"result: {result}")
 
-                self.logger.info(f"\nDropbox account folder name: {folder_name} status:[{result['status']}] match_status:[{result['match_info']['match_status']}] view:[{result['view']}]")
+                self.logger.info(f"\nDropbox account folder name: {folder_name} status:[{result['status']}] match:[{result['match_info']['match_status']}] view:[{result['view']}]")
                 for match in result['matches']:
                     self.logger.info(f"  Salesforce account name: {match}")
                 
