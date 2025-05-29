@@ -509,7 +509,6 @@ class AccountManager(BasePage):
                 self.log_helper.dedent()
                 return []
             
-            # CAROLINA HERE account_elements
             # Get all account names from the table
             account_elements = self.page.locator('table.slds-table tbody tr td:nth-child(2) a').all()
             self.log_helper.log(self.logger, 'info', f"INFO: ***account_elements = {account_elements}")
@@ -1941,7 +1940,6 @@ Name Variations:
                         result['matches'] = []
                         result['status'] = 'no_match'
                 
-                # CAROLINA HERE
                 result['view'] = view_name
                 match_info = self.get_match_info(result)
                 result['match_info'] = match_info

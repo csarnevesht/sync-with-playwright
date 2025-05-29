@@ -34,6 +34,37 @@ logger = logging.getLogger(__name__)
 # Set Dropbox logger level to WARNING to suppress INFO messages
 logging.getLogger('dropbox').setLevel(logging.WARNING)
 
+def construct_dropbox_path(account_folder: str, root_path: str) -> Optional[str]:
+    """
+    Construct and validate a Dropbox path from the root folder and account folder.
+    
+    Args:
+        account_folder (str): The account folder path to append to root folder
+        root_folder (str): The root folder path
+            
+    Returns:
+        Optional[str]: The cleaned and validated Dropbox path, or None if invalid
+    """
+    try:
+        clean_account_folder = account_folder.strip()
+        if not clean_account_folder:
+            logging.error("Account folder cannot be empty")
+            return None
+            
+        full_path = os.path.join(root_path, clean_account_folder)
+        clean_path = clean_dropbox_path(full_path)
+        
+        if not clean_path:
+            logging.error(f"Invalid path constructed: {full_path}")
+            return None
+            
+        logging.debug(f"Constructed Dropbox path: {clean_path}")
+        return clean_path
+        
+    except Exception as e:
+        logging.error(f"Error constructing Dropbox path: {str(e)}")
+        return None
+
 class DropboxClient:
     def __init__(self, token: str, debug_mode: bool = False):
         self.token = token
@@ -53,6 +84,8 @@ class DropboxClient:
             folder = urllib.parse.unquote(path)
         
         self.root_folder = folder
+        self.root_path = clean_dropbox_path(folder)
+
         logging.info(f"Initialized DropboxClient with root folder: {self.root_folder}")
         if debug_mode:
             logging.info("Debug mode is enabled")
@@ -117,14 +150,43 @@ class DropboxClient:
         return files_to_process
         
 
-    def get_account_folders(self) -> List[str]:
+    def get_dropbox_accounts(self) -> List[dropbox.files.FolderMetadata]:
         """Get all account folders under the root folder."""
         try:
-            result = self.dbx.files_list_folder(f"/{self.root_folder}")
-            return [entry.name for entry in result.entries if isinstance(entry, dropbox.files.FolderMetadata)]
+            entries = list_folder_contents(self.dbx,self.root_path)
+            all_account_folders = [entry.name for entry in entries if isinstance(entry, dropbox.files.FolderMetadata)]
+            return all_account_folders
         except Exception as e:
             print(f"Error getting account folders: {e}")
             return []
+            
+
+    def get_dropbox_account_names(self) -> List[str]:
+        """Get all account folders under the root folder."""
+        try:
+            entries = list_folder_contents(self.dbx, self.root_path)
+            result = [entry.name for entry in entries if isinstance(entry, dropbox.files.FolderMetadata)]            
+            return result
+        except Exception as e:
+            print(f"Error getting account folders: {e}")
+            return []
+        
+    def get_dropbox_account_files(self, account_folder: str) -> List[FileMetadata]:
+        """Get all files under the account folder."""
+        try:
+            dropbox_path = construct_dropbox_path(account_folder, self.root_folder)
+            return list_folder_contents(self.dbx, dropbox_path)
+        except Exception as e:
+            print(f"Error getting account files: {e}")
+            return []
+        
+    def get_dropbox_holiday_list_file(self, root_path):
+        logger.info(f"Getting holiday list file from: {root_path}")
+        folder_path = os.path.join(root_path, "Holiday List")
+        folder_contents = list_folder_contents(self.dbx, folder_path)
+        logger.info(f"Folder contents length: {len(folder_contents)}")
+        return folder_contents
+    
 
     def parse_account_name(self, folder_name: str) -> Tuple[str, str, Optional[str]]:
         """Parse account name into first, last, and middle names."""
@@ -135,37 +197,7 @@ class DropboxClient:
             return parts[0], parts[-1], ' '.join(parts[1:-1])
         return folder_name, '', None
 
-    def construct_dropbox_path(self, account_folder: str) -> Optional[str]:
-        """
-        Construct and validate a Dropbox path from the root folder and account folder.
-        
-        Args:
-            account_folder (str): The account folder path to append to root folder
-            
-        Returns:
-            Optional[str]: The cleaned and validated Dropbox path, or None if invalid
-        """
-        try:
-            clean_account_folder = account_folder.strip()
-            if not clean_account_folder:
-                logging.error("Account folder cannot be empty")
-                return None
-                
-            full_path = os.path.join(self.root_folder, clean_account_folder)
-            clean_path = clean_dropbox_path(full_path)
-            
-            if not clean_path:
-                logging.error(f"Invalid path constructed: {full_path}")
-                return None
-                
-            logging.debug(f"Constructed Dropbox path: {clean_path}")
-            return clean_path
-            
-        except Exception as e:
-            logging.error(f"Error constructing Dropbox path: {str(e)}")
-            return None
-
-    def list_files(self, account_folder: str) -> list:
+    def deprecated_list_files(self, account_folder: str) -> list:
         """
         List files in the specified Dropbox account folder.
         
@@ -176,7 +208,7 @@ class DropboxClient:
             list: List of files in the specified path
         """
         logging.info(f"Listing files in account folder: {account_folder}")
-        dropbox_path = self.construct_dropbox_path(account_folder)
+        dropbox_path = self.construct_dropbox_path(account_folder, self.root_folder)
         if not dropbox_path:
             return []
             
@@ -539,7 +571,7 @@ def download_and_rename_file(dbx, dropbox_path, local_dir):
     except Exception as e:
         print(f"Error processing file {dropbox_path}: {e}")
 
-def list_folder_contents(dbx, path):
+def list_folder_contents(dbx, path) -> List[FileMetadata]:
     """List the contents of a Dropbox folder, handling pagination."""
     try:
         result = dbx.files_list_folder(path)
