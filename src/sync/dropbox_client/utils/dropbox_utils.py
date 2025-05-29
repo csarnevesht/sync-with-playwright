@@ -263,7 +263,7 @@ class DropboxClient:
 
     def get_account_info_file(self, account_folder: str) -> Optional[FileMetadata]:
         """Get the account info file (*App.pdf) for an account."""
-        files = self.list_files(account_folder)
+        files = self.list_folder_contents(account_folder)
         pattern = ACCOUNT_INFO_PATTERN.replace('*', '.*')
         for file in files:
             if re.match(pattern, file.name):
@@ -272,7 +272,7 @@ class DropboxClient:
 
     def get_drivers_license_file(self, account_folder: str) -> Optional[FileMetadata]:
         """Get the driver's license file (*DL.jpeg) for an account."""
-        files = self.list_files(account_folder)
+        files = self.list_folder_contents(account_folder)
         pattern = DRIVERS_LICENSE_PATTERN.replace('*', '.*')
         for file in files:
             if re.match(pattern, file.name):
@@ -352,7 +352,49 @@ class DropboxClient:
             return {}
 
     def extract_account_info(self, account_folder: str) -> Dict[str, str]:
-        """Extract account information from the account info file."""
+        """Extract account information from the account info file in a Dropbox folder.
+        
+        This method searches for and processes an account information file (typically a PDF) within
+        the specified account folder. It extracts key personal information such as name, address,
+        phone number, and email using regex pattern matching.
+        
+        The method follows these steps:
+        1. Locates the account info file in the specified folder
+        2. Downloads the file to a temporary directory
+        3. Extracts text content from the PDF
+        4. Parses the text to find specific information fields
+        5. Returns a dictionary of found information
+        
+        Args:
+            account_folder (str): The name of the account folder in Dropbox where the info file is located
+            
+        Returns:
+            Dict[str, str]: A dictionary containing extracted account information with the following keys:
+                - name (str): Full name of the account holder
+                - address (str): Physical address
+                - phone (str): Contact phone number
+                - email (str): Email address
+                
+            Returns an empty dictionary if:
+                - No account info file is found
+                - File cannot be downloaded
+                - Text extraction fails
+                - No information can be parsed from the text
+                
+        Raises:
+            Exception: Any error during the extraction process is caught and logged
+            
+        Example:
+            >>> client = DropboxClient(token)
+            >>> info = client.extract_account_info("John Smith")
+            >>> print(info)
+            {
+                'name': 'John Smith',
+                'address': '123 Main St, New York, NY 10001',
+                'phone': '(555) 123-4567',
+                'email': 'john.smith@example.com'
+            }
+        """
         try:
             # Get the account info file
             info_file = self.get_account_info_file(account_folder)
