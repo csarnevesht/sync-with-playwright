@@ -11,7 +11,7 @@ from ..pages.account_manager import AccountManager
 
 
 
-def upload_single_file(page: Page, file_to_upload: str, expected_items: int = 1) -> bool:
+def upload_account_file(page: Page, file_to_upload: str, expected_items: int = 1) -> bool:
     """
     Upload a single file and verify the upload.
     
@@ -109,7 +109,7 @@ def upload_single_file(page: Page, file_to_upload: str, expected_items: int = 1)
         logging.info(f"Error during file upload: {str(e)}")
         return False
 
-def upload_files_for_account(page: Page, account: dict, debug_mode: bool = True, max_tries: int = 10) -> bool:
+def upload_account_files(page: Page, account: dict, debug_mode: bool = True, max_tries: int = 10) -> bool:
     """
     Upload files for a specific account, handling the entire process from setup to verification.
     account['files'] is a list of dictionaries, each containing:
@@ -205,7 +205,7 @@ def upload_files_for_account(page: Page, account: dict, debug_mode: bool = True,
                             logging.info(f"***Expected number of items: {expected_items}")
 
                             logging.info(f"**** Uploading single file")
-                            if upload_single_file(page, file_path, expected_items):
+                            if upload_account_file(page, file_path, expected_items):
                                 file_success = True
                                 logging.info(f"**** Single file uploaded successfully")
                                 break

@@ -53,7 +53,7 @@ import tempfile
 from sync.salesforce_client.pages.account_manager import AccountManager
 from sync.salesforce_client.pages.accounts_page import AccountsPage
 from sync.salesforce_client.utils.browser import get_salesforce_page
-from sync.salesforce_client.utils.file_upload import upload_files_for_account
+from sync.salesforce_client.utils.file_upload import upload_account_files
 from sync.salesforce_client.utils.mock_data import get_mock_accounts
 
 # Configure logging

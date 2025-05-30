@@ -25,7 +25,7 @@ import tempfile
 from src.sync.salesforce_client.pages.account_manager import AccountManager
 from src.sync.salesforce_client.pages.file_manager import FileManager
 from src.sync.salesforce_client.utils.browser import get_salesforce_page
-from src.sync.salesforce_client.utils.file_upload import upload_files_for_account
+from src.sync.salesforce_client.utils.file_upload import upload_account_files
 from src.sync.salesforce_client.utils.mock_data import get_mock_accounts
 from src.config import *
 
@@ -100,7 +100,7 @@ def test_account_file_deletion(browser, page):
                 
             # Upload files for new account
             logging.info(f"Uploading files for new account: {account_name}")
-            upload_success = upload_files_for_account(page, account, debug_mode=True)
+            upload_success = upload_account_files(page, account, debug_mode=True)
             if not upload_success:
                 logging.error(f"Failed to upload files for account: {account_name}")
                 return

@@ -28,7 +28,7 @@ import tempfile
 from sync.salesforce_client.pages.account_manager import AccountManager
 from sync.salesforce_client.pages.file_manager import FileManager
 from sync.salesforce_client.utils.browser import get_salesforce_page
-from sync.salesforce_client.utils.file_upload import upload_files_for_account
+from sync.salesforce_client.utils.file_upload import upload_account_files
 from sync.salesforce_client.utils.mock_data import get_mock_accounts
 from src.config import *
 
@@ -113,7 +113,7 @@ def test_search_account(browser: Browser, page: Page):
             mock = next((a for a in mock_accounts if f"{a['first_name']} {a['last_name']}" == account_name), None)
             if mock and mock.get('files'):
                 logging.info(f"Uploading files for newly created account: {account_name}")
-                upload_success = upload_files_for_account(page, mock, debug_mode=True)
+                upload_success = upload_account_files(page, mock, debug_mode=True)
                 assert upload_success, f"Failed to upload files for account: {account_name}"
         
         # Navigate to files and get count
