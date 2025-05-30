@@ -440,15 +440,18 @@ def run_command(args):
     summary_results = []
 
     logger.info('step: Process Dropbox Account folders')
+    
+    # Initialize Dropbox client once before Playwright context
+    dropbox_client = initialize_dropbox_client()
+    if not dropbox_client:
+        logger.error("Failed to initialize Dropbox client. Exiting...")
+        report_logger.info("Failed to initialize Dropbox client. Exiting...")
+        return
+
     with sync_playwright() as p:
         try:
             browser, page = get_salesforce_page(p)
 
-            dropbox_client = initialize_dropbox_client()
-            if not dropbox_client:
-                    logger.error(f"Failed to initialize Dropbox client. Skipping...")
-                    report_logger.info(f"Failed to initialize Dropbox client. Skipping...")
-                    
             # Initialize account manager and file manager
             account_manager = AccountManager(page, debug_mode=True)
             account_manager.logger.report_logger = report_logger  # Add report logger
