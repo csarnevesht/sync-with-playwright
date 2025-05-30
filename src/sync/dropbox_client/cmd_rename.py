@@ -30,7 +30,7 @@ from .utils.file_utils import (
 from .utils.dropbox_utils import (
     get_renamed_path,
     download_and_rename_file,
-    list_folder_contents,
+    list_dropbox_folder_contents,
     find_folder_path,
     get_access_token,
     get_DROPBOX_FOLDER,
@@ -208,7 +208,7 @@ def main():
         
         # Process each folder
         start_time = datetime.datetime.now()
-        entries = list_folder_contents(dbx, clean_path)
+        entries = list_dropbox_folder_contents(dbx, clean_path)
         
         # Filter and sort folders
         folders = [entry for entry in entries if isinstance(entry, dropbox.files.FolderMetadata)]
@@ -250,7 +250,7 @@ def main():
                     log_processed_folder(entry.path_display, download_dir)
                     
                     # Process folder contents
-                    folder_entries = list_folder_contents(dbx, entry.path_display)
+                    folder_entries = list_dropbox_folder_contents(dbx, entry.path_display)
                     for file_entry in folder_entries:
                         if isinstance(file_entry, dropbox.files.FileMetadata):
                             download_and_rename_file(dbx, file_entry.path_display, local_folder)
@@ -294,7 +294,7 @@ def main():
                 log_processed_folder(entry.path_display, download_dir)
                 
                 # Process folder contents
-                folder_entries = list_folder_contents(dbx, entry.path_display)
+                folder_entries = list_dropbox_folder_contents(dbx, entry.path_display)
                 for file_entry in folder_entries:
                     if isinstance(file_entry, dropbox.files.FileMetadata):
                         download_and_rename_file(dbx, file_entry.path_display, local_folder)

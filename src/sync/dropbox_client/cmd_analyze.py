@@ -16,7 +16,7 @@ import logging
 
 from sync.dropbox_client.utils.dropbox_utils import (
     get_access_token,
-    list_folder_contents,
+    list_dropbox_folder_contents,
     clean_dropbox_folder_name,
     get_DROPBOX_FOLDER,
     get_folder_structure,
@@ -52,7 +52,7 @@ def list_folders_only(dbx, path, account_folders=None, ignored_folders=None, deb
                 return {'total': 0, 'allowed': 0, 'ignored': 0, 'not_allowed': 0, 'found_ignored': set(), 'allowed_folders': set()}
             raise
 
-        entries = list_folder_contents(dbx, clean_path)
+        entries = list_dropbox_folder_contents(dbx, clean_path)
         counts = {
             'total': 0,
             'allowed': 0,
@@ -126,7 +126,7 @@ def analyze_folder_structure(dbx, path, indent=0, account_folders=None, ignored_
                 print(f"Path not found: {clean_path}")
                 return {'total': 0, 'allowed': 0, 'ignored': 0, 'not_allowed': 0, 'files': 0}
             raise
-        entries = list_folder_contents(dbx, clean_path)
+        entries = list_dropbox_folder_contents(dbx, clean_path)
         counts = {
             'total': 0,
             'allowed': 0,
@@ -188,7 +188,7 @@ def debug_list_folders(dbx, path):
                 return
             raise
 
-        entries = list_folder_contents(dbx, clean_path)
+        entries = list_dropbox_folder_contents(dbx, clean_path)
 
         print(f"\nFolders in: {clean_path}")
         for entry in entries:

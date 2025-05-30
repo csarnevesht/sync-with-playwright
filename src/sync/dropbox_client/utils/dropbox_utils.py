@@ -187,7 +187,7 @@ class DropboxClient:
     def get_dropbox_accounts(self) -> List[dropbox.files.FolderMetadata]:
         """Get all account folders under the root folder."""
         try:
-            entries = list_folder_contents(self.dbx,self.root_folder)
+            entries = list_dropbox_folder_contents(self.dbx,self.root_folder)
             all_account_folders = [entry.name for entry in entries if isinstance(entry, dropbox.files.FolderMetadata)]
             return all_account_folders
         except Exception as e:
@@ -198,7 +198,7 @@ class DropboxClient:
     def get_dropbox_account_names(self) -> List[str]:
         """Get all account folders under the root folder."""
         try:
-            entries = list_folder_contents(self.dbx, self.root_folder)
+            entries = list_dropbox_folder_contents(self.dbx, self.root_folder)
             result = [entry.name for entry in entries if isinstance(entry, dropbox.files.FolderMetadata)]            
             return result
         except Exception as e:
@@ -209,7 +209,7 @@ class DropboxClient:
         """Get all files under the account folder."""
         try:
             dropbox_path = construct_dropbox_path(account_folder, self.root_folder)
-            return list_folder_contents(self.dbx, dropbox_path)
+            return list_dropbox_folder_contents(self.dbx, dropbox_path)
         except Exception as e:
             print(f"Error getting account files: {e}")
             return []
@@ -232,7 +232,7 @@ class DropboxClient:
             return self.dropbox_holiday_file_metadata
 
         try:
-            entries = list_folder_contents(self.dbx, self.dropbox_holiday_path)
+            entries = list_dropbox_folder_contents(self.dbx, self.dropbox_holiday_path)
             # log the entries' names
             logging.info(f"Entries in holiday folder: {[entry.name for entry in entries]}")
             for entry in entries:
@@ -749,7 +749,7 @@ def download_and_rename_file(dbx, dropbox_path, local_dir):
     except Exception as e:
         print(f"Error processing file {dropbox_path}: {e}")
 
-def list_folder_contents(dbx, path) -> List[FileMetadata]:
+def list_dropbox_folder_contents(dbx, path) -> List[FileMetadata]:
     """List the contents of a Dropbox folder, handling pagination."""
     try:
         result = dbx.files_list_folder(path)
@@ -840,7 +840,7 @@ def get_DROPBOX_FOLDER(env_file):
 def count_account_folders(dbx, path, allowed_folders=None, ignored_folders=None):
     """Count the number of account folders in the given path."""
     try:
-        entries = list_folder_contents(dbx, path)
+        entries = list_dropbox_folder_contents(dbx, path)
         count = 0
         
         for entry in entries:
@@ -939,7 +939,7 @@ def get_folder_structure(dbx, path=None):
             raise ValueError(f"Invalid path: {path}")
             
         # Get folder contents
-        entries = list_folder_contents(dbx, clean_path)
+        entries = list_dropbox_folder_contents(dbx, clean_path)
         
         # Initialize counts
         counts = {
