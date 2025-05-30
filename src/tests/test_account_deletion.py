@@ -31,7 +31,7 @@ from datetime import datetime
 import shutil
 import tempfile
 from sync.salesforce_client.pages.account_manager import AccountManager
-from sync.salesforce_client.pages.file_manager import FileManager
+from sync.salesforce_client.pages.file_manager import SalesforceFileManager
 from sync.salesforce_client.utils.mock_data import get_mock_accounts
 from sync.salesforce_client.utils.file_upload import upload_account_files
 from playwright.sync_api import TimeoutError
@@ -94,7 +94,7 @@ def test_account_deletion(browser: Browser, page: Page):
     try:
         # Initialize managers
         account_manager = AccountManager(page, debug_mode=True)
-        file_manager = FileManager(page, debug_mode=True)
+        file_manager = SalesforceFileManager(page, debug_mode=True)
         
         # Get mock accounts
         mock_accounts = get_mock_accounts()

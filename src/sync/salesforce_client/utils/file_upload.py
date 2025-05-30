@@ -6,7 +6,7 @@ import time
 from playwright.sync_api import Page
 from ..pages.accounts_page import AccountsPage
 import logging
-from ..pages.file_manager import FileManager
+from ..pages.file_manager import SalesforceFileManager
 from ..pages.account_manager import AccountManager
 
 
@@ -157,7 +157,7 @@ def upload_account_files(page: Page, account: dict, debug_mode: bool = True, max
                 logging.info(f"  + {os.path.basename(file)}")
             
             # Initialize Salesforce page objects
-            file_manager = FileManager(page, debug_mode=debug_mode)
+            file_manager = SalesforceFileManager(page, debug_mode=debug_mode)
             account_manager = AccountManager(page, debug_mode=debug_mode)
             account_manager.current_account_id = account_id
 
@@ -174,7 +174,7 @@ def upload_account_files(page: Page, account: dict, debug_mode: bool = True, max
                     if isinstance(num_files, str) or num_files > 0:
                         file_name_of_file_to_upload = f"{os.path.splitext(os.path.basename(file_path))[0]}"
                         logging.info(f"file_name_of_file_to_upload: {file_name_of_file_to_upload}")
-                        if file_manager.search_file(file_name_of_file_to_upload):
+                        if file_manager.search_salesforce_file(file_name_of_file_to_upload):
                             logging.info(f"File {file_name_of_file_to_upload} already exists, skipping upload for file: {file_path}")
                             account_manager.navigate_back_to_account_page()
                             continue

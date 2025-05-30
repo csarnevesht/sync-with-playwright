@@ -9,7 +9,7 @@ from ..utils.debug_utils import debug_prompt
 from ..utils.file_utils import get_file_type, parse_search_file_pattern
 from dropbox.files import FileMetadata
 
-class FileManager(BasePage):
+class SalesforceFileManager(BasePage):
     """Handles file-related operations in Salesforce."""
     
     def __init__(self, page: Page, debug_mode: bool = True):
@@ -313,7 +313,7 @@ class FileManager(BasePage):
             self.logger.warning(f"Error extracting file info from row: {str(e)}")
             return None
 
-    def search_file(self, file_pattern: str) -> bool:
+    def search_salesforce_file(self, file_pattern: str) -> bool:
         """Search for a file using a pattern."""
         self.logger.info(f"********Searching for file: {file_pattern}")
         
@@ -474,7 +474,7 @@ class FileManager(BasePage):
         match = re.search(r'/Account/(\w+)/related', url)
         return match.group(1) if match else None 
 
-    def compare_files(self, dropbox_files: List[FileMetadata], salesforce_files: List[str]) -> Dict:
+    def compare_salesforce_files(self, dropbox_files: List[FileMetadata], salesforce_files: List[str]) -> Dict:
         """
         Compare files between Dropbox and Salesforce, logging detailed information.
         Args:
@@ -609,7 +609,7 @@ class FileManager(BasePage):
         self.logger.info("\n" + "="*50)
         return comparison
 
-    def delete_file(self, file_name: str) -> bool:
+    def delete_salesforce_file(self, file_name: str) -> bool:
         """Delete a file from Salesforce.
 
         Args:
