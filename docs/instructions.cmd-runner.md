@@ -1,6 +1,6 @@
 
 
-create a command executor in src/sync/cmd_interpreter.py which takes args which have already been parsed by src/sync/cmd_runner.py
+create a command runner class in src/sync/command_runner.py which takes args which have already been parsed by src/sync/cmd_runner.py
      args: Command line arguments containing all options
 
 It specifically it interprets and executes the following command args:
