@@ -252,16 +252,16 @@ class AccountManager(BasePage):
                 self.page.goto(url, timeout=30000)  # Increased timeout to 30 seconds
                 
                 # Wait for network to be idle with increased timeout
-                try:
-                    self.page.wait_for_load_state('networkidle', timeout=20000)  # Increased timeout to 20 seconds
-                except Exception as e:
-                    self.log_helper.log(self.logger, 'warning', f"Network idle timeout, but continuing: {str(e)}")
+                # try:
+                #     self.page.wait_for_load_state('networkidle', timeout=20000)  # Increased timeout to 20 seconds
+                # except Exception as e:
+                #     self.log_helper.log(self.logger, 'warning', f"Network idle timeout, but continuing: {str(e)}")
                 
                 # Wait for DOM content to be loaded
-                try:
-                    self.page.wait_for_load_state('domcontentloaded', timeout=20000)  # Increased timeout to 20 seconds
-                except Exception as e:
-                    self.log_helper.log(self.logger, 'warning', f"DOM content load timeout, but continuing: {str(e)}")
+                # try:
+                #     self.page.wait_for_load_state('domcontentloaded', timeout=20000)  # Increased timeout to 20 seconds
+                # except Exception as e:
+                #     self.log_helper.log(self.logger, 'warning', f"DOM content load timeout, but continuing: {str(e)}")
                 
                 # Verify we're on the correct page
                 current_url = self.page.url
@@ -1487,26 +1487,81 @@ class AccountManager(BasePage):
         self.log_helper.start_timing()
         self.log_helper.indent()
         try:
+            self.log_helper.log(self.logger, 'info', f"Starting delete_account for: {full_name}")
+            self.log_helper.log(self.logger, 'info', f"Current URL before any operations: {self.page.url}")
+            
             # Search for the account
+            self.log_helper.log(self.logger, 'info', f"Step 1: Checking if account exists: {full_name}")
             if not self.account_exists(full_name, view_name=view_name):
                 self.log_helper.log(self.logger, 'error', f"Account {full_name} does not exist")
                 self.log_helper.dedent()
                 return False
+                
             # Click on the account name to navigate to it
+            self.log_helper.log(self.logger, 'info', f"Step 2: Clicking account name: {full_name}")
             if not self.click_account_name(full_name):
                 self.log_helper.log(self.logger, 'error', f"Failed to navigate to account view page for: {full_name}")
                 self.log_helper.dedent()
                 return False
+                
             # Verify we're on the correct account page
+            self.log_helper.log(self.logger, 'info', "Step 3: Verifying account page URL")
             is_valid, account_id = self.verify_account_page_url()
             if not is_valid:
                 self.log_helper.log(self.logger, 'error', "Not on a valid account page")
                 self.log_helper.dedent()
                 return False
+                
             self.log_helper.log(self.logger, 'info', f"Successfully navigated to account {full_name} with ID {account_id}")
+            
             # Wait for page to load completely and stabilize
-            self.page.wait_for_load_state('networkidle')
+            self.log_helper.log(self.logger, 'info', "Step 4: Waiting for page to load and stabilize")
+            try:
+                self.log_helper.log(self.logger, 'info', "Waiting for network to be idle...")
+                self.page.wait_for_load_state('networkidle', timeout=10000)
+                self.log_helper.log(self.logger, 'info', "Network is idle")
+            except Exception as e:
+                self.log_helper.log(self.logger, 'warning', f"Network idle timeout, but continuing: {str(e)}")
+                
+            try:
+                self.log_helper.log(self.logger, 'info', "Waiting for DOM content to load...")
+                self.page.wait_for_load_state('domcontentloaded', timeout=10000)
+                self.log_helper.log(self.logger, 'info', "DOM content loaded")
+            except Exception as e:
+                self.log_helper.log(self.logger, 'warning', f"DOM content load timeout, but continuing: {str(e)}")
+                
+            self.log_helper.log(self.logger, 'info', "Waiting additional 2 seconds for page to stabilize...")
             self.page.wait_for_timeout(2000)
+            
+            # Log the current page state
+            self.log_helper.log(self.logger, 'info', f"Current URL after page load: {self.page.url}")
+            try:
+                page_title = self.page.title()
+                self.log_helper.log(self.logger, 'info', f"Page title: {page_title}")
+            except Exception as e:
+                self.log_helper.log(self.logger, 'warning', f"Could not get page title: {str(e)}")
+                
+            # Log all buttons on the page for debugging
+            try:
+                self.log_helper.log(self.logger, 'info', "Logging all buttons on the page...")
+                buttons = self.page.query_selector_all('button')
+                self.log_helper.log(self.logger, 'info', f"Found {len(buttons)} buttons on the page")
+                for idx, btn in enumerate(buttons):
+                    try:
+                        text = btn.text_content()
+                        visible = btn.is_visible()
+                        enabled = btn.is_enabled()
+                        classes = btn.get_attribute('class')
+                        self.log_helper.log(self.logger, 'info', f"Button {idx + 1}:")
+                        self.log_helper.log(self.logger, 'info', f"  - Text: {text}")
+                        self.log_helper.log(self.logger, 'info', f"  - Visible: {visible}")
+                        self.log_helper.log(self.logger, 'info', f"  - Enabled: {enabled}")
+                        self.log_helper.log(self.logger, 'info', f"  - Classes: {classes}")
+                    except Exception as e:
+                        self.log_helper.log(self.logger, 'info', f"Error inspecting button {idx + 1}: {str(e)}")
+            except Exception as e:
+                self.log_helper.log(self.logger, 'warning', f"Error finding buttons: {str(e)}")
+            
             # Step 1: Click the left-panel Delete button (try several selectors and log all candidates)
             delete_selectors = [
                 "button[title='Delete']",
@@ -1514,83 +1569,134 @@ class AccountManager(BasePage):
                 "input[value='Delete']",
                 "a[title='Delete']",
                 "a:has-text('Delete')",
+                "button.slds-button.slds-button_neutral[name='Delete']",  # New selector
+                "button[class='slds-button slds-button_neutral'][name='Delete']",  # Alternative format
+                "button[part='button'][name='Delete']",  # Another alternative
             ]
             delete_btn = None
+            self.log_helper.log(self.logger, 'info', "Starting delete button search...")
             for selector in delete_selectors:
                 try:
+                    self.log_helper.log(self.logger, 'info', f"Trying selector: {selector}")
                     elements = self.page.query_selector_all(selector)
-                    for el in elements:
+                    self.log_helper.log(self.logger, 'info', f"Found {len(elements)} elements for selector {selector}")
+                    for idx, el in enumerate(elements):
                         try:
                             visible = el.is_visible()
                             enabled = el.is_enabled()
                             text = el.text_content()
                             attrs = el.get_attribute('outerHTML')
-                            self.log_helper.log(self.logger, 'info', f"Delete button candidate: selector={selector}, visible={visible}, enabled={enabled}, text={text}, outerHTML={attrs}")
+                            classes = el.get_attribute('class')
+                            self.log_helper.log(self.logger, 'info', f"Element {idx + 1} for selector {selector}:")
+                            self.log_helper.log(self.logger, 'info', f"  - Visible: {visible}")
+                            self.log_helper.log(self.logger, 'info', f"  - Enabled: {enabled}")
+                            self.log_helper.log(self.logger, 'info', f"  - Text: {text}")
+                            self.log_helper.log(self.logger, 'info', f"  - Classes: {classes}")
+                            self.log_helper.log(self.logger, 'info', f"  - HTML: {attrs}")
                             if visible and enabled:
                                 delete_btn = el
+                                self.log_helper.log(self.logger, 'info', f"Found suitable delete button with selector: {selector}")
                                 break
                         except Exception as e:
-                            self.log_helper.log(self.logger, 'info', f"Error checking delete button candidate: {e}")
+                            self.log_helper.log(self.logger, 'info', f"Error checking element {idx + 1} for selector {selector}: {str(e)}")
                     if delete_btn:
-                        self.log_helper.log(self.logger, 'info', f"Found delete button with selector: {selector}")
                         break
                 except Exception as e:
-                    self.log_helper.log(self.logger, 'info', f"Error finding delete button with selector {selector}: {e}")
+                    self.log_helper.log(self.logger, 'info', f"Error finding elements with selector {selector}: {str(e)}")
                     continue
+
             if not delete_btn:
                 self.log_helper.log(self.logger, 'error', "Could not find enabled/visible left-panel Delete button with any selector")
                 self.page.screenshot(path="delete-btn-not-found.png")
                 self.log_helper.dedent()
                 return False
+
             try:
+                self.log_helper.log(self.logger, 'info', "Attempting to click delete button...")
+                delete_btn.scroll_into_view_if_needed()
+                self.log_helper.log(self.logger, 'info', "Scrolled delete button into view")
+                self.page.wait_for_timeout(1000)  # Wait for scroll to complete
                 delete_btn.click()
                 self.log_helper.log(self.logger, 'info', "Clicked left-panel Delete button.")
             except Exception as e:
-                self.log_helper.log(self.logger, 'error', f"Error clicking left-panel Delete button: {e}")
+                self.log_helper.log(self.logger, 'error', f"Error clicking left-panel Delete button: {str(e)}")
                 self.page.screenshot(path="delete-btn-click-error.png")
                 self.log_helper.dedent()
                 return False
+
             self.page.wait_for_timeout(1000)
+
             # Step 2: Wait for the modal and confirm deletion
+            self.log_helper.log(self.logger, 'info', "Waiting for delete confirmation modal...")
             try:
-                self.page.wait_for_selector('button[title="Delete"] span.label.bBody', timeout=5000)
-            except Exception:
-                self.log_helper.log(self.logger, 'error', "Delete confirmation modal did not appear after clicking delete button")
-                self.page.screenshot(path="delete-modal-not-found.png")
-                self.log_helper.dedent()
-                return False
-            # Log modal text for debugging
-            try:
-                modal = self.page.query_selector('div[role="dialog"]')
+                modal = self.page.wait_for_selector('div[role="dialog"]', timeout=5000)
                 if modal:
                     modal_text = modal.text_content()
                     self.log_helper.log(self.logger, 'info', f"Delete modal text: {modal_text}")
-            except Exception:
-                pass
-            # Click the modal's Delete button using the provided selector
+                else:
+                    self.log_helper.log(self.logger, 'error', "Modal element found but is None")
+            except Exception as e:
+                self.log_helper.log(self.logger, 'error', f"Delete confirmation modal did not appear: {str(e)}")
+                self.page.screenshot(path="delete-modal-not-found.png")
+                self.log_helper.dedent()
+                return False
+
+            # Log all buttons in the modal for debugging
             try:
-                modal_delete_btn_span = self.page.wait_for_selector('button[title="Delete"] span.label.bBody', timeout=5000)
-                if not modal_delete_btn_span:
-                    self.log_helper.log(self.logger, 'error', "Could not find modal Delete button span.label.bBody")
+                modal_buttons = self.page.query_selector_all('div[role="dialog"] button')
+                self.log_helper.log(self.logger, 'info', f"Found {len(modal_buttons)} buttons in modal")
+                for idx, btn in enumerate(modal_buttons):
+                    try:
+                        text = btn.text_content()
+                        visible = btn.is_visible()
+                        enabled = btn.is_enabled()
+                        classes = btn.get_attribute('class')
+                        self.log_helper.log(self.logger, 'info', f"Modal button {idx + 1}:")
+                        self.log_helper.log(self.logger, 'info', f"  - Text: {text}")
+                        self.log_helper.log(self.logger, 'info', f"  - Visible: {visible}")
+                        self.log_helper.log(self.logger, 'info', f"  - Enabled: {enabled}")
+                        self.log_helper.log(self.logger, 'info', f"  - Classes: {classes}")
+                    except Exception as e:
+                        self.log_helper.log(self.logger, 'info', f"Error inspecting modal button {idx + 1}: {str(e)}")
+            except Exception as e:
+                self.log_helper.log(self.logger, 'info', f"Error finding modal buttons: {str(e)}")
+
+            # Click the modal's Delete button
+            try:
+                self.log_helper.log(self.logger, 'info', "Looking for modal delete button...")
+                modal_delete_btn = self.page.wait_for_selector('button[title="Delete"]', timeout=5000)
+                if not modal_delete_btn:
+                    self.log_helper.log(self.logger, 'error', "Could not find modal Delete button")
                     self.page.screenshot(path="modal-delete-btn-not-found.png")
                     self.log_helper.dedent()
                     return False
-                modal_delete_btn_span.click()
+
+                self.log_helper.log(self.logger, 'info', "Found modal delete button, attempting to click...")
+                modal_delete_btn.scroll_into_view_if_needed()
+                self.page.wait_for_timeout(1000)  # Wait for scroll to complete
+                modal_delete_btn.click()
                 self.log_helper.log(self.logger, 'info', "Clicked modal Delete button.")
             except Exception as e:
-                self.log_helper.log(self.logger, 'error', f"Error clicking modal Delete button: {e}")
+                self.log_helper.log(self.logger, 'error', f"Error clicking modal Delete button: {str(e)}")
                 self.page.screenshot(path="modal-delete-btn-click-error.png")
                 self.log_helper.dedent()
                 return False
+
             # Wait for the modal to close
             try:
-                self.page.wait_for_selector('button[title="Delete"] span.label.bBody', state='detached', timeout=8000)
+                self.log_helper.log(self.logger, 'info', "Waiting for modal to close...")
+                self.page.wait_for_selector('div[role="dialog"]', state='detached', timeout=8000)
                 self.log_helper.log(self.logger, 'info', "Delete confirmation modal closed.")
-            except Exception:
-                self.log_helper.log(self.logger, 'warning', "Delete confirmation modal did not close in time.")
+            except Exception as e:
+                self.log_helper.log(self.logger, 'warning', f"Delete confirmation modal did not close in time: {str(e)}")
+
             # Wait for deletion confirmation (toast)
             try:
-                self.page.wait_for_selector('div.slds-notify_toast, div.slds-notify--toast', timeout=15000)
+                self.log_helper.log(self.logger, 'info', "Waiting for deletion confirmation toast...")
+                toast = self.page.wait_for_selector('div.slds-notify_toast, div.slds-notify--toast', timeout=15000)
+                if toast:
+                    toast_text = toast.text_content()
+                    self.log_helper.log(self.logger, 'info', f"Found toast message: {toast_text}")
                 self.log_helper.log(self.logger, 'info', f"Successfully deleted account: {full_name}")
                 self.log_helper.dedent()
                 self.log_helper.log_timing(self.logger, f"delete_account for: {full_name}")
