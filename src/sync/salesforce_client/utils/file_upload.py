@@ -170,7 +170,7 @@ def upload_account_files(page: Page, account: dict, debug_mode: bool = True, max
                     
                     # Check if file exists in the account
                     logging.info(f"Checking if file {os.path.basename(file_path)} already exists in the account")
-                    num_files = account_manager.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
+                    num_files = account_manager.navigate_to_files_and_get_number_of_account_files(account_id)
                     if isinstance(num_files, str) or num_files > 0:
                         file_name_of_file_to_upload = f"{os.path.splitext(os.path.basename(file_path))[0]}"
                         logging.info(f"file_name_of_file_to_upload: {file_name_of_file_to_upload}")

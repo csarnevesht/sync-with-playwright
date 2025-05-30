@@ -62,6 +62,8 @@ import os
 import sys
 import argparse
 import time
+
+from sync import salesforce_client
 from src.sync.utils.duration import format_duration
 from playwright.sync_api import sync_playwright, TimeoutError
 import logging
@@ -457,8 +459,9 @@ def run_command(args):
             if args.commands or args.commands_file:
                 from src.sync.command_runner import CommandRunner
                 command_runner = CommandRunner(args)
-                command_runner.set_context('dropbox_root_folder', dropbox_root_folder)
+                command_runner.set_context('salesforce_client', salesforce_client)
                 command_runner.set_context('dropbox_client', dropbox_client)
+                command_runner.set_context('dropbox_root_folder', dropbox_root_folder)
                 command_runner.set_context('browser', browser)
                 command_runner.set_context('page', page)
                 command_runner.set_context('account_manager', account_manager)
@@ -580,23 +583,28 @@ def run_command(args):
                     account_to_check = salesforce_matches[0] if isinstance(salesforce_matches, list) else salesforce_matches 
                     # Navigate to the account and get its ID
                     if account_manager.click_account_name(account_to_check):
-                        is_valid, account_id = account_manager.verify_account_page_url()
-                        if is_valid and account_id:
+                        is_valid, salesforce_account_id = account_manager.verify_account_page_url()
+                        if is_valid and salesforce_account_id:
+                            logger.info(f"salesforce_account_id: {salesforce_account_id}")
+                            if command_runner:  
+                                command_runner.set_data('salesforce_account_id', salesforce_account_id)
+
                             # Navigate to files section
                             logger.info("Navigating to files section")
-                            logger.info(f"account_id: {account_id}")
-                            num_files = account_manager.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
+                            logger.info(f"salesforce_account_id: {salesforce_account_id}")
+                            num_files = account_manager.navigate_to_files_and_get_number_of_account_files(salesforce_account_id)
                             if num_files == -1:
                                 logging.error("Failed to navigate to Files")
                                 report_logger.info("Failed to navigate to Files")
                                 return []
-                            
-                            salesforce_files = file_manager.get_all_file_names()
-                            logger.info(f"Found {len(salesforce_files)} files in Salesforce")
+                            # CAROLINA HERE
+                            salesforce_acount_file_names = account_manager.get_salesforce_account_file_names(salesforce_account_id)
+                            logger.info(f"Found {len(salesforce_acount_file_names)} files in Salesforce")
 
                             if command_runner:
-                                command_runner.set_data('salesforce_files', salesforce_files)
                                 command_runner.set_data('dropbox_account_folder_name', dropbox_account_folder_name)
+                                command_runner.set_data('salesforce_acount_file_names', salesforce_acount_file_names)
+
                         else:
                             logger.error(f"Could not verify account page or get account ID for: {account_to_check}")
                             report_logger.info(f"Could not verify account page or get account ID for: {account_to_check}")
