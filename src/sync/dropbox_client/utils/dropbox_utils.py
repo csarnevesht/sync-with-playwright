@@ -257,25 +257,14 @@ class DropboxClient:
                 
         Returns:
             Dict[str, Dict]: A dictionary containing:
-                - account_name_info (dict): The original account_name_info dictionary
-                    - folder_name (str): Original account folder name
-                    - first_name (str): Extracted first name
-                    - last_name (str): Extracted last name
-                    - middle_name (str): Extracted middle name
-                    - additional_info (str): Any additional information found in parentheses
-                    - full_name (str): Full name if available
-                    - normalized_names (list): List of normalized name variations for matching
-                    - swapped_names (list): List of name variations with swapped first/last names
-                    - expected_matches (list): List of expected name matches for special cases
-                    - status (str): Initial search status ('not_found')
-                    - matches (list): Empty list for storing search matches
-                    - search_attempts (list): Empty list for storing search attempts
-                    - timing (dict): Empty dict for storing timing information
-                    - match_info (dict): Initial match information with:
-                        - match_status (str): Initial status message
-                        - total_exact_matches (int): Initial count of exact matches
-                        - total_partial_matches (int): Initial count of partial matches
-                        - total_no_matches (int): Initial count of no matches
+                - account_name_info (dict): The original account_name_info dictionary with updated:
+                    - status (str): Search status ('not_found' or 'found')
+                    - matches (list): List of search matches
+                    - match_info (dict): Match information with:
+                        - match_status (str): Status message
+                        - total_exact_matches (int): Count of exact matches
+                        - total_partial_matches (int): Count of partial matches
+                        - total_no_matches (int): Count of no matches
                 - account_data (dict): Extracted account information with keys:
                     - name (str): Full name from Excel
                     - first_name (str): First name if available
@@ -297,27 +286,33 @@ class DropboxClient:
             Exception: Any error during the extraction process is caught and logged
         """
         try:
+            # Initialize account_name_info with search status fields
+            account_name_info.update({
+                'status': 'not_found',
+                'matches': [],
+                'match_info': {
+                    'match_status': 'No matches found',
+                    'total_exact_matches': 0,
+                    'total_partial_matches': 0,
+                    'total_no_matches': 1
+                }
+            })
+            
             dropbox_account_data = {}
             dropbox_account_info = {
                 'account_name_info': account_name_info,
                 'account_data': dropbox_account_data
             }
 
-
-
-            logging.info(f"***account_name_info: {account_name_info}")
+            logging.info(f"\n👤 Dropbox Account Data: '{account_name}'")
+            logging.info(f"   Status: {account_name_info['status']}")
+            logging.info(f"   Match Status: {account_name_info['match_info']['match_status']}")
 
             last_name = account_name_info.get('last_name', '')
             full_name = account_name_info.get('full_name', '')
             normalized_names = account_name_info.get('normalized_names', [])
             swapped_names = account_name_info.get('swapped_names', [])
             expected_matches = account_name_info.get('expected_matches', [])
-            logging.info(f"dropbox_account_info: {dropbox_account_info}")
-            logging.info(f"last_name: {last_name}")
-            logging.info(f"full_name: {full_name}")
-            logging.info(f"normalized_names: {normalized_names}")
-            logging.info(f"swapped_names: {swapped_names}")
-            logging.info(f"expected_matches: {expected_matches}")
             
             # Get the holiday file
             holiday_file = self.get_dropbox_holiday_file()
@@ -340,21 +335,18 @@ class DropboxClient:
                     # Assuming the name column is called 'Name' or similar
                     name_columns = ['Last Name', 'First Name', 'Address', 'Email', 'Phone Number']
                     name_col = next((col for col in name_columns if col in df.columns), None)
-                    logging.info(f"name_col: {name_col}")
                     
                     if not name_col:
                         logging.error("Could not find name column in holiday file")
                         return dropbox_account_info
                     
                     # Find the row with matching account name
-                    logging.info(f"searching for {last_name} in {name_col}")
                     account_row = df[df[name_col].str.contains(last_name, case=False, na=False)]
                     
                     if account_row.empty:
                         logging.warning(f"Could not find account '{last_name}' in holiday file")
                         return dropbox_account_info
                     
-                    logging.info(f"account_row: {account_row}")
                     # Extract information from the row
                     dropbox_account_data['name'] = account_row[name_col].iloc[0]
 
@@ -362,60 +354,76 @@ class DropboxClient:
                     first_name_columns = ['First Name']
                     first_name_col = next((col for col in first_name_columns if col in df.columns), None)
                     if first_name_col:
-                        dropbox_account_data['first_name'] = account_row[first_name_col].iloc[0]
+                        value = account_row[first_name_col].iloc[0]
+                        dropbox_account_data['first_name'] = '' if pd.isna(value) else str(value).strip()
                     
                     # Look for last name
                     last_name_columns = ['Last Name']           
                     last_name_col = next((col for col in last_name_columns if col in df.columns), None)
                     if last_name_col:
-                        dropbox_account_data['last_name'] = account_row[last_name_col].iloc[0]
-
+                        value = account_row[last_name_col].iloc[0]
+                        dropbox_account_data['last_name'] = '' if pd.isna(value) else str(value).strip()
 
                     # Look for address
                     address_columns = ['Address']
                     address_col = next((col for col in address_columns if col in df.columns), None)
                     if address_col:
-                        dropbox_account_data['address'] = account_row[address_col].iloc[0]
+                        value = account_row[address_col].iloc[0]
+                        dropbox_account_data['address'] = '' if pd.isna(value) else str(value).strip()
 
                     # Look for City
                     city_columns = ['City']
                     city_col = next((col for col in city_columns if col in df.columns), None)
                     if city_col:
-                        dropbox_account_data['city'] = account_row[city_col].iloc[0]
+                        value = account_row[city_col].iloc[0]
+                        dropbox_account_data['city'] = '' if pd.isna(value) else str(value).strip()
                     
                     # Look for State    
                     state_columns = ['State']
                     state_col = next((col for col in state_columns if col in df.columns), None)
                     if state_col:
-                        dropbox_account_data['state'] = account_row[state_col].iloc[0]
+                        value = account_row[state_col].iloc[0]
+                        dropbox_account_data['state'] = '' if pd.isna(value) else str(value).strip()
                     
                     # Look for Zip Code 
                     zip_columns = ['Zip Code']
                     zip_col = next((col for col in zip_columns if col in df.columns), None)
                     if zip_col:
-                        dropbox_account_data['zip'] = account_row[zip_col].iloc[0]
+                        value = account_row[zip_col].iloc[0]
+                        dropbox_account_data['zip'] = '' if pd.isna(value) else str(value).strip()
                     
                     # Look for Email
                     email_columns = ['Email']
                     email_col = next((col for col in email_columns if col in df.columns), None)
                     if email_col:
-                        dropbox_account_data['email'] = account_row[email_col].iloc[0]
-                    
+                        value = account_row[email_col].iloc[0]
+                        dropbox_account_data['email'] = '' if pd.isna(value) else str(value).strip()
                     
                     # Look for phone
                     phone_columns = ['Phone', 'Phone Number', 'Contact Number']
                     phone_col = next((col for col in phone_columns if col in df.columns), None)
                     if phone_col:
-                        dropbox_account_data['phone'] = account_row[phone_col].iloc[0]
+                        value = account_row[phone_col].iloc[0]
+                        dropbox_account_data['phone'] = '' if pd.isna(value) else str(value).strip()
                 
+                    # Update status and match info since we found a match
+                    account_name_info['status'] = 'found'
+                    account_name_info['match_info'] = {
+                        'match_status': 'Found exact match in holiday file',
+                        'total_exact_matches': 1,
+                        'total_partial_matches': 0,
+                        'total_no_matches': 0
+                    }
                     
-                    logging.info(f"Successfully extracted account info for {account_name}")
-                    dropbox_account_info = {}
-                    dropbox_account_info['account_name_info'] = account_name_info
-                    dropbox_account_info['account_data'] = dropbox_account_data
-                    logging.info(f"***account_info: {dropbox_account_info}")
-
-
+                    # Log the found information
+                    logging.info(f"   Found match in holiday file:")
+                    for key, value in dropbox_account_data.items():
+                        # Skip empty values, None, and 'nan' values
+                        if value and str(value).strip().lower() not in ['nan', 'none', '']:
+                            # Format the key for display (e.g., 'first_name' -> 'First Name')
+                            display_key = ' '.join(word.capitalize() for word in key.split('_'))
+                            logging.info(f"   {display_key}: {value}")
+                    
                     return dropbox_account_info
                     
                 finally:
@@ -427,7 +435,7 @@ class DropboxClient:
 
         except Exception as e:
             logging.error(f"Error getting account info for {account_name}: {e}")
-            return {}
+            return dropbox_account_info
 
     def parse_account_name(self, folder_name: str) -> Tuple[str, str, Optional[str]]:
         """Parse account name into first, last, and middle names."""
