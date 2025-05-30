@@ -8,6 +8,7 @@ from ..pages.accounts_page import AccountsPage
 import logging
 from ..pages.file_manager import SalesforceFileManager
 from ..pages.account_manager import AccountManager
+from typing import Optional
 
 
 
@@ -23,7 +24,7 @@ def upload_account_file(page: Page, file_to_upload: str, expected_items: int = 1
     Returns:
         bool: True if the file was uploaded successfully, False otherwise
     """
-    logging.info("\nStarting file upload...")
+    logging.info("\nStarting file upload...upload_account_file")
     file_name = os.path.basename(file_to_upload)
     
     logging.info(f"\nUploading file: {file_name}")
@@ -31,7 +32,7 @@ def upload_account_file(page: Page, file_to_upload: str, expected_items: int = 1
     
     try:
         # Click Add Files button for each file
-        add_files_button = page.wait_for_selector('div[title="Add Files"]', timeout=4000)
+        add_files_button = page.wait_for_selector('div[title="Add Files"]', timeout=3000)
         if add_files_button and add_files_button.is_visible():
             logging.info("Found 'Add Files' button")
             add_files_button.click()
@@ -39,12 +40,14 @@ def upload_account_file(page: Page, file_to_upload: str, expected_items: int = 1
         
         # Wait for the upload dialog
         logging.info("Waiting for upload dialog...")
-        page.wait_for_selector('div.modal-container', timeout=2000)
+        page.wait_for_selector('div.modal-container', timeout=3000)
         
         # Set single file to upload
         logging.info(f"\nSetting file to upload: {file_name}")
         page.set_input_files('input[type="file"]', [file_to_upload])
         logging.info("File set for upload")
+        logging.info('sleeping')
+        time.sleep(30)
         
         # Wait for upload to complete
         logging.info("\nWaiting for upload to complete...")
@@ -74,11 +77,11 @@ def upload_account_file(page: Page, file_to_upload: str, expected_items: int = 1
         
         # Now check the number of items
         logging.info("Checking number of items...")
-        files = page.wait_for_selector('h1[title="Files"].slds-page-header__title', timeout=4000)
+        files = page.wait_for_selector('h1[title="Files"].slds-page-header__title', timeout=6000)
         if files:
             logging.info("Files page is visible")
             # Wait a moment for the files to appear
-            time.sleep(1)
+           
             # Check for the number of items
             items_text = page.locator('span[aria-live="polite"].countSortedByFilteredBy').first.text_content()
             logging.info(f"Items text: {items_text}")
@@ -242,3 +245,67 @@ def upload_account_files(page: Page, account: dict, debug_mode: bool = True, max
         logging.error(f"Error in upload_files_for_account: {str(e)}")
         page.screenshot(path="upload-error-main.png")
         return False 
+
+def upload_account_file_with_retries(page: Page, file_path: str, expected_items: int = 1, max_retries: int = 10, retry_delay: float = 1.0) -> bool:
+    """Upload a file to Salesforce account with retry logic.
+    
+    Args:
+        page: Playwright page object
+        file_path: Path to the file to upload
+        max_retries: Maximum number of retry attempts (default: 10)
+        retry_delay: Delay between retries in seconds (default: 1.0)
+        
+    Returns:
+        bool: True if upload succeeded, False otherwise
+    """
+    logger = logging.getLogger(__name__)
+    logger.info(f"upload_account_file_with_retries")
+    
+    # Extract account ID from current URL
+    current_url = page.url
+    pattern = r'Account/([^/]+)/'
+    match = re.search(pattern, current_url)
+    if not match:
+        logger.error("Could not extract account ID from URL")
+        return False
+    
+    account_id = match.group(1)
+    logger.info(f"Extracted account ID: {account_id}")
+    
+    account_manager = AccountManager(page, debug_mode=True)
+    account_manager.current_account_id = account_id
+    file_manager = SalesforceFileManager(page, debug_mode=True)
+    
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"Upload attempt {attempt + 1}/{max_retries} for file: {file_path}")
+        
+            
+            if upload_account_file(page, file_path, expected_items):
+                logger.info(f"Successfully uploaded file on attempt {attempt + 1}: {file_path}")
+                return True
+            
+            logger.warning(f"Upload failed on attempt {attempt + 1}/{max_retries}")
+            
+            # Navigate back to account page before retry
+            logger.info("Navigating back to account page before retry...")
+            account_manager.navigate_back_to_account_page()
+
+            # Navigate to Files section before each attempt
+            logger.info("Navigating to Files section...")
+            num_files = file_manager.navigate_to_files_click_on_files_card_to_facilitate_upload()
+            logger.info(f"Number of files in account: {num_files}")
+            
+            if attempt < max_retries - 1:
+                logger.info(f"Waiting {retry_delay} seconds before retry...")
+                time.sleep(retry_delay)
+                
+        except Exception as e:
+            logger.error(f"Error during upload attempt {attempt + 1}: {str(e)}")
+            if attempt < max_retries - 1:
+                
+                logger.info(f"Waiting {retry_delay} seconds before retry...")
+                time.sleep(retry_delay)
+    
+    logger.error(f"Failed to upload file after {max_retries} attempts: {file_path}")
+    return False 
