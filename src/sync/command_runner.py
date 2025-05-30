@@ -15,6 +15,7 @@ import os
 
 from sync.dropbox_client.utils.dropbox_utils import get_renamed_path, list_dropbox_folder_contents
 from sync.dropbox_client.utils.file_utils import log_renamed_file
+from sync.salesforce_client.utils.file_upload import upload_account_file, upload_account_file_with_retries
 
 class CommandRunner:
     """Handles execution of sync commands between Dropbox and Salesforce."""
@@ -377,13 +378,15 @@ class CommandRunner:
         
         try:
             # Get required context
+            browser = self.get_context('browser')
+            page = self.get_context('page')
             dropbox_client = self.get_context('dropbox_client')
             dropbox_root_folder = self.get_context('dropbox_root_folder')
             dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
             dropbox_salesforce_folder = dropbox_client.get_dropbox_salesforce_folder()
             file_manager = self.get_context('file_manager')
 
-            # Construct source and destination paths
+            # Construct source path
             source_path = f"/{dropbox_salesforce_folder}/{dropbox_account_folder_name}"
             
             # Clean paths for Dropbox API
@@ -410,27 +413,46 @@ class CommandRunner:
                 self.report_logger.info("\nNo files found to upload to Salesforce")
                 return
             
-            # Download all files from Dropbox to local folder
+            # Create a temporary directory for downloads
+            temp_dir = os.path.join(os.getcwd(), 'temp_downloads')
+            os.makedirs(temp_dir, exist_ok=True)
+            
             try:
+                # Download and upload each file
+                self.logger.info(f"files: {files}")
                 for file in files:
                     if isinstance(file, dropbox.files.FileMetadata):
-                        self.logger.info(f"Downloading file: {file}")
-                        self.report_logger.info(f"\nDownloading file: {file}")
-                        dropbox_client.dbx.files_download_to_file(file, file) 
-                        # Upload file to Salesforce
-                        file_manager.upload_salesforce_file(file)
+                        self.logger.info(f"Processing file: {file.name}")
+                        self.report_logger.info(f"\nProcessing file: {file.name}")
+                        
+                        # Download file from Dropbox
+                        logging.info(f"Downloading file: {file.name}")
+                        local_path = os.path.join(temp_dir, file.name)
+                        self.logger.info(f"Downloading to: {local_path}")
+                        dropbox_client.dbx.files_download_to_file(local_path, file.path_display)
+                        
+                        # Upload file to Salesforce via browser with retries
+                        self.logger.info(f"Uploading to Salesforce: {file.name}")
+                        logging.info(f"Uploading file: {local_path}")
+                        if not upload_account_file_with_retries(page, local_path):
+                            logging.error(f"Failed to upload file after all retries: {local_path}")
+                            if not self.args.continue_on_error:
+                                raise Exception(f"Failed to upload file: {local_path}")
+                        
+                        # Clean up the downloaded file
+                        os.remove(local_path)
+                        self.logger.info(f"Cleaned up temporary file: {local_path}")
                 
-            except dropbox.exceptions.ApiError as e:
-                if not e.error.is_path() or not e.error.get_path().is_not_found():
-                    # Re-raise if it's not a "not found" error
-                    raise
-            
-            # Copy folder to Salesforce
-            self.logger.info(f"Copying folder from {source_path} to {dest_path}")
-            self.report_logger.info(f"\nCopying folder from {source_path} to {dest_path}")
-            
-            # Use the Dropbox API to copy the folder
-            dropbox_client.dbx.files_copy_v2(source_path, dest_path)
+            except Exception as e:
+                self.logger.error(f"Error processing files: {str(e)}")
+                raise
+            finally:
+                # Clean up temporary directory
+                try:
+                    os.rmdir(temp_dir)
+                    self.logger.info(f"Cleaned up temporary directory: {temp_dir}")
+                except Exception as e:
+                    self.logger.warning(f"Could not remove temporary directory {temp_dir}: {str(e)}")
             
             self.logger.info("Successfully completed upload-salesforce-account-files operation")
             self.report_logger.info("\nSuccessfully completed upload-salesforce-account-files operation")
