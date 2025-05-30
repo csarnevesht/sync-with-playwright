@@ -13,7 +13,7 @@ from datetime import datetime
 import dropbox
 import os
 
-from sync.dropbox_client.utils.dropbox_utils import get_renamed_path, list_folder_contents
+from sync.dropbox_client.utils.dropbox_utils import get_renamed_path, list_dropbox_folder_contents
 from sync.dropbox_client.utils.file_utils import log_renamed_file
 
 class CommandRunner:
@@ -284,14 +284,14 @@ class CommandRunner:
             dropbox_client.dbx.files_copy_v2(source_path, dest_path)
 
             # List all files in the source folder to get original modified dates
-            source_files = list_folder_contents(dropbox_client.dbx, source_path)
+            source_files = list_dropbox_folder_contents(dropbox_client.dbx, source_path)
             source_file_dates = {}
             for file in source_files:
                 if isinstance(file, dropbox.files.FileMetadata):
                     source_file_dates[file.name] = file.server_modified
 
             # List all files in the copied folder
-            dest_files = list_folder_contents(dropbox_client.dbx, dest_path)
+            dest_files = list_dropbox_folder_contents(dropbox_client.dbx, dest_path)
             
             # Process each file
             for file in dest_files:
@@ -381,17 +381,15 @@ class CommandRunner:
             dropbox_root_folder = self.get_context('dropbox_root_folder')
             dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
             dropbox_salesforce_folder = dropbox_client.get_dropbox_salesforce_folder()
-            
+            file_manager = self.get_context('file_manager')
+
             # Construct source and destination paths
-            source_path = f"/{dropbox_root_folder}/{dropbox_account_folder_name}"
-            dest_path = f"/{dropbox_salesforce_folder}/{dropbox_account_folder_name}"
+            source_path = f"/{dropbox_salesforce_folder}/{dropbox_account_folder_name}"
             
             # Clean paths for Dropbox API
             source_path = source_path.replace('//', '/')
-            dest_path = dest_path.replace('//', '/')
             
             self.logger.info(f"Source path: {source_path}")
-            self.logger.info(f"Destination path: {dest_path}")
             
             # Check if source folder exists
             try:
@@ -405,30 +403,22 @@ class CommandRunner:
                 raise
             
             # List all files in source folder
-            files = list_folder_contents(dropbox_client.dbx, source_path)
+            files = list_dropbox_folder_contents(dropbox_client.dbx, source_path)
             
             if not files:
-                self.logger.info("No files found to upload")
-                self.report_logger.info("\nNo files found to upload")
+                self.logger.info("No files found to upload to Salesforce")
+                self.report_logger.info("\nNo files found to upload to Salesforce")
                 return
             
-            # Check if destination folder exists
+            # Download all files from Dropbox to local folder
             try:
-                dropbox_client.dbx.files_get_metadata(dest_path)
-                # Folder exists, prompt for deletion
-                self.logger.info(f"Folder already exists in Salesforce: {dest_path}")
-                self.report_logger.info(f"\nFolder already exists in Salesforce: {dest_path}")
-                
-                response = input(f"\nDo you want to delete the existing folder at {dest_path}? (y/N): ").strip().lower()
-                if response != 'y':
-                    self.logger.info("Operation cancelled by user")
-                    self.report_logger.info("\nOperation cancelled by user")
-                    return
-                
-                # Delete existing folder
-                self.logger.info(f"Deleting existing folder: {dest_path}")
-                self.report_logger.info(f"\nDeleting existing folder: {dest_path}")
-                dropbox_client.dbx.files_delete_v2(dest_path)
+                for file in files:
+                    if isinstance(file, dropbox.files.FileMetadata):
+                        self.logger.info(f"Downloading file: {file}")
+                        self.report_logger.info(f"\nDownloading file: {file}")
+                        dropbox_client.dbx.files_download_to_file(file, file) 
+                        # Upload file to Salesforce
+                        file_manager.upload_salesforce_file(file)
                 
             except dropbox.exceptions.ApiError as e:
                 if not e.error.is_path() or not e.error.get_path().is_not_found():
