@@ -335,7 +335,20 @@ class DropboxClient:
                     logging.info(f"account_row: {account_row}")
                     # Extract information from the row
                     dropbox_account_data['name'] = account_row[name_col].iloc[0]
+
+                    # Look for first name
+                    first_name_columns = ['First Name']
+                    first_name_col = next((col for col in first_name_columns if col in df.columns), None)
+                    if first_name_col:
+                        dropbox_account_data['first_name'] = account_row[first_name_col].iloc[0]
                     
+                    # Look for last name
+                    last_name_columns = ['Last Name']           
+                    last_name_col = next((col for col in last_name_columns if col in df.columns), None)
+                    if last_name_col:
+                        dropbox_account_data['last_name'] = account_row[last_name_col].iloc[0]
+
+
                     # Look for address
                     address_columns = ['Address']
                     address_col = next((col for col in address_columns if col in df.columns), None)

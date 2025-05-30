@@ -433,6 +433,10 @@ def analyze_accounts(args):
             account_manager.logger.report_logger = report_logger  # Add report logger
             file_manager = FileManager(page, debug_mode=True)
 
+            dropbox_client = initialize_dropbox_client()
+            if not dropbox_client:
+                    logger.error(f"Failed to initialize Dropbox client for folder {account_folder_name}. Skipping...")
+                    report_logger.info(f"Failed to initialize Dropbox client for folder {account_folder_name}. Skipping...")
 
             # Dictionary to store results for each folder
             results = {}
@@ -463,6 +467,23 @@ def analyze_accounts(args):
                 # Extract name parts
                 dropbox_account_name_data = account_manager.prepare_dropbox_account_data_for_search(account_folder_name)
                 
+                # DROPBOX ACCOUNT INFO
+                if not args.dropbox_accounts_only:
+                    try:
+                        account_name = account_folder_name
+                        dropbox_account_info = dropbox_client.get_dropbox_account_info(account_name, dropbox_account_name_data)
+                        dropbox_account_data = dropbox_account_info['account_data']
+                        logger.info(f"Dropbox Account info: {dropbox_account_info}")
+                        report_logger.info(f"\n👤 Dropbox Account Data: '{account_folder_name}'")
+                        items = dropbox_account_data.items()
+                        for key, value in dropbox_account_data.items():
+                                report_logger.info(f"   {key.title()}: {value}")
+                        continue
+                    except Exception as e:
+                        logger.error(f"Error getting Dropbox account info for folder {account_folder_name}: {str(e)}")
+                        report_logger.info(f"Error getting Dropbox account info for folder {account_folder_name}: {str(e)}")
+                        continue
+
                 # Navigate to accounts page
                 if args.salesforce_accounts:
                     logger.info('navigating to accounts page')
@@ -471,17 +492,14 @@ def analyze_accounts(args):
                         report_logger.info("Failed to navigate to accounts page")
                         continue
                 
+
                 # Get Dropbox files if requested
                 dropbox_account_files = []
-                if args.dropbox_account_files or args.dropbox_account_info:
+                if args.dropbox_account_files:
                     logger.info(f"Retrieving files for Dropbox account: {account_folder_name}")
-                    dropbox_client = initialize_dropbox_client()
-                    if not dropbox_client:
-                        logger.error(f"Failed to initialize Dropbox client for folder {account_folder_name}. Skipping...")
-                        report_logger.info(f"Failed to initialize Dropbox client for folder {account_folder_name}. Skipping...")
-                        continue 
+
                     try:
-                        # CAROLINA HERE FILES
+                        # DROPBOX ACCOUNT FILES
                         dropbox_account_files = dropbox_client.get_dropbox_account_files(account_folder_name)
                         logger.info(f"Successfully retrieved {len(dropbox_account_files)} files from Dropbox")
                         report_logger.info(f"\n📁 Dropbox account files: [account: {account_folder_name}] [files: {len(dropbox_account_files)}]")
@@ -492,16 +510,6 @@ def analyze_accounts(args):
                         logger.error(f"Failed to get files for folder {account_folder_name}: {str(e)}")
                         report_logger.info(f"Failed to get files for folder {account_folder_name}: {str(e)}")
                         continue
-
-                if args.dropbox_account_info:
-                    account_name = account_folder_name
-                    dropbox_account_info = dropbox_client.get_dropbox_account_info(account_name, dropbox_account_name_data)
-                    dropbox_account_data = dropbox_account_info['account_data']
-                    logger.info(f"Dropbox Account info: {dropbox_account_info}")
-                    report_logger.info(f"\n👤 Dropbox Account Data:")
-                    for key, value in dropbox_account_data.items():
-                        report_logger.info(f"   {key.title()}: {value}")
-                    continue
                 
                 if not args.salesforce_accounts:
                     continue
