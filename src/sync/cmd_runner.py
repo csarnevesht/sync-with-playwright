@@ -37,19 +37,19 @@ Process:
 
 Usage Examples:
     # Default behavior (lists all Dropbox accounts)
-    python -m sync.cmd_analyzer
+    python -m sync.cmd_runner
 
     # Search for a single account
-    python -m sync.cmd_analyzer --dropbox-account-name="Alexander & Armelia Rolle"
+    python -m sync.cmd_runner --dropbox-account-name="Alexander & Armelia Rolle"
 
     # Process multiple accounts from a file
-    python -m sync.cmd_analyzer --dropbox-accounts-file=accounts/fuzzy.txt
+    python -m sync.cmd_runner --dropbox-accounts-file=accounts/fuzzy.txt
 
     # Full analysis with file comparison
-    python -m sync.cmd_analyzer --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files
+    python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files
 
     # Batch processing with start index
-    python -m sync.cmd_analyzer --dropbox-accounts --account-batch-size 5 --start-from 10
+    python -m sync.cmd_runner --dropbox-accounts --account-batch-size 5 --start-from 10
 
 Output:
     - Detailed search results for each account
@@ -180,7 +180,7 @@ def setup_logging(args):
     report_logger.addHandler(report_handler)
     
     # Log the command and arguments
-    command = f"python -m sync.cmd_analyzer {format_args_for_logging(args)}"
+    command = f"python -m sync.cmd_runner {format_args_for_logging(args)}"
     root_logger.info(f"Command: {command}")
     report_logger.info(f"Command: {command}")
     

@@ -423,7 +423,7 @@ class DropboxClient:
                     # Update status and match info since we found a match
                     account_name_info['status'] = 'found'
                     account_name_info['match_info'] = {
-                        'match_status': 'Found exact match',
+                        'match_status': 'Found exact match in dropbox client list file',
                         'total_exact_matches': 1,
                         'total_partial_matches': 0,
                         'total_no_matches': 0

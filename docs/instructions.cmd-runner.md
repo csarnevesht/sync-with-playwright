@@ -34,6 +34,20 @@ clear && python -m sync.cmd_runner \
   --commands='prefix-dropbox-account-files,delete-salesforce-account,create-salesforce-account' \
   --dropbox-account-name='Matalon, Dennis'
 
+clear && python -m sync.cmd_runner \
+  --dropbox-accounts \
+  --dropbox-account-files \
+  --salesforce-accounts \
+  --salesforce-account-files \
+  --commands='prefix-dropbox-account-files,delete-salesforce-account,create-salesforce-account' \
+  --dropbox-account-name='Cedeno, Paula (Medicaid Mike)'
+
+-- prefix all dropbox folders
+clear && python -m sync.cmd_runner \
+  --dropbox-accounts \
+  --dropbox-account-files \
+  --commands='prefix-dropbox-account-files' \
+  
 
 commands/commands.txt
 prefix-dropbox-account-files

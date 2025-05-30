@@ -280,27 +280,40 @@ class CommandRunner:
             # Use the Dropbox API to copy the folder
             dropbox_client.dbx.files_copy_v2(source_path, dest_path)
 
+            # List all files in the source folder to get original modified dates
+            source_files = list_folder_contents(dropbox_client.dbx, source_path)
+            source_file_dates = {}
+            for file in source_files:
+                if isinstance(file, dropbox.files.FileMetadata):
+                    source_file_dates[file.name] = file.server_modified
+
             # List all files in the copied folder
-            files = list_folder_contents(dropbox_client.dbx, dest_path)
+            dest_files = list_folder_contents(dropbox_client.dbx, dest_path)
             
             # Process each file
-            for file in files:
+            for file in dest_files:
                 if isinstance(file, dropbox.files.FileMetadata):
-                    # Get the new name with date prefix
-                    new_name = get_renamed_path(file, file.path_display)
-                    
-                    if new_name != file.name:
-                        # Construct new path
-                        new_path = f"{os.path.dirname(file.path_display)}/{new_name}"
-                        new_path = new_path.replace('//', '/')
+                    # Get the original file's modified date
+                    original_date = source_file_dates.get(file.name)
+                    if original_date:
+                        # Create date prefix from original file's modified date
+                        date_prefix = original_date.strftime('%y%m%d')
                         
-                        # Move/rename the file
-                        self.logger.info(f"Renaming file: {file.path_display} -> {new_path}")
-                        self.report_logger.info(f"\nRenaming file: {file.path_display} -> {new_path}")
-                        dropbox_client.dbx.files_move_v2(file.path_display, new_path)
+                        # Create new name with date prefix
+                        new_name = f"{date_prefix} {file.name}"
                         
-                        # Log the renamed file
-                        log_renamed_file(file.path_display, new_name, os.path.dirname(dest_path))
+                        if new_name != file.name:
+                            # Construct new path
+                            new_path = f"{os.path.dirname(file.path_display)}/{new_name}"
+                            new_path = new_path.replace('//', '/')
+                            
+                            # Move/rename the file
+                            self.logger.info(f"Renaming file: {file.path_display} -> {new_path}")
+                            self.report_logger.info(f"\nRenaming file: {file.path_display} -> {new_path}")
+                            dropbox_client.dbx.files_move_v2(file.path_display, new_path)
+                            
+                            # Log the renamed file to the report logger
+                            self.report_logger.info(f"Renamed file: {file.path_display} -> {new_path}")
 
             self.logger.info("Successfully completed prefix-dropbox-account-files operation")
             self.report_logger.info("\nSuccessfully completed prefix-dropbox-account-files operation")
