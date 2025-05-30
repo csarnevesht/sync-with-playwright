@@ -20,6 +20,10 @@
     "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --commands='prefix-dropbox-account-files' --dropbox-account-name='Cedeno, Paula (Medicaid Mike)'"
   },
   {
+    "description": "prefix dropbox account 'McNabb, Frances daughter Pam Murphy' and store it in Dropbox Salesforce folder",
+    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --commands='prefix-dropbox-account-files' --dropbox-account-name='McNabb, Frances daughter Pam Murphy'"
+  },
+  {
     "description": "Prefix 10 dropbox accounts and store it in Dropbox Salesforce folder",
     "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --commands='prefix-dropbox-account-files' --account-batch-size 10 --start-from 0"
   },

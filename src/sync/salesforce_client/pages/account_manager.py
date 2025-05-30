@@ -1144,33 +1144,79 @@ class AccountManager(BasePage):
         Navigate to the Files related list for the given account_id.
         Returns either an integer or a string (e.g. "50+") representing the number of files.
         """
-        files_url = f"{SALESFORCE_URL}/lightning/r/Account/{account_id}/related/AttachedContentDocuments/view"
-        self.log_helper.log(self.logger, 'info', f"Checking current URL for account {account_id}")
+        self.log_helper.log(self.logger, 'info', f"****Attempting to navigate to Files...")
+        self.log_helper.log(self.logger, 'info', f"Current URL: {self.page.url}")
         
-        # Check if we're already on the correct files URL
-        current_url = self.page.url
-        if current_url != files_url:
-            self.log_helper.log(self.logger, 'info', f"Navigating to Files page for account {account_id}: {files_url}")
-            self.page.goto(files_url)
-        else:
-            self.log_helper.log(self.logger, 'info', f"Already on Files page for account {account_id}")
+        try:
+            # First try to find and click the Files card
+            files_links = self.page.locator('a.slds-card__header-link.baseCard__header-title-container')
+            found = False
             
-        file_manager_instance = file_manager.SalesforceFileManager(self.page)
-        num_files = file_manager_instance.extract_files_count_from_status()
-        self.log_helper.log(self.logger, 'info', f"Initial number of files: {num_files}")
-        
-        # Scroll to load all files if we see a "50+" count
-        if num_files > 0:
-            if isinstance(num_files, str) and '+' in str(num_files):
-                self.log_helper.log(self.logger, 'info', f"Found '{num_files}+' count, scrolling to load all files...")
-                actual_count = file_manager_instance.scroll_to_bottom_of_page()
-                if actual_count > 0:
-                    self.log_helper.log(self.logger, 'info', f"Final number of files after scrolling: {actual_count}")
-                    self.log_helper.dedent()
-                    return actual_count
+            for i in range(files_links.count()):
+                a = files_links.nth(i)
+                href = a.get_attribute('href')
+                if href and 'AttachedContentDocuments' in href:
+                    # This is the Files card
+                    a.click()
+                    self.log_helper.log(self.logger, 'info', "Clicked Files card")
+                    found = True
+                    break
             
-        self.log_helper.dedent()
-        return num_files
+            if not found:
+                # If Files card not found, try the Files tab
+                self.log_helper.log(self.logger, 'info', "Files card not found, trying Files tab...")
+                
+                # Scroll to make sure the Files tab is visible
+                self.log_helper.log(self.logger, 'info', "Scrolling to find Files tab...")
+                self.page.evaluate("window.scrollTo(0, 0)")  # First scroll to top
+                
+                # Try to find the Files tab
+                files_tab = self.page.locator('span[title="Files"]')
+                
+                # If not found, try scrolling down slowly
+                if files_tab.count() == 0:
+                    self.log_helper.log(self.logger, 'info', "Files tab not found, trying to scroll...")
+                    for i in range(0, 1000, 100):  # Scroll in increments of 100px
+                        self.page.evaluate(f"window.scrollTo(0, {i})")
+                        self.page.wait_for_timeout(100)  # Wait a bit for content to load
+                        if files_tab.count() > 0:
+                            break
+                
+                if files_tab.count() > 0:
+                    # Scroll the tab into view and click it
+                    files_tab.scroll_into_view_if_needed()
+                    self.page.wait_for_timeout(500)  # Wait for scroll to complete
+                    files_tab.click()
+                    self.log_helper.log(self.logger, 'info', "Clicked Files tab")
+                else:
+                    self.log_helper.log(self.logger, 'error', "Could not find Files tab with any of the selectors")
+                    return -1
+            
+            # Wait for the files page to load
+            self.page.wait_for_load_state('networkidle', timeout=10000)
+            
+            # Get file count using FileManager
+            file_manager_instance = file_manager.SalesforceFileManager(self.page)
+            num_files = file_manager_instance.extract_files_count_from_status()
+            self.log_helper.log(self.logger, 'info', f"Initial number of files: {num_files}")
+            
+            # Scroll to load all files if we see a "50+" count
+            if num_files > 0:
+                if isinstance(num_files, str) and '+' in str(num_files):
+                    self.log_helper.log(self.logger, 'info', f"Found '{num_files}+' count, scrolling to load all files...")
+                    actual_count = file_manager_instance.scroll_to_bottom_of_page()
+                    if actual_count > 0:
+                        self.log_helper.log(self.logger, 'info', f"Final number of files after scrolling: {actual_count}")
+                        self.log_helper.dedent()
+                        return actual_count
+            
+            self.log_helper.dedent()
+            return num_files
+            
+        except Exception as e:
+            self.log_helper.log(self.logger, 'error', f"Error navigating to Files: {str(e)}")
+            self.log_helper.dedent()
+            return -1
 
     def get_salesforce_account_file_names(self, account_id: str) -> List[str]:
         """

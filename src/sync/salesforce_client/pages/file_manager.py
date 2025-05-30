@@ -474,12 +474,12 @@ class SalesforceFileManager(BasePage):
         match = re.search(r'/Account/(\w+)/related', url)
         return match.group(1) if match else None 
 
-    def compare_salesforce_files(self, dropbox_files: List[FileMetadata], salesforce_files: List[str]) -> Dict:
+    def compare_salesforce_files(self, dropbox_account_file_names: List[FileMetadata], salesforce_acount_file_names: List[str]) -> Dict:
         """
         Compare files between Dropbox and Salesforce, logging detailed information.
         Args:
-            dropbox_files: List of FileMetadata objects from Dropbox
-            salesforce_files: List of filenames from Salesforce
+            dropbox_account_file_names: List of FileMetadata objects from Dropbox
+            salesforce_acount_file_names: List of filenames from Salesforce
         Returns:
             dict: Comparison results with detailed status for each file
         """
@@ -487,12 +487,12 @@ class SalesforceFileManager(BasePage):
         self.logger.info("Starting file comparison process")
         self.logger.info("\n" + "="*50)
         self.logger.info(f"\nInitial file counts:")
-        self.logger.info(f"  Dropbox files: {len(dropbox_files)}")
-        self.logger.info(f"  Salesforce files: {len(salesforce_files)}")
+        self.logger.info(f"  Dropbox files: {len(dropbox_account_file_names)}")
+        self.logger.info(f"  Salesforce files: {len(salesforce_acount_file_names)}")
 
         # Sort both lists by date (newest first)
-        sorted_dropbox = list(map(lambda f: parse_search_file_pattern(f.name)['full_name'], sorted(dropbox_files, key=lambda f: f.name, reverse=True)))        
-        sorted_salesforce = sorted(salesforce_files, key=lambda f: f, reverse=True)
+        sorted_dropbox = list(map(lambda f: parse_search_file_pattern(f.name)['full_name'], sorted(dropbox_account_file_names, key=lambda f: f.name, reverse=True)))        
+        sorted_salesforce = sorted(salesforce_acount_file_names, key=lambda f: f, reverse=True)
         # Log sorted lists with dates
         self.logger.info("\nDropbox files (sorted):")
         for file in sorted_dropbox:
@@ -504,7 +504,7 @@ class SalesforceFileManager(BasePage):
 
         # Initialize comparison results
         comparison = {
-            'total_files': len(dropbox_files),
+            'total_files': len(dropbox_account_file_names),
             'matched_files': 0,
             'missing_files': [],
             'extra_files': [],
