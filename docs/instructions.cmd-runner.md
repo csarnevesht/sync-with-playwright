@@ -5,13 +5,13 @@ create a command runner class in src/sync/command_runner.py which takes args whi
 
 It specifically it interprets and executes the following command args:
 
-     --commands='rename-account-files,delete-account,create-account'
+     --commands='prefix-account-files,delete-account,create-account'
      or 
      --commands-file='commands/commands.txt'
 
 commands:
-    rename-dropbox-account-files
-    rename-dropbox-account-file
+    prefix-dropbox-account-files
+    prefix-dropbox-account-file
     delete-salesforce-account
     create-salesforce-account
     delete-salesforce-account-file
@@ -31,12 +31,12 @@ clear && python -m sync.cmd_runner \
   --dropbox-account-files \
   --salesforce-accounts \
   --salesforce-account-files \
-  --commands='rename-dropbox-account-files,delete-salesforce-account,create-salesforce-account' \
+  --commands='prefix-dropbox-account-files,delete-salesforce-account,create-salesforce-account' \
   --dropbox-account-name='Matalon, Dennis'
 
 
 commands/commands.txt
-rename-dropbox-account-files
+prefix-dropbox-account-files
 delete-salesforce-account
 create-salesforce-account
 upload-salesforce-account-files
@@ -45,6 +45,18 @@ upload-salesforce-account-files
 
 
 
+for CommandRunner, most of the commands will need the following arguments:
+DropboxClient
+browser, page = get_salesforce_page(p)
+account_manager
+file_manager
 
+I would like to be able to do:
+command_runner = CommandRunner(args)
+command_runner.setContext(dropbox_client)
+command_runner.setData(dropbox_account_info)
 
-
+for CommandRunner method _prefix_dropbox_account_files the following is needed:
+dropbox_client = self.getContext('dropbox_client')
+dropbox_account_info = self.getContext('dropbox_account_info')
+dropbox_account_folders = self.getContext('dropbox_account_folders')

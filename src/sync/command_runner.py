@@ -133,7 +133,7 @@ class CommandRunner:
             command: The command to execute
         """
         command_map = {
-            'rename-dropbox-account-files': self._rename_dropbox_account_files,
+            'prefix-dropbox-account-files': self._prefix_dropbox_account_files,
             'rename-dropbox-account-file': self._rename_dropbox_account_file,
             'delete-salesforce-account': self._delete_salesforce_account,
             'create-salesforce-account': self._create_salesforce_account,
@@ -152,12 +152,12 @@ class CommandRunner:
         self.logger.info(f"Executing command handler: {command}")
         command_map[command]()
     
-    def _rename_dropbox_account_files(self) -> None:
-        """Rename files in Dropbox account folder."""
-        self.logger.info("Starting rename-dropbox-account-files operation")
-        self.report_logger.info("\n=== RENAMING DROPBOX ACCOUNT FILES ===")
-        # TODO: Implement file renaming logic
-        self.logger.info("rename-dropbox-account-files operation completed")
+    def _prefix_dropbox_account_files(self) -> None:
+        """Prefix files in Dropbox account folder with date."""
+        self.logger.info("Starting prefix-dropbox-account-files operation")
+        self.report_logger.info("\n=== PREFIXING DROPBOX ACCOUNT FILES ===")
+        # TODO: Implement file prefixing logic
+        self.logger.info("prefix-dropbox-account-files operation completed")
     
     def _rename_dropbox_account_file(self) -> None:
         """Rename a single file in Dropbox account folder."""
