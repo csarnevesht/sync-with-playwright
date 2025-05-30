@@ -228,6 +228,7 @@ class AccountManager(BasePage):
             bool: True if navigation was successful, False otherwise
         """
         self.log_helper.indent()
+        self.log_helper.log(self.logger, 'info', f"Navigating to list view URL (_navigate_to_accounts_list_view_url): {view_name}")
         try:
             # Construct the URL with the correct list view filter
             # Convert view_name to the format expected by Salesforce (e.g., "All Clients" -> "AllClients")
@@ -245,8 +246,8 @@ class AccountManager(BasePage):
             
             # Navigate to the URL
             self.page.goto(url)
-            # self.page.wait_for_load_state('networkidle', timeout=10000)
-            # self.page.wait_for_load_state('domcontentloaded', timeout=10000)
+            self.page.wait_for_load_state('networkidle', timeout=10000)
+            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
             self.log_helper.dedent()
             return True
         except Exception as e:
