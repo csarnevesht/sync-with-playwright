@@ -1204,14 +1204,16 @@ class AccountManager(BasePage):
             self.log_helper.log(self.logger, 'info', f"Initial number of files: {num_files}")
             
             # Scroll to load all files if we see a "50+" count
-            if num_files > 0:
-                if isinstance(num_files, str) and '+' in str(num_files):
-                    self.log_helper.log(self.logger, 'info', f"Found '{num_files}+' count, scrolling to load all files...")
-                    actual_count = file_manager_instance.scroll_to_bottom_of_page()
-                    if actual_count > 0:
-                        self.log_helper.log(self.logger, 'info', f"Final number of files after scrolling: {actual_count}")
-                        self.log_helper.dedent()
-                        return actual_count
+            if isinstance(num_files, str) and '+' in str(num_files):
+                self.log_helper.log(self.logger, 'info', f"Found '{num_files}+' count, scrolling to load all files...")
+                actual_count = file_manager_instance.scroll_to_bottom_of_page()
+                if actual_count > 0:
+                    self.log_helper.log(self.logger, 'info', f"Final number of files after scrolling: {actual_count}")
+                    self.log_helper.dedent()
+                    return actual_count
+            elif isinstance(num_files, int) and num_files > 0:
+                self.log_helper.dedent()
+                return num_files
             
             self.log_helper.dedent()
             return num_files
