@@ -1,4 +1,4 @@
-"""Utility functions for handling Dropbox paths."""
+"""Utility functions for handling Dropbox folders."""
 
 import urllib.parse
 import logging
@@ -85,9 +85,9 @@ def get_case_variations(path_parts: List[str]) -> List[str]:
     
     return variations
 
-def clean_dropbox_path(path: str) -> str:
+def clean_dropbox_folder_name(path: str) -> str:
     """
-    Clean and format the Dropbox path from URL or user input.
+    Clean and format the Dropbox folder from URL or user input.
     
     This function handles:
     - Removing Dropbox URL parts
@@ -96,7 +96,7 @@ def clean_dropbox_path(path: str) -> str:
     - Handling case sensitivity
     
     Args:
-        path (str): The Dropbox path to clean, can be a full URL or relative path
+        path (str): The Dropbox folder to clean, can be a full URL or relative path
         
     Returns:
         str: The cleaned and normalized path

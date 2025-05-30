@@ -211,16 +211,19 @@ class CommandRunner:
     def _prefix_dropbox_account_files(self) -> None:
         """Prefix files in Dropbox account folder with date."""
         self.logger.info("Starting prefix-dropbox-account-files operation")
-        self.report_logger.info("\n=== dACCOUNT FILES ===")
+        self.report_logger.info("\n=== PREFIXING DROPBOX ACCOUNT FILES ===")
         
         # Get required context
         try:
             dropbox_client = self.get_context('dropbox_client')
             dropbox_account_info = self.get_data('dropbox_account_info')
             dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
+            dropbox_salesforce_folder = dropbox_client.get_dropbox_salesforce_folder()
             self.logger.info(f"dropbox_client: {dropbox_client}")
             self.logger.info(f"dropbox_account_info: {dropbox_account_info}")
             self.logger.info(f"dropbox_account_folder_name: {dropbox_account_folder_name}")
+            self.logger.info(f"dropbox_salesforce_folder: {dropbox_salesforce_folder}")
+
 
 
         except KeyError as e:

@@ -17,7 +17,7 @@ import logging
 from sync.dropbox_client.utils.dropbox_utils import (
     get_access_token,
     list_folder_contents,
-    clean_dropbox_path,
+    clean_dropbox_folder_name,
     get_DROPBOX_FOLDER,
     get_folder_structure,
     display_summary
@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 def list_folders_only(dbx, path, account_folders=None, ignored_folders=None, debug=False):
     """List only folders in the given path, without their contents."""
     try:
-        clean_path = clean_dropbox_path(path)
+        clean_path = clean_dropbox_folder_name(path)
         if not clean_path:
             print(f"Invalid path: {path}")
             return {'total': 0, 'allowed': 0, 'ignored': 0, 'not_allowed': 0, 'found_ignored': set(), 'allowed_folders': set()}
@@ -115,7 +115,7 @@ def list_folders_only(dbx, path, account_folders=None, ignored_folders=None, deb
 def analyze_folder_structure(dbx, path, indent=0, account_folders=None, ignored_folders=None):
     """Recursively analyze and print the folder structure, only including files in account folders."""
     try:
-        clean_path = clean_dropbox_path(path)
+        clean_path = clean_dropbox_folder_name(path)
         if not clean_path:
             print(f"Invalid path: {path}")
             return {'total': 0, 'allowed': 0, 'ignored': 0, 'not_allowed': 0, 'files': 0}
@@ -171,10 +171,10 @@ def analyze_folder_structure(dbx, path, indent=0, account_folders=None, ignored_
         return {'total': 0, 'allowed': 0, 'ignored': 0, 'not_allowed': 0, 'files': 0}
 
 def debug_list_folders(dbx, path):
-    """List all folders in the given Dropbox path with no filtering or recursion."""
+    """List all folders in the given Dropbox folder with no filtering or recursion."""
     try:
         # Clean and validate the path
-        clean_path = clean_dropbox_path(path)
+        clean_path = clean_dropbox_folder_name(path)
         if not clean_path:
             print(f"Invalid path: {path}")
             return
@@ -194,7 +194,7 @@ def debug_list_folders(dbx, path):
         for entry in entries:
             if isinstance(entry, dropbox.files.FolderMetadata):
                 print(entry.name)
-        print(f"\n[Dropbox path used: {clean_path}]")
+        print(f"\n[Dropbox folder used: {clean_path}]")
     except ApiError as e:
         print(f"Error listing folders for {path}: {e}")
         return

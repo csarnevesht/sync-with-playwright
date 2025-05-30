@@ -20,9 +20,9 @@ import pandas as pd
 from sync.salesforce_client.pages.account_manager import LoggingHelper
 
 from .date_utils import has_date_prefix, get_folder_creation_date
-from .path_utils import clean_dropbox_path
+from .path_utils import clean_dropbox_folder_name
 from .file_utils import log_renamed_file
-from src.config import DROPBOX_FOLDER, ACCOUNT_INFO_PATTERN, DRIVERS_LICENSE_PATTERN, DROPBOX_HOLIDAY_FOLDER
+from src.config import DROPBOX_FOLDER, ACCOUNT_INFO_PATTERN, DRIVERS_LICENSE_PATTERN, DROPBOX_HOLIDAY_FOLDER, DROPBOX_SALESFORCE_FOLDER
 
 # Configure logging
 logging.basicConfig(
@@ -36,16 +36,16 @@ logger = logging.getLogger(__name__)
 # Set Dropbox logger level to WARNING to suppress INFO messages
 logging.getLogger('dropbox').setLevel(logging.WARNING)
 
-def construct_dropbox_path(account_folder: str, root_path: str) -> Optional[str]:
+def construct_dropbox_path(account_folder: str, root_folder: str) -> Optional[str]:
     """
-    Construct and validate a Dropbox path from the root folder and account folder.
+    Construct and validate a Dropbox folder from the root folder and account folder.
     
     Args:
         account_folder (str): The account folder path to append to root folder
         root_folder (str): The root folder path
             
     Returns:
-        Optional[str]: The cleaned and validated Dropbox path, or None if invalid
+        Optional[str]: The cleaned and validated Dropbox folder, or None if invalid
     """
     try:
         clean_account_folder = account_folder.strip()
@@ -53,18 +53,18 @@ def construct_dropbox_path(account_folder: str, root_path: str) -> Optional[str]
             logging.error("Account folder cannot be empty")
             return None
             
-        full_path = os.path.join(root_path, clean_account_folder)
-        clean_path = clean_dropbox_path(full_path)
+        full_path = os.path.join(root_folder, clean_account_folder)
+        clean_path = clean_dropbox_folder_name(full_path)
         
         if not clean_path:
             logging.error(f"Invalid path constructed: {full_path}")
             return None
             
-        logging.debug(f"Constructed Dropbox path: {clean_path}")
+        logging.debug(f"Constructed Dropbox folder: {clean_path}")
         return clean_path
         
     except Exception as e:
-        logging.error(f"Error constructing Dropbox path: {str(e)}")
+        logging.error(f"Error constructing Dropbox folder: {str(e)}")
         return None
 
 class DropboxClient:
@@ -86,7 +86,7 @@ class DropboxClient:
             folder = urllib.parse.unquote(path)
         
         self.root_folder = folder
-        self.root_path = clean_dropbox_path(folder)
+        self.root_folder = clean_dropbox_folder_name(folder)
 
         # Get the holiday folder from environment
         dropbox_holiday_folder = DROPBOX_HOLIDAY_FOLDER
@@ -99,12 +99,28 @@ class DropboxClient:
         
         self.dropbox_holiday_folder = dropbox_holiday_folder
         logging.info(f"Dropbox holiday folder: {dropbox_holiday_folder}")
-        self.dropbox_holiday_path = clean_dropbox_path(dropbox_holiday_folder) if dropbox_holiday_folder else None
+        self.dropbox_holiday_path = clean_dropbox_folder_name(dropbox_holiday_folder) if dropbox_holiday_folder else None
         logging.info(f"Dropbox holiday path: {self.dropbox_holiday_path}")
+
+        # Get the Salesforce folder from environment
+        dropbox_salesforce_folder = DROPBOX_SALESFORCE_FOLDER
+        if dropbox_salesforce_folder and dropbox_salesforce_folder.startswith('http'):
+            parsed_url = urllib.parse.urlparse(dropbox_salesforce_folder)
+            path = parsed_url.path.lstrip('/')
+            if path.startswith('home/'):
+                path = path[5:]
+            dropbox_salesforce_folder = urllib.parse.unquote(path)
+        
+        self.dropbox_salesforce_folder = dropbox_salesforce_folder
+        logging.info(f"Dropbox Salesforce folder: {dropbox_salesforce_folder}")
+        self.dropbox_salesforce_path = clean_dropbox_folder_name(dropbox_salesforce_folder) if dropbox_salesforce_folder else None
+        logging.info(f"Dropbox Salesforce path: {self.dropbox_salesforce_path}")
 
         logging.info(f"Initialized DropboxClient with root folder: {self.root_folder}")
         if self.dropbox_holiday_folder:
             logging.info(f"Holiday folder: {self.dropbox_holiday_folder}")
+        if self.dropbox_salesforce_folder:
+            logging.info(f"Salesforce folder: {self.dropbox_salesforce_folder}")
         if debug_mode:
             logging.info("Debug mode is enabled")
 
@@ -171,7 +187,7 @@ class DropboxClient:
     def get_dropbox_accounts(self) -> List[dropbox.files.FolderMetadata]:
         """Get all account folders under the root folder."""
         try:
-            entries = list_folder_contents(self.dbx,self.root_path)
+            entries = list_folder_contents(self.dbx,self.root_folder)
             all_account_folders = [entry.name for entry in entries if isinstance(entry, dropbox.files.FolderMetadata)]
             return all_account_folders
         except Exception as e:
@@ -182,7 +198,7 @@ class DropboxClient:
     def get_dropbox_account_names(self) -> List[str]:
         """Get all account folders under the root folder."""
         try:
-            entries = list_folder_contents(self.dbx, self.root_path)
+            entries = list_folder_contents(self.dbx, self.root_folder)
             result = [entry.name for entry in entries if isinstance(entry, dropbox.files.FolderMetadata)]            
             return result
         except Exception as e:
@@ -459,7 +475,7 @@ class DropboxClient:
         if not dropbox_path:
             return []
             
-        logging.info(f"Listing files in Dropbox path: {dropbox_path}")
+        logging.info(f"Listing files in Dropbox folder: {dropbox_path}")
         try:
             logger.info('list_files')
             # Clean the account folder name to ensure it's properly formatted
@@ -469,14 +485,14 @@ class DropboxClient:
             full_path = os.path.join(self.root_folder, clean_account_folder)
             
             # Clean the full path to ensure it's in the correct format for Dropbox API
-            dropbox_path = clean_dropbox_path(full_path)
+            dropbox_path = clean_dropbox_folder_name(full_path)
             
             if not dropbox_path:
                 logging.error(f"Invalid path constructed: {full_path}")
                 return []
                 
             logging.info(f"Listing files in path: {dropbox_path}")
-            logging.info(f"Full Dropbox path being used: {dropbox_path}")
+            logging.info(f"Full Dropbox folder being used: {dropbox_path}")
             
             # Initialize list to store all files
             all_files = []
@@ -629,6 +645,10 @@ class DropboxClient:
         except Exception as e:
             logging.error(f"Error extracting driver's license info: {e}")
             return {}
+
+    def get_dropbox_salesforce_folder(self) -> Optional[str]:
+        """Get the configured Dropbox Salesforce folder path."""
+        return self.dropbox_salesforce_path
 
 def update_env_file(env_file, token=None, root_folder=None, directory=None):
     """Update the .env file with new values."""
@@ -863,13 +883,13 @@ def get_DATA_DIRECTORY(env_file):
     
     return directory
 
-def get_root_path(env_file, report_logger) -> str:
+def get_dropbox_root_folder(env_file, report_logger) -> str:
     """Get the root path from environment or prompt user."""
     # Load environment variables
     load_dotenv(env_file)
     
     # Try to get root path from environment
-    root_path = os.getenv('ROOT_PATH')
+    root_folder = os.getenv('root_folder')
     # Get the root folder from environment
     root_folder = get_DROPBOX_FOLDER(env_file)
     if not root_folder:
@@ -881,19 +901,19 @@ def get_root_path(env_file, report_logger) -> str:
 
     # Clean and validate the path
     try:
-        root_path = clean_dropbox_path(root_folder)
-        logger.info(f"Cleaned Dropbox path: {root_path}")
+        root_folder = clean_dropbox_folder_name(root_folder)
+        logger.info(f"Cleaned Dropbox folder name: {root_folder}")
     except ValueError as e:
         logger.error(f"Invalid path format: {str(e)}")
         report_logger.info(f"\nInvalid path format: {str(e)}")
         return ''
         
-    if not root_path:
+    if not root_folder:
         logger.error(f"Invalid path: {root_folder}")
         report_logger.info(f"\nInvalid path: {root_folder}")
         return ''
     
-    return root_path
+    return root_folder
 
 
 def get_folder_structure(dbx, path=None):
@@ -914,7 +934,7 @@ def get_folder_structure(dbx, path=None):
                 raise ValueError("No Dropbox folder path specified")
         
         # Clean and validate the path
-        clean_path = clean_dropbox_path(path)
+        clean_path = clean_dropbox_folder_name(path)
         if not clean_path:
             raise ValueError(f"Invalid path: {path}")
             
