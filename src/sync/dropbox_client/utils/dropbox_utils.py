@@ -258,6 +258,24 @@ class DropboxClient:
         Returns:
             Dict[str, Dict]: A dictionary containing:
                 - account_name_info (dict): The original account_name_info dictionary
+                    - folder_name (str): Original account folder name
+                    - first_name (str): Extracted first name
+                    - last_name (str): Extracted last name
+                    - middle_name (str): Extracted middle name
+                    - additional_info (str): Any additional information found in parentheses
+                    - full_name (str): Full name if available
+                    - normalized_names (list): List of normalized name variations for matching
+                    - swapped_names (list): List of name variations with swapped first/last names
+                    - expected_matches (list): List of expected name matches for special cases
+                    - status (str): Initial search status ('not_found')
+                    - matches (list): Empty list for storing search matches
+                    - search_attempts (list): Empty list for storing search attempts
+                    - timing (dict): Empty dict for storing timing information
+                    - match_info (dict): Initial match information with:
+                        - match_status (str): Initial status message
+                        - total_exact_matches (int): Initial count of exact matches
+                        - total_partial_matches (int): Initial count of partial matches
+                        - total_no_matches (int): Initial count of no matches
                 - account_data (dict): Extracted account information with keys:
                     - name (str): Full name from Excel
                     - first_name (str): First name if available
