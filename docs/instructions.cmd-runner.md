@@ -26,8 +26,13 @@ From src/sync/cmd_runner.py run_command(args) I want to be able to call some met
 An example of how I will call cmd_runner.py follows:
 Description: (Re)Create account 'Matalon, Dennis' in Salesforce
 
-clear && python -m sync.cmd_runner --dropbox-accounts  --dropbox-account-files --salesforce-accounts --salesforce-account-files --commands='rename-dropbox-account-files,commands='delete-salesforce-account,create-salesforce-account' --dropbox-account-name='Matalon, Dennis'"
-
+clear && python -m sync.cmd_runner \
+  --dropbox-accounts \
+  --dropbox-account-files \
+  --salesforce-accounts \
+  --salesforce-account-files \
+  --commands='rename-dropbox-account-files,delete-salesforce-account,create-salesforce-account' \
+  --dropbox-account-name='Matalon, Dennis'
 
 
 commands/commands.txt
