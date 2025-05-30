@@ -160,7 +160,7 @@ def verify_account_and_files(account_manager: AccountManager, file_manager: File
     
     # Navigate to Files and get count
     logger.debug(f"Navigating to Files for account {account_id}")
-    num_files = account_manager.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
+    num_files = account_manager.navigate_to_files_and_get_number_of_account_files(account_id)
     if num_files == -1:
         logger.error("Failed to navigate to Files")
         return False

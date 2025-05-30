@@ -1048,7 +1048,7 @@ class AccountManager(BasePage):
             self._take_screenshot("account-navigation-error")
             sys.exit(1) 
 
-    def navigate_to_files_and_get_number_of_files_for_this_account(self, account_id: str) -> Union[int, str]:
+    def navigate_to_files_and_get_number_of_account_files(self, account_id: str) -> Union[int, str]:
         """
         Navigate to the Files related list for the given account_id.
         Returns either an integer or a string (e.g. "50+") representing the number of files.
@@ -1080,7 +1080,7 @@ class AccountManager(BasePage):
         self.log_helper.dedent()
         return num_files
 
-    def get_all_file_names_for_account(self, account_id: str) -> List[str]:
+    def get_salesforce_account_file_names(self, account_id: str) -> List[str]:
         """
         Get all file names associated with an account.
         
@@ -1097,7 +1097,7 @@ class AccountManager(BasePage):
             # Navigate to files section
             self.log_helper.log(self.logger, 'info', "Navigating to files section")
             self.log_helper.log(self.logger, 'info', f"account_id: {account_id}")
-            num_files = self.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
+            num_files = self.navigate_to_files_and_get_number_of_account_files(account_id)
             if num_files == -1:
                 self.log_helper.log(self.logger, 'error', "Failed to navigate to Files")
                 self.log_helper.dedent()
@@ -1284,7 +1284,7 @@ class AccountManager(BasePage):
         the_condition = condition if condition is not None else self.get_default_condition()
         for account in all_accounts:
             self.log_helper.log(self.logger, 'debug', f"Processing account: {account['name']}")
-            files_count = self.navigate_to_files_and_get_number_of_files_for_this_account(account['id'])
+            files_count = self.navigate_to_files_and_get_number_of_account_files(account['id'])
             account['files_count'] = files_count
             processed_accounts.append(account)
             if the_condition(account):
@@ -1337,7 +1337,7 @@ class AccountManager(BasePage):
         """
         Check if the account has files.
         """
-        num_files = self.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
+        num_files = self.navigate_to_files_and_get_number_of_account_files(account_id)
         if isinstance(num_files, str):
             # If we have a string like "50+", we know there are files
             self.log_helper.dedent()

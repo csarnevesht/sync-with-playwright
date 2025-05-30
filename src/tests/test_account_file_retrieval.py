@@ -100,14 +100,14 @@ def test_account_file_retrieval(browser, page):
         
         # Navigate to files section
         logging.info("Navigating to files section")
-        num_files = account_manager.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
+        num_files = account_manager.navigate_to_files_and_get_number_of_account_files(account_id)
         if num_files == -1:
             logging.error("Failed to navigate to Files")
             return
         
         # Get all file names
         logging.info("Getting all file names for this account")
-        files = account_manager.get_all_file_names_for_account(account_id)
+        files = account_manager.get_salesforce_account_file_names(account_id)
         
         # Display results
         logging.info("\nFiles found:")

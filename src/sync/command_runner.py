@@ -201,7 +201,8 @@ class CommandRunner:
             'delete-salesforce-account-file': self._delete_salesforce_account_file,
             'upload-salesforce-account-file': self._upload_salesforce_account_file,
             'upload-salesforce-account-files': self._upload_salesforce_account_files,
-            'download-salesforce-account-file': self._download_salesforce_account_file
+            'download-salesforce-account-file': self._download_salesforce_account_file,
+            'delete-salesforce-account-files': self._delete_salesforce_account_files
         }
         
         if command not in command_map:
@@ -368,15 +369,151 @@ class CommandRunner:
         self.logger.info("upload-salesforce-account-file operation completed")
     
     def _upload_salesforce_account_files(self) -> None:
-        """Upload multiple files to Salesforce account."""
+        """Upload all files from Dropbox account to Salesforce."""
         self.logger.info("Starting upload-salesforce-account-files operation")
-        self.report_logger.info("\n=== UPLOADING MULTIPLE FILES TO SALESFORCE ===")
-        # TODO: Implement multiple files upload logic
-        self.logger.info("upload-salesforce-account-files operation completed")
+        self.report_logger.info("\n=== UPLOADING FILES TO SALESFORCE ===")
+        
+        try:
+            # Get required context
+            dropbox_client = self.get_context('dropbox_client')
+            dropbox_root_folder = self.get_context('dropbox_root_folder')
+            dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
+            dropbox_salesforce_folder = dropbox_client.get_dropbox_salesforce_folder()
+            
+            # Construct source and destination paths
+            source_path = f"/{dropbox_root_folder}/{dropbox_account_folder_name}"
+            dest_path = f"/{dropbox_salesforce_folder}/{dropbox_account_folder_name}"
+            
+            # Clean paths for Dropbox API
+            source_path = source_path.replace('//', '/')
+            dest_path = dest_path.replace('//', '/')
+            
+            self.logger.info(f"Source path: {source_path}")
+            self.logger.info(f"Destination path: {dest_path}")
+            
+            # Check if source folder exists
+            try:
+                dropbox_client.dbx.files_get_metadata(source_path)
+            except dropbox.exceptions.ApiError as e:
+                if e.error.is_path() and e.error.get_path().is_not_found():
+                    error_msg = f"Source folder not found: {source_path}"
+                    self.logger.error(error_msg)
+                    self.report_logger.error(f"\n{error_msg}")
+                    return
+                raise
+            
+            # List all files in source folder
+            files = list_folder_contents(dropbox_client.dbx, source_path)
+            
+            if not files:
+                self.logger.info("No files found to upload")
+                self.report_logger.info("\nNo files found to upload")
+                return
+            
+            # Check if destination folder exists
+            try:
+                dropbox_client.dbx.files_get_metadata(dest_path)
+                # Folder exists, prompt for deletion
+                self.logger.info(f"Folder already exists in Salesforce: {dest_path}")
+                self.report_logger.info(f"\nFolder already exists in Salesforce: {dest_path}")
+                
+                response = input(f"\nDo you want to delete the existing folder at {dest_path}? (y/N): ").strip().lower()
+                if response != 'y':
+                    self.logger.info("Operation cancelled by user")
+                    self.report_logger.info("\nOperation cancelled by user")
+                    return
+                
+                # Delete existing folder
+                self.logger.info(f"Deleting existing folder: {dest_path}")
+                self.report_logger.info(f"\nDeleting existing folder: {dest_path}")
+                dropbox_client.dbx.files_delete_v2(dest_path)
+                
+            except dropbox.exceptions.ApiError as e:
+                if not e.error.is_path() or not e.error.get_path().is_not_found():
+                    # Re-raise if it's not a "not found" error
+                    raise
+            
+            # Copy folder to Salesforce
+            self.logger.info(f"Copying folder from {source_path} to {dest_path}")
+            self.report_logger.info(f"\nCopying folder from {source_path} to {dest_path}")
+            
+            # Use the Dropbox API to copy the folder
+            dropbox_client.dbx.files_copy_v2(source_path, dest_path)
+            
+            self.logger.info("Successfully completed upload-salesforce-account-files operation")
+            self.report_logger.info("\nSuccessfully completed upload-salesforce-account-files operation")
+            
+        except Exception as e:
+            error_msg = f"Error in upload-salesforce-account-files operation: {str(e)}"
+            self.logger.error(error_msg)
+            self.report_logger.error(f"\n{error_msg}")
+            raise
     
     def _download_salesforce_account_file(self) -> None:
         """Download a file from Salesforce account."""
         self.logger.info("Starting download-salesforce-account-file operation")
         self.report_logger.info("\n=== DOWNLOADING FILE FROM SALESFORCE ===")
         # TODO: Implement file download logic
-        self.logger.info("download-salesforce-account-file operation completed") 
+        self.logger.info("download-salesforce-account-file operation completed")
+    
+    def _delete_salesforce_account_files(self) -> None:
+        """Delete all files from Salesforce account."""
+        self.logger.info("Starting delete-salesforce-account-files operation")
+        self.report_logger.info("\n=== DELETING SALESFORCE ACCOUNT FILES ===")
+        
+        try:
+            # Get required context
+            salesforce_client = self.get_context('salesforce_client')
+            salesforce_account_id = self.get_data('salesforce_account_id')
+            salesforce_acount_file_names = self.get_data('salesforce_acount_file_names')
+
+            
+            if not salesforce_account_id:
+                error_msg = "No Salesforce account ID found"
+                self.logger.error(error_msg)
+                self.report_logger.error(f"\n{error_msg}")
+                return
+            
+            self.logger.info(f"Salesforce account ID: {salesforce_account_id}")
+            
+            # Get all files associated with the account
+            files = salesforce_acount_file_names
+            
+            if not files:
+                self.logger.info("No files found to delete")
+                self.report_logger.info("\nNo files found to delete")
+                return
+            
+            # Prompt for confirmation
+            self.logger.info(f"Found {len(files)} files to delete")
+            self.report_logger.info(f"\nFound {len(files)} files to delete:")
+            for file in files:
+                self.report_logger.info(f"  - {file['Title']}")
+            
+            response = input(f"\nDo you want to delete all {len(files)} files? (y/N): ").strip().lower()
+            if response != 'y':
+                self.logger.info("Operation cancelled by user")
+                self.report_logger.info("\nOperation cancelled by user")
+                return
+            
+            # Delete each file
+            for file in files:
+                try:
+                    self.logger.info(f"Deleting file: {file['Title']}")
+                    self.report_logger.info(f"\nDeleting file: {file['Title']}")
+                    salesforce_client.delete_file(file['Id'])
+                except Exception as e:
+                    error_msg = f"Error deleting file {file['Title']}: {str(e)}"
+                    self.logger.error(error_msg)
+                    self.report_logger.error(f"\n{error_msg}")
+                    if not self.args.continue_on_error:
+                        raise
+            
+            self.logger.info("Successfully completed delete-salesforce-account-files operation")
+            self.report_logger.info("\nSuccessfully completed delete-salesforce-account-files operation")
+            
+        except Exception as e:
+            error_msg = f"Error in delete-salesforce-account-files operation: {str(e)}"
+            self.logger.error(error_msg)
+            self.report_logger.error(f"\n{error_msg}")
+            raise 
