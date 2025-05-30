@@ -300,11 +300,24 @@ class CommandRunner:
                 if isinstance(file, dropbox.files.FileMetadata):
                     # Check if file already has a date prefix (with or without space)
                     if len(file.name) >= 6 and file.name[:6].isdigit():
-                        # Check if there's a space after the prefix or if the prefix is at the start
-                        if len(file.name) == 6 or file.name[6] == ' ':
+                        # Validate that the 6 digits form a valid date (YYMMDD)
+                        prefix = file.name[:6]
+                        year = int(prefix[:2])
+                        month = int(prefix[2:4])
+                        day = int(prefix[4:6])
+                        
+                        # Check if it's a valid date
+                        try:
+                            # Convert YY to YYYY (assuming 20xx for years < 50, 19xx for years >= 50)
+                            full_year = 2000 + year if year < 50 else 1900 + year
+                            datetime.datetime(full_year, month, day)
+                            # If we get here, it's a valid date
                             self.logger.info(f"Skipping already prefixed file: {file.name}")
                             self.report_logger.info(f"\nSkipping already prefixed file: {file.name}")
                             continue
+                        except ValueError:
+                            # Not a valid date, continue with renaming
+                            pass
 
                     # Get the original file's modified date
                     original_date = source_file_dates.get(file.name)
@@ -421,7 +434,7 @@ class CommandRunner:
             
             try:
                 # Download and upload each file
-                self.logger.info(f"files: {files}")
+                self.logger.info(f"Download and upload {len(files)} files")
                 for file in files:
                     if isinstance(file, dropbox.files.FileMetadata):
                         self.logger.info(f"Processing file: {file.name}")
