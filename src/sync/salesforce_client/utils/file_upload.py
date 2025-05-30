@@ -47,7 +47,7 @@ def upload_account_file(page: Page, file_to_upload: str, expected_items: int = 1
         page.set_input_files('input[type="file"]', [file_to_upload])
         logging.info("File set for upload")
         logging.info('sleeping')
-        time.sleep(30)
+        time.sleep(3)
         
         # Wait for upload to complete
         logging.info("\nWaiting for upload to complete...")
