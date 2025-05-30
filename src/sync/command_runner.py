@@ -216,6 +216,7 @@ class CommandRunner:
         # Get required context
         try:
             dropbox_client = self.get_context('dropbox_client')
+            dropbox_root_folder = dropbox_client.get_dropbox_root_folder()
             dropbox_account_info = self.get_data('dropbox_account_info')
             dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
             dropbox_salesforce_folder = dropbox_client.get_dropbox_salesforce_folder()
@@ -223,6 +224,17 @@ class CommandRunner:
             self.logger.info(f"dropbox_account_info: {dropbox_account_info}")
             self.logger.info(f"dropbox_account_folder_name: {dropbox_account_folder_name}")
             self.logger.info(f"dropbox_salesforce_folder: {dropbox_salesforce_folder}")
+            # TODO: 
+            # verify that dropbox_account_folder_name exists in dropbox 
+            # copy the folder named dropbox_account_folder_name recursively to dropbox_salesforce_folder if it doesn't exist
+            # if it exists, prompt user to delete it
+            # if user confirms, delete it
+            # if user cancels, exit the program
+            # if user confirms, copy the folder to dropbox_salesforce_folder
+            # rename the folder files in dropbox_salesforce_folder with its modification date if it doesn't already have a date prefix
+            
+            
+
 
 
 

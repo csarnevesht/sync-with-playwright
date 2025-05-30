@@ -67,6 +67,7 @@ Reusing as many methods from src/sync/dropbox_client/utils/dropbox_utils.py
 
 CommandRunner _prefix_dropbox_account_files should:
             dropbox_client = self.get_context('dropbox_client')
+            dropbox_root_folder = dropbox_client.get_dropbox_root_folder()
             dropbox_account_info = self.get_data('dropbox_account_info')
             dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
             dropbox_salesforce_folder = dropbox_client.get_dropbox_salesforce_folder()
