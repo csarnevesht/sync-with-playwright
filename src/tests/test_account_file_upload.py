@@ -81,7 +81,7 @@ def test_account_file_upload(browser, page):
         
         # Navigate to files section
         logging.info("Navigating to files section")
-        num_files = file_manager.navigate_to_files_click_on_files_card_to_facilitate_upload()
+        num_files = file_manager.navigate_to_files_click_on_files_card_to_facilitate_file_operation()
         if num_files == -1:
             logging.error("Failed to navigate to Files")
             return
