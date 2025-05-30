@@ -457,6 +457,7 @@ def run_command(args):
             if args.commands or args.commands_file:
                 from src.sync.command_runner import CommandRunner
                 command_runner = CommandRunner(args)
+                command_runner.set_context('dropbox_root_folder', dropbox_root_folder)
                 command_runner.set_context('dropbox_client', dropbox_client)
                 command_runner.set_context('browser', browser)
                 command_runner.set_context('page', page)

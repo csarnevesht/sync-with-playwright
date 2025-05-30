@@ -10,6 +10,11 @@ import logging
 from typing import List, Optional, Dict, Any
 from pathlib import Path
 from datetime import datetime
+import dropbox
+import os
+
+from sync.dropbox_client.utils.dropbox_utils import get_renamed_path, list_folder_contents
+from sync.dropbox_client.utils.file_utils import log_renamed_file
 
 class CommandRunner:
     """Handles execution of sync commands between Dropbox and Salesforce."""
@@ -216,35 +221,95 @@ class CommandRunner:
         # Get required context
         try:
             dropbox_client = self.get_context('dropbox_client')
-            dropbox_root_folder = dropbox_client.get_dropbox_root_folder()
+            dropbox_root_folder = self.get_context('dropbox_root_folder')
             dropbox_account_info = self.get_data('dropbox_account_info')
             dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
             dropbox_salesforce_folder = dropbox_client.get_dropbox_salesforce_folder()
+            
             self.logger.info(f"dropbox_client: {dropbox_client}")
             self.logger.info(f"dropbox_account_info: {dropbox_account_info}")
             self.logger.info(f"dropbox_account_folder_name: {dropbox_account_folder_name}")
             self.logger.info(f"dropbox_salesforce_folder: {dropbox_salesforce_folder}")
-            # TODO: 
-            # verify that dropbox_account_folder_name exists in dropbox 
-            # copy the folder named dropbox_account_folder_name recursively to dropbox_salesforce_folder if it doesn't exist
-            # if it exists, prompt user to delete it
-            # if user confirms, delete it
-            # if user cancels, exit the program
-            # if user confirms, copy the folder to dropbox_salesforce_folder
-            # rename the folder files in dropbox_salesforce_folder with its modification date if it doesn't already have a date prefix
+
+            # Verify account folder exists in Dropbox
+            account_folders = dropbox_client.get_dropbox_account_names()
+            if dropbox_account_folder_name not in account_folders:
+                error_msg = f"Account folder '{dropbox_account_folder_name}' not found in Dropbox"
+                self.logger.error(error_msg)
+                self.report_logger.error(f"\n{error_msg}")
+                return
+
+            # Construct source and destination paths
+            source_path = f"/{dropbox_root_folder}/{dropbox_account_folder_name}"
+            dest_path = f"/{dropbox_salesforce_folder}/{dropbox_account_folder_name}"
+
+            # Clean paths for Dropbox API
+            source_path = source_path.replace('//', '/')
+            dest_path = dest_path.replace('//', '/')
+
+            self.logger.info(f"Source path: {source_path}")
+            self.logger.info(f"Destination path: {dest_path}")
+
+            # Check if folder already exists in Salesforce folder
+            try:
+                dropbox_client.dbx.files_get_metadata(dest_path)
+                # Folder exists, prompt for deletion
+                self.logger.info(f"Folder already exists in Salesforce folder: {dest_path}")
+                self.report_logger.info(f"\nFolder already exists in Salesforce folder: {dest_path}")
+                
+                response = input(f"\nDo you want to delete the existing folder at {dest_path}? (y/N): ").strip().lower()
+                if response != 'y':
+                    self.logger.info("Operation cancelled by user")
+                    self.report_logger.info("\nOperation cancelled by user")
+                    return
+                
+                # Delete existing folder
+                self.logger.info(f"Deleting existing folder: {dest_path}")
+                self.report_logger.info(f"\nDeleting existing folder: {dest_path}")
+                dropbox_client.dbx.files_delete_v2(dest_path)
+                
+            except dropbox.exceptions.ApiError as e:
+                if not e.error.is_path() or not e.error.get_path().is_not_found():
+                    # Re-raise if it's not a "not found" error
+                    raise
+
+            # Copy folder to Salesforce folder
+            self.logger.info(f"Copying folder from {source_path} to {dest_path}")
+            self.report_logger.info(f"\nCopying folder from {source_path} to {dest_path}")
             
+            # Use the Dropbox API to copy the folder
+            dropbox_client.dbx.files_copy_v2(source_path, dest_path)
+
+            # List all files in the copied folder
+            files = list_folder_contents(dropbox_client.dbx, dest_path)
             
+            # Process each file
+            for file in files:
+                if isinstance(file, dropbox.files.FileMetadata):
+                    # Get the new name with date prefix
+                    new_name = get_renamed_path(file, file.path_display)
+                    
+                    if new_name != file.name:
+                        # Construct new path
+                        new_path = f"{os.path.dirname(file.path_display)}/{new_name}"
+                        new_path = new_path.replace('//', '/')
+                        
+                        # Move/rename the file
+                        self.logger.info(f"Renaming file: {file.path_display} -> {new_path}")
+                        self.report_logger.info(f"\nRenaming file: {file.path_display} -> {new_path}")
+                        dropbox_client.dbx.files_move_v2(file.path_display, new_path)
+                        
+                        # Log the renamed file
+                        log_renamed_file(file.path_display, new_name, os.path.dirname(dest_path))
 
+            self.logger.info("Successfully completed prefix-dropbox-account-files operation")
+            self.report_logger.info("\nSuccessfully completed prefix-dropbox-account-files operation")
 
-
-
-        except KeyError as e:
-            self.logger.error(f"Missing required context: {str(e)}")
-            self.report_logger.info(f"Missing required context: {str(e)}")
+        except Exception as e:
+            error_msg = f"Error in prefix-dropbox-account-files operation: {str(e)}"
+            self.logger.error(error_msg)
+            self.report_logger.error(f"\n{error_msg}")
             raise
-        
-        # TODO: Implement file prefixing logic using the context
-        self.logger.info("prefix-dropbox-account-files operation completed")
     
     def _prefix_dropbox_account_file(self) -> None:
         """Prefix a single file in Dropbox account folder with date."""
