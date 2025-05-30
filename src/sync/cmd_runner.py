@@ -198,6 +198,15 @@ def parse_args():
     parser.add_argument('--env-file', '-e', default='.env',
                       help='Path to .env file (default: .env)')
     
+    # Add commands arguments
+    parser.add_argument('--commands',
+                      help='Comma-separated list of commands to execute')
+    parser.add_argument('--commands-file',
+                      help='Path to file containing commands to execute (one per line)')
+    parser.add_argument('--continue-on-error',
+                      action='store_true',
+                      help='Continue executing remaining commands even if one fails')
+    
     # Account Source Options (Mutually Exclusive)
     account_source = parser.add_mutually_exclusive_group()
     account_source.add_argument('--dropbox-account-name',
@@ -638,6 +647,12 @@ def run_command(args):
                                     report_logger.info(f"      Potential matches: {potential_matches}")
                 
                 report_logger.info("=" * 50)
+
+            # Initialize command runner if commands are specified
+            if args.commands or args.commands_file:
+                from src.sync.command_runner import CommandRunner
+                command_runner = CommandRunner(args)
+                command_runner.execute_commands()
             
             # Print final summary
             report_logger.info("\n=== SUMMARY ===")
@@ -685,6 +700,8 @@ def run_command(args):
             report_logger.info(f"Total Partial Matches: {total_partial_matches}")
             report_logger.info(f"Total No Matches: {total_no_matches}")
             report_logger.info(f"Total Accounts Processed: {len(summary_results)}")
+
+             
 
             
         except Exception as e:
