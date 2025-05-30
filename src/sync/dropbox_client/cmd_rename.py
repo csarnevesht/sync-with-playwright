@@ -37,7 +37,7 @@ from .utils.dropbox_utils import (
     count_account_folders,
     get_DATA_DIRECTORY
 )
-from .utils.path_utils import clean_dropbox_path
+from .utils.path_utils import clean_dropbox_folder_name
 from .utils.date_utils import format_duration
 
 def get_DATA_DIRECTORY(env_file):
@@ -175,7 +175,7 @@ def main():
             return
             
         # Clean and validate the path
-        clean_path = clean_dropbox_path(dropbox_path)
+        clean_path = clean_dropbox_folder_name(dropbox_path)
         if not clean_path:
             print(f"Invalid path: {dropbox_path}")
             return

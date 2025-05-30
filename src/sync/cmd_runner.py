@@ -75,7 +75,7 @@ from src.sync.dropbox_client.utils.dropbox_utils import (
     DropboxClient,
     get_access_token,
     get_folder_metadata,
-    get_root_path,
+    get_dropbox_root_folder,
     get_folder_creation_date
 )
 from src.sync.dropbox_client.utils.date_utils import has_date_prefix
@@ -307,7 +307,8 @@ def run_command(args):
     # Initialize account folders list
     ACCOUNT_FOLDERS = []
 
-    root_path = get_root_path(args.env_file, report_logger)
+    dropbox_root_folder = get_dropbox_root_folder(args.env_file, report_logger)
+    logger.info(f"Dropbox root path: {dropbox_root_folder}")
     
     logger.info("step: Read Ignored Folders")
     # Always read ignored folders
@@ -355,17 +356,17 @@ def run_command(args):
                 
             # Try to get metadata first to check if path exists
             try:
-                logger.info(f"Checking if path exists: {root_path}")
-                metadata = dropbox_client.dbx.files_get_metadata(root_path)
+                logger.info(f"Checking if path exists: {dropbox_root_folder}")
+                metadata = dropbox_client.dbx.files_get_metadata(dropbox_root_folder)
                 logger.info(f"Path exists, type: {type(metadata).__name__}")
             except ApiError as e:
                 if e.error.is_path() and e.error.get_path().is_not_found():
-                    logger.error(f"Path not found: {root_path}")
+                    logger.error(f"Path not found: {dropbox_root_folder}")
                     logger.error("Please check:")
                     logger.error("1. The path exists in your Dropbox")
                     logger.error("2. You have permission to access this path")
                     logger.error("3. The path is correctly formatted")
-                    report_logger.info(f"\nPath not found: {root_path}")
+                    report_logger.info(f"\nPath not found: {dropbox_root_folder}")
                     report_logger.info("Please check:")
                     report_logger.info("1. The path exists in your Dropbox")
                     report_logger.info("2. You have permission to access this path")
@@ -376,7 +377,7 @@ def run_command(args):
                 #CAROLINA HERE
             # List all folders in the path
             # CAROLINA HERE
-            logger.info(f"Getting all account folders from: {dropbox_client.root_path}")
+            logger.info(f"Getting all account folders from: {dropbox_client.root_folder}")
             all_account_folders = dropbox_client.get_dropbox_account_names()
             
             # Filter out ignored folders
@@ -391,14 +392,14 @@ def run_command(args):
                     logger.info(f"  - {folder}")
             
             if not ACCOUNT_FOLDERS:
-                logger.warning(f"No valid folders found in path: {root_path}")
+                logger.warning(f"No valid folders found in path: {dropbox_root_folder}")
                 logger.info("Please check your Dropbox folder path and permissions")
-                report_logger.info(f"\nNo valid folders found in path: {root_path}")
+                report_logger.info(f"\nNo valid folders found in path: {dropbox_root_folder}")
                 report_logger.info("Please check your Dropbox folder path and permissions")
                 return
                 
             logger.info(f"Successfully retrieved {len(ACCOUNT_FOLDERS)} folders from Dropbox (after filtering {ignored_count} ignored folders)")
-            logger.info(f"Dropbox path used: {root_path}")
+            logger.info(f"Dropbox folder used: {dropbox_root_folder}")
             
         except ApiError as e:
             logger.error(f"Error listing folders: {str(e)}")

@@ -69,4 +69,8 @@ CommandRunner _prefix_dropbox_account_files should:
             dropbox_client = self.get_context('dropbox_client')
             dropbox_account_info = self.get_data('dropbox_account_info')
             dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
+            dropbox_salesforce_folder = dropbox_client.get_dropbox_salesforce_folder()
+
             # TODO: 
+            verify that dropbox_account_folder_name exists in dropbox 
+            rename it with its modification date if it doesn't already have a date prefix
