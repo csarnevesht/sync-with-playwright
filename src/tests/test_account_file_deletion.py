@@ -23,7 +23,7 @@ from datetime import datetime
 import shutil
 import tempfile
 from src.sync.salesforce_client.pages.account_manager import AccountManager
-from src.sync.salesforce_client.pages.file_manager import FileManager
+from src.sync.salesforce_client.pages.file_manager import SalesforceFileManager
 from src.sync.salesforce_client.utils.browser import get_salesforce_page
 from src.sync.salesforce_client.utils.file_upload import upload_account_files
 from src.sync.salesforce_client.utils.mock_data import get_mock_accounts
@@ -69,7 +69,7 @@ def test_account_file_deletion(browser, page):
     try:
         # Initialize managers
         account_manager = AccountManager(page, debug_mode=True)
-        file_manager = FileManager(page, debug_mode=True)
+        file_manager = SalesforceFileManager(page, debug_mode=True)
         
         # Get mock accounts
         mock_accounts = get_mock_accounts()
@@ -150,7 +150,7 @@ def test_account_file_deletion(browser, page):
         first_file_name = file_names[0]
         logging.info(f"Attempting to delete first file: {first_file_name}")
         
-        if not file_manager.delete_file(first_file_name):
+        if not file_manager.delete_salesforce_file(first_file_name):
             logging.error(f"Failed to delete file: {first_file_name}")
             return
         

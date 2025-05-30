@@ -26,7 +26,7 @@ from datetime import datetime
 import shutil
 import tempfile
 from sync.salesforce_client.pages.account_manager import AccountManager
-from sync.salesforce_client.pages.file_manager import FileManager
+from sync.salesforce_client.pages.file_manager import SalesforceFileManager
 from sync.salesforce_client.utils.browser import get_salesforce_page
 from sync.salesforce_client.utils.file_upload import upload_account_files
 from sync.salesforce_client.utils.mock_data import get_mock_accounts
@@ -64,7 +64,7 @@ def test_search_account(browser: Browser, page: Page):
         
         # Initialize managers
         account_manager = AccountManager(page, debug_mode=True)
-        file_manager = FileManager(page, debug_mode=True)
+        file_manager = SalesforceFileManager(page, debug_mode=True)
         
         # Check if account exists and get search result
         account_exists = account_manager.account_exists(account_name, view_name=VIEW_NAME)

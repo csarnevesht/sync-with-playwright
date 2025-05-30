@@ -70,7 +70,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from src.sync.salesforce_client.pages.account_manager import AccountManager
-from src.sync.salesforce_client.pages.file_manager import FileManager
+from src.sync.salesforce_client.pages.file_manager import SalesforceFileManager
 from src.sync.salesforce_client.utils.browser import get_salesforce_page
 from src.sync.dropbox_client.utils.account_utils import read_accounts_folders, read_ignored_folders
 from src.sync.dropbox_client.utils.dropbox_utils import (
@@ -452,7 +452,7 @@ def run_command(args):
             # Initialize account manager and file manager
             account_manager = AccountManager(page, debug_mode=True)
             account_manager.logger.report_logger = report_logger  # Add report logger
-            file_manager = FileManager(page, debug_mode=True)
+            file_manager = SalesforceFileManager(page, debug_mode=True)
             command_runner = None
             
             # Initialize command runner if commands are specified
@@ -624,7 +624,7 @@ def run_command(args):
                 file_comparison = None
                 if dropbox_account_files and salesforce_files:
                     logger.info('comparing files for account: {folder_name}')
-                    file_comparison = file_manager.compare_files(dropbox_account_files, salesforce_files)
+                    file_comparison = file_manager.compare_salesforce_files(dropbox_account_files, salesforce_files)
                 
                 summary = {
                     'dropbox_name': dropbox_account_folder_name,

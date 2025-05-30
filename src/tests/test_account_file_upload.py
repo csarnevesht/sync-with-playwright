@@ -28,7 +28,7 @@ from src.sync.salesforce_client.utils.file_upload import upload_account_files, u
 from src.sync.salesforce_client.pages.account_manager import AccountManager
 from src.sync.salesforce_client.utils.browser import get_salesforce_page
 from src.sync.salesforce_client.utils.mock_data import get_mock_accounts
-from src.sync.salesforce_client.pages.file_manager import FileManager
+from src.sync.salesforce_client.pages.file_manager import SalesforceFileManager
 from src.config import *
 
 # Configure logging
@@ -51,7 +51,7 @@ def test_account_file_upload(browser, page):
     try:
         # Initialize managers
         account_manager = AccountManager(page, debug_mode=True)
-        file_manager = FileManager(page, debug_mode=True)
+        file_manager = SalesforceFileManager(page, debug_mode=True)
         
         # Search for account
         account_name = "John Smith"
