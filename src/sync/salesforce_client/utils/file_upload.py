@@ -46,8 +46,12 @@ def upload_account_file(page: Page, file_to_upload: str, expected_items: int = 1
         logging.info(f"\nSetting file to upload: {file_name}")
         page.set_input_files('input[type="file"]', [file_to_upload])
         logging.info("File set for upload")
-        logging.info('sleeping')
-        time.sleep(3)
+        logging.info("Waiting for upload to complete indicator (text and icon)...")
+        # Wait for the upload-complete text
+        page.wait_for_selector("span.slds-text-body--small.header", timeout=30000)
+        # Wait for the green checkmark icon
+        page.wait_for_selector("svg.slds-icon-text-success", timeout=30000)
+        logging.info("Upload indicator detected.")
         
         # Wait for upload to complete
         logging.info("\nWaiting for upload to complete...")
