@@ -261,11 +261,12 @@ class CommandRunner:
                 self.logger.info(f"Folder already exists in Salesforce folder: {dest_path}")
                 self.report_logger.info(f"\nFolder already exists in Salesforce folder: {dest_path}")
                 
-                response = input(f"\nDo you want to delete the existing Dropbox folder at {dest_path}? (y/N): ").strip().lower()
-                if response != 'y':
-                    self.logger.info("Operation cancelled by user")
-                    self.report_logger.info("\nOperation cancelled by user")
-                    return
+                # response = input(f"\nDo you want to delete the existing Dropbox folder at {dest_path}? (y/N): ").strip().lower()
+                # if response != 'y':
+                #     self.logger.info("Operation cancelled by user")
+                #     self.report_logger.info("\nOperation cancelled by user")
+                #     return
+                return
                 
                 # Delete existing folder
                 self.logger.info(f"Deleting existing folder: {dest_path}")
@@ -440,6 +441,17 @@ class CommandRunner:
                         if num_files == -1:
                             logging.error("Failed to navigate to Files")
                             return
+
+                        # Check if file already exists in Salesforce
+                        file_name = os.path.splitext(file.name)[0]  # Remove extension for comparison
+                        logging.info(f'checking if file {file_name} exists in salesforce')
+                        if file_manager.search_salesforce_file(file_name):
+                            self.logger.info(f"File {file_name} already exists in Salesforce, skipping upload")
+                            self.report_logger.info(f"\nFile {file_name} already exists in Salesforce, skipping upload")
+                            # Clean up the downloaded file since we won't be using it
+                            os.remove(local_path)
+                            self.logger.info(f"Cleaned up temporary file: {local_path}")
+                            continue
         
                         # Upload file to Salesforce via browser with retries
                         self.logger.info(f"Uploading to Salesforce: {file.name}")
