@@ -1872,7 +1872,7 @@ Name Variations:
                     - total_partial_matches (int): Initial count of partial matches
                     - total_no_matches (int): Initial count of no matches
         """
-        name_parts = self._extract_name_parts(account_name, log=False)
+        name_parts = self._extract_name_parts(account_name, log=True)
         result = {
                 'folder_name': account_name,
                 'first_name': name_parts.get('first_name', ''),

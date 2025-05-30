@@ -304,9 +304,7 @@ class DropboxClient:
                 'account_data': dropbox_account_data
             }
 
-            logging.info(f"\n👤 Dropbox Account Data: '{account_name}'")
-            logging.info(f"   Status: {account_name_info['status']}")
-            logging.info(f"   Match Status: {account_name_info['match_info']['match_status']}")
+            logging.info(f"\n👤 Dropbox Account Data: '{account_name}' match: [{account_name_info['match_info']['match_status']}]")
 
             last_name = account_name_info.get('last_name', '')
             full_name = account_name_info.get('full_name', '')
@@ -409,7 +407,7 @@ class DropboxClient:
                     # Update status and match info since we found a match
                     account_name_info['status'] = 'found'
                     account_name_info['match_info'] = {
-                        'match_status': 'Found exact match in holiday file',
+                        'match_status': 'Found exact match',
                         'total_exact_matches': 1,
                         'total_partial_matches': 0,
                         'total_no_matches': 0

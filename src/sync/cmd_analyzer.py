@@ -474,10 +474,12 @@ def analyze_accounts(args):
                         dropbox_account_info = dropbox_client.get_dropbox_account_info(account_name, dropbox_account_name_data)
                         dropbox_account_data = dropbox_account_info['account_data']
                         logger.info(f"Dropbox Account info: {dropbox_account_info}")
-                        report_logger.info(f"\n👤 Dropbox Account Data: '{account_folder_name}'")
-                        items = dropbox_account_data.items()
-                        for key, value in dropbox_account_data.items():
-                                report_logger.info(f"   {key.title()}: {value}")
+                        report_logger.info(f"\n👤 Dropbox Account Data: '{account_folder_name}' match: [{dropbox_account_info['account_name_info']['match_info']['match_status']}]")
+                        items = dropbox_account_info['account_data'].items()
+                        for key, value in dropbox_account_info['account_data'].items():
+                            if value and str(value).strip().lower() not in ['nan', 'none', '']:
+                                display_key = ' '.join(word.capitalize() for word in key.split('_'))
+                                report_logger.info(f"   {display_key}: {value}")
                         continue
                     except Exception as e:
                         logger.error(f"Error getting Dropbox account info for folder {account_folder_name}: {str(e)}")
