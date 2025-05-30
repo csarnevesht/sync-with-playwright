@@ -220,8 +220,10 @@ def upload_account_files(page: Page, account: dict, debug_mode: bool = True, max
                             page.screenshot(path=f"upload-error-attempt-{current_try}-{os.path.basename(file_path)}.png")
                             current_try += 1
                             if current_try <= max_tries:
-                                logging.info(f"Retrying in 2 seconds...")
-                                time.sleep(2)
+                                logging.info(f"Retrying...")
+                                # time.sleep(2)
+                                account_manager.navigate_back_to_account_page()
+
                     
                     if not file_success:
                         logging.error(f"Failed to upload file after {max_tries} attempts: {file_path}")
