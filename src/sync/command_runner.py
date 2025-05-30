@@ -385,6 +385,7 @@ class CommandRunner:
             dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
             dropbox_salesforce_folder = dropbox_client.get_dropbox_salesforce_folder()
             file_manager = self.get_context('file_manager')
+            account_manager = self.get_context('account_manager')
 
             # Construct source path
             source_path = f"/{dropbox_salesforce_folder}/{dropbox_account_folder_name}"
@@ -431,10 +432,19 @@ class CommandRunner:
                         self.logger.info(f"Downloading to: {local_path}")
                         dropbox_client.dbx.files_download_to_file(local_path, file.path_display)
                         
+                        account_manager.navigate_back_to_account_page()
+
+                        # Navigate to files section
+                        logging.info("Navigating to files section")
+                        num_files = file_manager.navigate_to_files_click_on_files_card_to_facilitate_upload()
+                        if num_files == -1:
+                            logging.error("Failed to navigate to Files")
+                            return
+        
                         # Upload file to Salesforce via browser with retries
                         self.logger.info(f"Uploading to Salesforce: {file.name}")
                         logging.info(f"Uploading file: {local_path}")
-                        if not upload_account_file_with_retries(page, local_path):
+                        if not upload_account_file_with_retries(page, local_path, expected_items=num_files+1):
                             logging.error(f"Failed to upload file after all retries: {local_path}")
                             if not self.args.continue_on_error:
                                 raise Exception(f"Failed to upload file: {local_path}")
