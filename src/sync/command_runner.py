@@ -7,7 +7,7 @@ and managing account files.
 """
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pathlib import Path
 from datetime import datetime
 
@@ -23,6 +23,10 @@ class CommandRunner:
         self.args = args
         self.logger = logging.getLogger(__name__)
         self.report_logger = logging.getLogger('report')
+        
+        # Initialize context and data storage
+        self._context: Dict[str, Any] = {}
+        self._data: Dict[str, Any] = {}
         
         # Log initialization
         self.logger.info("Initializing CommandRunner")
@@ -40,7 +44,59 @@ class CommandRunner:
         if args.dropbox_account_name:
             self.logger.info(f"Target Dropbox account: {args.dropbox_account_name}")
             self.report_logger.info(f"Target Dropbox account: {args.dropbox_account_name}")
+    
+    def set_context(self, key: str, value: Any) -> None:
+        """Set a context value.
         
+        Args:
+            key: The context key
+            value: The context value
+        """
+        self._context[key] = value
+        self.logger.debug(f"Set context '{key}'")
+    
+    def get_context(self, key: str) -> Any:
+        """Get a context value.
+        
+        Args:
+            key: The context key to retrieve
+            
+        Returns:
+            The context value
+            
+        Raises:
+            KeyError: If the context key doesn't exist
+        """
+        if key not in self._context:
+            raise KeyError(f"Context key '{key}' not found")
+        return self._context[key]
+    
+    def set_data(self, key: str, value: Any) -> None:
+        """Set a data value.
+        
+        Args:
+            key: The data key
+            value: The data value
+        """
+        self._data[key] = value
+        self.logger.debug(f"Set data '{key}'")
+    
+    def get_data(self, key: str) -> Any:
+        """Get a data value.
+        
+        Args:
+            key: The data key to retrieve
+            
+        Returns:
+            The data value
+            
+        Raises:
+            KeyError: If the data key doesn't exist
+        """
+        if key not in self._data:
+            raise KeyError(f"Data key '{key}' not found")
+        return self._data[key]
+    
     def _get_commands(self) -> List[str]:
         """Get the list of commands to execute from either --commands or --commands-file.
         
@@ -134,7 +190,7 @@ class CommandRunner:
         """
         command_map = {
             'prefix-dropbox-account-files': self._prefix_dropbox_account_files,
-            'rename-dropbox-account-file': self._rename_dropbox_account_file,
+            'prefix-dropbox-account-file': self._prefix_dropbox_account_file,
             'delete-salesforce-account': self._delete_salesforce_account,
             'create-salesforce-account': self._create_salesforce_account,
             'delete-salesforce-account-file': self._delete_salesforce_account_file,
@@ -155,16 +211,32 @@ class CommandRunner:
     def _prefix_dropbox_account_files(self) -> None:
         """Prefix files in Dropbox account folder with date."""
         self.logger.info("Starting prefix-dropbox-account-files operation")
-        self.report_logger.info("\n=== PREFIXING DROPBOX ACCOUNT FILES ===")
-        # TODO: Implement file prefixing logic
+        self.report_logger.info("\n=== dACCOUNT FILES ===")
+        
+        # Get required context
+        try:
+            dropbox_client = self.get_context('dropbox_client')
+            dropbox_account_info = self.get_data('dropbox_account_info')
+            dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
+            self.logger.info(f"dropbox_client: {dropbox_client}")
+            self.logger.info(f"dropbox_account_info: {dropbox_account_info}")
+            self.logger.info(f"dropbox_account_folder_name: {dropbox_account_folder_name}")
+
+
+        except KeyError as e:
+            self.logger.error(f"Missing required context: {str(e)}")
+            self.report_logger.info(f"Missing required context: {str(e)}")
+            raise
+        
+        # TODO: Implement file prefixing logic using the context
         self.logger.info("prefix-dropbox-account-files operation completed")
     
-    def _rename_dropbox_account_file(self) -> None:
-        """Rename a single file in Dropbox account folder."""
-        self.logger.info("Starting rename-dropbox-account-file operation")
-        self.report_logger.info("\n=== RENAMING SINGLE DROPBOX ACCOUNT FILE ===")
-        # TODO: Implement single file renaming logic
-        self.logger.info("rename-dropbox-account-file operation completed")
+    def _prefix_dropbox_account_file(self) -> None:
+        """Prefix a single file in Dropbox account folder with date."""
+        self.logger.info("Starting prefix-dropbox-account-file operation")
+        self.report_logger.info("\n=== PREFIXING SINGLE DROPBOX ACCOUNT FILE ===")
+        # TODO: Implement single file prefixing logic
+        self.logger.info("prefix-dropbox-account-file operation completed")
     
     def _delete_salesforce_account(self) -> None:
         """Delete an account from Salesforce."""

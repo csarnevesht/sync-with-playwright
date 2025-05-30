@@ -60,3 +60,13 @@ for CommandRunner method _prefix_dropbox_account_files the following is needed:
 dropbox_client = self.getContext('dropbox_client')
 dropbox_account_info = self.getContext('dropbox_account_info')
 dropbox_account_folders = self.getContext('dropbox_account_folders')
+
+
+help me implement this method.
+Reusing as many methods from src/sync/dropbox_client/utils/dropbox_utils.py
+
+CommandRunner _prefix_dropbox_account_files should:
+            dropbox_client = self.get_context('dropbox_client')
+            dropbox_account_info = self.get_data('dropbox_account_info')
+            dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
+            # TODO: 
