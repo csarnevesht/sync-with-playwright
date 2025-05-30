@@ -24,7 +24,7 @@ import json
 from datetime import datetime
 import shutil
 import tempfile
-from src.sync.salesforce_client.utils.file_upload import upload_files_for_account, upload_single_file
+from src.sync.salesforce_client.utils.file_upload import upload_account_files, upload_account_file
 from src.sync.salesforce_client.pages.account_manager import AccountManager
 from src.sync.salesforce_client.utils.browser import get_salesforce_page
 from src.sync.salesforce_client.utils.mock_data import get_mock_accounts
@@ -94,7 +94,7 @@ def test_account_file_upload(browser, page):
                 f.write("Test file content")
         
         logging.info(f"Uploading file: {test_file_path}")
-        upload_success = upload_single_file(page, test_file_path)
+        upload_success = upload_account_file(page, test_file_path)
         
         if not upload_success:
             logging.error("Failed to upload file")

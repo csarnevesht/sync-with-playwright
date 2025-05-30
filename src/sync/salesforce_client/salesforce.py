@@ -11,7 +11,7 @@ from src.config import SALESFORCE_URL
 from .pages.account_manager import AccountManager
 from .utils.browser import get_salesforce_page
 from .utils.mock_data import get_mock_accounts
-from .utils.file_upload import upload_files_for_account
+from .utils.file_upload import upload_account_files
 
 class Salesforce:
     """Main class for Salesforce operations."""

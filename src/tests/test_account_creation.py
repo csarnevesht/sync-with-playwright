@@ -34,7 +34,7 @@ import tempfile
 from sync.salesforce_client.pages.account_manager import AccountManager
 from sync.salesforce_client.pages.file_manager import FileManager
 from sync.salesforce_client.utils.browser import get_salesforce_page
-from sync.salesforce_client.utils.file_upload import upload_files_for_account
+from sync.salesforce_client.utils.file_upload import upload_account_files
 from sync.salesforce_client.utils.mock_data import get_mock_accounts
 from playwright.sync_api import sync_playwright, TimeoutError
 from src.config import *
@@ -258,7 +258,7 @@ def test_account_creation(browser: Browser, page: Page):
                     # Upload files for existing account
                     logger.info(f"Uploading files for existing account: {full_name}")
                     logger.debug(f"Account files to upload: {account.get('files', [])}")
-                    upload_success = upload_files_for_account(page, account, debug_mode=True)
+                    upload_success = upload_account_files(page, account, debug_mode=True)
                     if not upload_success:
                         logger.error(f"Failed to upload files for account: {full_name}")
                         continue
@@ -284,7 +284,7 @@ def test_account_creation(browser: Browser, page: Page):
                     # Upload files for new account
                     logger.info(f"Uploading files for new account: {full_name}")
                     logger.debug(f"Account files to upload: {account.get('files', [])}")
-                    upload_success = upload_files_for_account(page, account, debug_mode=True)
+                    upload_success = upload_account_files(page, account, debug_mode=True)
                     if not upload_success:
                         logger.error(f"Failed to upload files for account: {full_name}")
                         continue
