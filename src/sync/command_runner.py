@@ -221,12 +221,14 @@ class CommandRunner:
         
         # Get required context
         try:
+            file_manager = self.get_context('file_manager')
             dropbox_client = self.get_context('dropbox_client')
             dropbox_root_folder = self.get_context('dropbox_root_folder')
             dropbox_account_info = self.get_data('dropbox_account_info')
             dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
             dropbox_salesforce_folder = dropbox_client.get_dropbox_salesforce_folder()
             
+            self.logger.info(f"file_manager: {file_manager}")
             self.logger.info(f"dropbox_client: {dropbox_client}")
             self.logger.info(f"dropbox_account_info: {dropbox_account_info}")
             self.logger.info(f"dropbox_account_folder_name: {dropbox_account_folder_name}")
@@ -258,7 +260,7 @@ class CommandRunner:
                 self.logger.info(f"Folder already exists in Salesforce folder: {dest_path}")
                 self.report_logger.info(f"\nFolder already exists in Salesforce folder: {dest_path}")
                 
-                response = input(f"\nDo you want to delete the existing folder at {dest_path}? (y/N): ").strip().lower()
+                response = input(f"\nDo you want to delete the existing Dropbox folder at {dest_path}? (y/N): ").strip().lower()
                 if response != 'y':
                     self.logger.info("Operation cancelled by user")
                     self.report_logger.info("\nOperation cancelled by user")
@@ -463,10 +465,9 @@ class CommandRunner:
         
         try:
             # Get required context
-            salesforce_client = self.get_context('salesforce_client')
             salesforce_account_id = self.get_data('salesforce_account_id')
             salesforce_acount_file_names = self.get_data('salesforce_acount_file_names')
-
+            file_manager = self.get_context('file_manager')
             
             if not salesforce_account_id:
                 error_msg = "No Salesforce account ID found"
@@ -488,9 +489,9 @@ class CommandRunner:
             self.logger.info(f"Found {len(files)} files to delete")
             self.report_logger.info(f"\nFound {len(files)} files to delete:")
             for file in files:
-                self.report_logger.info(f"  - {file['Title']}")
+                self.report_logger.info(f"  - {file}")
             
-            response = input(f"\nDo you want to delete all {len(files)} files? (y/N): ").strip().lower()
+            response = input(f"\nDo you want to delete all {len(files)} Salesforce account files? (y/N): ").strip().lower()
             if response != 'y':
                 self.logger.info("Operation cancelled by user")
                 self.report_logger.info("\nOperation cancelled by user")
@@ -499,11 +500,15 @@ class CommandRunner:
             # Delete each file
             for file in files:
                 try:
-                    self.logger.info(f"Deleting file: {file['Title']}")
-                    self.report_logger.info(f"\nDeleting file: {file['Title']}")
-                    salesforce_client.delete_file(file['Id'])
+                    self.logger.info(f"Deleting file: {file}")
+                    self.report_logger.info(f"\nDeleting file: {file}")
+                    logging.info(f"Attempting to delete first file: {file}")
+        
+                    if not file_manager.delete_salesforce_file(file):
+                        logging.error(f"Failed to delete file: {file}")
+                        return
                 except Exception as e:
-                    error_msg = f"Error deleting file {file['Title']}: {str(e)}"
+                    error_msg = f"Error deleting file {file}: {str(e)}"
                     self.logger.error(error_msg)
                     self.report_logger.error(f"\n{error_msg}")
                     if not self.args.continue_on_error:
