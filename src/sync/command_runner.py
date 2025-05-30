@@ -293,6 +293,14 @@ class CommandRunner:
             # Process each file
             for file in dest_files:
                 if isinstance(file, dropbox.files.FileMetadata):
+                    # Check if file already has a date prefix (with or without space)
+                    if len(file.name) >= 6 and file.name[:6].isdigit():
+                        # Check if there's a space after the prefix or if the prefix is at the start
+                        if len(file.name) == 6 or file.name[6] == ' ':
+                            self.logger.info(f"Skipping already prefixed file: {file.name}")
+                            self.report_logger.info(f"\nSkipping already prefixed file: {file.name}")
+                            continue
+
                     # Get the original file's modified date
                     original_date = source_file_dates.get(file.name)
                     if original_date:
