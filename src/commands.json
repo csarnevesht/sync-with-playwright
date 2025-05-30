@@ -1,45 +1,52 @@
 [
   {
     "description": "list the dropbox accounts only",
-    "command": "python -m sync.cmd_analyzer --dropbox-accounts-only"
+    "command": "python -m sync.cmd_runner --dropbox-accounts-only"
   },
   {
     "description": "list the dropbox accounts and dropbox account files",
-    "command": "python -m sync.cmd_analyzer --dropbox-accounts --dropbox-account-files"
+    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files"
   },
   {
-    "description": "list all the dropbox accounts and dropbox account files",
-    "command": "python -m sync.cmd_analyzer --dropbox-accounts --dropbox-account-files"
+    "description": "Prefix dropbox account 'Montesino, Maria' [account found in dropbox client list file] and store it in Dropbox Salesforce folder",
+    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --commands='prefix-dropbox-account-files' --dropbox-account-name='Montesino, Maria'"
+  },
+  {
+    "description": "Prefix dropbox account 'Matalon, Dennis' and store it in Dropbox Salesforce folder",
+    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --commands='prefix-dropbox-account-files' --dropbox-account-name='Matalon, Dennis'"
+  },
+  {
+    "description": "Prefix dropbox account 'Cedeno, Paula (Medicaid Mike)' and store it in Dropbox Salesforce folder",
+    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --commands='prefix-dropbox-account-files' --dropbox-account-name='Cedeno, Paula (Medicaid Mike)'"
+  },
+  {
+    "description": "Prefix 10 dropbox accounts and store it in Dropbox Salesforce folder",
+    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --commands='prefix-dropbox-account-files' --account-batch-size 10 --start-from 0"
   },
   {
     "description": "get Dropbox account info for account 'Matalon, Dennis'",
-    "command": "python -m sync.cmd_analyzer --dropbox-accounts --dropbox-account-files --dropbox-account-info --dropbox-account-name='Matalon, Dennis'"
+    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --dropbox-account-info --dropbox-account-name='Matalon, Dennis'"
   },
   {
     "description": "get Dropbox account info for accounts specified in accounts/fuzzy.txt",
-    "command": "python -m sync.cmd_analyzer --dropbox-accounts --dropbox-account-files --dropbox-account-info --dropbox-accounts-file accounts/fuzzy.txt"
+    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --dropbox-account-info --dropbox-accounts-file accounts/fuzzy.txt"
   },
   {
     "description": "analyze all dropbox accounts and salesforce accounts",
-    "command": "python -m sync.cmd_analyzer --dropbox-accounts --salesforce-accounts"
+    "command": "python -m sync.cmd_runner --dropbox-accounts --salesforce-accounts"
   },
   {
     "description": "analyze account 'Matalon, Dennis' account and files",
-    "command": "python -m sync.cmd_analyzer --dropbox-account-files --salesforce-accounts --salesforce-account-files --dropbox-account-name='Matalon, Dennis'"
+    "command": "python -m sync.cmd_runner --dropbox-account-files --salesforce-accounts --salesforce-account-files --dropbox-account-name='Matalon, Dennis'"
   },
   {
     "description": "analyze accounts in accounts/fuzzy-small.txt",
-    "command": "python -m sync.cmd_analyzer --dropbox-accounts --salesforce-accounts --dropbox-accounts-file accounts/fuzzy-small.txt"
+    "command": "python -m sync.cmd_runner --dropbox-accounts --salesforce-accounts --dropbox-accounts-file accounts/fuzzy-small.txt"
   },
   {
     "description": "analyze accounts and files in batches of 5",
-    "command": "python -m sync.cmd_analyzer --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --account-batch-size 5 --start-from 0"
+    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --account-batch-size 5 --start-from 0"
   },
-  {
-    "description": "(Re)Create account 'Matalon, Dennis' in Salesforce",
-    "command": "clear && python -m sync.cmd_runner --dropbox-accounts  --dropbox-account-files --salesforce-accounts --salesforce-account-files --commands 'dbx-rename,sf-delete,sf-create' --dropbox-account-name='Matalon, Dennis'"
-  },
-  
   {
     "description": "ping dropbox and salesforce",
     "command": "python -m sync.cmd_ping"
