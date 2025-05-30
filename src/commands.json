@@ -52,8 +52,8 @@
     "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --account-batch-size 5 --start-from 0"
   },
   {
-    "description": "delete all salesforce account files",
-    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --commands='delete-salesforce-account-files'"
+    "description": "force delete all salesforce account files",
+    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --commands='force-delete-salesforce-account-files'"
   },
   {
     "description": "re(load) salesforce account files for'Montesino, Maria' [account found in dropbox client list file]",

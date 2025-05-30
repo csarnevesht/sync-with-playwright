@@ -160,12 +160,13 @@ class SalesforceFileManager(BasePage):
             self.logger.info(f"Error checking files count: {str(e)}")
         return 0
 
-    def navigate_to_files_click_on_files_card_to_facilitate_upload(self) -> int:
+    def navigate_to_files_click_on_files_card_to_facilitate_file_operation(self) -> int:
         """Navigate to the Files page of the current account. Assumes you are already on the account detail page.
         
         Returns:
             int: Number of files found in the account, -1 if there was an error
         """
+        self.logger.info("****navigate_to_files_click_on_files_card_to_facilitate_file_operation")
         self.logger.info("****Attempting to navigate to Files...")
         self.logger.info(f"Current URL: {self.page.url}")
         

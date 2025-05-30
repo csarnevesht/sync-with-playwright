@@ -203,7 +203,8 @@ class CommandRunner:
             'upload-salesforce-account-file': self._upload_salesforce_account_file,
             'upload-salesforce-account-files': self._upload_salesforce_account_files,
             'download-salesforce-account-file': self._download_salesforce_account_file,
-            'delete-salesforce-account-files': self._delete_salesforce_account_files
+            'delete-salesforce-account-files': self._delete_salesforce_account_files,
+            'force-delete-salesforce-account-files': self._force_delete_salesforce_account_files
         }
         
         if command not in command_map:
@@ -450,7 +451,7 @@ class CommandRunner:
 
                         # Navigate to files section
                         logging.info("Navigating to files section")
-                        num_files = file_manager.navigate_to_files_click_on_files_card_to_facilitate_upload()
+                        num_files = file_manager.navigate_to_files_click_on_files_card_to_facilitate_file_operation()
                         if num_files == -1:
                             logging.error("Failed to navigate to Files")
                             return
@@ -506,8 +507,12 @@ class CommandRunner:
         # TODO: Implement file download logic
         self.logger.info("download-salesforce-account-file operation completed")
     
-    def _delete_salesforce_account_files(self) -> None:
-        """Delete all files from Salesforce account."""
+    def _delete_salesforce_account_files(self, force: bool = False) -> None:
+        """Delete all files from Salesforce account.
+        
+        Args:
+            force: If True, skip the confirmation prompt
+        """
         self.logger.info("Starting delete-salesforce-account-files operation")
         self.report_logger.info("\n=== DELETING SALESFORCE ACCOUNT FILES ===")
         
@@ -533,17 +538,18 @@ class CommandRunner:
                 self.report_logger.info("\nNo files found to delete")
                 return
             
-            # Prompt for confirmation
+            # Prompt for confirmation unless force is True
             self.logger.info(f"Found {len(files)} files to delete")
             self.report_logger.info(f"\nFound {len(files)} files to delete:")
             for file in files:
                 self.report_logger.info(f"  - {file}")
             
-            response = input(f"\nDo you want to delete all {len(files)} Salesforce account files? (y/N): ").strip().lower()
-            if response != 'y':
-                self.logger.info("Operation cancelled by user")
-                self.report_logger.info("\nOperation cancelled by user")
-                return
+            if not force:
+                response = input(f"\nDo you want to delete all {len(files)} Salesforce account files? (y/N): ").strip().lower()
+                if response != 'y':
+                    self.logger.info("Operation cancelled by user")
+                    self.report_logger.info("\nOperation cancelled by user")
+                    return
             
             # Delete each file
             for file in files:
@@ -569,4 +575,10 @@ class CommandRunner:
             error_msg = f"Error in delete-salesforce-account-files operation: {str(e)}"
             self.logger.error(error_msg)
             self.report_logger.error(f"\n{error_msg}")
-            raise 
+            raise
+
+    def _force_delete_salesforce_account_files(self) -> None:
+        """Force delete all files from Salesforce account without confirmation prompt."""
+        self.logger.info("Starting force-delete-salesforce-account-files operation")
+        self.report_logger.info("\n=== FORCE DELETING SALESFORCE ACCOUNT FILES ===")
+        self._delete_salesforce_account_files(force=True) 
