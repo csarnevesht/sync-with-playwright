@@ -1835,7 +1835,43 @@ Name Variations:
 
 
     def prepare_dropbox_account_data_for_search(self, account_name: str) -> dict:
-        """Get the name parts for the account name. (prepare_account_data_for_search)"""
+        """Prepare account data for searching in Salesforce based on a Dropbox account folder name.
+        
+        This method extracts and normalizes name components from a Dropbox account folder name
+        to prepare it for searching in Salesforce. It uses the _extract_name_parts method to
+        parse the name and creates a standardized data structure for search operations.
+        
+        The method handles various name formats including:
+        - Simple first/last names
+        - Names with middle names
+        - Names with additional information in parentheses
+        - Names with '&' or 'and' separators
+        - Special case names with predefined rules
+        
+        Args:
+            account_name (str): The Dropbox account folder name to process
+            
+        Returns:
+            dict: A dictionary containing:
+                - folder_name (str): Original account folder name
+                - first_name (str): Extracted first name
+                - last_name (str): Extracted last name
+                - middle_name (str): Extracted middle name
+                - additional_info (str): Any additional information found in parentheses
+                - full_name (str): Full name if available
+                - normalized_names (list): List of normalized name variations for matching
+                - swapped_names (list): List of name variations with swapped first/last names
+                - expected_matches (list): List of expected name matches for special cases
+                - status (str): Initial search status ('not_found')
+                - matches (list): Empty list for storing search matches
+                - search_attempts (list): Empty list for storing search attempts
+                - timing (dict): Empty dict for storing timing information
+                - match_info (dict): Initial match information with:
+                    - match_status (str): Initial status message
+                    - total_exact_matches (int): Initial count of exact matches
+                    - total_partial_matches (int): Initial count of partial matches
+                    - total_no_matches (int): Initial count of no matches
+        """
         name_parts = self._extract_name_parts(account_name, log=False)
         result = {
                 'folder_name': account_name,

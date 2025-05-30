@@ -233,46 +233,50 @@ class DropboxClient:
     
 
     def get_dropbox_account_info(self, account_name: str, account_name_info: dict) -> Dict[str, str]:
-        """Get account information for account_name from the (holiday) account info file.
+        """Get account information from the holiday account info file.
         
-        This method searches for and processes an account in the (holiday) account info file. 
-        It extracts key personal information such as name, address, phone number, and email.
+        This method searches for and processes an account in the holiday account info file using
+        the provided account_name_info dictionary. It extracts key personal information such as
+        name, address, phone number, and email from the Excel file.
         
         The method follows these steps:
-        1. Locates the (holiday) account info file
-        2. Extracts text content from the XLSX
-        3. Parses the text to find specific information fields
-        4. Returns a dictionary of found information
+        1. Locates the holiday account info file
+        2. Downloads and reads the Excel file
+        3. Searches for the account using the last_name from account_name_info
+        4. Extracts available information from matching rows
+        5. Returns a dictionary containing both the original account_name_info and extracted data
         
         Args:
-            account_name (str): The name of the account to search for in the (holiday) account info file
-            
-        Returns:
-            Dict[str, str]: A dictionary containing extracted account information with the following keys:
-                - name (str): Full name of the account holder
-                - address (str): Physical address
-                - phone (str): Contact phone number
-                - email (str): Email address
+            account_name (str): The name of the account to search for (used for logging)
+            account_name_info (dict): Dictionary containing account name information with keys:
+                - last_name (str): Last name to search for in the Excel file
+                - full_name (str): Full name of the account holder
+                - normalized_names (list): List of normalized name variations
+                - swapped_names (list): List of name variations with swapped first/last names
+                - expected_matches (list): List of expected name matches
                 
-            Returns an empty dictionary if:
-                - No account info file is found
+        Returns:
+            Dict[str, Dict]: A dictionary containing:
+                - account_name_info (dict): The original account_name_info dictionary
+                - account_data (dict): Extracted account information with keys:
+                    - name (str): Full name from Excel
+                    - first_name (str): First name if available
+                    - last_name (str): Last name if available
+                    - address (str): Physical address if available
+                    - city (str): City if available
+                    - state (str): State if available
+                    - zip (str): Zip code if available
+                    - email (str): Email address if available
+                    - phone (str): Phone number if available
+                
+            Returns a dictionary with empty account_data if:
+                - No holiday file is found
                 - File cannot be downloaded
-                - Text extraction fails
-                - No information can be parsed from the text
+                - No matching account is found
+                - Required columns are not found in the Excel file
                 
         Raises:
             Exception: Any error during the extraction process is caught and logged
-            
-        Example:
-            >>> client = DropboxClient(token)
-            >>> info = client.get_dropbox_account_info("John Smith")
-            >>> print(info)
-            {
-                'name': 'John Smith',
-                'address': '123 Main St, New York, NY 10001',
-                'phone': '(555) 123-4567',
-                'email': 'john.smith@example.com'
-            }
         """
         try:
             dropbox_account_data = {}
