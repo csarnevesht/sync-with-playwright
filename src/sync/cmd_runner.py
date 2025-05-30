@@ -285,9 +285,9 @@ def initialize_dropbox_client():
     
       
 
-def analyze_accounts(args):
+def run_command(args):
     """
-    Analyze the status of accounts from Dropbox to Salesforce
+    Run command
     
     Args:
         args: Command line arguments containing all options
@@ -300,6 +300,8 @@ def analyze_accounts(args):
 
     root_path = get_root_path(args.env_file, report_logger)
     
+    logger.info("step 1: Read Ignored Folders")
+
     # Always read ignored folders
     try:
         ignored_folders = read_ignored_folders()
@@ -309,6 +311,7 @@ def analyze_accounts(args):
         logger.error(f"Error reading ignored folders: {str(e)}")
         ignored_folders = set()
 
+    logger.info('step 2: Get Account Folders')
     # If a single account name is provided, use that
     if args.dropbox_account_name:
         if args.dropbox_account_name in ignored_folders:
@@ -331,6 +334,7 @@ def analyze_accounts(args):
     
     # If --dropbox-accounts is specified or no source is provided, use default behavior
     elif args.dropbox_accounts or (not args.dropbox_account_name and not args.dropbox_accounts_file):
+        logger.info("step 1")
         # Initialize Dropbox client with enhanced logging
         dropbox_client = initialize_dropbox_client()
         if not dropbox_client:
@@ -424,19 +428,21 @@ def analyze_accounts(args):
     # List to store results for summary
     summary_results = []
 
+    logger.info('step 3: Process Dropbox Accounts (folders)')
     with sync_playwright() as p:
         try:
             browser, page = get_salesforce_page(p)
 
+            dropbox_client = initialize_dropbox_client()
+            if not dropbox_client:
+                    logger.error(f"Failed to initialize Dropbox client. Skipping...")
+                    report_logger.info(f"Failed to initialize Dropbox client. Skipping...")
+                    
             # Initialize account manager and file manager
             account_manager = AccountManager(page, debug_mode=True)
             account_manager.logger.report_logger = report_logger  # Add report logger
             file_manager = FileManager(page, debug_mode=True)
 
-            dropbox_client = initialize_dropbox_client()
-            if not dropbox_client:
-                    logger.error(f"Failed to initialize Dropbox client for folder {account_folder_name}. Skipping...")
-                    report_logger.info(f"Failed to initialize Dropbox client for folder {account_folder_name}. Skipping...")
 
             # Dictionary to store results for each folder
             results = {}
@@ -447,27 +453,31 @@ def analyze_accounts(args):
                 report_logger.info("\nNo Dropbox accounts to process")
                 return
             
-            logger.info(f"\nStarting to process {total_folders} folders...")
+            logger.info(f"Starting to process {total_folders} folders...")
             report_logger.info(f"\nStarting to process {total_folders} folders...")
-
-            # Navigate to Salesforce base URL
-            if args.salesforce_accounts:    
-                if not account_manager.navigate_to_salesforce():
-                    logger.error("Failed to navigate to Salesforce base URL")
-                    report_logger.info("Failed to navigate to Salesforce base URL")
-                    return
-                account_manager.refresh_page()
             
             # Process each folder name
             for index, account_folder_name in enumerate(ACCOUNT_FOLDERS, 1):
-                logger.info(f"\n[{index}/{total_folders}] Processing Dropbox account folder: {account_folder_name}")
+                logger.info(f"[{index}/{total_folders}] Processing Dropbox account folder: {account_folder_name}")
                 report_logger.info(f"\n[{index}/{total_folders}] Processing Dropbox account folder: {account_folder_name}")
                 
                 # TODO: account_manager.extract_name_parts is called twice, once here and once in fuzzy_search_account
                 # Extract name parts
                 dropbox_account_name_data = account_manager.prepare_dropbox_account_data_for_search(account_folder_name)
                 
+                logger.info('Navigating to Salesforce')
+                # Navigate to Salesforce base URL
+                if args.salesforce_accounts:    
+                    logger.info(f"Navigating to Salesforce")
+                    if not account_manager.navigate_to_salesforce():
+                        logger.error("Failed to navigate to Salesforce base URL")
+                        report_logger.info("Failed to navigate to Salesforce base URL")
+                        return
+                    logger.info("Refreshing page")
+                    account_manager.refresh_page()
+
                 # DROPBOX ACCOUNT INFO
+                logger.info('step 4: Get Dropbox Account Info')
                 if not args.dropbox_accounts_only:
                     try:
                         account_name = account_folder_name
@@ -480,15 +490,16 @@ def analyze_accounts(args):
                             if value and str(value).strip().lower() not in ['nan', 'none', '']:
                                 display_key = ' '.join(word.capitalize() for word in key.split('_'))
                                 report_logger.info(f"   {display_key}: {value}")
-                        continue
+                            continue
                     except Exception as e:
                         logger.error(f"Error getting Dropbox account info for folder {account_folder_name}: {str(e)}")
                         report_logger.info(f"Error getting Dropbox account info for folder {account_folder_name}: {str(e)}")
                         continue
 
+                logger.info('step 5: Navigate to Accounts Page')
                 # Navigate to accounts page
                 if args.salesforce_accounts:
-                    logger.info('navigating to accounts page')
+                    logger.info('Navigating to accounts page')
                     if not account_manager.navigate_to_accounts_list_page():
                         logger.error("Failed to navigate to accounts page")
                         report_logger.info("Failed to navigate to accounts page")
@@ -499,7 +510,6 @@ def analyze_accounts(args):
                 dropbox_account_files = []
                 if args.dropbox_account_files:
                     logger.info(f"Retrieving files for Dropbox account: {account_folder_name}")
-
                     try:
                         # DROPBOX ACCOUNT FILES
                         dropbox_account_files = dropbox_client.get_dropbox_account_files(account_folder_name)
@@ -516,6 +526,7 @@ def analyze_accounts(args):
                 if not args.salesforce_accounts:
                     continue
 
+                logger.info('step 4: Salesforce Search Account')
                 # Perform fuzzy search
                 result = account_manager.fuzzy_search_account(account_folder_name, view_name="All Clients")
                 results[account_folder_name] = result
@@ -701,4 +712,4 @@ def analyze_accounts(args):
 if __name__ == "__main__":
     args = parse_args()
     logger, report_logger = setup_logging(args)
-    analyze_accounts(args) 
+    run_command(args) 
