@@ -468,7 +468,8 @@ class CommandRunner:
         
                         # Upload file to Salesforce via browser with retries
                         self.logger.info(f"Uploading to Salesforce: {file.name}")
-                        logging.info(f"Uploading file: {local_path}")
+                        self.logger.info(f"Uploading file: {local_path}")
+                        self.logger.info("current url: {page.url}")
                         if not upload_account_file_with_retries(page, local_path, expected_items=num_files+1):
                             logging.error(f"Failed to upload file after all retries: {local_path}")
                             if not self.args.continue_on_error:

@@ -317,8 +317,8 @@ class AccountManager(BasePage):
             search_input.fill(search_term)
             search_input.press("Enter")
             self.log_helper.log(self.logger, 'info', f"Pressed Enter for search term: {search_term}")
-            self.log_helper.log(self.logger, 'info', f"Waiting for 1 second(s)...")
-            self.page.wait_for_timeout(1000)
+            self.log_helper.log(self.logger, 'info', f"Waiting for 2 second(s)...")
+            self.page.wait_for_timeout(2000)
             
             # After pressing Enter, check for empty content before checking for rows
             try:
