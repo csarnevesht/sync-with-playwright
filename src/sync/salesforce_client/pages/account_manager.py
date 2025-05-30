@@ -229,31 +229,63 @@ class AccountManager(BasePage):
         """
         self.log_helper.indent()
         self.log_helper.log(self.logger, 'info', f"Navigating to list view URL (_navigate_to_accounts_list_view_url): {view_name}")
-        try:
-            # Construct the URL with the correct list view filter
-            # Convert view_name to the format expected by Salesforce (e.g., "All Clients" -> "AllClients")
-            filter_name = view_name.replace(" ", "")
-            url = f"{SALESFORCE_URL}/lightning/o/Account/list?filterName={filter_name}"
+        
+        max_attempts = 3
+        attempt = 1
+        
+        while attempt <= max_attempts:
+            try:
+                # Construct the URL with the correct list view filter
+                filter_name = view_name.replace(" ", "")
+                url = f"{SALESFORCE_URL}/lightning/o/Account/list?filterName={filter_name}"
 
-            # Check if we're already on the correct URL
-            current_url = self.page.url
-            if current_url == url:
-                self.log_helper.log(self.logger, 'info', f"Already on the correct list view URL: {url}")
-                self.log_helper.dedent()
-                return True
+                # Check if we're already on the correct URL
+                current_url = self.page.url
+                if current_url == url:
+                    self.log_helper.log(self.logger, 'info', f"Already on the correct list view URL: {url}")
+                    self.log_helper.dedent()
+                    return True
+                    
+                self.log_helper.log(self.logger, 'info', f"Attempt {attempt}/{max_attempts}: Navigating to list view URL: {url}")
                 
-            self.log_helper.log(self.logger, 'info', f"Navigating directly to list view URL: {url}")
-            
-            # Navigate to the URL
-            self.page.goto(url)
-            self.page.wait_for_load_state('networkidle', timeout=10000)
-            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
-            self.log_helper.dedent()
-            return True
-        except Exception as e:
-            self.log_helper.log(self.logger, 'error', f"Error navigating to list view URL: {str(e)}")
-            self.log_helper.dedent()
-            return False
+                # Navigate to the URL with increased timeout
+                self.page.goto(url, timeout=30000)  # Increased timeout to 30 seconds
+                
+                # Wait for network to be idle with increased timeout
+                try:
+                    self.page.wait_for_load_state('networkidle', timeout=20000)  # Increased timeout to 20 seconds
+                except Exception as e:
+                    self.log_helper.log(self.logger, 'warning', f"Network idle timeout, but continuing: {str(e)}")
+                
+                # Wait for DOM content to be loaded
+                try:
+                    self.page.wait_for_load_state('domcontentloaded', timeout=20000)  # Increased timeout to 20 seconds
+                except Exception as e:
+                    self.log_helper.log(self.logger, 'warning', f"DOM content load timeout, but continuing: {str(e)}")
+                
+                # Verify we're on the correct page
+                current_url = self.page.url
+                if url in current_url:
+                    self.log_helper.log(self.logger, 'info', f"Successfully navigated to list view URL: {url}")
+                    self.log_helper.dedent()
+                    return True
+                else:
+                    self.log_helper.log(self.logger, 'warning', f"URL mismatch. Expected: {url}, Got: {current_url}")
+                    if attempt < max_attempts:
+                        self.log_helper.log(self.logger, 'info', f"Retrying in 2 seconds...")
+                        self.page.wait_for_timeout(2000)
+                    attempt += 1
+                    
+            except Exception as e:
+                self.log_helper.log(self.logger, 'error', f"Error navigating to list view URL (attempt {attempt}/{max_attempts}): {str(e)}")
+                if attempt < max_attempts:
+                    self.log_helper.log(self.logger, 'info', f"Retrying in 2 seconds...")
+                    self.page.wait_for_timeout(2000)
+                attempt += 1
+        
+        self.log_helper.log(self.logger, 'error', f"Failed to navigate to list view URL after {max_attempts} attempts")
+        self.log_helper.dedent()
+        return False
 
     def search_account(self, search_term: str, view_name: str = "All Clients") -> List[str]:
         """
@@ -822,110 +854,119 @@ class AccountManager(BasePage):
             try:
                 # Try multiple confirmation methods
                 confirmation_found = False
+                max_attempts = 3
+                attempt = 1
                 
-                # Method 1: Check for toast message first (most reliable)
-                self.log_helper.log(self.logger, 'info', f"Method 1: Check for toast message")
-                try:
-                    # Log all toast-related elements for debugging
-                    toast_elements = self.page.query_selector_all('div[class*="notify"], div[class*="toast"], div[role="alert"]')
-                    self.log_helper.log(self.logger, 'info', f"Found {len(toast_elements)} potential toast elements")
-                    for idx, el in enumerate(toast_elements):
-                        try:
-                            visible = el.is_visible()
-                            text = el.text_content()
-                            classes = el.get_attribute('class')
-                            self.log_helper.log(self.logger, 'info', f"Toast element {idx + 1}: visible={visible}, text={text}, classes={classes}")
-                        except Exception as e:
-                            self.log_helper.log(self.logger, 'info', f"Error inspecting toast element {idx + 1}: {str(e)}")
+                while attempt <= max_attempts and not confirmation_found:
+                    self.log_helper.log(self.logger, 'info', f"Save confirmation attempt {attempt}/{max_attempts}")
+                    
+                    # Method 1: Check for toast message first (most reliable)
+                    self.log_helper.log(self.logger, 'info', f"Method 1: Check for toast message")
+                    try:
+                        # Log all toast-related elements for debugging
+                        toast_elements = self.page.query_selector_all('div[class*="notify"], div[class*="toast"], div[role="alert"]')
+                        self.log_helper.log(self.logger, 'info', f"Found {len(toast_elements)} potential toast elements")
+                        for idx, el in enumerate(toast_elements):
+                            try:
+                                visible = el.is_visible()
+                                text = el.text_content()
+                                classes = el.get_attribute('class')
+                                self.log_helper.log(self.logger, 'info', f"Toast element {idx + 1}: visible={visible}, text={text}, classes={classes}")
+                            except Exception as e:
+                                self.log_helper.log(self.logger, 'info', f"Error inspecting toast element {idx + 1}: {str(e)}")
 
-                    toast = self.page.wait_for_selector('div.slds-notify_toast, div.slds-notify--toast, div[role="alert"]', timeout=20000)
-                    if toast and toast.is_visible():
-                        toast_text = toast.text_content()
-                        self.log_helper.log(self.logger, 'info', f"Found toast message: {toast_text}")
-                        if 'success' in toast_text.lower() or 'was created' in toast_text.lower():
-                            confirmation_found = True
-                except Exception as e:
-                    self.log_helper.log(self.logger, 'info', f"No toast message found: {str(e)}")
-                
-                # Method 2: Check URL change
-                self.log_helper.log(self.logger, 'info', f"Method 2: Check URL change")
-                self.log_helper.log(self.logger, 'info', f"confirmation_found: {confirmation_found}")
-                if not confirmation_found:
-                    try:
-                        current_url = self.page.url
-                        self.log_helper.log(self.logger, 'info', f"Current URL before waiting: {current_url}")
-                        # Wait for URL to change to view page
-                        self.page.wait_for_url(lambda url: '/view' in url, timeout=20000)
-                        new_url = self.page.url
-                        self.log_helper.log(self.logger, 'info', f"URL changed to view page: {new_url}")
-                        confirmation_found = True
-                        
-                        # Wait for page load after URL change with shorter timeouts
-                        self.log_helper.log(self.logger, 'info', "Waiting for page load after URL change...")
-                        try:
-                            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
-                            self.log_helper.log(self.logger, 'info', "DOM content loaded")
-                        except Exception as e:
-                            self.log_helper.log(self.logger, 'info', f"DOM content load timeout: {str(e)}")
-                            
-                        try:
-                            self.page.wait_for_load_state('networkidle', timeout=10000)
-                            self.log_helper.log(self.logger, 'info', "Network is idle")
-                        except Exception as e:
-                            self.log_helper.log(self.logger, 'info', f"Network idle timeout: {str(e)}")
-                            
+                        toast = self.page.wait_for_selector('div.slds-notify_toast, div.slds-notify--toast, div[role="alert"]', timeout=20000)
+                        if toast and toast.is_visible():
+                            toast_text = toast.text_content()
+                            self.log_helper.log(self.logger, 'info', f"Found toast message: {toast_text}")
+                            if 'success' in toast_text.lower() or 'was created' in toast_text.lower():
+                                confirmation_found = True
                     except Exception as e:
-                        self.log_helper.log(self.logger, 'info', f"URL did not change: {str(e)}")
-                
-                # Method 3: Check for account name
-                self.log_helper.log(self.logger, 'info', f"Method 3: Check for account name")
-                if not confirmation_found:
-                    account_name = f"{first_name} {middle_name} {last_name}" if middle_name else f"{first_name} {last_name}"
-                    name_selectors = [
-                        f"h1:has-text('{account_name}')",
-                        f"span:has-text('{account_name}')",
-                        f"div:has-text('{account_name}')",
-                        f"text={account_name}"
-                    ]
-                    for selector in name_selectors:
+                        self.log_helper.log(self.logger, 'info', f"No toast message found: {str(e)}")
+                    
+                    # Method 2: Check URL change
+                    self.log_helper.log(self.logger, 'info', f"Method 2: Check URL change")
+                    self.log_helper.log(self.logger, 'info', f"confirmation_found: {confirmation_found}")
+                    if not confirmation_found:
                         try:
-                            elements = self.page.query_selector_all(selector)
-                            self.log_helper.log(self.logger, 'info', f"Found {len(elements)} elements matching selector: {selector}")
-                            for idx, el in enumerate(elements):
-                                try:
-                                    visible = el.is_visible()
-                                    text = el.text_content()
-                                    self.log_helper.log(self.logger, 'info', f"Element {idx + 1} for selector {selector}: visible={visible}, text={text}")
-                                    if visible:
-                                        self.log_helper.log(self.logger, 'info', f"Account name found with selector: {selector}")
-                                        confirmation_found = True
+                            current_url = self.page.url
+                            self.log_helper.log(self.logger, 'info', f"Current URL before waiting: {current_url}")
+                            # Wait for URL to change to view page
+                            self.page.wait_for_url(lambda url: '/view' in url, timeout=20000)
+                            new_url = self.page.url
+                            self.log_helper.log(self.logger, 'info', f"URL changed to view page: {new_url}")
+                            confirmation_found = True
+                            
+                            # Wait for page load after URL change with shorter timeouts
+                            self.log_helper.log(self.logger, 'info', "Waiting for page load after URL change...")
+                            try:
+                                self.page.wait_for_load_state('domcontentloaded', timeout=10000)
+                                self.log_helper.log(self.logger, 'info', "DOM content loaded")
+                            except Exception as e:
+                                self.log_helper.log(self.logger, 'info', f"DOM content load timeout: {str(e)}")
+                                
+                            try:
+                                self.page.wait_for_load_state('networkidle', timeout=10000)
+                                self.log_helper.log(self.logger, 'info', "Network is idle")
+                            except Exception as e:
+                                self.log_helper.log(self.logger, 'info', f"Network idle timeout: {str(e)}")
+                                
+                        except Exception as e:
+                            self.log_helper.log(self.logger, 'info', f"URL did not change: {str(e)}")
+                    
+                    # Method 3: Check for account name
+                    self.log_helper.log(self.logger, 'info', f"Method 3: Check for account name")
+                    if not confirmation_found:
+                        account_name = f"{first_name} {middle_name} {last_name}" if middle_name else f"{first_name} {last_name}"
+                        name_selectors = [
+                            f"h1:has-text('{account_name}')",
+                            f"span:has-text('{account_name}')",
+                            f"div:has-text('{account_name}')",
+                            f"text={account_name}"
+                        ]
+                        for selector in name_selectors:
+                            try:
+                                elements = self.page.query_selector_all(selector)
+                                self.log_helper.log(self.logger, 'info', f"Found {len(elements)} elements matching selector: {selector}")
+                                for idx, el in enumerate(elements):
+                                    try:
+                                        visible = el.is_visible()
+                                        text = el.text_content()
+                                        self.log_helper.log(self.logger, 'info', f"Element {idx + 1} for selector {selector}: visible={visible}, text={text}")
+                                        if visible:
+                                            self.log_helper.log(self.logger, 'info', f"Account name found with selector: {selector}")
+                                            confirmation_found = True
+                                            break
+                                    except Exception as e:
+                                        self.log_helper.log(self.logger, 'info', f"Error inspecting element {idx + 1} for selector {selector}: {str(e)}")
+                                    if confirmation_found:
                                         break
-                                except Exception as e:
-                                    self.log_helper.log(self.logger, 'info', f"Error inspecting element {idx + 1} for selector {selector}: {str(e)}")
-                            if confirmation_found:
-                                break
+                            except Exception as e:
+                                self.log_helper.log(self.logger, 'info', f"Selector {selector} failed: {str(e)}")
+                    
+                    # Method 4: Check for loading spinner to disappear
+                    if not confirmation_found:
+                        self.log_helper.log(self.logger, 'info', f"Method 4: Check for loading spinner")
+                        try:
+                            self.page.wait_for_selector('.slds-spinner_container', state='hidden', timeout=10000)
+                            self.log_helper.log(self.logger, 'info', "Loading spinner disappeared")
+                            # If spinner disappeared and we're on a view page, consider it a success
+                            if '/view' in self.page.url:
+                                confirmation_found = True
                         except Exception as e:
-                            self.log_helper.log(self.logger, 'info', f"Selector {selector} failed: {str(e)}")
-                
-                # Method 4: Check for loading spinner to disappear
-                if not confirmation_found:
-                    self.log_helper.log(self.logger, 'info', f"Method 4: Check for loading spinner")
-                    try:
-                        self.page.wait_for_selector('.slds-spinner_container', state='hidden', timeout=10000)
-                        self.log_helper.log(self.logger, 'info', "Loading spinner disappeared")
-                        # If spinner disappeared and we're on a view page, consider it a success
-                        if '/view' in self.page.url:
-                            confirmation_found = True
-                    except Exception as e:
-                        self.log_helper.log(self.logger, 'info', f"No loading spinner found or already disappeared: {str(e)}")
-                
-                if not confirmation_found:
-                    # Take a screenshot of the current state
-                    self._take_screenshot("save-confirmation-not-found")
-                    # Log the page HTML for debugging
-                    page_content = self.page.content()
-                    self.log_helper.log(self.logger, 'info', f"Current page HTML: {page_content}")
-                    raise Exception("Could not confirm save operation completed")
+                            self.log_helper.log(self.logger, 'info', f"No loading spinner found or already disappeared: {str(e)}")
+                    
+                    if not confirmation_found and attempt < max_attempts:
+                        self.log_helper.log(self.logger, 'info', f"Save confirmation not found, retrying in 2 seconds...")
+                        self.page.wait_for_timeout(2000)
+                        attempt += 1
+                    elif not confirmation_found and attempt == max_attempts:
+                        # Take a screenshot of the current state
+                        self._take_screenshot("save-confirmation-not-found")
+                        # Log the page HTML for debugging
+                        page_content = self.page.content()
+                        self.log_helper.log(self.logger, 'info', f"Current page HTML: {page_content}")
+                        raise Exception("Could not confirm save operation completed after all attempts")
                 
                 self.log_helper.log(self.logger, 'info', "Save confirmation received")
                 
