@@ -16,8 +16,8 @@
     "command": "python -m sync.cmd_analyzer --dropbox-accounts --dropbox-account-files --dropbox-account-info --dropbox-account-name='Matalon, Dennis'"
   },
   {
-    "description": "get Dropbox account info for accounts specified in accounts/sample.txt",
-    "command": "python -m sync.cmd_analyzer --dropbox-accounts --dropbox-account-files --dropbox-account-info --dropbox-accounts-file accounts/small.txt"
+    "description": "get Dropbox account info for accounts specified in accounts/fuzzy.txt",
+    "command": "python -m sync.cmd_analyzer --dropbox-accounts --dropbox-account-files --dropbox-account-info --dropbox-accounts-file accounts/fuzzy.txt"
   },
   {
     "description": "analyze all dropbox accounts and salesforce accounts",

@@ -1523,7 +1523,7 @@ class AccountManager(BasePage):
             self.log_helper.dedent()
             return False
 
-    def _extract_name_parts(self, name: str) -> dict:
+    def _extract_name_parts(self, name: str, log: bool = True) -> dict:
         """Extract name parts from a name string.
         
         Rules:
@@ -1827,7 +1827,7 @@ Name Variations:
 """
         # Log to both main logger and report logger
         self.log_helper.log(self.logger, 'info', summary)
-        if hasattr(self.logger, 'report_logger') and self.logger.report_logger:
+        if hasattr(self.logger, 'report_logger') and self.logger.report_logger and log:
             self.logger.report_logger.info(summary)
 
         return result
@@ -1836,7 +1836,7 @@ Name Variations:
 
     def prepare_dropbox_account_data_for_search(self, account_name: str) -> dict:
         """Get the name parts for the account name. (prepare_account_data_for_search)"""
-        name_parts = self._extract_name_parts(account_name)
+        name_parts = self._extract_name_parts(account_name, log=False)
         result = {
                 'folder_name': account_name,
                 'first_name': name_parts.get('first_name', ''),
