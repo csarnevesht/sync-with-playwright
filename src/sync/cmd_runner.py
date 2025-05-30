@@ -300,8 +300,7 @@ def run_command(args):
 
     root_path = get_root_path(args.env_file, report_logger)
     
-    logger.info("step 1: Read Ignored Folders")
-
+    logger.info("step: Read Ignored Folders")
     # Always read ignored folders
     try:
         ignored_folders = read_ignored_folders()
@@ -311,9 +310,9 @@ def run_command(args):
         logger.error(f"Error reading ignored folders: {str(e)}")
         ignored_folders = set()
 
-    logger.info('step 2: Get Account Folders')
     # If a single account name is provided, use that
     if args.dropbox_account_name:
+        logger.info('step: Get Account Folders')
         if args.dropbox_account_name in ignored_folders:
             logger.warning(f"Account {args.dropbox_account_name} is in the ignore list. Skipping...")
             report_logger.info(f"\nAccount {args.dropbox_account_name} is in the ignore list. Skipping...")
@@ -334,7 +333,7 @@ def run_command(args):
     
     # If --dropbox-accounts is specified or no source is provided, use default behavior
     elif args.dropbox_accounts or (not args.dropbox_account_name and not args.dropbox_accounts_file):
-        logger.info("step 1")
+        logger.info("step: Get Dropbox Account Folders")
         # Initialize Dropbox client with enhanced logging
         dropbox_client = initialize_dropbox_client()
         if not dropbox_client:
@@ -428,7 +427,7 @@ def run_command(args):
     # List to store results for summary
     summary_results = []
 
-    logger.info('step 3: Process Dropbox Accounts (folders)')
+    logger.info('step: Process Dropbox Account folders')
     with sync_playwright() as p:
         try:
             browser, page = get_salesforce_page(p)
@@ -477,7 +476,7 @@ def run_command(args):
                     account_manager.refresh_page()
 
                 # DROPBOX ACCOUNT INFO
-                logger.info('step 4: Get Dropbox Account Info')
+                logger.info('step: Get Dropbox Account Info')
                 if not args.dropbox_accounts_only:
                     try:
                         account_name = account_folder_name
@@ -496,7 +495,7 @@ def run_command(args):
                         report_logger.info(f"Error getting Dropbox account info for folder {account_folder_name}: {str(e)}")
                         continue
 
-                logger.info('step 5: Navigate to Accounts Page')
+                logger.info('step: Navigate to Accounts Page')
                 # Navigate to accounts page
                 if args.salesforce_accounts:
                     logger.info('Navigating to accounts page')
@@ -526,7 +525,7 @@ def run_command(args):
                 if not args.salesforce_accounts:
                     continue
 
-                logger.info('step 4: Salesforce Search Account')
+                logger.info('step: Salesforce Search Account')
                 # Perform fuzzy search
                 result = account_manager.fuzzy_search_account(account_folder_name, view_name="All Clients")
                 results[account_folder_name] = result
