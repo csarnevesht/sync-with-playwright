@@ -47,6 +47,16 @@ clear && python -m sync.cmd_runner \
   --dropbox-accounts \
   --dropbox-account-files \
   --commands='prefix-dropbox-account-files' \
+
+re(create) salesforce account 'Montesino, Maria' [account found in dropbox client list file]
+clear && python -m sync.cmd_runner \
+  --dropbox-accounts \
+  --dropbox-account-files \
+  --salesforce-accounts \
+  --salesforce-account-files \
+  --commands='prefix-dropbox-account-files,delete-salesforce-account,create-salesforce-account' \
+  --dropbox-account-name='Montesino, Maria'
+  
   
 
 commands/commands.txt

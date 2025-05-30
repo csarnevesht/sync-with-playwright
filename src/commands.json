@@ -8,15 +8,15 @@
     "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files"
   },
   {
-    "description": "Prefix dropbox account 'Montesino, Maria' [account found in dropbox client list file] and store it in Dropbox Salesforce folder",
+    "description": "prefix dropbox account 'Montesino, Maria' [account found in dropbox client list file] and store it in Dropbox Salesforce folder",
     "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --commands='prefix-dropbox-account-files' --dropbox-account-name='Montesino, Maria'"
   },
   {
-    "description": "Prefix dropbox account 'Matalon, Dennis' and store it in Dropbox Salesforce folder",
+    "description": "prefix dropbox account 'Matalon, Dennis' and store it in Dropbox Salesforce folder",
     "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --commands='prefix-dropbox-account-files' --dropbox-account-name='Matalon, Dennis'"
   },
   {
-    "description": "Prefix dropbox account 'Cedeno, Paula (Medicaid Mike)' and store it in Dropbox Salesforce folder",
+    "description": "prefix dropbox account 'Cedeno, Paula (Medicaid Mike)' and store it in Dropbox Salesforce folder",
     "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --commands='prefix-dropbox-account-files' --dropbox-account-name='Cedeno, Paula (Medicaid Mike)'"
   },
   {
@@ -46,6 +46,10 @@
   {
     "description": "analyze accounts and files in batches of 5",
     "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --account-batch-size 5 --start-from 0"
+  },
+  {
+    "description": "re(create) salesforce account 'Montesino, Maria' [account found in dropbox client list file]",
+    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --commands='prefix-dropbox-account-files,delete-salesforce-account,create-salesforce-account' --dropbox-account-name='Montesino, Maria'"
   },
   {
     "description": "ping dropbox and salesforce",
