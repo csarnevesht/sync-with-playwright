@@ -176,6 +176,11 @@ def setup_logging(args):
     root_logger.addHandler(file_handler)
     root_logger.addHandler(console_handler)
     
+    # Configure account_manager logger
+    account_manager_logger = logging.getLogger('account_manager')
+    account_manager_logger.setLevel(logging.INFO)
+    account_manager_logger.addHandler(file_handler)
+    
     # Create a separate logger for reports
     report_logger = logging.getLogger('report')
     report_logger.setLevel(logging.INFO)
@@ -376,9 +381,7 @@ def run_command(args):
                     return
                 raise
                 
-                #CAROLINA HERE
             # List all folders in the path
-            # CAROLINA HERE
             logger.info(f"Getting all account folders from: {dropbox_client.root_folder}")
             all_account_folders = dropbox_client.get_dropbox_account_names()
             
@@ -498,12 +501,17 @@ def run_command(args):
                 if command_runner:
                     command_runner.set_data('dropbox_account_name', dropbox_account_folder_name)
                 
-                # TODO: account_manager.extract_name_parts is called twice, once here and once in fuzzy_search_account
-                # Extract name parts
-                if account_manager:
-                    dropbox_account_name_data = account_manager.prepare_dropbox_account_data_for_search(dropbox_account_folder_name)
+                # Always extract name parts if dropbox_account_info is set
+                if args.dropbox_account_info:
+                    if account_manager:
+                        logger.info(f"Calling AccountManager.prepare_dropbox_account_data_for_search for: {dropbox_account_folder_name}")
+                        dropbox_account_name_data = AccountManager.prepare_dropbox_account_data_for_search(dropbox_account_folder_name)
+                    else:
+                        # Use AccountManager._extract_name_parts as a static method
+                        logger.info(f"Calling AccountManager._extract_name_parts for: {dropbox_account_folder_name}")
+                        name_parts = AccountManager._extract_name_parts(dropbox_account_folder_name, log=True)
+                        logger.info(f"Extracted name parts: {name_parts}")
                 
-                logger.info('Navigating to Salesforce')
                 # Navigate to Salesforce base URL
                 if args.salesforce_accounts and account_manager:    
                     logger.info(f"Navigating to Salesforce")
@@ -521,14 +529,33 @@ def run_command(args):
                 try:
                     # Get account name info from account manager if available
                     account_name_info = None
-                    if account_manager:
-                        account_name_info = account_manager.prepare_dropbox_account_data_for_search(dropbox_account_folder_name)
+                    account_name_info = AccountManager.prepare_dropbox_account_data_for_search(dropbox_account_folder_name)
+                    
+                    # Initialize account_name_info with default values if None
+                    if account_name_info is None:
+                        account_name_info = {
+                            'last_name': dropbox_account_folder_name,
+                            'full_name': dropbox_account_folder_name,
+                            'normalized_names': [dropbox_account_folder_name],
+                            'swapped_names': [],
+                            'expected_matches': [],
+                            'status': 'not_found',
+                            'matches': [],
+                            'match_info': {
+                                'match_status': 'No matches found',
+                                'total_exact_matches': 0,
+                                'total_partial_matches': 0,
+                                'total_no_matches': 1
+                            }
+                        }
                     
                     dropbox_account_info = dropbox_client.get_dropbox_account_info(dropbox_account_folder_name, account_name_info)
+                    logger.info(f'dropbox_account_info: {dropbox_account_info}')
                     logger.info(f"Successfully retrieved info for Dropbox account: {dropbox_account_folder_name}")
+                    report_logger.info(f"\n👤 Dropbox Account Data: '{dropbox_account_folder_name}' match: [{account_name_info['match_info']['match_status']}]")
                     if args.dropbox_account_info:
-                        report_logger.info(f"\n📁 Dropbox account info: [account: {dropbox_account_folder_name}]")
-                        for key, value in dropbox_account_info.items():
+                        account_data = dropbox_account_info['account_data']
+                        for key, value in account_data.items():
                             report_logger.info(f"   + {key}: {value}")
                     
                     if command_runner:
@@ -583,7 +610,7 @@ def run_command(args):
                     report_logger.info(f"  Salesforce account name: {match}")
 
                 # Get Salesforce files if requested and account was found
-                salesforce_acount_file_names = []
+                salesforce_account_file_names = []
                 # logger.info(f"*** result: {result}")
                 salesforce_matches  = result['matches']
                 logger.info(f"*** salesforce_matches: {salesforce_matches}")
@@ -605,12 +632,12 @@ def run_command(args):
                             logger.info(f"salesforce_account_id: {salesforce_account_id}")
 
                             logger.info(f"get salesforce account file names")
-                            salesforce_acount_file_names = account_manager.get_salesforce_account_file_names(salesforce_account_id)
-                            logger.info(f"Found {len(salesforce_acount_file_names)} files in Salesforce")
+                            salesforce_account_file_names = account_manager.get_salesforce_account_file_names(salesforce_account_id)
+                            logger.info(f"Found {len(salesforce_account_file_names)} files in Salesforce")
 
                             if command_runner:
                                 command_runner.set_data('dropbox_account_folder_name', dropbox_account_folder_name)
-                                command_runner.set_data('salesforce_acount_file_names', salesforce_acount_file_names)
+                                command_runner.set_data('salesforce_account_file_names', salesforce_account_file_names)
 
                         else:
                             logger.error(f"Could not verify account page or get account ID for: {account_to_check}")
@@ -622,22 +649,22 @@ def run_command(args):
                 if command_runner:  
                     command_runner.set_data('dropbox_account_folder_name', dropbox_account_folder_name)
                     command_runner.set_data('dropbox_account_file_names', dropbox_account_file_names)
-                    command_runner.set_data('salesforce_acount_file_names', salesforce_acount_file_names)
+                    command_runner.set_data('salesforce_account_file_names', salesforce_account_file_names)
                     command_runner.set_data('salesforce_matches', salesforce_matches)
                     command_runner.set_data('result', result)
                     command_runner.execute_commands()
                 
                 # Compare files if both Dropbox and Salesforce files are available
                 file_comparison = None
-                if dropbox_account_file_names and salesforce_acount_file_names and file_manager:
-                    logger.info('comparing files for account: {folder_name}')
-                    file_comparison = file_manager.compare_salesforce_files(dropbox_account_file_names, salesforce_acount_file_names)
+                if dropbox_account_file_names and salesforce_account_file_names and file_manager:
+                    logger.info(f'comparing files for account: {dropbox_account_folder_name}')
+                    file_comparison = file_manager.compare_salesforce_files(dropbox_account_file_names, salesforce_account_file_names)
                 
                 summary = {
                     'dropbox_name': dropbox_account_folder_name,
                     'matches': result['matches'] if account_manager else [],
                     'dropbox_account_file_names': dropbox_account_file_names,
-                    'salesforce_acount_file_names': salesforce_acount_file_names,
+                    'salesforce_account_file_names': salesforce_account_file_names,
                     'file_comparison': file_comparison,
                     'expected_matches': result.get('expected_matches', []) if account_manager else [],
                     'status': result['status'] if account_manager else 'no_salesforce',
@@ -646,7 +673,7 @@ def run_command(args):
                 }
                 summary_results.append(summary)
                 if account_manager:
-                    result['summary'] = summary;
+                    result['summary'] = summary
             
             # Print results summary
             if args.salesforce_accounts and account_manager:
@@ -675,8 +702,8 @@ def run_command(args):
                     # Show Salesforce files
                     report_logger.info("\n📁 Salesforce account files:")
                     for summary in summary_results:
-                        if summary['dropbox_name'] == dropbox_account_folder_name and summary['salesforce_acount_file_names']:
-                            sorted_files = sorted(summary['salesforce_acount_file_names'], 
+                        if summary['dropbox_name'] == dropbox_account_folder_name and summary['salesforce_account_file_names']:
+                            sorted_files = sorted(summary['salesforce_account_file_names'], 
                                 key=lambda x: int(x.split('.')[0]) if x.split('.')[0].isdigit() else float('inf'))
                             for file in sorted_files:
                                 report_logger.info(f"   + {file}")
