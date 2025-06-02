@@ -106,7 +106,12 @@ class LoggingHelper:
         if isinstance(msg, str):
             msg = f"{indent}{msg}"
             msg = cls.colorize(msg)
+        
+        # Ensure the message is logged to both the provided logger and root logger
         getattr(logger, level)(msg, *args, **kwargs)
+        root_logger = logging.getLogger()
+        if root_logger != logger:  # Avoid duplicate logging
+            getattr(root_logger, level)(msg, *args, **kwargs)
 
     @classmethod
     def log_timing(cls, logger, operation_name: str):
@@ -128,52 +133,165 @@ class AccountManager(BasePage):
         if not hasattr(self, 'log_helper') or self.log_helper is None:
             self.log_helper = LoggingHelper()
         
-    def _load_special_cases(self) -> dict:
-        """Load special cases from the configuration file.
+        # Get the root logger and set it as the logger for this instance
+        self.logger = logging.getLogger()
+        if debug_mode:
+            self.logger.setLevel(logging.DEBUG)
         
-        Returns:
-            dict: Dictionary mapping folder names to their special case rules
+    @staticmethod
+    def _load_special_cases() -> dict:
+        """Load special case rules for name parsing."""
+        return {
+            # Add your special cases here
+        }
+
+    @staticmethod
+    def _is_special_case(folder_name: str) -> bool:
+        """Check if a folder name matches any special case rules."""
+        special_cases = AccountManager._load_special_cases()
+        return folder_name in special_cases
+
+    @staticmethod
+    def _get_special_case_rules(folder_name: str) -> dict:
+        """Get special case rules for a folder name."""
+        special_cases = AccountManager._load_special_cases()
+        return special_cases.get(folder_name, {})
+
+    @staticmethod
+    def _extract_name_parts(name: str, log: bool = True) -> dict:
+        """Extract name parts from a name string.
+        
+        Rules:
+        1. If there's a comma, everything before the comma is the last name
+        2. If there's no comma:
+           - If there are 2 words, the last name is the 2nd word
+           - If there's '&' or 'and', first word is first name, second word is last name, and anything after &/'and' is additional info
+           - If there are 3 words and no '&'/'and', last name is 3rd word, middle name is 2nd word
+        3. Special cases can override these rules
         """
-        self.log_helper.indent()
-        try:
-            special_cases_file = Path('accounts/special_cases.json')
-            if not special_cases_file.exists():
-                self.log_helper.log(self.logger, 'info', "No special cases file found")
-                self.log_helper.dedent()
-                return {}
+        logging.getLogger().info(f"ALWAYS: extract_name_parts called with name: {name}")
+        if log:
+            logger = logging.getLogger('account_manager')
+            logger.setLevel(logging.INFO)
+            logger.info(f"INFO: extract_name_parts ***name: {name}")
+        
+        # Initialize result dictionary
+        result = {
+            'first_name': '',
+            'middle_name': '',
+            'last_name': '',
+            'additional_info': '',
+            'swapped_names': [],
+            'normalized_names': []
+        }
+        
+        # Check for special case first
+        if AccountManager._is_special_case(name):
+            logging.info(f"Found special case for folder: {name}")
+            special_case = AccountManager._get_special_case_rules(name)
+            if special_case:
+                logging.info(f"Applying special case rules: {special_case}")
+                result.update(special_case)
+                return result
+        
+        # Check for parentheses for additional info
+        if '(' in name and ')' in name:
+            main_name = name[:name.find('(')].strip()
+            additional_info = name[name.find('(')+1:name.find(')')].strip()
+            logging.info(f"Found additional info in parentheses: {additional_info}")
+            result['additional_info'] = additional_info
+            name = main_name
+        
+        # Handle comma-separated names
+        if ',' in name:
+            logging.info(f"Found comma in name: {name}")
+            parts = [part.strip() for part in name.split(',')]
+            if len(parts) >= 2:
+                result['last_name'] = parts[0]
+                first_part = parts[1]
                 
-            with open(special_cases_file, 'r') as f:
-                data = json.load(f)
-                # Convert list to dictionary for easier lookup
-                self.log_helper.dedent()
-                return {case['folder_name']: case for case in data.get('special_cases', [])}
-        except Exception as e:
-            self.log_helper.log(self.logger, 'error', f"Error loading special cases: {str(e)}")
-            self.log_helper.dedent()
-            return {}
+                # Check for middle name
+                first_parts = first_part.split()
+                if len(first_parts) > 1:
+                    result['first_name'] = first_parts[0]
+                    result['middle_name'] = ' '.join(first_parts[1:])
+                else:
+                    result['first_name'] = first_part
+                
+                logging.info(f"Extracted last name: {result['last_name']}")
+                logging.info(f"Extracted first name: {result['first_name']}")
+                if result['middle_name']:
+                    logging.info(f"Extracted middle name: {result['middle_name']}")
+        else:
+            # Handle names without commas
+            words = name.split()
+            if len(words) == 2:
+                result['first_name'] = words[0]
+                result['last_name'] = words[1]
+            elif len(words) > 2:
+                # Check for & or and
+                and_index = -1
+                for i, word in enumerate(words):
+                    if word.lower() in ['&', 'and']:
+                        and_index = i
+                        break
+                
+                if and_index > 0:
+                    result['first_name'] = words[0]
+                    result['last_name'] = words[1]
+                    result['additional_info'] = ' '.join(words[and_index+1:])
+                else:
+                    result['first_name'] = words[0]
+                    result['middle_name'] = ' '.join(words[1:-1])
+                    result['last_name'] = words[-1]
+        
+        # Generate name variations
+        logging.info("Generating name variations...")
+        
+        # Add original name
+        result['normalized_names'].append(name.lower())
+        logging.info(f"Added original name to normalized names: {name.lower()}")
+        
+        # Add comma-separated variations
+        if ',' not in name:
+            comma_name = f"{result['last_name']}, {result['first_name']}"
+            result['normalized_names'].append(comma_name.lower())
+            logging.info(f"Added comma-separated name: {comma_name.lower()}")
             
-    def _is_special_case(self, folder_name: str) -> bool:
-        """Check if a folder name is a special case.
+            comma_name_no_space = f"{result['last_name']},{result['first_name']}"
+            result['normalized_names'].append(comma_name_no_space.lower())
+            logging.info(f"Added comma-separated name without space: {comma_name_no_space.lower()}")
         
-        Args:
-            folder_name: The folder name to check
-            
-        Returns:
-            bool: True if the folder name is a special case, False otherwise
-        """
-        return folder_name in self.special_cases
+        # Add swapped name variations
+        swapped_name = f"{result['first_name']} {result['last_name']}"
+        result['swapped_names'].append(swapped_name.lower())
+        logging.info(f"Added swapped name: {swapped_name.lower()}")
         
-    def _get_special_case_rules(self, folder_name: str) -> dict:
-        """Get the special case rules for a folder name.
+        # Add space-separated variations
+        if result['middle_name']:
+            full_name = f"{result['first_name']} {result['middle_name']} {result['last_name']}"
+            result['normalized_names'].append(full_name.lower())
+            logging.info(f"Added full name with middle name: {full_name.lower()}")
         
-        Args:
-            folder_name: The folder name to get rules for
-            
-        Returns:
-            dict: The special case rules or None if not found
-        """
-        return self.special_cases.get(folder_name)
+        # Add additional info variations if present
+        if result['additional_info']:
+            for name_var in result['normalized_names'][:]:
+                with_info = f"{name_var} ({result['additional_info']})"
+                result['normalized_names'].append(with_info.lower())
+                logging.info(f"Added name with additional info: {with_info.lower()}")
         
+        # Log summary
+        logging.info(f"\nName Parsing Summary for '{name}':")
+        logging.info(f"  First Name: {result['first_name']}")
+        logging.info(f"  Middle Name: {result['middle_name']}")
+        logging.info(f"  Last Name: {result['last_name']}")
+        logging.info(f"  Number of normalized names: {len(result['normalized_names'])}")
+        logging.info(f"  Number of swapped names: {len(result['swapped_names'])}")
+        logging.info(f"  Normalized Names: {', '.join(result['normalized_names'])}")
+        logging.info(f"  Swapped Names: {', '.join(result['swapped_names'])}")
+        
+        return result
+
     def navigate_to_accounts_list_page(self, view_name: str = "All Clients") -> bool:
         """Navigate to the Accounts page with a specific list view.
         
@@ -1776,318 +1894,8 @@ class AccountManager(BasePage):
             self.log_helper.dedent()
             return False
 
-    def _extract_name_parts(self, name: str, log: bool = True) -> dict:
-        """Extract name parts from a name string.
-        
-        Rules:
-        1. If there's a comma, everything before the comma is the last name
-        2. If there's no comma:
-           - If there are 2 words, the last name is the 2nd word
-           - If there's '&' or 'and', first word is first name, second word is last name, and anything after &/'and' is additional info
-           - If there are 3 words and no '&'/'and', last name is 3rd word, middle name is 2nd word
-        3. Special cases can override these rules
-        """
-        logging.info(f"INFO: extract_name_parts ***name: {name}")
-        
-        # Check for special case first
-        if self._is_special_case(name):
-            self.log_helper.log(self.logger, 'info', f"Found special case for folder: {name}")
-            special_case = self._get_special_case_rules(name)
-            self.log_helper.log(self.logger, 'info', f"Special case rules: {special_case}")
-            result = {
-                'last_name': special_case['last_name'],
-                'first_name': '',
-                'middle_name': '',
-                'additional_info': '',
-                'swapped_names': [],
-                'normalized_names': [],
-                'expected_matches': special_case['expected_matches']
-            }
-            
-            # Add normalized versions for the expected matches
-            for match in special_case['expected_matches']:
-                result['normalized_names'].append(match.lower().strip())
-                # Also add the swapped version
-                parts = match.split()
-                if len(parts) >= 2:
-                    swapped = f"{parts[1]} {parts[0]}"
-                    result['normalized_names'].append(swapped.lower().strip())
-                    self.log_helper.log(self.logger, 'info', f"Added swapped name: {swapped}")
-            
-            self.log_helper.dedent()
-            return result
-            
-        # Continue with normal name parsing if not a special case
-        result = {
-            'last_name': '',
-            'first_name': '',
-            'middle_name': '',
-            'additional_info': '',
-            'swapped_names': [],
-            'normalized_names': []
-        }
-        
-        # Extract additional info in parentheses
-        if '(' in name:
-            self.log_helper.log(self.logger, 'info', f"Found parentheses in name: {name}")
-            parts = name.split('(')
-            main_name = parts[0].strip()
-            result['additional_info'] = parts[1].rstrip(')').strip()
-            self.log_helper.log(self.logger, 'info', f"Extracted main name: {main_name}, additional info: {result['additional_info']}")
-        else:
-            main_name = name
-            self.log_helper.log(self.logger, 'info', f"No parentheses found, using full name: {main_name}")
-        
-        # Handle names with commas
-        if ',' in main_name:
-            self.log_helper.log(self.logger, 'info', f"Found comma in name: {main_name}")
-            parts = main_name.split(',')
-            result['last_name'] = parts[0].strip()
-            self.log_helper.log(self.logger, 'info', f"Extracted last name: {result['last_name']}")
-            
-            # Check for & or 'and' in the remaining part
-            remaining = parts[1].strip() if len(parts) > 1 else ""
-            if '&' in remaining or ' and ' in remaining.lower():
-                # Split by & or 'and'
-                if '&' in remaining:
-                    name_parts = remaining.split('&')
-                else:
-                    name_parts = remaining.split(' and ')
-                
-                # First part is the main name
-                main_parts = name_parts[0].strip().split()
-                if main_parts:
-                    result['first_name'] = main_parts[0]
-                    if len(main_parts) > 1:
-                        result['middle_name'] = ' '.join(main_parts[1:])
-                
-                # Everything after & or 'and' is additional info
-                if len(name_parts) > 1:
-                    result['additional_info'] = name_parts[1].strip()
-                    
-                    # Add variations for names after & or 'and'
-                    additional_parts = result['additional_info'].split()
-                    if additional_parts:
-                        # Add variation with first name after &
-                        additional_name = f"{result['last_name']}, {additional_parts[0]}".lower().strip()
-                        result['normalized_names'].append(additional_name)
-                        self.log_helper.log(self.logger, 'info', f"Added variation with additional name: {additional_name}")
-                        
-                        # Add variation without space after comma
-                        additional_name_no_space = f"{result['last_name']},{additional_parts[0]}".lower().strip()
-                        result['normalized_names'].append(additional_name_no_space)
-                        self.log_helper.log(self.logger, 'info', f"Added variation with additional name (no space): {additional_name_no_space}")
-            else:
-                # Split the remaining part into first and middle names
-                name_parts = remaining.split()
-                if name_parts:
-                    result['first_name'] = name_parts[0]
-                    if len(name_parts) > 1:
-                        result['middle_name'] = ' '.join(name_parts[1:])
-        else:
-            # Split the name into words
-            name_parts = main_name.split()
-            self.log_helper.log(self.logger, 'info', f"Split name into parts: {name_parts}")
-            
-            # Check for '&' or 'and'
-            has_ampersand = '&' in main_name
-            has_and = ' and ' in main_name.lower()
-            
-            if has_ampersand or has_and:
-                self.log_helper.log(self.logger, 'info', f"Found {'&' if has_ampersand else 'and'} in name")
-                # Handle names with '&' or 'and'
-                if has_ampersand:
-                    parts = main_name.split('&')
-                else:
-                    # Preserve case when splitting by 'and'
-                    parts = main_name.split(' and ')
-                
-                # First part is the main name
-                main_parts = parts[0].strip().split()
-                self.log_helper.log(self.logger, 'info', f"Main parts before &/and: {main_parts}")
-                
-                if len(main_parts) >= 2:
-                    result['first_name'] = main_parts[0]
-                    result['last_name'] = main_parts[1]
-                    if len(main_parts) > 2:
-                        result['middle_name'] = ' '.join(main_parts[2:])
-                
-                self.log_helper.log(self.logger, 'info', f"Extracted first name: {result['first_name']}, last name: {result['last_name']}")
-                
-                # Everything after & or 'and' is additional info
-                if len(parts) > 1:
-                    result['additional_info'] = parts[1].strip()
-                    self.log_helper.log(self.logger, 'info', f"Extracted additional info: {result['additional_info']}")
-                    
-                    # Add variations for names after & or 'and'
-                    additional_parts = result['additional_info'].split()
-                    if additional_parts:
-                        # Add variation with first name after &
-                        additional_name = f"{result['last_name']}, {additional_parts[0]}".lower().strip()
-                        result['normalized_names'].append(additional_name)
-                        self.log_helper.log(self.logger, 'info', f"Added variation with additional name: {additional_name}")
-                        
-                        # Add variation without space after comma
-                        additional_name_no_space = f"{result['last_name']},{additional_parts[0]}".lower().strip()
-                        result['normalized_names'].append(additional_name_no_space)
-                        self.log_helper.log(self.logger, 'info', f"Added variation with additional name (no space): {additional_name_no_space}")
-            else:
-                # Handle names without '&' or 'and'
-                if len(name_parts) == 2:
-                    self.log_helper.log(self.logger, 'info', "Two word name detected")
-                    # Two words: first word is first name, second word is last name
-                    result['first_name'] = name_parts[0]
-                    result['last_name'] = name_parts[1]
-                    self.log_helper.log(self.logger, 'info', f"Extracted first name: {result['first_name']}, last name: {result['last_name']}")
-                elif len(name_parts) == 3:
-                    self.log_helper.log(self.logger, 'info', "Three word name detected")
-                    # Three words: first word is first name, second word is middle name, third word is last name
-                    result['first_name'] = name_parts[0]
-                    result['middle_name'] = name_parts[1]
-                    result['last_name'] = name_parts[2]
-                    self.log_helper.log(self.logger, 'info', f"Extracted first name: {result['first_name']}, middle name: {result['middle_name']}, last name: {result['last_name']}")
-                elif len(name_parts) > 3:
-                    self.log_helper.log(self.logger, 'info', f"Name with more than 3 words detected: {len(name_parts)} words")
-                    # More than three words: first word is first name, last word is last name, everything in between is middle name
-                    result['first_name'] = name_parts[0]
-                    result['last_name'] = name_parts[-1]
-                    result['middle_name'] = ' '.join(name_parts[1:-1])
-                    self.log_helper.log(self.logger, 'info', f"Extracted first name: {result['first_name']}, middle name: {result['middle_name']}, last name: {result['last_name']}")
-                else:
-                    self.log_helper.log(self.logger, 'info', "Single word name detected")
-                    # Single word: treat as last name
-                    result['last_name'] = main_name
-                    self.log_helper.log(self.logger, 'info', f"Using single word as last name: {result['last_name']}")
-        
-        # Normalize the name parts
-        result['last_name'] = result['last_name'].strip()
-        result['first_name'] = result['first_name'].strip()
-        result['middle_name'] = result['middle_name'].strip()
-        result['additional_info'] = result['additional_info'].strip()
-        self.log_helper.log(self.logger, 'info', f"Normalized name parts: {result}")
-        
-        # Create normalized versions of the name
-        result['normalized_names'] = []
-        
-        # Add the original name
-        result['normalized_names'].append(name.lower().strip())
-        self.log_helper.log(self.logger, 'info', f"Added original name to normalized names: {name.lower().strip()}")
-        
-        # Add comma-separated version
-        if result['first_name'] and result['last_name']:
-            comma_name = f"{result['last_name']}, {result['first_name']}".lower().strip()
-            result['normalized_names'].append(comma_name)
-            self.log_helper.log(self.logger, 'info', f"Added comma-separated name: {comma_name}")
-            
-            no_space_comma_name = f"{result['last_name']},{result['first_name']}".lower().strip()
-            result['normalized_names'].append(no_space_comma_name)
-            self.log_helper.log(self.logger, 'info', f"Added comma-separated name without space: {no_space_comma_name}")
-            
-            # Add comma-separated version with middle name
-            if result['middle_name']:
-                comma_name_with_middle = f"{result['last_name']}, {result['first_name']} {result['middle_name']}".lower().strip()
-                result['normalized_names'].append(comma_name_with_middle)
-                self.log_helper.log(self.logger, 'info', f"Added comma-separated name with middle name: {comma_name_with_middle}")
-                
-                no_space_comma_name_with_middle = f"{result['last_name']},{result['first_name']} {result['middle_name']}".lower().strip()
-                result['normalized_names'].append(no_space_comma_name_with_middle)
-                self.log_helper.log(self.logger, 'info', f"Added comma-separated name with middle name without space: {no_space_comma_name_with_middle}")
-            
-            # Add swapped name variations
-            swapped_name = f"{result['first_name']} {result['last_name']}".lower().strip()
-            result['swapped_names'].append(swapped_name)
-            self.log_helper.log(self.logger, 'info', f"Added swapped name: {swapped_name}")
-            
-            if result['middle_name']:
-                swapped_name_with_middle = f"{result['first_name']} {result['middle_name']} {result['last_name']}".lower().strip()
-                result['swapped_names'].append(swapped_name_with_middle)
-                self.log_helper.log(self.logger, 'info', f"Added swapped name with middle name: {swapped_name_with_middle}")
-            
-            # Add version with additional info
-            if result['additional_info']:
-                # Check if additional_info is a single word that could be a first name
-                additional_parts = result['additional_info'].split()
-                if len(additional_parts) == 1:
-                    # Add normalized name for additional_info last_name combination
-                    additional_name = f"{result['additional_info']} {result['last_name']}".lower().strip()
-                    result['normalized_names'].append(additional_name)
-                    self.log_helper.log(self.logger, 'info', f"Added name with additional info as first name: {additional_name}")
-                    
-                    # Add swapped version for additional_info last_name
-                    additional_swapped = f"{result['last_name']} {result['additional_info']}".lower().strip()
-                    result['swapped_names'].append(additional_swapped)
-                    self.log_helper.log(self.logger, 'info', f"Added swapped name with additional info: {additional_swapped}")
-                
-                with_ampersand = f"{result['first_name']} {result['last_name']} & {result['additional_info']}".lower().strip()
-                result['normalized_names'].append(with_ampersand)
-                self.log_helper.log(self.logger, 'info', f"Added name with additional info (ampersand): {with_ampersand}")
-                
-                with_and = f"{result['first_name']} {result['last_name']} and {result['additional_info']}".lower().strip()
-                result['normalized_names'].append(with_and)
-                self.log_helper.log(self.logger, 'info', f"Added name with additional info (and): {with_and}")
-        
-        # Add space-separated version
-        if result['first_name'] and result['last_name']:
-            space_name = f"{result['first_name']} {result['last_name']}".lower().strip()
-            result['normalized_names'].append(space_name)
-            self.log_helper.log(self.logger, 'info', f"Added space-separated name: {space_name}")
-        
-        # Add version with middle name
-        if result['middle_name']:
-            if result['first_name'] and result['last_name']:
-                space_name_with_middle = f"{result['first_name']} {result['middle_name']} {result['last_name']}".lower().strip()
-                result['normalized_names'].append(space_name_with_middle)
-                self.log_helper.log(self.logger, 'info', f"Added space-separated name with middle name: {space_name_with_middle}")
-        
-        # Remove duplicates and empty strings
-        result['normalized_names'] = list(set(n for n in result['normalized_names'] if n))
-        result['swapped_names'] = list(set(n for n in result['swapped_names'] if n))
-        self.log_helper.log(self.logger, 'info', f"Final normalized names: {result['normalized_names']}")
-        self.log_helper.log(self.logger, 'info', f"Final swapped names: {result['swapped_names']}")
-        
-        # Add summary log
-        summary = f"\nName Parsing Summary for '{name}':\n"
-        summary += f"  First Name: {result['first_name']}\n"
-        summary += f"  Middle Name: {result['middle_name']}\n"
-        summary += f"  Last Name: {result['last_name']}\n"
-        if result['additional_info']:
-            summary += f"  Additional Info: {result['additional_info']}\n"
-        summary += f"  Number of normalized names: {len(result['normalized_names'])}\n"
-        summary += f"  Number of swapped names: {len(result['swapped_names'])}\n"
-        summary += f"  Normalized Names: {', '.join(result['normalized_names'])}\n"
-        summary += f"  Swapped Names: {', '.join(result['swapped_names'])}\n"
-        self.log_helper.log(self.logger, 'info', summary)
-        
-        # Create a summary of the name parsing results
-        summary = f"""
-Name Parsing Summary for: {name}
-----------------------------------------
-Extracted Components:
-  First Name: {result['first_name']}
-  Middle Name: {result['middle_name']}
-  Last Name: {result['last_name']}
-  Additional Info: {result['additional_info']}
-
-Statistics:
-  Normalized Names: {len(result['normalized_names'])}
-  Swapped Names: {len(result['swapped_names'])}
-
-Name Variations:
-  Normalized Names:
-{chr(10).join('    - ' + name for name in result['normalized_names'])}
-  Swapped Names:
-{chr(10).join('    - ' + name for name in result['swapped_names'])}
-"""
-        # Log to both main logger and report logger
-        self.log_helper.log(self.logger, 'info', summary)
-        if hasattr(self.logger, 'report_logger') and self.logger.report_logger and log:
-            self.logger.report_logger.info(summary)
-
-        return result
-    
-
-
-    def prepare_dropbox_account_data_for_search(self, account_name: str) -> dict:
+    @staticmethod
+    def prepare_dropbox_account_data_for_search(account_name: str) -> dict:
         """Prepare account data for searching in Salesforce based on a Dropbox account folder name.
         
         This method extracts and normalizes name components from a Dropbox account folder name
@@ -2125,7 +1933,7 @@ Name Variations:
                     - total_partial_matches (int): Initial count of partial matches
                     - total_no_matches (int): Initial count of no matches
         """
-        name_parts = self._extract_name_parts(account_name, log=True)
+        name_parts = AccountManager._extract_name_parts(account_name, log=True)
         result = {
                 'folder_name': account_name,
                 'first_name': name_parts.get('first_name', ''),
@@ -2151,17 +1959,16 @@ Name Variations:
                 }
         }
 
-        self.logger.info(f"\nExtracted name parts for '{account_name}':")
-        self.logger.info(f"    First name: {name_parts.get('first_name', '')}")
-        self.logger.info(f"    Last name: {name_parts.get('last_name', '')}")
-        self.logger.info(f"    Middle name: {name_parts.get('middle_name', '')}")
-        self.logger.info(f"    Additional info: {name_parts.get('additional_info', '')}")
-        self.logger.info(f"    Full name: {name_parts.get('full_name', '')}")
-        self.logger.info(f"    Normalized names: {result['normalized_names']}")
-        self.logger.info(f"    Swapped names: {result['swapped_names']}")
-        self.logger.info(f"    Expected matches: {result['expected_matches']}")
-        return result     
-        
+        logging.info(f"\nExtracted name parts for '{account_name}':")
+        logging.info(f"    First name: {name_parts.get('first_name', '')}")
+        logging.info(f"    Last name: {name_parts.get('last_name', '')}")
+        logging.info(f"    Middle name: {name_parts.get('middle_name', '')}")
+        logging.info(f"    Additional info: {name_parts.get('additional_info', '')}")
+        logging.info(f"    Full name: {name_parts.get('full_name', '')}")
+        logging.info(f"    Normalized names: {result['normalized_names']}")
+        logging.info(f"    Swapped names: {result['swapped_names']}")
+        logging.info(f"    Expected matches: {result['expected_matches']}")
+        return result
 
     def fuzzy_search_account(self, folder_name: str, view_name: str = "All Clients") -> Dict[str, Any]:
         """Perform a fuzzy search based on a folder name."""
