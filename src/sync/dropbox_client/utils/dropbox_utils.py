@@ -258,7 +258,7 @@ class DropboxClient:
         The method follows these steps:
         1. Locates the holiday account info file
         2. Downloads and reads the Excel file
-        3. Searches for the account using the last_name from account_name_info
+        3. Searches for the account using the last_name from account_name_info across all sheets
         4. Extracts available information from matching rows
         5. Returns a dictionary containing both the original account_name_info and extracted data
         
@@ -357,101 +357,189 @@ class DropboxClient:
                     # Download the file
                     self.dbx.files_download_to_file(temp_path, holiday_file.path_display)
                     
-                    # Read the XLSX file
-                    df = pd.read_excel(temp_path)
+                    # Read all sheets from the XLSX file
+                    excel_file = pd.ExcelFile(temp_path)
+                    sheet_names = excel_file.sheet_names
+                    logging.info(f"Found {len(sheet_names)} sheets in the Excel file: {sheet_names}")
                     
-                    # Look for the account name in the dataframe
-                    # Assuming the name column is called 'Name' or similar
-                    name_columns = ['Last Name', 'First Name', 'Address', 'Email', 'Phone Number']
-                    name_col = next((col for col in name_columns if col in df.columns), None)
-                    
-                    if not name_col:
-                        logging.error("Could not find name column in holiday file")
-                        return dropbox_account_info
-                    
-                    # Find the row with matching account name
-                    account_row = df[df[name_col].str.contains(last_name, case=False, na=False)]
-                    
-                    if account_row.empty:
-                        logging.warning(f"Could not find account '{last_name}' in holiday file")
-                        return dropbox_account_info
-                    
-                    # Extract information from the row
-                    dropbox_account_info['account_data']['name'] = account_row[name_col].iloc[0]
+                    # Look for the account name in each sheet
+                    account_found = False
+                    for sheet_name in sheet_names:
+                        logging.info(f"Searching in sheet: {sheet_name}")
+                        df = pd.read_excel(temp_path, sheet_name=sheet_name)
+                        
+                        # Special handling for "Client full info" sheet
+                        if sheet_name == "Client full info":
+                            # Use specific column indices for this sheet
+                            if len(df.columns) >= 9:  # Ensure we have enough columns
+                                # Find the row with matching last name in column B
+                                account_row = df[df.iloc[:, 1].str.contains(last_name, case=False, na=False)]
+                                
+                                if not account_row.empty:
+                                    account_found = True
+                                    logging.info(f"Found match in sheet: {sheet_name}")
+                                    
+                                    # Extract information using specific column indices
+                                    # Column A (index 0) is first name
+                                    value = account_row.iloc[0, 0]
+                                    dropbox_account_info['account_data']['first_name'] = '' if pd.isna(value) else str(value).strip()
+                                    
+                                    # Column B (index 1) is last name
+                                    value = account_row.iloc[0, 1]
+                                    dropbox_account_info['account_data']['last_name'] = '' if pd.isna(value) else str(value).strip()
+                                    
+                                    # Combine first and last name for full name
+                                    first = dropbox_account_info['account_data']['first_name']
+                                    last = dropbox_account_info['account_data']['last_name']
+                                    dropbox_account_info['account_data']['name'] = f"{first} {last}".strip()
+                                    
+                                    # Column D (index 3) is address
+                                    value = account_row.iloc[0, 3]
+                                    dropbox_account_info['account_data']['address'] = '' if pd.isna(value) else str(value).strip()
+                                    
+                                    # Column G (index 6) is city
+                                    value = account_row.iloc[0, 6]
+                                    dropbox_account_info['account_data']['city'] = '' if pd.isna(value) else str(value).strip()
+                                    
+                                    # Column H (index 7) is state
+                                    value = account_row.iloc[0, 7]
+                                    dropbox_account_info['account_data']['state'] = '' if pd.isna(value) else str(value).strip()
+                                    
+                                    # Column I (index 8) is zip code
+                                    value = account_row.iloc[0, 8]
+                                    dropbox_account_info['account_data']['zip'] = '' if pd.isna(value) else str(value).strip()
+                                    
+                                    # Look for email and phone in other columns
+                                    email_columns = ['Email']
+                                    email_col = next((col for col in email_columns if col in df.columns), None)
+                                    if email_col:
+                                        value = account_row[email_col].iloc[0]
+                                        dropbox_account_info['account_data']['email'] = '' if pd.isna(value) else str(value).strip()
+                                    
+                                    phone_columns = ['Phone', 'Phone Number', 'Contact Number']
+                                    phone_col = next((col for col in phone_columns if col in df.columns), None)
+                                    if phone_col:
+                                        value = account_row[phone_col].iloc[0]
+                                        dropbox_account_info['account_data']['phone'] = '' if pd.isna(value) else str(value).strip()
+                                    
+                                    # Update status and match info since we found a match
+                                    dropbox_account_info['search_info']['status'] = 'found'
+                                    dropbox_account_info['search_info']['match_info'] = {
+                                        'match_status': f'Found exact match in dropbox client list file (sheet: {sheet_name})',
+                                        'total_exact_matches': 1,
+                                        'total_partial_matches': 0,
+                                        'total_no_matches': 0
+                                    }
+                                    
+                                    # Log the found information
+                                    logging.info(f"   Found match in holiday file (sheet: {sheet_name}):")
+                                    for key, value in dropbox_account_info['account_data'].items():
+                                        # Skip empty values, None, and 'nan' values
+                                        if value and str(value).strip().lower() not in ['nan', 'none', '']:
+                                            # Format the key for display (e.g., 'first_name' -> 'First Name')
+                                            display_key = ' '.join(word.capitalize() for word in key.split('_'))
+                                            logging.info(f"   {display_key}: {value}")
+                                    
+                                    # Break the loop since we found a match
+                                    break
+                        else:
+                            # Original logic for other sheets
+                            name_columns = ['Last Name', 'First Name', 'Address', 'Email', 'Phone Number']
+                            name_col = next((col for col in name_columns if col in df.columns), None)
+                            
+                            if not name_col:
+                                logging.warning(f"Could not find name column in sheet {sheet_name}")
+                                continue
+                            
+                            # Find the row with matching account name
+                            account_row = df[df[name_col].str.contains(last_name, case=False, na=False)]
+                            
+                            if not account_row.empty:
+                                account_found = True
+                                logging.info(f"Found match in sheet: {sheet_name}")
+                                
+                                # Extract information from the row
+                                dropbox_account_info['account_data']['name'] = account_row[name_col].iloc[0]
 
-                    # Look for first name
-                    first_name_columns = ['First Name']
-                    first_name_col = next((col for col in first_name_columns if col in df.columns), None)
-                    if first_name_col:
-                        value = account_row[first_name_col].iloc[0]
-                        dropbox_account_info['account_data']['first_name'] = '' if pd.isna(value) else str(value).strip()
-                    
-                    # Look for last name
-                    last_name_columns = ['Last Name']           
-                    last_name_col = next((col for col in last_name_columns if col in df.columns), None)
-                    if last_name_col:
-                        value = account_row[last_name_col].iloc[0]
-                        dropbox_account_info['account_data']['last_name'] = '' if pd.isna(value) else str(value).strip()
+                                # Look for first name
+                                first_name_columns = ['First Name']
+                                first_name_col = next((col for col in first_name_columns if col in df.columns), None)
+                                if first_name_col:
+                                    value = account_row[first_name_col].iloc[0]
+                                    dropbox_account_info['account_data']['first_name'] = '' if pd.isna(value) else str(value).strip()
+                                
+                                # Look for last name
+                                last_name_columns = ['Last Name']           
+                                last_name_col = next((col for col in last_name_columns if col in df.columns), None)
+                                if last_name_col:
+                                    value = account_row[last_name_col].iloc[0]
+                                    dropbox_account_info['account_data']['last_name'] = '' if pd.isna(value) else str(value).strip()
 
-                    # Look for address
-                    address_columns = ['Address']
-                    address_col = next((col for col in address_columns if col in df.columns), None)
-                    if address_col:
-                        value = account_row[address_col].iloc[0]
-                        dropbox_account_info['account_data']['address'] = '' if pd.isna(value) else str(value).strip()
+                                # Look for address
+                                address_columns = ['Address']
+                                address_col = next((col for col in address_columns if col in df.columns), None)
+                                if address_col:
+                                    value = account_row[address_col].iloc[0]
+                                    dropbox_account_info['account_data']['address'] = '' if pd.isna(value) else str(value).strip()
 
-                    # Look for City
-                    city_columns = ['City']
-                    city_col = next((col for col in city_columns if col in df.columns), None)
-                    if city_col:
-                        value = account_row[city_col].iloc[0]
-                        dropbox_account_info['account_data']['city'] = '' if pd.isna(value) else str(value).strip()
+                                # Look for City
+                                city_columns = ['City']
+                                city_col = next((col for col in city_columns if col in df.columns), None)
+                                if city_col:
+                                    value = account_row[city_col].iloc[0]
+                                    dropbox_account_info['account_data']['city'] = '' if pd.isna(value) else str(value).strip()
+                                
+                                # Look for State    
+                                state_columns = ['State']
+                                state_col = next((col for col in state_columns if col in df.columns), None)
+                                if state_col:
+                                    value = account_row[state_col].iloc[0]
+                                    dropbox_account_info['account_data']['state'] = '' if pd.isna(value) else str(value).strip()
+                                
+                                # Look for Zip Code 
+                                zip_columns = ['Zip Code']
+                                zip_col = next((col for col in zip_columns if col in df.columns), None)
+                                if zip_col:
+                                    value = account_row[zip_col].iloc[0]
+                                    dropbox_account_info['account_data']['zip'] = '' if pd.isna(value) else str(value).strip()
+                                
+                                # Look for Email
+                                email_columns = ['Email']
+                                email_col = next((col for col in email_columns if col in df.columns), None)
+                                if email_col:
+                                    value = account_row[email_col].iloc[0]
+                                    dropbox_account_info['account_data']['email'] = '' if pd.isna(value) else str(value).strip()
+                                
+                                # Look for phone
+                                phone_columns = ['Phone', 'Phone Number', 'Contact Number']
+                                phone_col = next((col for col in phone_columns if col in df.columns), None)
+                                if phone_col:
+                                    value = account_row[phone_col].iloc[0]
+                                    dropbox_account_info['account_data']['phone'] = '' if pd.isna(value) else str(value).strip()
+                            
+                                # Update status and match info since we found a match
+                                dropbox_account_info['search_info']['status'] = 'found'
+                                dropbox_account_info['search_info']['match_info'] = {
+                                    'match_status': f'Found exact match in dropbox client list file (sheet: {sheet_name})',
+                                    'total_exact_matches': 1,
+                                    'total_partial_matches': 0,
+                                    'total_no_matches': 0
+                                }
+                                
+                                # Log the found information
+                                logging.info(f"   Found match in holiday file (sheet: {sheet_name}):")
+                                for key, value in dropbox_account_info['account_data'].items():
+                                    # Skip empty values, None, and 'nan' values
+                                    if value and str(value).strip().lower() not in ['nan', 'none', '']:
+                                        # Format the key for display (e.g., 'first_name' -> 'First Name')
+                                        display_key = ' '.join(word.capitalize() for word in key.split('_'))
+                                        logging.info(f"   {display_key}: {value}")
+                                
+                                # Break the loop since we found a match
+                                break
                     
-                    # Look for State    
-                    state_columns = ['State']
-                    state_col = next((col for col in state_columns if col in df.columns), None)
-                    if state_col:
-                        value = account_row[state_col].iloc[0]
-                        dropbox_account_info['account_data']['state'] = '' if pd.isna(value) else str(value).strip()
-                    
-                    # Look for Zip Code 
-                    zip_columns = ['Zip Code']
-                    zip_col = next((col for col in zip_columns if col in df.columns), None)
-                    if zip_col:
-                        value = account_row[zip_col].iloc[0]
-                        dropbox_account_info['account_data']['zip'] = '' if pd.isna(value) else str(value).strip()
-                    
-                    # Look for Email
-                    email_columns = ['Email']
-                    email_col = next((col for col in email_columns if col in df.columns), None)
-                    if email_col:
-                        value = account_row[email_col].iloc[0]
-                        dropbox_account_info['account_data']['email'] = '' if pd.isna(value) else str(value).strip()
-                    
-                    # Look for phone
-                    phone_columns = ['Phone', 'Phone Number', 'Contact Number']
-                    phone_col = next((col for col in phone_columns if col in df.columns), None)
-                    if phone_col:
-                        value = account_row[phone_col].iloc[0]
-                        dropbox_account_info['account_data']['phone'] = '' if pd.isna(value) else str(value).strip()
-                
-                    # Update status and match info since we found a match
-                    dropbox_account_info['search_info']['status'] = 'found'
-                    dropbox_account_info['search_info']['match_info'] = {
-                        'match_status': 'Found exact match in dropbox client list file',
-                        'total_exact_matches': 1,
-                        'total_partial_matches': 0,
-                        'total_no_matches': 0
-                    }
-                    
-                    # Log the found information
-                    logging.info(f"   Found match in holiday file:")
-                    for key, value in dropbox_account_info['account_data'].items():
-                        # Skip empty values, None, and 'nan' values
-                        if value and str(value).strip().lower() not in ['nan', 'none', '']:
-                            # Format the key for display (e.g., 'first_name' -> 'First Name')
-                            display_key = ' '.join(word.capitalize() for word in key.split('_'))
-                            logging.info(f"   {display_key}: {value}")
+                    if not account_found:
+                        logging.warning(f"Could not find account '{last_name}' in any sheet of the holiday file")
                     
                     return dropbox_account_info
                     
