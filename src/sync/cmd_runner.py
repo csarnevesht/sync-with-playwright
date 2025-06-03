@@ -64,6 +64,7 @@ import argparse
 import time
 
 from sync import salesforce_client
+from sync.utils.name_utils import extract_name_parts
 from src.sync.utils.duration import format_duration
 from playwright.sync_api import sync_playwright, TimeoutError
 import logging
@@ -506,11 +507,14 @@ def run_command(args):
                 if command_runner:
                     command_runner.set_data('dropbox_account_name', dropbox_account_folder_name)
                 
+                logger.info('step: Extract name parts')
                 # # Always extract name parts
-                logger.info('step: Prepare Dropbox Account Data for Search')
-                logger.info(f"Calling prepare_dropbox_account_data_for_search for: {dropbox_account_folder_name}")
-                dropbox_account_name_parts = prepare_dropbox_account_name_parts_for_search(dropbox_account_folder_name, view_name)
-                logger.info(f'dropbox_account_name_parts: {dropbox_account_name_parts}')
+                dropbox_account_name_parts = extract_name_parts(dropbox_account_folder_name, log=True)
+
+                # logger.info('step: Prepare Dropbox Account Data for Search')
+                # logger.info(f"Calling prepare_dropbox_account_data_for_search for: {dropbox_account_folder_name}")
+                # dropbox_account_name_parts = prepare_dropbox_account_name_parts_for_search(dropbox_account_folder_name, view_name)
+                # logger.info(f'dropbox_account_name_parts: {dropbox_account_name_parts}')
                 
                 
                 # Navigate to Salesforce base URL
@@ -532,7 +536,7 @@ def run_command(args):
                         dropbox_account_info = dropbox_client.get_dropbox_account_info(dropbox_account_folder_name, dropbox_account_name_parts)
                         logger.info(f'dropbox_account_info: {dropbox_account_info}')
                         logger.info(f"Successfully retrieved info for Dropbox account: {dropbox_account_folder_name}")
-                        report_logger.info(f"\n👤 Dropbox Account Data: '{dropbox_account_folder_name}' match: [{dropbox_account_name_parts['match_info']['match_status']}]")
+                        report_logger.info(f"\n👤 Dropbox Account Data: '{dropbox_account_folder_name}' match: [{dropbox_account_info['account_name_info']['match_info']['match_status']}]")
                         if args.dropbox_account_info:
                             account_data = dropbox_account_info['account_data']
                             for key, value in account_data.items():

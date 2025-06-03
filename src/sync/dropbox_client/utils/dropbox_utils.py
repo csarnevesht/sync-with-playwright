@@ -248,7 +248,7 @@ class DropboxClient:
         
     
 
-    def get_dropbox_account_info(self, account_name: str, account_name_info: dict) -> Dict[str, str]:
+    def get_dropbox_account_info(self, account_name: str, dropbox_account_name_parts: dict) -> Dict[str, str]:
         """Get account information from the holiday account info file.
         
         This method searches for and processes an account in the holiday account info file using
@@ -302,17 +302,25 @@ class DropboxClient:
             Exception: Any error during the extraction process is caught and logged
         """
         try:
-            # Initialize account_name_info with search status fields
-            account_name_info.update({
+            account_name_info = {
+                'folder_name': account_name,
+                'last_name': dropbox_account_name_parts['last_name'],
+                'full_name': dropbox_account_name_parts['full_name'],
+                'normalized_names': dropbox_account_name_parts['normalized_names'],
+                'swapped_names': dropbox_account_name_parts['swapped_names'],
+                'expected_matches': dropbox_account_name_parts['expected_matches'],
                 'status': 'not_found',
                 'matches': [],
+                'search_attempts': [],
+                'timing': {},
+                'expected_matches': [],
                 'match_info': {
-                    'match_status': 'No matches found',
+                    'match_status': "No match found",
                     'total_exact_matches': 0,
                     'total_partial_matches': 0,
                     'total_no_matches': 1
                 }
-            })
+            }
             
             dropbox_account_data = {}
             dropbox_account_info = {

@@ -1996,13 +1996,13 @@ class AccountManager(BasePage):
             self.logger.info(f"***fuzzy_search_account: {folder_name}") 
             # Extract name parts
             name_parts = self._extract_name_parts(folder_name)
-            last_name = name_parts.get('last_name', '')
-            full_name = name_parts.get('full_name', '')
+            last_name = dropbox_account_name_parts.get('last_name', '')
+            # full_name = dropbox_account_name_parts.get('full_name', '')
             
             # Add normalized and swapped names to result
-            result['normalized_names'] = name_parts.get('normalized_names', [])
-            result['swapped_names'] = name_parts.get('swapped_names', [])
-            result['expected_matches'] = name_parts.get('expected_matches', [])
+            result['normalized_names'] = dropbox_account_name_parts.get('normalized_names', [])
+            result['swapped_names'] = dropbox_account_name_parts.get('swapped_names', [])
+            result['expected_matches'] = dropbox_account_name_parts.get('expected_matches', [])
             
             self.logger.info(f"\nExtracted name parts for '{folder_name}':")
             self.logger.info(f"    First name: {name_parts.get('first_name', '')}")
