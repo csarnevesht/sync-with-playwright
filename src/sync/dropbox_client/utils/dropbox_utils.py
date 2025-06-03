@@ -249,6 +249,15 @@ class DropboxClient:
         
     
 
+    def _clean_cell_value(self, value: str) -> str:
+        """Clean cell value by removing parenthetical content and extra whitespace."""
+        if pd.isna(value):
+            return ''
+        # Convert to string and remove anything after and including '('
+        cleaned = str(value).split('(')[0].strip()
+        logging.info(f"Cleaned cell value: {cleaned}")
+        return cleaned
+
     def get_dropbox_account_info(self, account_name: str, dropbox_account_name_parts: Dict[str, Any]) -> Dict[str, Any]:
         """Get account information from the holiday Excel file.
         
@@ -268,7 +277,7 @@ class DropboxClient:
                 - normalized_names (List[str]): List of normalized name variations
                 - swapped_names (List[str]): List of name variations with swapped first/last
                 - expected_matches (List[str]): List of expected matches for special cases
-        
+                
         Returns:
             Dict[str, Any]: Dictionary containing:
                 - name_parts (Dict[str, Any]): Original name parts and search info
@@ -313,7 +322,7 @@ class DropboxClient:
             if not holiday_file:
                 logger.error("Could not find holiday file")
                 return dropbox_account_info
-            
+                
             # Step 2: Download holiday file
             logger.info("\nStep 2: Downloading holiday file...")
             temp_path = self._download_holiday_file(holiday_file)
@@ -332,6 +341,7 @@ class DropboxClient:
                 account_row = None
                 match_found = False
                 match_sheet = None
+                sheet_search_info = []  # Store search info for each sheet
                 
                 # Search through each sheet
                 for sheet_name in sheets:
@@ -342,9 +352,9 @@ class DropboxClient:
                     # Special handling for "Client full info" sheet
                     if sheet_name == "Client full info":
                         logger.info("Processing 'Client full info' sheet format")
-                        # Convert first two columns to string and handle NaN values
-                        first_col = df.iloc[:, 0].astype(str).replace('nan', '')
-                        second_col = df.iloc[:, 1].astype(str).replace('nan', '')
+                        # Convert first two columns to string, clean values, and handle NaN values
+                        first_col = df.iloc[:, 0].apply(self._clean_cell_value)
+                        second_col = df.iloc[:, 1].apply(self._clean_cell_value)
                         
                         # Check for "Family" in either column
                         family_in_first = (first_col.str.lower() == 'family').any()
@@ -355,9 +365,11 @@ class DropboxClient:
                             # Get the other column as the last name
                             if family_in_first:
                                 last_name_col = second_col
+                                used_col = "Column B (second column)"
                                 logger.info("Using second column as last name")
                             else:
                                 last_name_col = first_col
+                                used_col = "Column A (first column)"
                                 logger.info("Using first column as last name")
                                 
                             matching_rows = df[last_name_col.str.lower() == dropbox_account_name_parts['last_name'].lower()]
@@ -371,7 +383,8 @@ class DropboxClient:
                         else:
                             # Regular last name search if no "Family" found
                             last_name_col = df.iloc[:, 1]  # Column B
-                            last_name_col = last_name_col.astype(str).replace('nan', '')
+                            last_name_col = last_name_col.apply(self._clean_cell_value)
+                            used_col = "Column B (Last Name)"
                             matching_rows = df[last_name_col.str.lower() == dropbox_account_name_parts['last_name'].lower()]
                             
                             if not matching_rows.empty:
@@ -392,8 +405,9 @@ class DropboxClient:
                         
                         if name_col:
                             logger.info(f"Using column '{name_col}' for name search")
-                            # Convert column to string and handle NaN values
-                            name_values = df[name_col].astype(str).replace('nan', '')
+                            used_col = f"Column '{name_col}'"
+                            # Convert column to string, clean values, and handle NaN values
+                            name_values = df[name_col].apply(self._clean_cell_value)
                             
                             # Check for "Family" in the name column
                             family_mask = (name_values.str.lower() == 'family').any()
@@ -401,7 +415,8 @@ class DropboxClient:
                                 logger.info("Found 'Family' in name column")
                                 # Get the last name from the next column
                                 last_name_col = df.iloc[:, df.columns.get_loc(name_col) + 1]
-                                last_name_col = last_name_col.astype(str).replace('nan', '')
+                                last_name_col = last_name_col.apply(self._clean_cell_value)
+                                used_col = f"Column after '{name_col}' (Last Name)"
                                 matching_rows = df[last_name_col.str.lower() == dropbox_account_name_parts['last_name'].lower()]
                                 
                                 if not matching_rows.empty:
@@ -433,6 +448,14 @@ class DropboxClient:
                                             match_sheet = sheet_name
                                             logger.info(f"Found partial match in {sheet_name}")
                                             break
+                    
+                    # Store search info for this sheet
+                    sheet_search_info.append({
+                        'sheet_name': sheet_name,
+                        'dimensions': f"{df.shape[0]} rows x {df.shape[1]} columns",
+                        'used_column': used_col,
+                        'family_case': family_in_first or family_in_second if sheet_name == "Client full info" else family_mask
+                    })
                 
                 # If no match found, try searching by last name in all sheets
                 if not match_found:
@@ -446,14 +469,21 @@ class DropboxClient:
                                 break
                         
                         if last_name_col:
-                            # Convert column to string and handle NaN values
-                            last_name_values = df[last_name_col].astype(str).replace('nan', '')
+                            # Convert column to string, clean values, and handle NaN values
+                            last_name_values = df[last_name_col].apply(self._clean_cell_value)
+                            used_col = f"Column '{last_name_col}' (Last Name)"
                             matches = df[last_name_values.str.lower() == dropbox_account_name_parts['last_name'].lower()]
                             if not matches.empty:
                                 account_row = matches.iloc[0]
                                 match_found = True
                                 match_sheet = sheet_name
                                 logger.info(f"Found match by last name in {sheet_name}")
+                                break
+                        
+                        # Update search info for this sheet
+                        for info in sheet_search_info:
+                            if info['sheet_name'] == sheet_name:
+                                info['used_column'] = used_col if last_name_col else "No last name column found"
                                 break
                 
                 # Extract data if match found
@@ -501,19 +531,12 @@ class DropboxClient:
                     logging.info(f"Last name searched: {dropbox_account_name_parts.get('last_name', '')}")
                     logging.info(f"Full name searched: {dropbox_account_name_parts.get('full_name', '')}")
                     logging.info("\nSearch process:")
-                    logging.info("1. Searched in 'Client Mailing List' sheet:")
-                    logging.info(f"   - Sheet dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
-                    logging.info(f"   - Used column '{name_col}' for name search")
-                    logging.info("2. Searched in 'Sheet1' sheet:")
-                    logging.info(f"   - Sheet dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
-                    logging.info(f"   - Used column '{name_col}' for name search")
-                    logging.info("3. Searched in 'Client full info' sheet:")
-                    logging.info(f"   - Sheet dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
-                    logging.info("   - Found 'Family' in first two columns")
-                    logging.info("   - Used second column as last name")
-                    logging.info("4. Searched in 'Sheet3' sheet:")
-                    logging.info(f"   - Sheet dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
-                    logging.info(f"   - Used column '{name_col}' for name search")
+                    for info in sheet_search_info:
+                        logging.info(f"{info['sheet_name']}:")
+                        logging.info(f"   - Sheet dimensions: {info['dimensions']}")
+                        logging.info(f"   - Used column: {info['used_column']}")
+                        if info['family_case']:
+                            logging.info("   - Found 'Family' case")
                     logging.info("\nPossible reasons for no match:")
                     logging.info("1. Last name 'McNabb' not found in any sheet")
                     logging.info("2. Name format mismatch (e.g., 'Bauer Family' vs 'Bauer Glenn and Brenda')")
@@ -528,19 +551,12 @@ class DropboxClient:
                     report_logger.info(f"Last name searched: {dropbox_account_name_parts.get('last_name', '')}")
                     report_logger.info(f"Full name searched: {dropbox_account_name_parts.get('full_name', '')}")
                     report_logger.info("\nSearch process:")
-                    report_logger.info("1. Searched in 'Client Mailing List' sheet:")
-                    report_logger.info(f"   - Sheet dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
-                    report_logger.info(f"   - Used column '{name_col}' for name search")
-                    report_logger.info("2. Searched in 'Sheet1' sheet:")
-                    report_logger.info(f"   - Sheet dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
-                    report_logger.info(f"   - Used column '{name_col}' for name search")
-                    report_logger.info("3. Searched in 'Client full info' sheet:")
-                    report_logger.info(f"   - Sheet dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
-                    report_logger.info("   - Found 'Family' in first two columns")
-                    report_logger.info("   - Used second column as last name")
-                    report_logger.info("4. Searched in 'Sheet3' sheet:")
-                    report_logger.info(f"   - Sheet dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
-                    report_logger.info(f"   - Used column '{name_col}' for name search")
+                    for info in sheet_search_info:
+                        report_logger.info(f"{info['sheet_name']}:")
+                        report_logger.info(f"   - Sheet dimensions: {info['dimensions']}")
+                        report_logger.info(f"   - Used column: {info['used_column']}")
+                        if info['family_case']:
+                            report_logger.info("   - Found 'Family' case")
                     report_logger.info("\nPossible reasons for no match:")
                     report_logger.info("1. Last name 'McNabb' not found in any sheet")
                     report_logger.info("2. Name format mismatch (e.g., 'Bauer Family' vs 'Bauer Glenn and Brenda')")
