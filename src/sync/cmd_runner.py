@@ -536,7 +536,7 @@ def run_command(args):
                         dropbox_account_info = dropbox_client.get_dropbox_account_info(dropbox_account_folder_name, dropbox_account_name_parts)
                         logger.info(f'dropbox_account_info: {dropbox_account_info}')
                         logger.info(f"Successfully retrieved info for Dropbox account: {dropbox_account_folder_name}")
-                        report_logger.info(f"\n👤 Dropbox Account Data: '{dropbox_account_folder_name}' match: [{dropbox_account_info['account_name_info']['match_info']['match_status']}]")
+                        report_logger.info(f"\n👤 Dropbox Account Data: '{dropbox_account_folder_name}' match: [{dropbox_account_info['search_info']['match_info']['match_status']}]")
                         if args.dropbox_account_info:
                             account_data = dropbox_account_info['account_data']
                             for key, value in account_data.items():
