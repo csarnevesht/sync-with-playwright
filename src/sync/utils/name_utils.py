@@ -210,7 +210,7 @@ def extract_name_parts(name: str, log: bool = False) -> Dict[str, Any]:
     
     return result
 
-def prepare_account_data_for_search(account_name: str) -> Dict[str, Any]:
+def prepare_account_data_for_search(account_name: str, view_name: str) -> Dict[str, Any]:
     """Prepare account data for search operations.
     
     This function extracts and normalizes name components from an account name,
@@ -230,24 +230,27 @@ def prepare_account_data_for_search(account_name: str) -> Dict[str, Any]:
             - matches (List[str]): List of matches found
             - match_info (Dict[str, Any]): Information about matches
     """
-    # Extract name parts
-    name_parts = extract_name_parts(account_name, log=True)
-    
     # Create standardized data structure
+    name_parts = extract_name_parts(account_name, log=True)
     result = {
-        'last_name': name_parts['last_name'],
-        'full_name': name_parts['full_name'],
-        'normalized_names': name_parts['normalized_names'],
-        'swapped_names': name_parts['swapped_names'],
-        'expected_matches': name_parts['expected_matches'],
-        'status': 'not_found',
-        'matches': [],
-        'match_info': {
-            'match_status': 'No matches found',
-            'total_exact_matches': 0,
-            'total_partial_matches': 0,
-            'total_no_matches': 1
+            'view': view_name,
+            'folder_name': account_name,
+            'last_name': name_parts['last_name'],
+            'full_name': name_parts['full_name'],
+            'normalized_names': name_parts['normalized_names'],
+            'swapped_names': name_parts['swapped_names'],
+            'expected_matches': name_parts['expected_matches'],
+            'status': 'not_found',
+            'matches': [],
+            'search_attempts': [],
+            'timing': {},
+            'expected_matches': [],
+            'match_info': {
+                'match_status': "No match found",
+                'total_exact_matches': 0,
+                'total_partial_matches': 0,
+                'total_no_matches': 1
+            }
         }
-    }
     
     return result 

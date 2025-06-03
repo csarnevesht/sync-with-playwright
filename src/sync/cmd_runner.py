@@ -72,7 +72,11 @@ from pathlib import Path
 from src.sync.salesforce_client.pages.account_manager import AccountManager
 from src.sync.salesforce_client.pages.file_manager import SalesforceFileManager
 from src.sync.salesforce_client.utils.browser import get_salesforce_page
-from src.sync.dropbox_client.utils.account_utils import read_accounts_folders, read_ignored_folders
+from src.sync.dropbox_client.utils.account_utils import (
+    read_accounts_folders,
+    read_ignored_folders,
+    prepare_dropbox_account_name_parts_for_search
+)
 from src.sync.dropbox_client.utils.dropbox_utils import (
     DropboxClient,
     get_access_token,
@@ -458,6 +462,7 @@ def run_command(args):
             page = None
             account_manager = None
             file_manager = None
+            view_name="All Clients"
             
             if args.salesforce_accounts or args.salesforce_account_files:
                 browser, page = get_salesforce_page(p)
@@ -501,16 +506,12 @@ def run_command(args):
                 if command_runner:
                     command_runner.set_data('dropbox_account_name', dropbox_account_folder_name)
                 
-                # Always extract name parts if dropbox_account_info is set
-                if args.dropbox_account_info:
-                    if account_manager:
-                        logger.info(f"Calling AccountManager.prepare_dropbox_account_data_for_search for: {dropbox_account_folder_name}")
-                        dropbox_account_name_data = AccountManager.prepare_dropbox_account_data_for_search(dropbox_account_folder_name)
-                    else:
-                        # Use AccountManager._extract_name_parts as a static method
-                        logger.info(f"Calling AccountManager._extract_name_parts for: {dropbox_account_folder_name}")
-                        name_parts = AccountManager._extract_name_parts(dropbox_account_folder_name, log=True)
-                        logger.info(f"Extracted name parts: {name_parts}")
+                # # Always extract name parts
+                logger.info('step: Prepare Dropbox Account Data for Search')
+                logger.info(f"Calling prepare_dropbox_account_data_for_search for: {dropbox_account_folder_name}")
+                dropbox_account_name_parts = prepare_dropbox_account_name_parts_for_search(dropbox_account_folder_name, view_name)
+                logger.info(f'dropbox_account_name_parts: {dropbox_account_name_parts}')
+                
                 
                 # Navigate to Salesforce base URL
                 if args.salesforce_accounts and account_manager:    
@@ -522,48 +523,27 @@ def run_command(args):
                     logger.info("Refreshing page")
                     account_manager.refresh_page()
 
-                # DROPBOX ACCOUNT INFO
-                logger.info('step: Get Dropbox Account Info')
-                # Always get account info since it's needed for commands
-                logger.info(f"Getting info for Dropbox account: {dropbox_account_folder_name}")
-                try:
-                    # Get account name info from account manager if available
-                    account_name_info = None
-                    account_name_info = AccountManager.prepare_dropbox_account_data_for_search(dropbox_account_folder_name)
-                    
-                    # Initialize account_name_info with default values if None
-                    if account_name_info is None:
-                        account_name_info = {
-                            'last_name': dropbox_account_folder_name,
-                            'full_name': dropbox_account_folder_name,
-                            'normalized_names': [dropbox_account_folder_name],
-                            'swapped_names': [],
-                            'expected_matches': [],
-                            'status': 'not_found',
-                            'matches': [],
-                            'match_info': {
-                                'match_status': 'No matches found',
-                                'total_exact_matches': 0,
-                                'total_partial_matches': 0,
-                                'total_no_matches': 1
-                            }
-                        }
-                    
-                    dropbox_account_info = dropbox_client.get_dropbox_account_info(dropbox_account_folder_name, account_name_info)
-                    logger.info(f'dropbox_account_info: {dropbox_account_info}')
-                    logger.info(f"Successfully retrieved info for Dropbox account: {dropbox_account_folder_name}")
-                    report_logger.info(f"\n👤 Dropbox Account Data: '{dropbox_account_folder_name}' match: [{account_name_info['match_info']['match_status']}]")
-                    if args.dropbox_account_info:
-                        account_data = dropbox_account_info['account_data']
-                        for key, value in account_data.items():
-                            report_logger.info(f"   + {key}: {value}")
-                    
-                    if command_runner:
-                        command_runner.set_data('dropbox_account_info', dropbox_account_info)
-                except ApiError as e:
-                    logger.error(f"Failed to get info for folder {dropbox_account_folder_name}: {str(e)}")
-                    report_logger.info(f"Failed to get info for folder {dropbox_account_folder_name}: {str(e)}")
-                    continue
+                if args.dropbox_account_info:
+                    # DROPBOX ACCOUNT INFO
+                    logger.info('step: Get Dropbox Account Info')
+                    # Always get account info since it's needed for commands
+                    logger.info(f"Getting info for Dropbox account: {dropbox_account_folder_name}")
+                    try:
+                        dropbox_account_info = dropbox_client.get_dropbox_account_info(dropbox_account_folder_name, dropbox_account_name_parts)
+                        logger.info(f'dropbox_account_info: {dropbox_account_info}')
+                        logger.info(f"Successfully retrieved info for Dropbox account: {dropbox_account_folder_name}")
+                        report_logger.info(f"\n👤 Dropbox Account Data: '{dropbox_account_folder_name}' match: [{dropbox_account_name_parts['match_info']['match_status']}]")
+                        if args.dropbox_account_info:
+                            account_data = dropbox_account_info['account_data']
+                            for key, value in account_data.items():
+                                report_logger.info(f"   + {key}: {value}")
+                        
+                        if command_runner:
+                            command_runner.set_data('dropbox_account_info', dropbox_account_info)
+                    except ApiError as e:
+                        logger.error(f"Failed to get info for folder {dropbox_account_folder_name}: {str(e)}")
+                        report_logger.info(f"Failed to get info for folder {dropbox_account_folder_name}: {str(e)}")
+                        continue
 
                 # Navigate to accounts page
                 if args.salesforce_accounts and account_manager:
@@ -576,7 +556,7 @@ def run_command(args):
                 # Get Dropbox files if requested
                 dropbox_account_file_names = []
                 if args.dropbox_account_files:
-                    logger.info(f"Retrieving files for Dropbox account: {dropbox_account_folder_name}")
+                    logger.info(f"step: Retrieving files for Dropbox account: {dropbox_account_folder_name}")
                     try:
                         # DROPBOX ACCOUNT FILES
                         dropbox_account_file_names = dropbox_client.get_dropbox_account_files(dropbox_account_folder_name)
@@ -600,7 +580,7 @@ def run_command(args):
 
                 logger.info('step: Salesforce Search Account')
                 # Perform fuzzy search
-                result = account_manager.fuzzy_search_account(dropbox_account_folder_name, view_name="All Clients")
+                result = account_manager.fuzzy_search_account(dropbox_account_folder_name, view_name, dropbox_account_name_parts=dropbox_account_name_parts)
                 results[dropbox_account_folder_name] = result
 
                 logger.info(f"*** result: {result}")

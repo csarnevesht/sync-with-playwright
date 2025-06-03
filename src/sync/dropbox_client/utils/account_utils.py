@@ -2,7 +2,8 @@
 
 import os
 import logging
-from typing import List, Set
+from typing import List, Set, Dict, Any
+from src.sync.utils.name_utils import prepare_account_data_for_search
 
 logger = logging.getLogger(__name__)
 
@@ -96,4 +97,26 @@ def read_allowed_folders(file_path: str = 'main.txt') -> Set[str]:
             return {line.strip() for line in f if line.strip()}
     except Exception as e:
         logger.error(f"Error reading allowed folders file: {str(e)}")
-        return set() 
+        return set()
+
+def prepare_dropbox_account_name_parts_for_search(account_name: str, view_name: str) -> Dict[str, Any]:
+    """Prepare Dropbox account data for search operations.
+    
+    This function extracts and normalizes name components from a Dropbox account name,
+    creating a standardized data structure for search operations.
+    
+    Args:
+        account_name (str): The Dropbox account name to process
+        
+    Returns:
+        Dict[str, Any]: Dictionary containing:
+            - last_name (str): Last name
+            - full_name (str): Original full name
+            - normalized_names (List[str]): List of normalized name variations
+            - swapped_names (List[str]): List of name variations with swapped first/last
+            - expected_matches (List[str]): List of expected matches for special cases
+            - status (str): Status of the name processing
+            - matches (List[str]): List of matches found
+            - match_info (Dict[str, Any]): Information about matches
+    """
+    return prepare_account_data_for_search(account_name, view_name) 

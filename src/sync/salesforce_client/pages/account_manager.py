@@ -1970,7 +1970,7 @@ class AccountManager(BasePage):
         logging.info(f"    Expected matches: {result['expected_matches']}")
         return result
 
-    def fuzzy_search_account(self, folder_name: str, view_name: str = "All Clients") -> Dict[str, Any]:
+    def fuzzy_search_account(self, folder_name: str, view_name: str = "All Clients", dropbox_account_name_parts: dict = None) -> Dict[str, Any]:
         """Perform a fuzzy search based on a folder name."""
         start_time = time.time()
         # TODO: use prepare_account_data_for_search instead
