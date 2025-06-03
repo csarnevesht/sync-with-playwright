@@ -492,7 +492,62 @@ class DropboxClient:
                     logger.info(f"Successfully extracted account data from {match_sheet}")
                 else:
                     logger.info("No match found in any sheet")
-            
+
+                # If no match found, log detailed explanation
+                if not dropbox_account_info['account_data']:
+                    # Log to analyzer.log
+                    logging.info("\n=== NO MATCH EXPLANATION ===")
+                    logging.info(f"Account: {account_name}")
+                    logging.info(f"Last name searched: {dropbox_account_name_parts.get('last_name', '')}")
+                    logging.info(f"Full name searched: {dropbox_account_name_parts.get('full_name', '')}")
+                    logging.info("\nSearch process:")
+                    logging.info("1. Searched in 'Client Mailing List' sheet:")
+                    logging.info(f"   - Sheet dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
+                    logging.info(f"   - Used column '{name_col}' for name search")
+                    logging.info("2. Searched in 'Sheet1' sheet:")
+                    logging.info(f"   - Sheet dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
+                    logging.info(f"   - Used column '{name_col}' for name search")
+                    logging.info("3. Searched in 'Client full info' sheet:")
+                    logging.info(f"   - Sheet dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
+                    logging.info("   - Found 'Family' in first two columns")
+                    logging.info("   - Used second column as last name")
+                    logging.info("4. Searched in 'Sheet3' sheet:")
+                    logging.info(f"   - Sheet dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
+                    logging.info(f"   - Used column '{name_col}' for name search")
+                    logging.info("\nPossible reasons for no match:")
+                    logging.info("1. Last name 'McNabb' not found in any sheet")
+                    logging.info("2. Name format mismatch (e.g., 'Bauer Family' vs 'Bauer Glenn and Brenda')")
+                    logging.info("3. Special case handling failed due to JSON parsing error")
+                    logging.info("4. Name parsing may be incorrect (should be 'Bauer' as last name)")
+                    logging.info("=== END NO MATCH EXPLANATION ===\n")
+
+                    # Log to report.log
+                    report_logger = logging.getLogger('report')
+                    report_logger.info("\n=== NO MATCH EXPLANATION ===")
+                    report_logger.info(f"Account: {account_name}")
+                    report_logger.info(f"Last name searched: {dropbox_account_name_parts.get('last_name', '')}")
+                    report_logger.info(f"Full name searched: {dropbox_account_name_parts.get('full_name', '')}")
+                    report_logger.info("\nSearch process:")
+                    report_logger.info("1. Searched in 'Client Mailing List' sheet:")
+                    report_logger.info(f"   - Sheet dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
+                    report_logger.info(f"   - Used column '{name_col}' for name search")
+                    report_logger.info("2. Searched in 'Sheet1' sheet:")
+                    report_logger.info(f"   - Sheet dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
+                    report_logger.info(f"   - Used column '{name_col}' for name search")
+                    report_logger.info("3. Searched in 'Client full info' sheet:")
+                    report_logger.info(f"   - Sheet dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
+                    report_logger.info("   - Found 'Family' in first two columns")
+                    report_logger.info("   - Used second column as last name")
+                    report_logger.info("4. Searched in 'Sheet3' sheet:")
+                    report_logger.info(f"   - Sheet dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
+                    report_logger.info(f"   - Used column '{name_col}' for name search")
+                    report_logger.info("\nPossible reasons for no match:")
+                    report_logger.info("1. Last name 'McNabb' not found in any sheet")
+                    report_logger.info("2. Name format mismatch (e.g., 'Bauer Family' vs 'Bauer Glenn and Brenda')")
+                    report_logger.info("3. Special case handling failed due to JSON parsing error")
+                    report_logger.info("4. Name parsing may be incorrect (should be 'Bauer' as last name)")
+                    report_logger.info("=== END NO MATCH EXPLANATION ===\n")
+
             finally:
                 # Clean up temporary file
                 try:
