@@ -10,32 +10,52 @@ This module provides functions for parsing and normalizing names, with support f
 
 import logging
 import re
+import os
+import json
 from typing import Dict, List, Tuple, Optional, Any
 
-# Special cases for name parsing
-SPECIAL_CASES = {
-    "Alexander & Armelia Rolle": {
-        "first_name": "Alexander",
-        "last_name": "Rolle",
-        "middle_name": "",
-        "additional_info": "Armelia",
-        "expected_matches": ["Alexander & Armelia Rolle"]
-    },
-    "Alexander & Armelia Rolle (Armelia)": {
-        "first_name": "Alexander",
-        "last_name": "Rolle",
-        "middle_name": "",
-        "additional_info": "Armelia",
-        "expected_matches": ["Alexander & Armelia Rolle"]
-    }
-}
+# Special cases for name parsing (fallback if JSON file is not available)
+SPECIAL_CASES = {}
 
 def _load_special_cases() -> Dict[str, Dict[str, Any]]:
-    """Load special cases for name parsing.
+    """Load special cases for name parsing from accounts/special_cases.json.
+    Falls back to hardcoded SPECIAL_CASES if the file is not available.
+    
+    For each special case, automatically adds 'Lastname Household' and 'Lastname Family'
+    to expected matches if they're not already present.
     
     Returns:
         Dict[str, Dict[str, Any]]: Dictionary of special cases
     """
+    special_cases_path = os.path.join('accounts', 'special_cases.json')
+    if os.path.exists(special_cases_path):
+        try:
+            with open(special_cases_path, 'r') as f:
+                special_cases = json.load(f)
+                # Convert the list of special cases to a dictionary
+                result = {}
+                for case in special_cases.get('special_cases', []):
+                    folder_name = case['folder_name']
+                    # Get the last name from the case
+                    last_name = case.get('last_name', '')
+                    if last_name:
+                        # Add household and family variations if not already present
+                        expected_matches = case.get('expected_matches', [])
+                        household_match = f"{last_name} Household"
+                        family_match = f"{last_name} Family"
+                        
+                        if household_match not in expected_matches:
+                            expected_matches.append(household_match)
+                        if family_match not in expected_matches:
+                            expected_matches.append(family_match)
+                            
+                        case['expected_matches'] = expected_matches
+                    
+                    result[folder_name] = case
+                return result
+        except Exception as e:
+            logging.error(f"Error reading special cases file: {e}")
+            return SPECIAL_CASES
     return SPECIAL_CASES
 
 def _is_special_case(name: str) -> bool:

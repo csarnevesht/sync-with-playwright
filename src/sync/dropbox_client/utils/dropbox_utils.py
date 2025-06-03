@@ -5,7 +5,7 @@ import sys
 import dropbox
 from dropbox.exceptions import ApiError
 from dropbox.files import FileMetadata
-from typing import List, Tuple, Optional, Dict
+from typing import List, Tuple, Optional, Dict, Any
 from datetime import datetime
 import re
 import pdf2image
@@ -18,6 +18,7 @@ import urllib.parse
 from dotenv import load_dotenv
 import pandas as pd
 from sync.salesforce_client.pages.account_manager import LoggingHelper
+import json
 
 from .date_utils import has_date_prefix, get_folder_creation_date
 from .path_utils import clean_dropbox_folder_name
@@ -248,310 +249,263 @@ class DropboxClient:
         
     
 
-    def get_dropbox_account_info(self, account_name: str, dropbox_account_name_parts: dict) -> Dict[str, str]:
-        """Get account information from the holiday account info file.
+    def get_dropbox_account_info(self, account_name: str, dropbox_account_name_parts: Dict[str, Any]) -> Dict[str, Any]:
+        """Get account information from the holiday Excel file.
         
-        This method searches for and processes an account in the holiday account info file using
-        the provided account_name_info dictionary. It extracts key personal information such as
-        name, address, phone number, and email from the Excel file.
-        
-        The method follows these steps:
-        1. Locates the holiday account info file
-        2. Downloads and reads the Excel file
-        3. Searches for the account using the last_name from account_name_info across all sheets
-        4. Extracts available information from matching rows
-        5. Returns a dictionary containing both the original account_name_info and extracted data
+        This method:
+        1. Checks for special cases in accounts/special_cases.json
+        2. Locates the holiday account info file
+        3. Downloads and reads the Excel file
+        4. Searches for the account in all sheets
+        5. Extracts available information
         
         Args:
             account_name (str): The name of the account to search for (used for logging)
-            dropbox_account_name_parts (dict): Dictionary containing account name information with keys:
-                - last_name (str): Last name to search for in the Excel file
-                - full_name (str): Full name of the account holder
-                - normalized_names (list): List of normalized name variations
-                - swapped_names (list): List of name variations with swapped first/last names
-                - expected_matches (list): List of expected name matches
-                
+            dropbox_account_name_parts (Dict[str, Any]): Dictionary containing:
+                - folder_name (str): Original folder name
+                - last_name (str): Last name to search for
+                - full_name (str): Full name to search for
+                - normalized_names (List[str]): List of normalized name variations
+                - swapped_names (List[str]): List of name variations with swapped first/last
+                - expected_matches (List[str]): List of expected matches for special cases
+        
         Returns:
-            Dict[str, Dict]: A dictionary containing:
-                - name_parts (dict): Dictionary containing name components:
-                    - folder_name (str): Original folder name
-                    - last_name (str): Last name to search for
-                    - full_name (str): Full name of the account holder
-                    - normalized_names (list): List of normalized name variations
-                    - swapped_names (list): List of name variations with swapped first/last
-                    - expected_matches (list): List of expected name matches
-                - search_info (dict): Dictionary containing search results:
-                    - status (str): Search status ('not_found' or 'found')
-                    - matches (list): List of search matches
-                    - search_attempts (list): List of search attempts
-                    - timing (dict): Timing information
-                    - match_info (dict): Match information with:
-                        - match_status (str): Status message
-                        - total_exact_matches (int): Count of exact matches
-                        - total_partial_matches (int): Count of partial matches
-                        - total_no_matches (int): Count of no matches
-                - account_data (dict): Extracted account information with keys:
-                    - name (str): Full name from Excel
-                    - first_name (str): First name if available
-                    - last_name (str): Last name if available
-                    - address (str): Physical address if available
-                    - city (str): City if available
-                    - state (str): State if available
-                    - zip (str): Zip code if available
-                    - email (str): Email address if available
-                    - phone (str): Phone number if available
-                
-            Returns a dictionary with empty account_data if:
-                - No holiday file is found
-                - File cannot be downloaded
-                - No matching account is found
-                - Required columns are not found in the Excel file
-                
-        Raises:
-            Exception: Any error during the extraction process is caught and logged
+            Dict[str, Any]: Dictionary containing:
+                - name_parts (Dict[str, Any]): Original name parts and search info
+                - search_info (Dict[str, Any]): Information about the search process
+                - account_data (Dict[str, Any]): Extracted account information
         """
+        logger = logging.getLogger('dropbox_utils')
+        
+        logger.info(f"\n=== Starting account info search for: {account_name} ===")
+        
+        # Initialize result structure
+        dropbox_account_info = {
+            'name_parts': dropbox_account_name_parts,
+            'search_info': {
+                'status': 'not_found',
+                'matches': [],
+                'search_attempts': [],
+                'timing': {},
+                'match_info': {
+                    'match_status': "No match found",
+                    'total_exact_matches': 0,
+                    'total_partial_matches': 0,
+                    'total_no_matches': 1
+                }
+            },
+            'account_data': {}
+        }
+        
         try:
-            dropbox_account_info = {
-                'name_parts': {
-                    'folder_name': account_name,
-                    'last_name': dropbox_account_name_parts['last_name'],
-                    'full_name': dropbox_account_name_parts['full_name'],
-                    'normalized_names': dropbox_account_name_parts['normalized_names'],
-                    'swapped_names': dropbox_account_name_parts['swapped_names'],
-                    'expected_matches': dropbox_account_name_parts['expected_matches']
-                },
-                'search_info': {
-                    'status': 'not_found',
-                    'matches': [],
-                    'search_attempts': [],
-                    'timing': {},
-                    'match_info': {
-                        'match_status': "No match found",
-                        'total_exact_matches': 0,
-                        'total_partial_matches': 0,
-                        'total_no_matches': 1
-                    }
-                },
-                'account_data': {}
-            }
-
-            logging.info(f"\n👤 Dropbox Account Data: '{account_name}' match: [{dropbox_account_info['search_info']['match_info']['match_status']}]")
-
-            last_name = dropbox_account_info['name_parts']['last_name']
-            full_name = dropbox_account_info['name_parts']['full_name']
-            normalized_names = dropbox_account_info['name_parts']['normalized_names']
-            swapped_names = dropbox_account_info['name_parts']['swapped_names']
-            expected_matches = dropbox_account_info['name_parts']['expected_matches']
+            # Log search parameters
+            logger.info("Search parameters:")
+            logger.info(f"  - Last name: {dropbox_account_name_parts['last_name']}")
+            logger.info(f"  - Full name: {dropbox_account_name_parts['full_name']}")
+            logger.info(f"  - Normalized names: {dropbox_account_name_parts['normalized_names']}")
+            logger.info(f"  - Swapped names: {dropbox_account_name_parts['swapped_names']}")
+            logger.info(f"  - Expected matches: {dropbox_account_name_parts['expected_matches']}")
+            logger.info("")
             
-            # Get the holiday file
+            # Step 1: Locate holiday file
+            logger.info("Step 1: Locating holiday file...")
             holiday_file = self.get_dropbox_holiday_file()
             if not holiday_file:
-                logging.error("Could not find holiday file")
+                logger.error("Could not find holiday file")
                 return dropbox_account_info
+            
+            # Step 2: Download holiday file
+            logger.info("\nStep 2: Downloading holiday file...")
+            temp_path = self._download_holiday_file(holiday_file)
+            if not temp_path:
+                logger.error("Could not download holiday file")
+                return dropbox_account_info
+            
+            try:
+                # Step 3: Read Excel file
+                logger.info("\nStep 3: Reading Excel file...")
+                excel_file = pd.ExcelFile(temp_path)
+                sheets = excel_file.sheet_names
+                logger.info(f"Found {len(sheets)} sheets in the Excel file: {sheets}")
                 
-            # Create a temporary file to store the downloaded XLSX
-            with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as temp_file:
-                temp_path = temp_file.name
+                # Initialize variables for tracking matches
+                account_row = None
+                match_found = False
+                match_sheet = None
                 
-                try:
-                    # Download the file
-                    self.dbx.files_download_to_file(temp_path, holiday_file.path_display)
+                # Search through each sheet
+                for sheet_name in sheets:
+                    logger.info(f"\nSearching in sheet: {sheet_name}")
+                    df = pd.read_excel(temp_path, sheet_name=sheet_name)
+                    logger.info(f"Sheet dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
                     
-                    # Read all sheets from the XLSX file
-                    excel_file = pd.ExcelFile(temp_path)
-                    sheet_names = excel_file.sheet_names
-                    logging.info(f"Found {len(sheet_names)} sheets in the Excel file: {sheet_names}")
-                    
-                    # Look for the account name in each sheet
-                    account_found = False
-                    for sheet_name in sheet_names:
-                        logging.info(f"Searching in sheet: {sheet_name}")
-                        df = pd.read_excel(temp_path, sheet_name=sheet_name)
+                    # Special handling for "Client full info" sheet
+                    if sheet_name == "Client full info":
+                        logger.info("Processing 'Client full info' sheet format")
+                        # Convert first two columns to string and handle NaN values
+                        first_col = df.iloc[:, 0].astype(str).replace('nan', '')
+                        second_col = df.iloc[:, 1].astype(str).replace('nan', '')
                         
-                        # Special handling for "Client full info" sheet
-                        if sheet_name == "Client full info":
-                            # Use specific column indices for this sheet
-                            if len(df.columns) >= 9:  # Ensure we have enough columns
-                                # Find the row with matching last name in column B
-                                account_row = df[df.iloc[:, 1].str.contains(last_name, case=False, na=False)]
+                        # Check for "Family" in either column
+                        family_in_first = (first_col.str.lower() == 'family').any()
+                        family_in_second = (second_col.str.lower() == 'family').any()
+                        
+                        if family_in_first or family_in_second:
+                            logger.info("Found 'Family' in first two columns")
+                            # Get the other column as the last name
+                            if family_in_first:
+                                last_name_col = second_col
+                                logger.info("Using second column as last name")
+                            else:
+                                last_name_col = first_col
+                                logger.info("Using first column as last name")
                                 
-                                if not account_row.empty:
-                                    account_found = True
-                                    logging.info(f"Found match in sheet: {sheet_name}")
-                                    
-                                    # Extract information using specific column indices
-                                    # Column A (index 0) is first name
-                                    value = account_row.iloc[0, 0]
-                                    dropbox_account_info['account_data']['first_name'] = '' if pd.isna(value) else str(value).strip()
-                                    
-                                    # Column B (index 1) is last name
-                                    value = account_row.iloc[0, 1]
-                                    dropbox_account_info['account_data']['last_name'] = '' if pd.isna(value) else str(value).strip()
-                                    
-                                    # Combine first and last name for full name
-                                    first = dropbox_account_info['account_data']['first_name']
-                                    last = dropbox_account_info['account_data']['last_name']
-                                    dropbox_account_info['account_data']['name'] = f"{first} {last}".strip()
-                                    
-                                    # Column D (index 3) is address
-                                    value = account_row.iloc[0, 3]
-                                    dropbox_account_info['account_data']['address'] = '' if pd.isna(value) else str(value).strip()
-                                    
-                                    # Column G (index 6) is city
-                                    value = account_row.iloc[0, 6]
-                                    dropbox_account_info['account_data']['city'] = '' if pd.isna(value) else str(value).strip()
-                                    
-                                    # Column H (index 7) is state
-                                    value = account_row.iloc[0, 7]
-                                    dropbox_account_info['account_data']['state'] = '' if pd.isna(value) else str(value).strip()
-                                    
-                                    # Column I (index 8) is zip code
-                                    value = account_row.iloc[0, 8]
-                                    dropbox_account_info['account_data']['zip'] = '' if pd.isna(value) else str(value).strip()
-                                    
-                                    # Look for email and phone in other columns
-                                    email_columns = ['Email']
-                                    email_col = next((col for col in email_columns if col in df.columns), None)
-                                    if email_col:
-                                        value = account_row[email_col].iloc[0]
-                                        dropbox_account_info['account_data']['email'] = '' if pd.isna(value) else str(value).strip()
-                                    
-                                    phone_columns = ['Phone', 'Phone Number', 'Contact Number']
-                                    phone_col = next((col for col in phone_columns if col in df.columns), None)
-                                    if phone_col:
-                                        value = account_row[phone_col].iloc[0]
-                                        dropbox_account_info['account_data']['phone'] = '' if pd.isna(value) else str(value).strip()
-                                    
-                                    # Update status and match info since we found a match
-                                    dropbox_account_info['search_info']['status'] = 'found'
-                                    dropbox_account_info['search_info']['match_info'] = {
-                                        'match_status': f'Found exact match in dropbox client list file (sheet: {sheet_name})',
-                                        'total_exact_matches': 1,
-                                        'total_partial_matches': 0,
-                                        'total_no_matches': 0
-                                    }
-                                    
-                                    # Log the found information
-                                    logging.info(f"   Found match in holiday file (sheet: {sheet_name}):")
-                                    for key, value in dropbox_account_info['account_data'].items():
-                                        # Skip empty values, None, and 'nan' values
-                                        if value and str(value).strip().lower() not in ['nan', 'none', '']:
-                                            # Format the key for display (e.g., 'first_name' -> 'First Name')
-                                            display_key = ' '.join(word.capitalize() for word in key.split('_'))
-                                            logging.info(f"   {display_key}: {value}")
-                                    
-                                    # Break the loop since we found a match
-                                    break
-                        else:
-                            # Original logic for other sheets
-                            name_columns = ['Last Name', 'First Name', 'Address', 'Email', 'Phone Number']
-                            name_col = next((col for col in name_columns if col in df.columns), None)
+                            matching_rows = df[last_name_col.str.lower() == dropbox_account_name_parts['last_name'].lower()]
                             
-                            if not name_col:
-                                logging.warning(f"Could not find name column in sheet {sheet_name}")
-                                continue
-                            
-                            # Find the row with matching account name
-                            account_row = df[df[name_col].str.contains(last_name, case=False, na=False)]
-                            
-                            if not account_row.empty:
-                                account_found = True
-                                logging.info(f"Found match in sheet: {sheet_name}")
-                                
-                                # Extract information from the row
-                                dropbox_account_info['account_data']['name'] = account_row[name_col].iloc[0]
-
-                                # Look for first name
-                                first_name_columns = ['First Name']
-                                first_name_col = next((col for col in first_name_columns if col in df.columns), None)
-                                if first_name_col:
-                                    value = account_row[first_name_col].iloc[0]
-                                    dropbox_account_info['account_data']['first_name'] = '' if pd.isna(value) else str(value).strip()
-                                
-                                # Look for last name
-                                last_name_columns = ['Last Name']           
-                                last_name_col = next((col for col in last_name_columns if col in df.columns), None)
-                                if last_name_col:
-                                    value = account_row[last_name_col].iloc[0]
-                                    dropbox_account_info['account_data']['last_name'] = '' if pd.isna(value) else str(value).strip()
-
-                                # Look for address
-                                address_columns = ['Address']
-                                address_col = next((col for col in address_columns if col in df.columns), None)
-                                if address_col:
-                                    value = account_row[address_col].iloc[0]
-                                    dropbox_account_info['account_data']['address'] = '' if pd.isna(value) else str(value).strip()
-
-                                # Look for City
-                                city_columns = ['City']
-                                city_col = next((col for col in city_columns if col in df.columns), None)
-                                if city_col:
-                                    value = account_row[city_col].iloc[0]
-                                    dropbox_account_info['account_data']['city'] = '' if pd.isna(value) else str(value).strip()
-                                
-                                # Look for State    
-                                state_columns = ['State']
-                                state_col = next((col for col in state_columns if col in df.columns), None)
-                                if state_col:
-                                    value = account_row[state_col].iloc[0]
-                                    dropbox_account_info['account_data']['state'] = '' if pd.isna(value) else str(value).strip()
-                                
-                                # Look for Zip Code 
-                                zip_columns = ['Zip Code']
-                                zip_col = next((col for col in zip_columns if col in df.columns), None)
-                                if zip_col:
-                                    value = account_row[zip_col].iloc[0]
-                                    dropbox_account_info['account_data']['zip'] = '' if pd.isna(value) else str(value).strip()
-                                
-                                # Look for Email
-                                email_columns = ['Email']
-                                email_col = next((col for col in email_columns if col in df.columns), None)
-                                if email_col:
-                                    value = account_row[email_col].iloc[0]
-                                    dropbox_account_info['account_data']['email'] = '' if pd.isna(value) else str(value).strip()
-                                
-                                # Look for phone
-                                phone_columns = ['Phone', 'Phone Number', 'Contact Number']
-                                phone_col = next((col for col in phone_columns if col in df.columns), None)
-                                if phone_col:
-                                    value = account_row[phone_col].iloc[0]
-                                    dropbox_account_info['account_data']['phone'] = '' if pd.isna(value) else str(value).strip()
-                            
-                                # Update status and match info since we found a match
-                                dropbox_account_info['search_info']['status'] = 'found'
-                                dropbox_account_info['search_info']['match_info'] = {
-                                    'match_status': f'Found exact match in dropbox client list file (sheet: {sheet_name})',
-                                    'total_exact_matches': 1,
-                                    'total_partial_matches': 0,
-                                    'total_no_matches': 0
-                                }
-                                
-                                # Log the found information
-                                logging.info(f"   Found match in holiday file (sheet: {sheet_name}):")
-                                for key, value in dropbox_account_info['account_data'].items():
-                                    # Skip empty values, None, and 'nan' values
-                                    if value and str(value).strip().lower() not in ['nan', 'none', '']:
-                                        # Format the key for display (e.g., 'first_name' -> 'First Name')
-                                        display_key = ' '.join(word.capitalize() for word in key.split('_'))
-                                        logging.info(f"   {display_key}: {value}")
-                                
-                                # Break the loop since we found a match
+                            if not matching_rows.empty:
+                                account_row = matching_rows.iloc[0]
+                                match_found = True
+                                match_sheet = sheet_name
+                                logger.info(f"Found match in 'Client full info' sheet with 'Family' case")
                                 break
+                        else:
+                            # Regular last name search if no "Family" found
+                            last_name_col = df.iloc[:, 1]  # Column B
+                            last_name_col = last_name_col.astype(str).replace('nan', '')
+                            matching_rows = df[last_name_col.str.lower() == dropbox_account_name_parts['last_name'].lower()]
+                            
+                            if not matching_rows.empty:
+                                account_row = matching_rows.iloc[0]
+                                match_found = True
+                                match_sheet = sheet_name
+                                logger.info(f"Found match in 'Client full info' sheet")
+                                break
+                    else:
+                        # Standard sheet handling
+                        logger.info("Processing standard sheet format")
+                        # Try to find the name column
+                        name_col = None
+                        for col in df.columns:
+                            if 'name' in str(col).lower():
+                                name_col = col
+                                break
+                        
+                        if name_col:
+                            logger.info(f"Using column '{name_col}' for name search")
+                            # Convert column to string and handle NaN values
+                            name_values = df[name_col].astype(str).replace('nan', '')
+                            
+                            # Check for "Family" in the name column
+                            family_mask = (name_values.str.lower() == 'family').any()
+                            if family_mask:
+                                logger.info("Found 'Family' in name column")
+                                # Get the last name from the next column
+                                last_name_col = df.iloc[:, df.columns.get_loc(name_col) + 1]
+                                last_name_col = last_name_col.astype(str).replace('nan', '')
+                                matching_rows = df[last_name_col.str.lower() == dropbox_account_name_parts['last_name'].lower()]
+                                
+                                if not matching_rows.empty:
+                                    account_row = matching_rows.iloc[0]
+                                    match_found = True
+                                    match_sheet = sheet_name
+                                    logger.info(f"Found match with 'Family' case in {sheet_name}")
+                                    break
+                            
+                            # If no "Family" match, try regular name search
+                            if not match_found:
+                                # Search for exact matches first
+                                for name in dropbox_account_name_parts['normalized_names']:
+                                    matches = df[name_values.str.lower() == name.lower()]
+                                    if not matches.empty:
+                                        account_row = matches.iloc[0]
+                                        match_found = True
+                                        match_sheet = sheet_name
+                                        logger.info(f"Found exact match in {sheet_name}")
+                                        break
+                                
+                                if not match_found:
+                                    # Try partial matches
+                                    for name in dropbox_account_name_parts['normalized_names']:
+                                        matches = df[name_values.str.lower().str.contains(name.lower(), na=False)]
+                                        if not matches.empty:
+                                            account_row = matches.iloc[0]
+                                            match_found = True
+                                            match_sheet = sheet_name
+                                            logger.info(f"Found partial match in {sheet_name}")
+                                            break
+                
+                # If no match found, try searching by last name in all sheets
+                if not match_found:
+                    for sheet_name in sheets:
+                        df = pd.read_excel(temp_path, sheet_name=sheet_name)
+                        # Try to find the last name column
+                        last_name_col = None
+                        for col in df.columns:
+                            if 'last' in str(col).lower() and 'name' in str(col).lower():
+                                last_name_col = col
+                                break
+                        
+                        if last_name_col:
+                            # Convert column to string and handle NaN values
+                            last_name_values = df[last_name_col].astype(str).replace('nan', '')
+                            matches = df[last_name_values.str.lower() == dropbox_account_name_parts['last_name'].lower()]
+                            if not matches.empty:
+                                account_row = matches.iloc[0]
+                                match_found = True
+                                match_sheet = sheet_name
+                                logger.info(f"Found match by last name in {sheet_name}")
+                                break
+                
+                # Extract data if match found
+                if match_found and account_row is not None:
+                    logger.info(f"\nExtracting data from {match_sheet} sheet")
+                    if match_sheet == "Client full info":
+                        # Extract data from specific columns in "Client full info" sheet
+                        dropbox_account_info['account_data'] = {
+                            'name': f"{account_row.iloc[0]} {account_row.iloc[1]}",  # First name + Last name
+                            'first_name': str(account_row.iloc[0]),
+                            'last_name': str(account_row.iloc[1]),
+                            'address': str(account_row.iloc[3]),  # Column D
+                            'city': str(account_row.iloc[6]),     # Column G
+                            'state': str(account_row.iloc[7]),    # Column H
+                            'zip': str(account_row.iloc[8])       # Column I
+                        }
+                    else:
+                        # Extract data from standard sheet format
+                        dropbox_account_info['account_data'] = {
+                            'name': str(account_row.get('Name', '')),
+                            'first_name': str(account_row.get('First Name', '')),
+                            'last_name': str(account_row.get('Last Name', '')),
+                            'address': str(account_row.get('Address', '')),
+                            'city': str(account_row.get('City', '')),
+                            'state': str(account_row.get('State', '')),
+                            'zip': str(account_row.get('Zip', '')),
+                            'email': str(account_row.get('Email', '')),
+                            'phone': str(account_row.get('Phone', ''))
+                        }
                     
-                    if not account_found:
-                        logging.warning(f"Could not find account '{last_name}' in any sheet of the holiday file")
-                    
-                    return dropbox_account_info
-                    
-                finally:
-                    # Clean up the temporary file
-                    try:
-                        os.unlink(temp_path)
-                    except Exception as e:
-                        logging.warning(f"Failed to delete temporary file {temp_path}: {e}")
-
+                    # Update match status
+                    dropbox_account_info['search_info']['status'] = 'found'
+                    dropbox_account_info['search_info']['match_info']['match_status'] = "Match found"
+                    dropbox_account_info['search_info']['match_info']['total_exact_matches'] = 1
+                    dropbox_account_info['search_info']['match_info']['total_no_matches'] = 0
+                    logger.info(f"Successfully extracted account data from {match_sheet}")
+                else:
+                    logger.info("No match found in any sheet")
+            
+            finally:
+                # Clean up temporary file
+                try:
+                    os.remove(temp_path)
+                    logger.info("Temporary file cleaned up successfully")
+                except Exception as e:
+                    logger.error(f"Error cleaning up temporary file: {e}")
+            
+            return dropbox_account_info
+            
         except Exception as e:
-            logging.error(f"Error getting account info for {account_name}: {e}")
+            logger.error(f"Error getting account info for {account_name}: {str(e)}")
+            logger.error("Stack trace:", exc_info=True)
             return dropbox_account_info
 
     def parse_account_name(self, folder_name: str) -> Tuple[str, str, Optional[str]]:
@@ -752,6 +706,35 @@ class DropboxClient:
     def get_dropbox_salesforce_folder(self) -> Optional[str]:
         """Get the configured Dropbox Salesforce folder path."""
         return self.dropbox_salesforce_path
+
+    def _download_holiday_file(self, holiday_file: FileMetadata) -> Optional[str]:
+        """Download the holiday file to a temporary location.
+        
+        Args:
+            holiday_file (FileMetadata): The holiday file metadata
+            
+        Returns:
+            Optional[str]: Path to the downloaded file, or None if download failed
+        """
+        try:
+            logger = logging.getLogger('dropbox_utils')
+            logger.info(f"Downloading holiday file: {holiday_file.name}")
+            
+            # Create a temporary file
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
+            temp_path = temp_file.name
+            temp_file.close()
+            
+            # Download the file
+            with open(temp_path, 'wb') as f:
+                self.dbx.files_download_to_file(temp_path, holiday_file.path_display)
+            
+            logger.info(f"Successfully downloaded holiday file to: {temp_path}")
+            return temp_path
+            
+        except Exception as e:
+            logger.error(f"Error downloading holiday file: {str(e)}")
+            return None
 
 def update_env_file(env_file, token=None, root_folder=None, directory=None):
     """Update the .env file with new values."""

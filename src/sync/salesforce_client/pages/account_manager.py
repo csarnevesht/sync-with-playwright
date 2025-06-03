@@ -13,6 +13,7 @@ import sys
 import os
 from .accounts_page import AccountsPage
 from ..utils.selectors import Selectors
+from sync.utils.name_utils import _load_special_cases, _is_special_case, _get_special_case_rules
 
 class LoggingHelper:
     """Helper class to manage logging indentation and color based on call depth and keyword."""
@@ -129,7 +130,7 @@ class AccountManager(BasePage):
         super().__init__(page, debug_mode)
         self.current_account_id = None
         self.accounts_page = AccountsPage(page, debug_mode)
-        self.special_cases = self._load_special_cases()
+        self.special_cases = _load_special_cases()
         if not hasattr(self, 'log_helper') or self.log_helper is None:
             self.log_helper = LoggingHelper()
         
@@ -171,9 +172,17 @@ class AccountManager(BasePage):
         """
         logging.getLogger().info(f"ALWAYS: extract_name_parts called with name: {name}")
         if log:
-            logger = logging.getLogger('account_manager')
-            logger.setLevel(logging.INFO)
-            logger.info(f"INFO: extract_name_parts ***name: {name}")
+            logging.info(f"Extracting name parts from: {name}")
+            
+        # Check for special cases first
+        if _is_special_case(name):
+            if log:
+                logging.info(f"Found special case: {name}")
+            special_case = _get_special_case_rules(name)
+            if special_case:
+                if log:
+                    logging.info(f"Using special case rules: {special_case}")
+                return special_case
         
         # Initialize result dictionary
         result = {
@@ -184,15 +193,6 @@ class AccountManager(BasePage):
             'swapped_names': [],
             'normalized_names': []
         }
-        
-        # Check for special case first
-        if AccountManager._is_special_case(name):
-            logging.info(f"Found special case for folder: {name}")
-            special_case = AccountManager._get_special_case_rules(name)
-            if special_case:
-                logging.info(f"Applying special case rules: {special_case}")
-                result.update(special_case)
-                return result
         
         # Check for parentheses for additional info
         if '(' in name and ')' in name:
