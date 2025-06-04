@@ -375,7 +375,28 @@ class DropboxClient:
                         logger.info(f"No matching rows found in sheet {sheet_name} for last name: {last_name}...")
 
                     if not matching_rows.empty:
-                        account_row = matching_rows.iloc[0]
+                        # Check for multiple matches
+                        if len(matching_rows) > 1:
+                            logger.warning(f"Found {len(matching_rows)} matches in {sheet_name} for last name: {last_name}")
+                            # Update search info to indicate multiple matches
+                            dropbox_account_info['search_info']['status'] = 'multiple_matches'
+                            dropbox_account_info['search_info']['match_info']['match_status'] = f"Found {len(matching_rows)} matches"
+                            dropbox_account_info['search_info']['match_info']['total_exact_matches'] = len(matching_rows)
+                            dropbox_account_info['search_info']['match_info']['total_no_matches'] = 0
+                            # Store all matching rows for reference
+                            dropbox_account_info['search_info']['matches'] = [
+                                {f"Column {i}": self._clean_cell_value(str(val)) for i, val in enumerate(row)}
+                                for _, row in matching_rows.iterrows()
+                            ]
+                            # Still use the first match for account data
+                            account_row = matching_rows.iloc[0]
+                        else:
+                            account_row = matching_rows.iloc[0]
+                            dropbox_account_info['search_info']['status'] = 'found'
+                            dropbox_account_info['search_info']['match_info']['match_status'] = "Match found"
+                            dropbox_account_info['search_info']['match_info']['total_exact_matches'] = 1
+                            dropbox_account_info['search_info']['match_info']['total_no_matches'] = 0
+                        
                         match_found = True
                         match_sheet = sheet_name
                         logger.info(f"Found matches in {sheet_name} by last name in any column")
