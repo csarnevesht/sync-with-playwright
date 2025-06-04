@@ -405,165 +405,83 @@ class AccountManager(BasePage):
         self.log_helper.dedent()
         return False
 
-    def search_account(self, search_term: str, view_name: str = "All Clients") -> List[str]:
-        """
-        Search for an account in Salesforce.
+    def search_account(self, account_name: str, account_name_parts: Dict[str, Any]) -> Dict[str, Any]:
+        """Search for an account in Salesforce.
         
         Args:
-            search_term: The term to search for
-            view_name: The name of the list view to use
-            
+            account_name (str): The name of the account to search for (used for logging)
+            account_name_parts (Dict[str, Any]): Dictionary containing:
+                - folder_name (str): Original folder name
+                - last_name (str): Last name to search for
+                - full_name (str): Full name to search for
+                - normalized_names (List[str]): List of normalized name variations
+                - swapped_names (List[str]): List of name variations with swapped first/last
+                - expected_salesforce_matches (List[str]): List of expected matches for Salesforce
+                - expected_dropbox_matches (List[str]): List of expected matches for Dropbox
+                
         Returns:
-            bool: True if search was successful, False otherwise
+            Dict[str, Any]: Dictionary containing:
+                - name_parts (Dict[str, Any]): Original name parts and search info
+                - search_info (Dict[str, Any]): Information about the search process
+                - account_data (Dict[str, Any]): Extracted account information
         """
-        self.log_helper.start_timing()
-        found_account_names = []  # Initialize once before the loop
-        self.log_helper.indent()
+        logger = logging.getLogger('salesforce_client')
+        
+        # Initialize result dictionary
+        salesforce_account_info = {
+            'name_parts': account_name_parts,
+            'search_info': {
+                'match_found': False,
+                'match_type': None,
+                'match_value': None,
+                'match_explanation': None
+            },
+            'account_data': {}
+        }
+        
         try:
-            # Navigate to accounts page if not already there
-            if not self.navigate_to_accounts_list_page():
-                self.log_helper.dedent()
-                return found_account_names
+            # Get expected matches for this account
+            expected_matches = account_name_parts.get('expected_salesforce_matches', [])
+            if not expected_matches:
+                expected_matches = [account_name_parts['last_name']]
+            logger.info(f"Expected matches: {expected_matches}")
             
-            # Clear any existing search
-            self.clear_search()
+            # Search for matches in Salesforce
+            for match in expected_matches:
+                # Search by last name
+                query = f"SELECT Id, Name, FirstName, LastName, Phone, Email, BillingStreet, BillingCity, BillingState, BillingPostalCode FROM Account WHERE LastName LIKE '%{match}%'"
+                results = self.sf.query(query)
+                
+                if results['totalSize'] > 0:
+                    # Found a match
+                    account = results['records'][0]
+                    salesforce_account_info['search_info'].update({
+                        'match_found': True,
+                        'match_type': 'exact',
+                        'match_value': account['LastName'],
+                        'match_explanation': f"Found match for '{match}'"
+                    })
+                    
+                    # Extract account data
+                    salesforce_account_info['account_data'] = {
+                        'name': account['Name'],
+                        'first_name': account.get('FirstName', ''),
+                        'last_name': account['LastName'],
+                        'phone': account.get('Phone', ''),
+                        'email': account.get('Email', ''),
+                        'address': account.get('BillingStreet', ''),
+                        'city': account.get('BillingCity', ''),
+                        'state': account.get('BillingState', ''),
+                        'zip': account.get('BillingPostalCode', '')
+                    }
+                    break
             
-            self.log_helper.log(self.logger, 'info', f"INFO: search_account ***searching for search term: {search_term}")
-
-            # Enter search term
-            search_input = self.page.locator("input[placeholder='Search this list...']")
-            search_input.fill(search_term)
-            search_input.press("Enter")
-            self.log_helper.log(self.logger, 'info', f"Pressed Enter for search term: {search_term}")
-            self.log_helper.log(self.logger, 'info', f"Waiting for 2 second(s)...")
-            self.page.wait_for_timeout(2000)
-            
-            # After pressing Enter, check for empty content before checking for rows
-            try:
-                # Wait for either the empty content or the table to appear
-                self.page.wait_for_selector(
-                    'div.emptyContent.slds-is-absolute, table.slds-table',
-                    timeout=10000
-                )
-                # Check if the empty content is visible
-                empty_content = self.page.locator('div.emptyContent.slds-is-absolute').first
-                if empty_content and empty_content.is_visible():
-                    self.log_helper.log(self.logger, 'info', f"No items to display for search term: {search_term}")
-                    self.log_helper.dedent()
-                    return found_account_names
-            except Exception as e:
-                self.log_helper.log(self.logger, 'warning', f"Error waiting for empty content or table: {str(e)}")
-            
-            # Wait for search results
-            try:
-                # Wait for the loading spinner to disappear
-                self.page.wait_for_selector('div.slds-spinner_container', state='hidden', timeout=5000)
-                
-                # Wait for the table to be visible
-                table = self.page.wait_for_selector('table.slds-table', timeout=10000)
-                if not table:
-                    self.log_helper.log(self.logger, 'error', "Search results table not found")
-                    self.log_helper.dedent()
-                    return found_account_names
-                
-                # Parse the number of items from the status bar (e.g., '0 items' or '50+ items')
-                num_items = None
-                try:
-                    status_bar = self.page.locator('span.countSortedByFilteredBy[role="status"]').first
-                    if status_bar:
-                        status_bar.wait_for(state='visible', timeout=5000)
-                        status_text = status_bar.text_content().strip()
-                        import re
-                        match = re.search(r'(\d+\+?) items?', status_text)
-                        if match:
-                            num_items_str = match.group(1)
-                            if num_items_str.endswith('+'):
-                                num_items = int(num_items_str[:-1])
-                                self.log_helper.log(self.logger, 'info', f"Salesforce reports {num_items_str} items (50+ means 50 or more) for search term: {search_term}")
-                            else:
-                                num_items = int(num_items_str)
-                                self.log_helper.log(self.logger, 'info', f"Salesforce reports {num_items} items for search term: {search_term}")
-                        else:
-                            self.log_helper.log(self.logger, 'warning', f"Could not parse number of items from status bar: '{status_text}'")
-                    else:
-                        self.log_helper.log(self.logger, 'warning', "Status bar element not found for item count.")
-                except Exception as e:
-                    self.log_helper.log(self.logger, 'warning', f"Error parsing number of items from status bar: {str(e)}")
-                
-                # Wait for any rows to be visible
-                rows = self.page.locator('table.slds-table tbody tr').all()
-                num_rows = len(rows)
-                self.log_helper.log(self.logger, 'info', f"Found {num_rows} rows in table for search term: {search_term}")
-
-                # If status bar says 50+ and num_rows < 50, warn about lazy loading
-                if num_items is not None and isinstance(num_items, int) and num_rows < num_items:
-                    self.log_helper.log(self.logger, 'warning', f"Table may not have loaded all rows: status bar says {num_items}+ items, but only {num_rows} rows are visible. Consider implementing scrolling or pagination.")
-                    # After warning, check for the empty content indicator
-                    empty_content = self.page.locator('div.emptyContent.slds-is-absolute').first
-                    if empty_content and empty_content.is_visible():
-                        self.log_helper.log(self.logger, 'info', f"No items to display for search term: {search_term}")
-                        self.log_helper.dedent()
-                        return found_account_names
-                    else:
-                        self.log_helper.log(self.logger, 'info', f"***Table loaded with {num_rows} rows for search term: {search_term}")
-                
-                # Log each result
-                for row in rows:
-                    try:
-                        # Try several selectors for the account name
-                        name_cell = None
-                        for selector in ['td:nth-child(2) a', 'th[scope="row"] a', 'td:first-child a']:
-                            candidate = row.locator(selector).first
-                            try:
-                                if candidate and candidate.is_visible(timeout=1000):
-                                    name_cell = candidate
-                                    break
-                            except Exception:
-                                continue
-                        
-                        if name_cell:
-                            name = name_cell.text_content(timeout=2000).strip()
-                            self.log_helper.log(self.logger, 'info', f"Found account: {name} in name_cell")
-                            found_account_names.append(name)
-                        else:
-                            self.log_helper.log(self.logger, 'warning', f"Could not find account name link in row for search term: {search_term}")
-                    except Exception as e:
-                        self.log_helper.log(self.logger, 'warning', f"Error getting account name from row: {str(e)}")
-                        continue
-                
-                # Only log if no account names were found
-                self.log_helper.log(self.logger, 'info', f"DEBUG: found_account_names = {found_account_names}")
-                self.log_helper.log(self.logger, 'info', f"DEBUG: len(found_account_names) = {len(found_account_names)}")
-                if len(found_account_names) == 0:
-                    self.log_helper.log(self.logger, 'info', "***No account names found in search results")
-                
-                # Compare the parsed number of items to the number of rows
-                if num_items is not None:
-                    if num_items != num_rows:
-                        self.log_helper.log(self.logger, 'warning', f"Discrepancy: Salesforce reports {num_items} items, but found {num_rows} rows in table for search term: {search_term}")
-                    else:
-                        self.log_helper.log(self.logger, 'info', f"Number of items matches number of rows for search term: {search_term}")
-                
-                # If 0 items, log and return
-                if num_items == 0 or num_rows == 0:
-                    self.log_helper.log(self.logger, 'info', f"No results found for search term: {search_term}")
-                    self.log_helper.dedent()
-                    return found_account_names
-                
-                self.log_helper.dedent()
-                self.log_helper.log_timing(self.logger, f"search_account for term: {search_term}")
-                return found_account_names
-                
-            except Exception as e:
-                self.log_helper.log(self.logger, 'error', f"Error waiting for search results: {str(e)}")
-                self.log_helper.dedent()
-                return found_account_names
+            return salesforce_account_info
             
         except Exception as e:
-            self.log_helper.log(self.logger, 'error', f"Error searching for account: {str(e)}")
-            self.log_helper.log_timing(self.logger, f"search_account (error) for term: {search_term}")
-            self.log_helper.dedent()
-            return []
+            logger.error(f"Error searching for account {account_name}: {str(e)}")
+            logger.error("Stack trace:", exc_info=True)
+            return salesforce_account_info
 
     def clear_search(self):
         """Clear the search field by searching for '--' and verifying no results."""
@@ -1894,86 +1812,10 @@ class AccountManager(BasePage):
             self.log_helper.dedent()
             return False
 
-    @staticmethod
-    def prepare_dropbox_account_data_for_search(account_name: str) -> dict:
-        """Prepare account data for searching in Salesforce based on a Dropbox account folder name.
-        
-        This method extracts and normalizes name components from a Dropbox account folder name
-        to prepare it for searching in Salesforce. It uses the _extract_name_parts method to
-        parse the name and creates a standardized data structure for search operations.
-        
-        The method handles various name formats including:
-        - Simple first/last names
-        - Names with middle names
-        - Names with additional information in parentheses
-        - Names with '&' or 'and' separators
-        - Special case names with predefined rules
-        
-        Args:
-            account_name (str): The Dropbox account folder name to process
-            
-        Returns:
-            dict: A dictionary containing:
-                - folder_name (str): Original account folder name
-                - first_name (str): Extracted first name
-                - last_name (str): Extracted last name
-                - middle_name (str): Extracted middle name
-                - additional_info (str): Any additional information found in parentheses
-                - full_name (str): Full name if available
-                - normalized_names (list): List of normalized name variations for matching
-                - swapped_names (list): List of name variations with swapped first/last names
-                - expected_matches (list): List of expected name matches for special cases
-                - status (str): Initial search status ('not_found')
-                - matches (list): Empty list for storing search matches
-                - search_attempts (list): Empty list for storing search attempts
-                - timing (dict): Empty dict for storing timing information
-                - match_info (dict): Initial match information with:
-                    - match_status (str): Initial status message
-                    - total_exact_matches (int): Initial count of exact matches
-                    - total_partial_matches (int): Initial count of partial matches
-                    - total_no_matches (int): Initial count of no matches
-        """
-        name_parts = AccountManager._extract_name_parts(account_name, log=True)
-        result = {
-                'folder_name': account_name,
-                'first_name': name_parts.get('first_name', ''),
-                'last_name': name_parts.get('last_name', ''),
-                'middle_name': name_parts.get('middle_name', ''),
-                'additional_info': name_parts.get('additional_info', ''),
-                'full_name': name_parts.get('full_name', ''),
-                'normalized_names': name_parts.get('normalized_names', []),
-                'swapped_names': name_parts.get('swapped_names', []),
-                'expected_matches': name_parts.get('expected_matches', []),
-                'status': 'not_found',
-                'matches': [],
-                'search_attempts': [],
-                'timing': {},
-                'normalized_names': [],
-                'swapped_names': [],
-                'expected_matches': [],
-                'match_info': {
-                    'match_status': "No match found",
-                    'total_exact_matches': 0,
-                    'total_partial_matches': 0,
-                    'total_no_matches': 1
-                }
-        }
-
-        logging.info(f"\nExtracted name parts for '{account_name}':")
-        logging.info(f"    First name: {name_parts.get('first_name', '')}")
-        logging.info(f"    Last name: {name_parts.get('last_name', '')}")
-        logging.info(f"    Middle name: {name_parts.get('middle_name', '')}")
-        logging.info(f"    Additional info: {name_parts.get('additional_info', '')}")
-        logging.info(f"    Full name: {name_parts.get('full_name', '')}")
-        logging.info(f"    Normalized names: {result['normalized_names']}")
-        logging.info(f"    Swapped names: {result['swapped_names']}")
-        logging.info(f"    Expected matches: {result['expected_matches']}")
-        return result
 
     def fuzzy_search_account(self, folder_name: str, view_name: str = "All Clients", dropbox_account_name_parts: dict = None) -> Dict[str, Any]:
         """Perform a fuzzy search based on a folder name."""
         start_time = time.time()
-        # TODO: use prepare_account_data_for_search instead
         result = {
             'folder_name': folder_name,
             'status': 'not_found',
@@ -1983,7 +1825,7 @@ class AccountManager(BasePage):
             'view': view_name,
             'normalized_names': [],
             'swapped_names': [],
-            'expected_matches': [],
+            'expected_salesforce_matches': [],
             'match_info': {
                 'match_status': "No match found",
                 'total_exact_matches': 0,
@@ -2002,14 +1844,14 @@ class AccountManager(BasePage):
             # Add normalized and swapped names to result
             result['normalized_names'] = dropbox_account_name_parts.get('normalized_names', [])
             result['swapped_names'] = dropbox_account_name_parts.get('swapped_names', [])
-            result['expected_matches'] = dropbox_account_name_parts.get('expected_matches', [])
+            result['expected_salesforce_matches'] = dropbox_account_name_parts.get('expected_salesforce_matches', [])
             
             self.logger.info(f"\nExtracted name parts for '{folder_name}':")
             self.logger.info(f"    First name: {name_parts.get('first_name', '')}")
             self.logger.info(f"    Last name: {last_name}")
             self.logger.info(f"    Normalized names: {result['normalized_names']}")
             self.logger.info(f"    Swapped names: {result['swapped_names']}")
-            self.logger.info(f"    Expected matches: {result['expected_matches']}")
+            self.logger.info(f"    Expected matches: {result['expected_salesforce_matches']}")
             
             # Search by last name first
             self.logger.info(f"\nSearching in view: {view_name}")
@@ -2054,10 +1896,10 @@ class AccountManager(BasePage):
                                 exact_matches.append(match)
                                 self.logger.info(f"Found exact match: {match} (matches swapped name: {swapped})")
 
-                    logging.info(f"***result['expected_matches']: {result['expected_matches']}")
-                    expected_matches_exists = result['expected_matches'] != []
+                    logging.info(f"***result['expected_salesforce_matches']: {result['expected_salesforce_matches']}")
+                    expected_salesforce_matches_exists = result['expected_salesforce_matches'] != []
                     expected_match_found = False
-                    for expected_match in result['expected_matches']:
+                    for expected_match in result['expected_salesforce_matches']:
                         expected_match_lower = expected_match.lower()
                         if match_lower in expected_match_lower or expected_match_lower in match_lower:
                             expected_match_found = True
@@ -2071,7 +1913,7 @@ class AccountManager(BasePage):
                     result['matches'] = exact_matches  # Only include exact matches
                     self.logger.info(f"Found {len(exact_matches)} exact matches: {exact_matches}")
                 else:
-                    if expected_matches_exists and expected_match_found:
+                    if expected_salesforce_matches_exists and expected_match_found:
                         result['matches'] = search_result 
                         result['status'] = 'partial_match'
                     else:
@@ -2228,8 +2070,8 @@ class AccountManager(BasePage):
             expected_names = []
             
             # Try to get expected matches from special case logic if available
-            if 'expected_matches' in result:
-                expected_names = [n.lower() for n in result['expected_matches']]
+            if 'expected_salesforce_matches' in result:
+                expected_names = [n.lower() for n in result['expected_salesforce_matches']]
             else:
                 # Use normalized names from the search term, or just the dropbox name
                 expected_names = [result['folder_name'].lower()]

@@ -62,6 +62,7 @@ import os
 import sys
 import argparse
 import time
+import re
 
 from sync import salesforce_client
 from sync.utils.name_utils import extract_name_parts
@@ -75,8 +76,7 @@ from src.sync.salesforce_client.pages.file_manager import SalesforceFileManager
 from src.sync.salesforce_client.utils.browser import get_salesforce_page
 from src.sync.dropbox_client.utils.account_utils import (
     read_accounts_folders,
-    read_ignored_folders,
-    prepare_dropbox_account_name_parts_for_search
+    read_ignored_folders
 )
 from src.sync.dropbox_client.utils.dropbox_utils import (
     DropboxClient,
@@ -231,6 +231,9 @@ def parse_args():
     # Analysis Scope Options
     parser.add_argument('--dropbox-accounts',
                       help='List all Dropbox accounts',
+                      action='store_true')
+    parser.add_argument('--dropbox-accounts-and-name-parts',
+                      help='List all Dropbox accounts with their parsed name parts',
                       action='store_true')
     parser.add_argument('--dropbox-account-files',
                       help='List files for each Dropbox account',
@@ -444,6 +447,35 @@ def run_command(args):
             report_logger.info(f"{index}. {dropbox_account_folder_name}")
         return
 
+    if args.dropbox_accounts_and_name_parts:
+        total_folders = len(ACCOUNT_FOLDERS)
+        logger.info(f"Dropbox account folder names with parsed parts:")
+        report_logger.info("\n=== DROPBOX ACCOUNT FOLDERS WITH PARSED PARTS ===")
+        for index, dropbox_account_folder_name in enumerate(ACCOUNT_FOLDERS, 1):
+            name_parts = extract_name_parts(dropbox_account_folder_name)
+            logger.info(f"\n{index}. {dropbox_account_folder_name}")
+            logger.info(f"   First Name: {name_parts['first_name']}")
+            logger.info(f"   Last Name: {name_parts['last_name']}")
+            logger.info(f"   Middle Name: {name_parts['middle_name']}")
+            logger.info(f"   Additional Info: {name_parts['additional_info']}")
+            logger.info(f"   Full Name: {name_parts['full_name']}")
+            logger.info(f"   Normalized Names: {name_parts['normalized_names']}")
+            logger.info(f"   Swapped Names: {name_parts['swapped_names']}")
+            logger.info(f"   Expected Dropbox Matches: {name_parts.get('expected_dropbox_matches', [])}")
+            logger.info(f"   Expected Salesforce Matches: {name_parts.get('expected_salesforce_matches', [])}")
+
+            report_logger.info(f"\n{index}. {dropbox_account_folder_name}")
+            report_logger.info(f"   First Name: {name_parts['first_name']}")
+            report_logger.info(f"   Last Name: {name_parts['last_name']}")
+            report_logger.info(f"   Middle Name: {name_parts['middle_name']}")
+            report_logger.info(f"   Additional Info: {name_parts['additional_info']}")
+            report_logger.info(f"   Full Name: {name_parts['full_name']}")
+            report_logger.info(f"   Normalized Names: {name_parts['normalized_names']}")
+            report_logger.info(f"   Swapped Names: {name_parts['swapped_names']}")
+            report_logger.info(f"   Expected Dropbox Matches: {name_parts.get('expected_dropbox_matches', [])}")
+            report_logger.info(f"   Expected Salesforce Matches: {name_parts.get('expected_salesforce_matches', [])}")
+        return
+
     # List to store results for summary
     summary_results = []
 
@@ -511,11 +543,7 @@ def run_command(args):
                 # # Always extract name parts
                 dropbox_account_name_parts = extract_name_parts(dropbox_account_folder_name, log=True)
 
-                # logger.info('step: Prepare Dropbox Account Data for Search')
-                # logger.info(f"Calling prepare_dropbox_account_data_for_search for: {dropbox_account_folder_name}")
-                # dropbox_account_name_parts = prepare_dropbox_account_name_parts_for_search(dropbox_account_folder_name, view_name)
-                # logger.info(f'dropbox_account_name_parts: {dropbox_account_name_parts}')
-                
+            
                 
                 # Navigate to Salesforce base URL
                 if args.salesforce_accounts and account_manager:    
@@ -650,7 +678,7 @@ def run_command(args):
                     'dropbox_account_file_names': dropbox_account_file_names,
                     'salesforce_account_file_names': salesforce_account_file_names,
                     'file_comparison': file_comparison,
-                    'expected_matches': result.get('expected_matches', []) if account_manager else [],
+                    'expected_salesforce_matches': result.get('expected_salesforce_matches', []) if account_manager else [],
                     'status': result['status'] if account_manager else 'no_salesforce',
                     'match_info': result['match_info'] if account_manager else {'match_status': 'no_salesforce'},
                     'view': result['view'] if account_manager else 'no_salesforce'
