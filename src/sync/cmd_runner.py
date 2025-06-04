@@ -561,7 +561,7 @@ def run_command(args):
                     # Always get account info since it's needed for commands
                     logger.info(f"Getting info for Dropbox account: {dropbox_account_folder_name}")
                     try:
-                        dropbox_account_info = dropbox_client.get_dropbox_account_info(dropbox_account_folder_name, dropbox_account_name_parts)
+                        dropbox_account_info = dropbox_client.search_for_dropbox_account_info(dropbox_account_folder_name, dropbox_account_name_parts)
                         logger.info(f'dropbox_account_info: {dropbox_account_info}')
                         logger.info(f"Successfully retrieved info for Dropbox account: {dropbox_account_folder_name}")
                         report_logger.info(f"\n👤 Dropbox Account Data: '{dropbox_account_folder_name}' match: [{dropbox_account_info['search_info']['match_info']['match_status']}]")

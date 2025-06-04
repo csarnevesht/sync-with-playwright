@@ -115,6 +115,14 @@ def extract_name_parts(name: str, log: bool = False) -> Dict[str, Any]:
         'expected_salesforce_matches': [],
         'expected_dropbox_matches': []
     }
+
+     # Check for parentheses for additional info
+    if '(' in name and ')' in name:
+        main_name = name[:name.find('(')].strip()
+        additional_info = name[name.find('(')+1:name.find(')')].strip()
+        logging.info(f"Found additional info in parentheses: {additional_info}")
+        result['additional_info'] = additional_info
+        name = main_name
     
     # Check for special cases first
     if _is_special_case(name):
@@ -221,145 +229,19 @@ def extract_name_parts(name: str, log: bool = False) -> Dict[str, Any]:
     result['normalized_names'] = [name.lower() for name in normalized_names]
     result['swapped_names'] = [name.lower() for name in swapped_names]
     
-    if log:
-        logger.info(f"Extracted name parts: {result}")
+    # if log:
+    #     logger.info(f"Extracted name parts: {result}")
     
+    #  # Log summary
+    # logging.info(f"\nName Parsing Summary for '{name}':")
+    # logging.info(f"  First Name: {result['first_name']}")
+    # logging.info(f"  Middle Name: {result['middle_name']}")
+    # logging.info(f"  Last Name: {result['last_name']}")
+    # logging.info(f"  Number of normalized names: {len(result['normalized_names'])}")
+    # logging.info(f"  Number of swapped names: {len(result['swapped_names'])}")
+    # logging.info(f"  Normalized Names: {', '.join(result['normalized_names'])}")
+    # logging.info(f"  Swapped Names: {', '.join(result['swapped_names'])}")
+        
     return result
 
-def parse_name(self, name: str) -> Dict[str, Any]:
-    """Parse a name into its components.
-    
-    Args:
-        name (str): The name to parse
-        
-    Returns:
-        Dict[str, Any]: Dictionary containing:
-            - folder_name (str): Original folder name
-            - last_name (str): Last name
-            - full_name (str): Full name
-            - normalized_names (List[str]): List of normalized name variations
-            - swapped_names (List[str]): List of name variations with swapped first/last
-            - expected_salesforce_matches (List[str]): List of expected matches for Salesforce
-            - expected_dropbox_matches (List[str]): List of expected matches for Dropbox
-    """
-    logger = logging.getLogger('name_utils')
-    logger.info(f"\nParsing name: {name}")
-    
-    # Initialize result dictionary
-    result = {
-        'folder_name': name,
-        'last_name': '',
-        'full_name': '',
-        'normalized_names': [],
-        'swapped_names': [],
-        'expected_salesforce_matches': [],
-        'expected_dropbox_matches': []
-    }
-    
-    try:
-        # Clean the name
-        name = self._clean_name(name)
-        
-        # Check for special cases
-        special_cases = self._load_special_cases()
-        for case in special_cases.get('special_cases', []):
-            if case.get('folder_name') == name:
-                result.update({
-                    'last_name': case.get('last_name', ''),
-                    'full_name': case.get('full_name', ''),
-                    'normalized_names': case.get('normalized_names', []),
-                    'swapped_names': case.get('swapped_names', []),
-                    'expected_salesforce_matches': case.get('expected_salesforce_matches', []),
-                    'expected_dropbox_matches': case.get('expected_dropbox_matches', [])
-                })
-                logger.info(f"Found special case for: {name}")
-                logger.info(f"  First Name: {case.get('first_name', '')}")
-                logger.info(f"  Last Name: {case.get('last_name', '')}")
-                logger.info(f"  Middle Name: {case.get('middle_name', '')}")
-                logger.info(f"  Additional Info: {case.get('additional_info', '')}")
-                logger.info(f"  Full Name: {case.get('full_name', '')}")
-                logger.info(f"  Normalized Names: {case.get('normalized_names', [])}")
-                logger.info(f"  Swapped Names: {case.get('swapped_names', [])}")
-                logger.info(f"  Expected Dropbox Matches: {case.get('expected_dropbox_matches', [])}")
-                logger.info(f"  Expected Salesforce Matches: {case.get('expected_salesforce_matches', [])}")
-                return result
-        
-        # If no special case found, parse the name
-        # Remove any leading numbers and dots
-        name = re.sub(r'^\d+\.\s*', '', name)
-        
-        # Split the name into parts
-        parts = name.split(',')
-        if len(parts) > 1:
-            # Last, First format
-            last_name = parts[0].strip()
-            first_name = parts[1].strip()
-            
-            # Extract additional info from parentheses
-            additional_info = ''
-            if '(' in first_name and ')' in first_name:
-                match = re.search(r'\((.*?)\)', first_name)
-                if match:
-                    additional_info = match.group(1)
-                    first_name = first_name.replace(f'({additional_info})', '').strip()
-            
-            # Create normalized names
-            normalized_names = [
-                f"{last_name}, {first_name}",
-                f"{first_name} {last_name}",
-                f"{last_name} {first_name}"
-            ]
-            
-            # Create swapped names
-            swapped_names = [
-                f"{first_name}, {last_name}",
-                f"{last_name}, {first_name}"
-            ]
-            
-            # Create expected matches for both Salesforce and Dropbox
-            base_matches = [last_name]
-            if additional_info:
-                base_matches.append(f"{last_name} ({additional_info})")
-            
-            # Add household and family variations
-            household_variation = f"{last_name} Household"
-            family_variation = f"{last_name} Family"
-            
-            # Set both expected matches lists
-            result.update({
-                'last_name': last_name,
-                'full_name': f"{first_name} {last_name}",
-                'normalized_names': normalized_names,
-                'swapped_names': swapped_names,
-                'expected_salesforce_matches': base_matches + [household_variation, family_variation],
-                'expected_dropbox_matches': base_matches + [household_variation, family_variation]
-            })
-        else:
-            # Single name format
-            name = name.strip()
-            result.update({
-                'last_name': name,
-                'full_name': name,
-                'normalized_names': [name],
-                'swapped_names': [name],
-                'expected_salesforce_matches': [name],
-                'expected_dropbox_matches': [name]
-            })
-        
-        # Log the parsed results
-        logger.info(f"Parsed name: {name}")
-        logger.info(f"  First Name: {result.get('first_name', '')}")
-        logger.info(f"  Last Name: {result.get('last_name', '')}")
-        logger.info(f"  Middle Name: {result.get('middle_name', '')}")
-        logger.info(f"  Additional Info: {result.get('additional_info', '')}")
-        logger.info(f"  Full Name: {result.get('full_name', '')}")
-        logger.info(f"  Normalized Names: {result.get('normalized_names', [])}")
-        logger.info(f"  Swapped Names: {result.get('swapped_names', [])}")
-        logger.info(f"  Expected Dropbox Matches: {result.get('expected_dropbox_matches', [])}")
-        logger.info(f"  Expected Salesforce Matches: {result.get('expected_salesforce_matches', [])}")
-        
-        return result
-        
-    except Exception as e:
-        logger.error(f"Error parsing name '{name}': {str(e)}")
-        return result
+
