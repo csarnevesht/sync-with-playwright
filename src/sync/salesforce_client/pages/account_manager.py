@@ -13,7 +13,7 @@ import sys
 import os
 from .accounts_page import AccountsPage
 from ..utils.selectors import Selectors
-from sync.utils.name_utils import _load_special_cases, _is_special_case, _get_special_case_rules
+from sync.utils.name_utils import _load_special_cases, _is_special_case, _get_special_case_rules, extract_name_parts
 
 class LoggingHelper:
     """Helper class to manage logging indentation and color based on call depth and keyword."""
@@ -140,26 +140,26 @@ class AccountManager(BasePage):
             self.logger.setLevel(logging.DEBUG)
         
     @staticmethod
-    def _load_special_cases() -> dict:
+    def deprecated__load_special_cases() -> dict:
         """Load special case rules for name parsing."""
         return {
             # Add your special cases here
         }
 
     @staticmethod
-    def _is_special_case(folder_name: str) -> bool:
+    def deprecated__is_special_case(folder_name: str) -> bool:
         """Check if a folder name matches any special case rules."""
         special_cases = AccountManager._load_special_cases()
         return folder_name in special_cases
 
     @staticmethod
-    def _get_special_case_rules(folder_name: str) -> dict:
+    def deprecated__get_special_case_rules(folder_name: str) -> dict:
         """Get special case rules for a folder name."""
         special_cases = AccountManager._load_special_cases()
         return special_cases.get(folder_name, {})
 
     @staticmethod
-    def _extract_name_parts(name: str, log: bool = True) -> dict:
+    def deprecated__extract_name_parts(name: str, log: bool = True) -> dict:
         """Extract name parts from a name string.
         
         Rules:
@@ -1837,7 +1837,7 @@ class AccountManager(BasePage):
         try:
             self.logger.info(f"***fuzzy_search_account: {folder_name}") 
             # Extract name parts
-            name_parts = self._extract_name_parts(folder_name)
+            name_parts = extract_name_parts(folder_name)
             last_name = dropbox_account_name_parts.get('last_name', '')
             # full_name = dropbox_account_name_parts.get('full_name', '')
             

@@ -258,63 +258,8 @@ class DropboxClient:
         # if cleaned != value: 
         #     logging.info(f"Cleaned cell value: {cleaned} original: {value}")
         return cleaned
-
-    def get_dropbox_account_info(self, account_name: str, dropbox_account_name_parts: Dict[str, Any]) -> Dict[str, Any]:
-        """Get account information from the holiday Excel file.
-        
-        This method:
-        1. Checks for special cases in accounts/special_cases.json
-        2. Locates the holiday account info file
-        3. Downloads and reads the Excel file
-        4. Searches for the account in all sheets
-        5. If expected_dropbox_matches is provided:
-           - Validates found matches against expected matches
-           - Updates status based on whether matches are expected
-        6. Extracts available information
-        
-        Args:
-            account_name (str): The name of the account to search for (used for logging)
-            dropbox_account_name_parts (Dict[str, Any]): Dictionary containing:
-                - folder_name (str): Original folder name
-                - last_name (str): Last name to search for
-                - full_name (str): Full name to search for
-                - normalized_names (List[str]): List of normalized name variations
-                - swapped_names (List[str]): List of name variations with swapped first/last
-                - expected_dropbox_matches (List[str]): List of expected matches for validation
-                
-        Returns:
-            Dict[str, Any]: Dictionary containing:
-                - name_parts (Dict[str, Any]): Original name parts and search info
-                - search_info (Dict[str, Any]): Information about the search process including:
-                    - status: 'found', 'multiple_matches', 'unexpected_matches', or 'not_found'
-                    - matches: List of found matches
-                    - match_info: Details about match status and counts
-                - account_data (Dict[str, Any]): Extracted account information
-        """
-        logger = logging.getLogger('dropbox_utils')
-        
-        logger.info(f"\n=== Starting account info search for: {account_name} ===")
-        folder_name = account_name
-        
-        # Initialize result structure
-        dropbox_account_info = {
-            'name_parts': dropbox_account_name_parts,
-            'search_info': {
-                'status': 'not_found',
-                'matches': [],
-                'search_attempts': [],
-                'timing': {},
-                'match_info': {
-                    'match_status': "No match found",
-                    'total_exact_matches': 0,
-                    'total_partial_matches': 0,
-                    'total_no_matches': 1
-                }
-            },
-            'account_data': {}
-        }
-
-        def _find_best_match(matching_rows, folder_name: str, expected_matches: List[str] = None) -> Tuple[pd.Series, bool, List[str]]:
+    
+    def _find_best_match(self, matching_rows, folder_name: str, expected_matches: List[str] = None, normalized_names: List[str] = None) -> Tuple[pd.Series, bool, List[str]]:
             """
             Find the best match from matching rows based on folder name and expected matches.
             
@@ -322,6 +267,7 @@ class DropboxClient:
                 matching_rows: DataFrame containing matching rows
                 folder_name: Original folder name to match against
                 expected_matches: List of expected matches to validate against
+                normalized_names: List of normalized name variations to use if expected_matches is empty
                 
             Returns:
                 Tuple containing:
@@ -371,6 +317,11 @@ class DropboxClient:
                         if name_lower in [exp.lower() for exp in expected_matches]:
                             score += 75
                             matches_expected = True
+                    elif normalized_names:
+                        # Use normalized names if expected_matches is empty
+                        if name_lower in [norm.lower() for norm in normalized_names]:
+                            score += 75
+                            matches_expected = True
                     
                     # Update best match if score is higher
                     if score > best_score:
@@ -378,6 +329,62 @@ class DropboxClient:
                         best_match = row
             
             return best_match, matches_expected, found_names
+
+    def search_for_dropbox_account_info(self, account_name: str, dropbox_account_name_parts: Dict[str, Any]) -> Dict[str, Any]:
+        """Get account information from the holiday Excel file.
+        
+        This method:
+        1. Checks for special cases in accounts/special_cases.json
+        2. Locates the holiday account info file
+        3. Downloads and reads the Excel file
+        4. Searches for the account in all sheets
+        5. If expected_dropbox_matches is provided:
+           - Validates found matches against expected matches
+           - Updates status based on whether matches are expected
+        6. Extracts available information
+        
+        Args:
+            account_name (str): The name of the account to search for (used for logging)
+            dropbox_account_name_parts (Dict[str, Any]): Dictionary containing:
+                - folder_name (str): Original folder name
+                - last_name (str): Last name to search for
+                - full_name (str): Full name to search for
+                - normalized_names (List[str]): List of normalized name variations
+                - swapped_names (List[str]): List of name variations with swapped first/last
+                - expected_dropbox_matches (List[str]): List of expected matches for validation
+                
+        Returns:
+            Dict[str, Any]: Dictionary containing:
+                - name_parts (Dict[str, Any]): Original name parts and search info
+                - search_info (Dict[str, Any]): Information about the search process including:
+                    - status: 'found', 'multiple_matches', 'unexpected_matches', or 'not_found'
+                    - matches: List of found matches
+                    - match_info: Details about match status and counts
+                - account_data (Dict[str, Any]): Extracted account information
+        """
+        logger = logging.getLogger('dropbox_utils')
+        
+        logger.info(f"\n=== Starting Dropbox account info search for: {account_name} ===")
+        folder_name = account_name
+        
+        # Initialize result structure
+        dropbox_account_info = {
+            'name_parts': dropbox_account_name_parts,
+            'search_info': {
+                'status': 'not_found',
+                'matches': [],
+                'search_attempts': [],
+                'timing': {},
+                'match_info': {
+                    'match_status': "No match found",
+                    'total_exact_matches': 0,
+                    'total_partial_matches': 0,
+                    'total_no_matches': 1
+                }
+            },
+            'account_data': {}
+        }
+
 
         try:
             # Log search parameters
@@ -419,6 +426,7 @@ class DropboxClient:
                 last_name = dropbox_account_name_parts['last_name'].lower()
                 first_name = dropbox_account_name_parts['first_name'].lower()
                 expected_matches = dropbox_account_name_parts.get('expected_dropbox_matches', [])
+                expected_matches = dropbox_account_name_parts.get('expected_dropbox_matches', [])
                 
                 # Search through each sheet
                 for sheet_name in sheets:
@@ -438,10 +446,11 @@ class DropboxClient:
                     
                     if not matching_rows.empty:
                         # Find best match using the local method
-                        best_match, matches_expected, found_names = _find_best_match(
+                        best_match, matches_expected, found_names = self._find_best_match(
                             matching_rows, 
                             folder_name,
-                            expected_matches
+                            expected_matches,
+                            dropbox_account_name_parts.get('normalized_names', [])
                         )
                         
                         if best_match is not None:
@@ -466,6 +475,13 @@ class DropboxClient:
                                  if str(val).lower() != 'nan' and not pd.isna(val)}
                                 for _, row in matching_rows.iterrows()
                             ]
+                            
+                            # If we have multiple matches but none in expected matches, log warning
+                            if not matches_expected and len(matching_rows) > 1:
+                                logger.warning(f"Found multiple {len(matching_rows)} matches in {sheet_name} for last name: {last_name}")
+                                dropbox_account_info['search_info']['status'] = 'multiple_matches'
+                            
+                            break
                             
                             # If we have multiple matches but none in expected matches, log warning
                             if not matches_expected and len(matching_rows) > 1:
@@ -517,6 +533,9 @@ class DropboxClient:
                     logging.info("\n=== NO MATCH EXPLANATION ===")
                     logging.info(f"Account: {account_name}")
                     logging.info(f"Last name searched: {dropbox_account_name_parts.get('last_name', '')}")
+                    logging.info(f"Normalized names: {dropbox_account_name_parts.get('normalized_names', [])}")
+                    logging.info(f"Expected matches: {dropbox_account_name_parts.get('expected_dropbox_matches', [])}")
+                    logging.info(f"Found matches: {dropbox_account_info['search_info']['matches']}")
                     logging.info("\nSearch process:")
                     for sheet_name in sheets:
                         df = pd.read_excel(temp_path, sheet_name=sheet_name)
@@ -533,6 +552,9 @@ class DropboxClient:
                     report_logger.info("\n=== NO MATCH EXPLANATION ===")
                     report_logger.info(f"Account: {account_name}")
                     report_logger.info(f"Last name searched: {dropbox_account_name_parts.get('last_name', '')}")
+                    report_logger.info(f"Normalized names: {dropbox_account_name_parts.get('normalized_names', [])}")
+                    report_logger.info(f"Expected matches: {dropbox_account_name_parts.get('expected_dropbox_matches', [])}")
+                    report_logger.info(f"Found matches: {dropbox_account_info['search_info']['matches']}")
                     report_logger.info("=== END NO MATCH EXPLANATION ===\n")
 
             finally:
