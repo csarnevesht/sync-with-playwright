@@ -426,12 +426,14 @@ class DropboxClient:
                     logging.info(f"Account: {account_name}")
                     logging.info(f"Last name searched: {dropbox_account_name_parts.get('last_name', '')}")
                     logging.info("\nSearch process:")
-                    for info in sheet_search_info:
-                        logging.info(f"{info['sheet_name']}:")
-                        logging.info(f"   - Sheet dimensions: {info['dimensions']}")
-                        logging.info(f"   - Used column: {info['used_column']}")
-                        if info['family_case']:
-                            logging.info("   - Found 'Family' case")
+                    for sheet_name in sheets:
+                        df = pd.read_excel(temp_path, sheet_name=sheet_name)
+                        logging.info(f"\nSheet: {sheet_name}")
+                        logging.info(f"  - Dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
+                        logging.info(f"  - Columns: {list(df.columns)}")
+                        logging.info(f"  - First row values: {[str(val) for val in df.iloc[0].values]}")
+                        logging.info(f"  - Search method: Searched for last name '{last_name}' in all columns")
+                        logging.info(f"  - Result: No matches found")
                     logging.info("=== END NO MATCH EXPLANATION ===\n")
 
                     # Log to report.log
@@ -439,7 +441,15 @@ class DropboxClient:
                     report_logger.info("\n=== NO MATCH EXPLANATION ===")
                     report_logger.info(f"Account: {account_name}")
                     report_logger.info(f"Last name searched: {dropbox_account_name_parts.get('last_name', '')}")
-                    report_logger.info(f"Full name searched: {dropbox_account_name_parts.get('full_name', '')}")
+                    report_logger.info("\nSearch process:")
+                    for sheet_name in sheets:
+                        df = pd.read_excel(temp_path, sheet_name=sheet_name)
+                        report_logger.info(f"\nSheet: {sheet_name}")
+                        report_logger.info(f"  - Dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
+                        report_logger.info(f"  - Columns: {list(df.columns)}")
+                        report_logger.info(f"  - First row values: {[str(val) for val in df.iloc[0].values]}")
+                        report_logger.info(f"  - Search method: Searched for last name '{last_name}' in all columns")
+                        report_logger.info(f"  - Result: No matches found")
                     report_logger.info("=== END NO MATCH EXPLANATION ===\n")
 
             finally:
