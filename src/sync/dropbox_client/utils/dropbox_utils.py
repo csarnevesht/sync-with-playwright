@@ -352,7 +352,6 @@ class DropboxClient:
                     logger.info(f"\nSearching in sheet: {sheet_name}")
                     df = pd.read_excel(temp_path, sheet_name=sheet_name)
                     logger.info(f"Sheet dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
-                    logger.info(f"df: {df}")
 
                     # Search for the last name in any column
                     logger.info(f"Searching for last name: {last_name} in any column of sheet: {sheet_name}")
@@ -375,9 +374,14 @@ class DropboxClient:
                         logger.info(f"No matching rows found in sheet {sheet_name} for last name: {last_name}...")
 
                     if not matching_rows.empty:
+
+                        # Once we have found matches, we need to check with expected_dropbox_matches
+                        # If the matches are not in the expected_dropbox_matches, we need to log a warning
+                        # If the matches are in the expected_dropbox_matches, we need to log a success
+                        # If the matches are not in the expected_dropbox_matches, we need to log a warning
                         # Check for multiple matches
                         if len(matching_rows) > 1:
-                            logger.warning(f"Found {len(matching_rows)} matches in {sheet_name} for last name: {last_name}")
+                            logger.warning(f"Found multiple {len(matching_rows)} matches in {sheet_name} for last name: {last_name}")
                             # Update search info to indicate multiple matches
                             dropbox_account_info['search_info']['status'] = 'multiple_matches'
                             dropbox_account_info['search_info']['match_info']['match_status'] = f"Found {len(matching_rows)} matches"
@@ -385,11 +389,13 @@ class DropboxClient:
                             dropbox_account_info['search_info']['match_info']['total_no_matches'] = 0
                             # Store all matching rows for reference
                             dropbox_account_info['search_info']['matches'] = [
-                                {f"Column {i}": self._clean_cell_value(str(val)) for i, val in enumerate(row)}
+                                {f"Column {i}": self._clean_cell_value(str(val)) for i, val in enumerate(row) 
+                                 if str(val).lower() != 'nan' and not pd.isna(val)}
                                 for _, row in matching_rows.iterrows()
                             ]
                             # Still use the first match for account data
                             account_row = matching_rows.iloc[0]
+
                         else:
                             account_row = matching_rows.iloc[0]
                             dropbox_account_info['search_info']['status'] = 'found'
@@ -462,15 +468,15 @@ class DropboxClient:
                     report_logger.info("\n=== NO MATCH EXPLANATION ===")
                     report_logger.info(f"Account: {account_name}")
                     report_logger.info(f"Last name searched: {dropbox_account_name_parts.get('last_name', '')}")
-                    report_logger.info("\nSearch process:")
-                    for sheet_name in sheets:
-                        df = pd.read_excel(temp_path, sheet_name=sheet_name)
-                        report_logger.info(f"\nSheet: {sheet_name}")
-                        report_logger.info(f"  - Dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
-                        report_logger.info(f"  - Columns: {list(df.columns)}")
-                        report_logger.info(f"  - First row values: {[str(val) for val in df.iloc[0].values]}")
-                        report_logger.info(f"  - Search method: Searched for last name '{last_name}' in all columns")
-                        report_logger.info(f"  - Result: No matches found")
+                    # report_logger.info("\nSearch process:")
+                    # for sheet_name in sheets:
+                    #     df = pd.read_excel(temp_path, sheet_name=sheet_name)
+                    #     report_logger.info(f"\nSheet: {sheet_name}")
+                    #     report_logger.info(f"  - Dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
+                    #     report_logger.info(f"  - Columns: {list(df.columns)}")
+                    #     report_logger.info(f"  - First row values: {[str(val) for val in df.iloc[0].values]}")
+                    #     report_logger.info(f"  - Search method: Searched for last name '{last_name}' in all columns")
+                    #     report_logger.info(f"  - Result: No matches found")
                     report_logger.info("=== END NO MATCH EXPLANATION ===\n")
 
             finally:
