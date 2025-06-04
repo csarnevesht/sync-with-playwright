@@ -330,7 +330,7 @@ class DropboxClient:
             
             return best_match, matches_expected, found_names
 
-    def search_for_dropbox_account_info(self, account_name: str, dropbox_account_name_parts: Dict[str, Any]) -> Dict[str, Any]:
+    def search_for_dropbox_account_info(self, account_name: str, dropbox_account_name_parts: Dict[str, Any], excel_file: pd.ExcelFile = None) -> Dict[str, Any]:
         """Get account information from the holiday Excel file.
         
         This method:
@@ -352,6 +352,7 @@ class DropboxClient:
                 - normalized_names (List[str]): List of normalized name variations
                 - swapped_names (List[str]): List of name variations with swapped first/last
                 - expected_dropbox_matches (List[str]): List of expected matches for validation
+            excel_file (pd.ExcelFile, optional): The Excel file object to search in. If not provided, will return empty results.
                 
         Returns:
             Dict[str, Any]: Dictionary containing:
@@ -385,7 +386,6 @@ class DropboxClient:
             'account_data': {}
         }
 
-
         try:
             # Log search parameters
             logger.info("Search parameters:")
@@ -396,27 +396,13 @@ class DropboxClient:
             logger.info(f"  - Expected Dropbox matches: {dropbox_account_name_parts['expected_dropbox_matches']}")
             logger.info("")
             
-            # Step 1: Locate holiday file
-            logger.info("Step 1: Locating holiday file...")
-            holiday_file = self.get_dropbox_holiday_file()
-            if not holiday_file:
-                logger.error("Could not find holiday file")
-                return dropbox_account_info
-                
-            # Step 2: Download holiday file
-            logger.info("\nStep 2: Downloading holiday file...")
-            temp_path = self._download_holiday_file(holiday_file)
-            if not temp_path:
-                logger.error("Could not download holiday file")
+            if not excel_file:
+                logger.error("No Excel file provided")
                 return dropbox_account_info
             
+            sheets = excel_file.sheet_names
+            
             try:
-                # Step 3: Read Excel file
-                logger.info("\nStep 3: Reading Excel file...")
-                excel_file = pd.ExcelFile(temp_path)
-                sheets = excel_file.sheet_names
-                logger.info(f"Found {len(sheets)} sheets in the Excel file: {sheets}")
-                
                 # Initialize variables for tracking matches
                 account_row = None
                 match_found = False
@@ -431,7 +417,7 @@ class DropboxClient:
                 # Search through each sheet
                 for sheet_name in sheets:
                     logger.info(f"\nSearching in sheet: {sheet_name}")
-                    df = pd.read_excel(temp_path, sheet_name=sheet_name)
+                    df = pd.read_excel(excel_file, sheet_name=sheet_name)
                     logger.info(f"Sheet dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
 
                     # Search for the last name in any column
@@ -538,7 +524,7 @@ class DropboxClient:
                     logging.info(f"Found matches: {dropbox_account_info['search_info']['matches']}")
                     logging.info("\nSearch process:")
                     for sheet_name in sheets:
-                        df = pd.read_excel(temp_path, sheet_name=sheet_name)
+                        df = pd.read_excel(excel_file, sheet_name=sheet_name)
                         logging.info(f"\nSheet: {sheet_name}")
                         logging.info(f"  - Dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
                         logging.info(f"  - Columns: {list(df.columns)}")
@@ -558,12 +544,8 @@ class DropboxClient:
                     report_logger.info("=== END NO MATCH EXPLANATION ===\n")
 
             finally:
-                # Clean up temporary file
-                try:
-                    os.remove(temp_path)
-                    logger.info("Temporary file cleaned up successfully")
-                except Exception as e:
-                    logger.error(f"Error cleaning up temporary file: {e}")
+                # No need to clean up temporary file since we're using the excel_file object directly
+                pass
             
             return dropbox_account_info
             
@@ -799,6 +781,49 @@ class DropboxClient:
         except Exception as e:
             logger.error(f"Error downloading holiday file: {str(e)}")
             return None
+
+    def _process_holiday_file(self, holiday_file: str = 'HOLIDAY CLIENT LIST.xlsx') -> Tuple[Optional[FileMetadata], Optional[str], Optional[pd.ExcelFile], Optional[List[str]]]:
+        """Process the holiday file by locating, downloading, and reading it.
+        
+        Args:
+            holiday_file (str): Name of the holiday file to process
+            
+        Returns:
+            Tuple containing:
+            - FileMetadata: The holiday file metadata
+            - str: Path to the temporary file
+            - pd.ExcelFile: The Excel file object
+            - List[str]: List of sheet names
+        """
+        try:
+            logger = logging.getLogger('dropbox_utils')
+            logger.info(f"Processing holiday file: {holiday_file}")
+            
+            # Get the holiday file metadata
+            holiday_file_metadata = self.get_dropbox_holiday_file(holiday_file)
+            if not holiday_file_metadata:
+                logger.error(f"Holiday file '{holiday_file}' not found")
+                return None, None, None, None
+            
+            # Download the file
+            temp_path = self._download_holiday_file(holiday_file_metadata)
+            if not temp_path:
+                logger.error("Failed to download holiday file")
+                return None, None, None, None
+            
+            # Read the Excel file
+            try:
+                excel_file = pd.ExcelFile(temp_path)
+                sheets = excel_file.sheet_names
+                logger.info(f"Successfully read Excel file with sheets: {sheets}")
+                return holiday_file_metadata, temp_path, excel_file, sheets
+            except Exception as e:
+                logger.error(f"Error reading Excel file: {str(e)}")
+                return None, None, None, None
+                
+        except Exception as e:
+            logger.error(f"Error processing holiday file: {str(e)}")
+            return None, None, None, None
 
 def update_env_file(env_file, token=None, root_folder=None, directory=None):
     """Update the .env file with new values."""
