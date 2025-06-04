@@ -530,6 +530,14 @@ def run_command(args):
             
             logger.info(f"Starting to process {total_folders} folders...")
             report_logger.info(f"\nStarting to process {total_folders} folders...")
+
+            excel_file = None
+            if args.dropbox_account_info:
+                holiday_file, temp_path, excel_file, sheets = dropbox_client._process_holiday_file()
+                if not all([holiday_file, temp_path, excel_file, sheets]):
+                    logger.error("Failed to process holiday file")
+                    report_logger.info("Failed to process holiday file")
+                    return
             
             # Process each folder name
             for index, dropbox_account_folder_name in enumerate(ACCOUNT_FOLDERS, 1):
@@ -561,7 +569,7 @@ def run_command(args):
                     # Always get account info since it's needed for commands
                     logger.info(f"Getting info for Dropbox account: {dropbox_account_folder_name}")
                     try:
-                        dropbox_account_info = dropbox_client.search_for_dropbox_account_info(dropbox_account_folder_name, dropbox_account_name_parts)
+                        dropbox_account_info = dropbox_client.search_for_dropbox_account_info(dropbox_account_folder_name, dropbox_account_name_parts, excel_file)
                         logger.info(f'dropbox_account_info: {dropbox_account_info}')
                         logger.info(f"Successfully retrieved info for Dropbox account: {dropbox_account_folder_name}")
                         report_logger.info(f"\n👤 Dropbox Account Data: '{dropbox_account_folder_name}' match: [{dropbox_account_info['search_info']['match_info']['match_status']}]")
