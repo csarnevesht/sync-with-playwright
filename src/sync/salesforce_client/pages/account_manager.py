@@ -1139,7 +1139,7 @@ class AccountManager(BasePage):
             self._take_screenshot("account-navigation-error")
             sys.exit(1) 
 
-    def navigate_to_account_files_and_get_number_of_files(self, account_id: str, scroll_to_bottom_of_account_files: bool = True) -> Union[int, str]:
+    def navigate_to_account_files_and_get_number_of_files(self, account_id: str, scroll_to_bottom_of_account_files: bool = False) -> Union[int, str]:
         """
         Navigate to the Files related list for the given account_id.
         Returns either an integer or a string (e.g. "50+") representing the number of files.
@@ -1204,7 +1204,7 @@ class AccountManager(BasePage):
             # Navigate to files section
             self.log_helper.log(self.logger, 'info', "Navigating to files section")
             self.log_helper.log(self.logger, 'info', f"account_id: {account_id}")
-            num_files = self.navigate_to_account_files_and_get_number_of_files(account_id)
+            num_files = self.navigate_to_account_files_and_get_number_of_files(account_id, scroll_to_bottom_of_account_files=True)
             if num_files == -1:
                 self.log_helper.log(self.logger, 'error', "Failed to navigate to Files")
                 self.log_helper.dedent()
@@ -1394,7 +1394,7 @@ class AccountManager(BasePage):
         the_condition = condition if condition is not None else self.get_default_condition()
         for account in all_accounts:
             self.log_helper.log(self.logger, 'debug', f"Processing account: {account['name']}")
-            files_count = self.navigate_to_account_files_and_get_number_of_files(account['id'])
+            files_count = self.navigate_to_account_files_and_get_number_of_files(account['id'], scroll_to_bottom_of_account_files=True)
             account['files_count'] = files_count
             processed_accounts.append(account)
             if the_condition(account):
