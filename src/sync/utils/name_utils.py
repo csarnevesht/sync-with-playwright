@@ -69,15 +69,17 @@ def _is_special_case(name: str) -> bool:
         bool: True if the name is a special case, False otherwise
     """
     special_cases = _load_special_cases()
+    # Normalize whitespace in the name
+    normalized_name = ' '.join(name.split())
     # Check both the original name and the cleaned name (without parentheses)
-    cleaned_name = re.sub(r'\([^)]*\)', '', name).strip()
+    cleaned_name = re.sub(r'\([^)]*\)', '', normalized_name).strip()
     # Also check the name with parentheses removed but keeping the content
-    if '(' in name and ')' in name:
-        paren_content = name[name.find('(')+1:name.find(')')].strip()
-        name_without_parens = re.sub(r'\([^)]*\)', '', name).strip()
+    if '(' in normalized_name and ')' in normalized_name:
+        paren_content = normalized_name[normalized_name.find('(')+1:normalized_name.find(')')].strip()
+        name_without_parens = re.sub(r'\([^)]*\)', '', normalized_name).strip()
         name_with_content = f"{name_without_parens} {paren_content}"
-        return name in special_cases or cleaned_name in special_cases or name_with_content in special_cases
-    return name in special_cases or cleaned_name in special_cases
+        return normalized_name in special_cases or cleaned_name in special_cases or name_with_content in special_cases
+    return normalized_name in special_cases or cleaned_name in special_cases
 
 def _get_special_case_rules(name: str) -> Optional[Dict[str, Any]]:
     """Get the rules for a special case name.
@@ -89,14 +91,16 @@ def _get_special_case_rules(name: str) -> Optional[Dict[str, Any]]:
         Optional[Dict[str, Any]]: The rules for the special case, or None if not found
     """
     special_cases = _load_special_cases()
+    # Normalize whitespace in the name
+    normalized_name = ' '.join(name.split())
     # Try to get rules for both the original name and the cleaned name
-    rules = special_cases.get(name)
+    rules = special_cases.get(normalized_name)
     if rules is None:
-        cleaned_name = re.sub(r'\([^)]*\)', '', name).strip()
+        cleaned_name = re.sub(r'\([^)]*\)', '', normalized_name).strip()
         rules = special_cases.get(cleaned_name)
-        if rules is None and '(' in name and ')' in name:
-            paren_content = name[name.find('(')+1:name.find(')')].strip()
-            name_without_parens = re.sub(r'\([^)]*\)', '', name).strip()
+        if rules is None and '(' in normalized_name and ')' in normalized_name:
+            paren_content = normalized_name[normalized_name.find('(')+1:normalized_name.find(')')].strip()
+            name_without_parens = re.sub(r'\([^)]*\)', '', normalized_name).strip()
             name_with_content = f"{name_without_parens} {paren_content}"
             rules = special_cases.get(name_with_content)
     return rules
