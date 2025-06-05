@@ -118,7 +118,7 @@ def test_search_account(browser: Browser, page: Page):
         
         # Navigate to files and get count
         logging.info(f"Navigating to files for account {account_name}")
-        num_files = account_manager.navigate_to_files_and_get_number_of_account_files(account_id)
+        num_files = account_manager.navigate_to_account_files_and_get_number_of_files(account_id)
         
         if num_files == -1:
             logging.error("Failed to navigate to files page")

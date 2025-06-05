@@ -177,7 +177,7 @@ def upload_account_files(page: Page, account: dict, debug_mode: bool = True, max
                     
                     # Check if file exists in the account
                     logging.info(f"Checking if file {os.path.basename(file_path)} already exists in the account")
-                    num_files = account_manager.navigate_to_files_and_get_number_of_account_files(account_id)
+                    num_files = account_manager.navigate_to_account_files_and_get_number_of_files(account_id)
                     if isinstance(num_files, str) or num_files > 0:
                         file_name_of_file_to_upload = f"{os.path.splitext(os.path.basename(file_path))[0]}"
                         logging.info(f"file_name_of_file_to_upload: {file_name_of_file_to_upload}")
@@ -198,7 +198,7 @@ def upload_account_files(page: Page, account: dict, debug_mode: bool = True, max
 
                             # Navigate to Files page before each upload
                             logging.info("Navigating to Files page...")
-                            num_files = file_manager.navigate_to_files_click_on_files_card_to_facilitate_file_operation()
+                            num_files = file_manager.navigate_to_account_files_click_on_files_card_to_facilitate_file_operation()
                             logging.info(f"***Number of files in account: {num_files}")
                             
                             # Update expected items count
@@ -297,7 +297,7 @@ def upload_account_file_with_retries(page: Page, file_path: str, expected_items:
 
             # Navigate to Files section before each attempt
             logger.info("Navigating to Files section...")
-            num_files = file_manager.navigate_to_files_click_on_files_card_to_facilitate_file_operation()
+            num_files = file_manager.navigate_to_account_files_click_on_files_card_to_facilitate_file_operation()
             logger.info(f"Number of files in account: {num_files}")
             
             if attempt < max_retries - 1:
