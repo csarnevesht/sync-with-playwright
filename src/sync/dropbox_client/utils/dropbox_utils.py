@@ -343,7 +343,20 @@ class DropboxClient:
             dropbox_account_info['search_info']['status'] = 'multiple_matches'
 
     def _split_words(self, text: str) -> List[str]:
-        """Split text into words and clean them."""
+        """
+        Split text into words while removing commas and parentheses.
+        
+        Args:
+            text (str): The text to split
+            
+        Returns:
+            List[str]: List of cleaned words
+        """
+        # Remove parentheses and their contents
+        text = re.sub(r'\([^)]*\)', '', text)
+        # Replace comma with space to handle cases with no space after comma
+        text = text.replace(',', ' ')
+        # Split on whitespace and filter out empty strings
         return [word.strip() for word in text.split() if word.strip()]
 
     def _is_family_pattern_match(self, row_values: List[str], last_name: str) -> bool:
@@ -351,15 +364,22 @@ class DropboxClient:
         Check if a row matches the pattern of 'last_name Family' or 'Family last_name'.
         
         Args:
-            row_values: List of values in the row
-            last_name: Last name to check for
+            row_values: List of cell values from a row
+            last_name: The last name to check for
             
         Returns:
             bool: True if the row matches the family pattern, False otherwise
         """
-        for value in row_values:
-            value = str(value).lower()
-            if f"{last_name} family" in value or f"family {last_name}" in value:
+        # Convert all values to lowercase strings and clean them
+        cleaned_values = [self._clean_cell_value(str(val)).lower() for val in row_values]
+        
+        # Look for the pattern in consecutive cells
+        for i in range(len(cleaned_values) - 1):
+            # Check for "last_name Family" pattern
+            if cleaned_values[i] == last_name.lower() and cleaned_values[i + 1] == 'family':
+                return True
+            # Check for "Family last_name" pattern
+            if cleaned_values[i] == 'family' and cleaned_values[i + 1] == last_name.lower():
                 return True
         return False
 
@@ -414,6 +434,7 @@ class DropboxClient:
             expected_words = self._split_words(name.lower())
             logger.info(f"  Split into words: {expected_words}")
             
+            match_found = False
             matching_rows = self.search_rows_for_sequential_word_matches(df, expected_words)
             if not matching_rows.empty:
                 logger.info(f"  ✓ Found {len(matching_rows)} matching rows for name: {name}")
@@ -425,6 +446,22 @@ class DropboxClient:
             else:
                 logger.info(f"  ✗ No matches found for name: {name}")
 
+            # if not match_found:
+            #     # loop through expected words
+            #     for expected_word in expected_words:
+            #         logger.info(f"special case: Checking for {expected_word} in matching rows")
+            #         # loop through matching_rows and check if the expected_word is in the row
+            #         matching_rows = self.search_rows_for_sequential_word_matches(df, expected_word)
+            #         if not matching_rows.empty:
+            #             logger.info(f"  ✓ Found {len(matching_rows)} matching rows for name: {name}")
+            #             account_row = matching_rows.iloc[0]
+            #             match_found = True
+            #             self._update_match_status(dropbox_account_info, match_type, name, expected_matches, account_name)
+            #             logger.info(f"  ✓ Updated match status for {match_type} match")
+            #             return matching_rows, match_found, sheet_name, account_row
+            #         else:
+            #             logger.info(f"  ✗ No matches found for name: {name}")
+        
         logger.info(f"=== No {match_type} matches found in sheet: {sheet_name} ===\n")
         return pd.DataFrame(), False, "", None
 
