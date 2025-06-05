@@ -26,12 +26,7 @@ from .file_utils import log_renamed_file
 from src.config import DROPBOX_FOLDER, ACCOUNT_INFO_PATTERN, DRIVERS_LICENSE_PATTERN, DROPBOX_HOLIDAY_FOLDER, DROPBOX_SALESFORCE_FOLDER
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-
+# Get the logger for this module
 logger = logging.getLogger(__name__)
 
 # Set Dropbox logger level to WARNING to suppress INFO messages
@@ -259,76 +254,170 @@ class DropboxClient:
         #     logging.info(f"Cleaned cell value: {cleaned} original: {value}")
         return cleaned
     
-    def _find_best_match(self, matching_rows, folder_name: str, expected_matches: List[str] = None, normalized_names: List[str] = None) -> Tuple[pd.Series, bool, List[str]]:
-            """
-            Find the best match from matching rows based on folder name and expected matches.
+    def _check_row_for_sequential_words(self, row_values: List[str], expected_words: List[str]) -> bool:
+        """
+        Check if a sequence of words appears in order across row values.
+        
+        Args:
+            row_values: List of cell values from a row
+            expected_words: List of words to find in sequence
             
-            Args:
-                matching_rows: DataFrame containing matching rows
-                folder_name: Original folder name to match against
-                expected_matches: List of expected matches to validate against
-                normalized_names: List of normalized name variations to use if expected_matches is empty
-                
-            Returns:
-                Tuple containing:
-                - Best matching row
-                - Whether the match is in expected matches
-                - List of found names
-            """
-            found_names = []
-            best_match = None
-            best_score = -1
-            matches_expected = False
+        Returns:
+            bool: True if all words are found in sequence, False otherwise
+        """
+        word_index = 0
+        for cell_value in row_values:
+            if word_index < len(expected_words):
+                if expected_words[word_index] in cell_value:
+                    word_index += 1
+                    if word_index == len(expected_words):
+                        return True
+        return False
+
+    def search_rows_for_sequential_word_matches(self, df: pd.DataFrame, expected_words: List[str]) -> pd.DataFrame:
+        """
+        Search through DataFrame rows for a sequence of words appearing in order.
+        
+        Args:
+            df: DataFrame to search in
+            expected_words: List of words to find in sequence
             
-            # Convert folder name to lowercase for comparison
-            folder_name_lower = folder_name.lower()
+        Returns:
+            pd.DataFrame: DataFrame containing the first matching row, or empty DataFrame if no match found
+        """
+        for _, row in df.iterrows():
+            # Convert row to list of lowercase strings
+            row_values = [str(val).lower() for val in row.values]
+            # logger.info(f"  row_values: {row_values}")
             
+            if self._check_row_for_sequential_words(row_values, expected_words):
+                logger.info(f"  Found sequence match in row: {row_values}")
+                return pd.DataFrame([row])
+        
+        return pd.DataFrame()
+
+    def _update_match_status(self, dropbox_account_info: Dict[str, Any], match_type: str, match_name: str, expected_matches: List[str], account_name: str) -> None:
+        """
+        Update the match status in the account info dictionary.
+        
+        Args:
+            dropbox_account_info: Dictionary containing account info and search results
+            match_type: Type of match found ('expected', 'normalized', or 'swapped')
+            match_name: The name that was matched
+            expected_matches: List of expected matches to validate against
+            account_name: Name of the account being searched
+        """
+        if match_type == 'expected':
+            logger.info(f"Found expected Dropbox matches for {account_name}")
+            dropbox_account_info['search_info']['status'] = 'found'
+            dropbox_account_info['search_info']['match_info']['match_status'] = "Match found in expected matches"
+        else:
+            if len(expected_matches) > 0:
+                logger.warning(f"Found {match_type} name match {match_name} but not in expected matches [{expected_matches}] for {account_name}")
+                dropbox_account_info['search_info']['status'] = 'unexpected_matches'
+                dropbox_account_info['search_info']['match_info']['match_status'] = f"Match found in {match_type} names but not in expected matches"
+            else:
+                dropbox_account_info['search_info']['status'] = 'found'
+                dropbox_account_info['search_info']['match_info']['match_status'] = f"Match found in {match_type} names"
+
+    def _store_matching_rows(self, dropbox_account_info: Dict[str, Any], matching_rows: pd.DataFrame, sheet_name: str, last_name: str) -> None:
+        """
+        Store matching rows in the account info dictionary and handle multiple matches.
+        
+        Args:
+            dropbox_account_info: Dictionary containing account info and search results
+            matching_rows: DataFrame containing matching rows
+            sheet_name: Name of the sheet being searched
+            last_name: Last name being searched for
+        """
+        # Store all matching rows for reference
+        dropbox_account_info['search_info']['matches'] = [
+            {f"Column {i}": self._clean_cell_value(str(val)) for i, val in enumerate(row) 
+             if str(val).lower() != 'nan' and not pd.isna(val)}
+            for _, row in matching_rows.iterrows()
+        ]
+        
+        # If we have multiple matches but none in expected matches, log warning
+        if len(matching_rows) > 1 and dropbox_account_info['search_info']['status'] == 'unexpected_matches':
+            logger.warning(f"Found multiple {len(matching_rows)} matches in {sheet_name} for last name: {last_name}")
+            dropbox_account_info['search_info']['status'] = 'multiple_matches'
+
+    def _search_for_matches(self, df: pd.DataFrame, names_to_search: List[str], match_type: str, 
+                          dropbox_account_info: Dict[str, Any], expected_matches: List[str], 
+                          account_name: str, sheet_name: str) -> Tuple[pd.DataFrame, bool, str, pd.Series]:
+        """
+        Search for matches of a specific type in the DataFrame.
+        
+        Args:
+            df: DataFrame to search in
+            names_to_search: List of names to search for
+            match_type: Type of match ('expected', 'normalized', or 'swapped')
+            dropbox_account_info: Dictionary containing account info and search results
+            expected_matches: List of expected matches to validate against
+            account_name: Name of the account being searched
+            sheet_name: Name of the sheet being searched
+            
+        Returns:
+            Tuple containing:
+            - DataFrame with matching rows (empty if no match)
+            - Whether a match was found
+            - Name of the sheet where match was found
+            - The matching row (None if no match)
+        """
+        logger.info(f"\n=== Searching for {match_type} names: {names_to_search} ===")
+        for name in names_to_search:
+            logger.info(f"  {match_type}_name: {name}")
+            expected_words = name.lower().split()
+            matching_rows = self.search_rows_for_sequential_word_matches(df, expected_words)
+            if not matching_rows.empty:
+                logger.info(f"  ***Found {len(matching_rows)} matching rows")
+                account_row = matching_rows.iloc[0]
+                match_found = True
+                self._update_match_status(dropbox_account_info, match_type, name, expected_matches, account_name)
+                return matching_rows, match_found, sheet_name, account_row
+        return pd.DataFrame(), False, "", None
+
+    def _search_for_matches_in_matching_rows(self, matching_rows: pd.DataFrame, names_to_search: List[str], match_type: str, 
+                                           dropbox_account_info: Dict[str, Any], expected_matches: List[str], 
+                                           account_name: str, sheet_name: str) -> Tuple[pd.DataFrame, bool, str, pd.Series]:
+        """
+        Search for matches of a specific type in pre-filtered matching rows.
+        
+        Args:
+            matching_rows: DataFrame containing pre-filtered matching rows
+            names_to_search: List of names to search for
+            match_type: Type of match ('expected', 'normalized', or 'swapped')
+            dropbox_account_info: Dictionary containing account info and search results
+            expected_matches: List of expected matches to validate against
+            account_name: Name of the account being searched
+            sheet_name: Name of the sheet being searched
+            
+        Returns:
+            Tuple containing:
+            - DataFrame with matching rows (empty if no match)
+            - Whether a match was found
+            - Name of the sheet where match was found
+            - The matching row (None if no match)
+        """
+        logger.info(f"\n=== Searching for {match_type} names in matching rows: {names_to_search} ===")
+        for name in names_to_search:
+            logger.info(f"  {match_type}_name: {name}")
+            expected_words = name.lower().split()
+            
+            # Search through each matching row
             for _, row in matching_rows.iterrows():
-                # Try to get name from different possible column positions
-                name = None
-                if 'Name' in row:
-                    name = self._clean_cell_value(str(row['Name']))
-                elif 'First Name' in row and 'Last Name' in row:
-                    first_name = self._clean_cell_value(str(row['First Name']))
-                    last_name = self._clean_cell_value(str(row['Last Name']))
-                    name = f"{first_name} {last_name}"
-                elif len(row) >= 2:  # If we have at least 2 columns, assume first two are first/last name
-                    first_name = self._clean_cell_value(str(row.iloc[0]))
-                    last_name = self._clean_cell_value(str(row.iloc[1]))
-                    name = f"{first_name} {last_name}"
+                # Convert row to list of lowercase strings
+                row_values = [str(val).lower() for val in row.values]
                 
-                if name and name.lower() not in ['nan nan', 'nan']:
-                    name_lower = name.lower()
-                    found_names.append(name_lower)
-                    
-                    # Calculate match score
-                    score = 0
-                    
-                    # Exact match with folder name
-                    if name_lower == folder_name_lower:
-                        score += 100
-                    
-                    # Partial match with folder name
-                    if name_lower in folder_name_lower or folder_name_lower in name_lower:
-                        score += 50
-                    
-                    # Match with expected matches
-                    if expected_matches:
-                        if name_lower in [exp.lower() for exp in expected_matches]:
-                            score += 75
-                            matches_expected = True
-                    elif normalized_names:
-                        # Use normalized names if expected_matches is empty
-                        if name_lower in [norm.lower() for norm in normalized_names]:
-                            score += 75
-                            matches_expected = True
-                    
-                    # Update best match if score is higher
-                    if score > best_score:
-                        best_score = score
-                        best_match = row
-            
-            return best_match, matches_expected, found_names
+                # Check if this row contains the expected words in sequence
+                if self._check_row_for_sequential_words(row_values, expected_words):
+                    logger.info(f"  ***Found matching row with {match_type} name: {name}")
+                    account_row = row
+                    match_found = True
+                    self._update_match_status(dropbox_account_info, match_type, name, expected_matches, account_name)
+                    return pd.DataFrame([row]), match_found, sheet_name, account_row
+        
+        return pd.DataFrame(), False, "", None
 
     def search_for_dropbox_account_info(self, account_name: str, dropbox_account_name_parts: Dict[str, Any], excel_file: pd.ExcelFile = None) -> Dict[str, Any]:
         """Get account information from the holiday Excel file.
@@ -363,8 +452,6 @@ class DropboxClient:
                     - match_info: Details about match status and counts
                 - account_data (Dict[str, Any]): Extracted account information
         """
-        logger = logging.getLogger('dropbox_utils')
-        
         logger.info(f"\n=== Starting Dropbox account info search for: {account_name} ===")
         folder_name = account_name
         
@@ -409,10 +496,11 @@ class DropboxClient:
                 match_sheet = None
                 sheet_search_info = []  # Store search info for each sheet
 
-                last_name = dropbox_account_name_parts['last_name'].lower()
-                first_name = dropbox_account_name_parts['first_name'].lower()
+                # Use the last_name directly from dropbox_account_name_parts
+                last_name = dropbox_account_name_parts.get('last_name', '').lower()
                 expected_matches = dropbox_account_name_parts.get('expected_dropbox_matches', [])
-                expected_matches = dropbox_account_name_parts.get('expected_dropbox_matches', [])
+                
+                logger.info(f"Using last name from dropbox_account_name_parts: {last_name}")
                 
                 # Search through each sheet
                 for sheet_name in sheets:
@@ -427,55 +515,88 @@ class DropboxClient:
                     # Create a mask for rows containing the last name
                     mask = df_str.apply(lambda row: any(last_name in str(cell) for cell in row), axis=1)
                     # Get all matching rows
-                    matching_rows = df[mask]
-                    logger.info(f"Found {len(matching_rows)} matching rows")
+                    original_matching_rows = df[mask]
+                    matching_rows = original_matching_rows
+                    logger.info(f"Found last name in rows... {last_name} in {len(matching_rows)} rows")
+                    logger.info(f"Found {len(matching_rows)} matching rows for last name {last_name} in sheet: {sheet_name}")
+                    if not matching_rows.empty:
+                        logger.info("Matching rows found:")
+                        for _, row in matching_rows.iterrows():
+                            row_values = [str(val) for val in row.values if not pd.isna(val)]
+                            logger.info(f"  - {row_values}")
                     
                     if not matching_rows.empty:
-                        # Find best match using the local method
-                        best_match, matches_expected, found_names = self._find_best_match(
-                            matching_rows, 
-                            folder_name,
-                            expected_matches,
-                            dropbox_account_name_parts.get('normalized_names', [])
+                        # Search for expected matches
+                        matching_rows, match_found, match_sheet, account_row = self._search_for_matches_in_matching_rows(
+                            matching_rows, expected_matches, 'expected',
+                            dropbox_account_info, expected_matches, account_name, sheet_name
                         )
-                        
-                        if best_match is not None:
-                            account_row = best_match
-                            match_found = True
-                            match_sheet = sheet_name
-                            
-                            if matches_expected:
-                                logger.info(f"Found expected Dropbox matches for {account_name}")
-                                dropbox_account_info['search_info']['status'] = 'found'
-                                dropbox_account_info['search_info']['match_info']['match_status'] = "Match found in expected matches"
-                            else:
-                                logger.warning(f"Found Dropbox matches {found_names} do not match expected Dropbox matches [{expected_matches}] for {account_name}")
-                                logger.warning(f"Expected Dropbox matches: {expected_matches}")
-                                logger.warning(f"Found Dropbox matches: {found_names}")
-                                dropbox_account_info['search_info']['status'] = 'unexpected_matches'
-                                dropbox_account_info['search_info']['match_info']['match_status'] = "Matches found but not in expected matches"
-                            
-                            # Store all matching rows for reference
-                            dropbox_account_info['search_info']['matches'] = [
-                                {f"Column {i}": self._clean_cell_value(str(val)) for i, val in enumerate(row) 
-                                 if str(val).lower() != 'nan' and not pd.isna(val)}
-                                for _, row in matching_rows.iterrows()
-                            ]
-                            
-                            # If we have multiple matches but none in expected matches, log warning
-                            if not matches_expected and len(matching_rows) > 1:
-                                logger.warning(f"Found multiple {len(matching_rows)} matches in {sheet_name} for last name: {last_name}")
-                                dropbox_account_info['search_info']['status'] = 'multiple_matches'
-                            
+                        if match_found:
                             break
-                            
-                            # If we have multiple matches but none in expected matches, log warning
-                            if not matches_expected and len(matching_rows) > 1:
-                                logger.warning(f"Found multiple {len(matching_rows)} matches in {sheet_name} for last name: {last_name}")
-                                dropbox_account_info['search_info']['status'] = 'multiple_matches'
-                            
+                        # Search for normalized names
+                        matching_rows, match_found, match_sheet, account_row = self._search_for_matches_in_matching_rows(
+                            matching_rows, dropbox_account_name_parts.get('normalized_names', []), 'normalized',
+                            dropbox_account_info, expected_matches, account_name, sheet_name
+                        )
+                        if match_found:
                             break
-                
+
+                        # Search for swapped names
+                        matching_rows, match_found, match_sheet, account_row = self._search_for_matches_in_matching_rows(
+                            matching_rows, dropbox_account_name_parts.get('swapped_names', []), 'swapped',
+                            dropbox_account_info, expected_matches, account_name, sheet_name
+                        )
+                        if match_found:
+                            break
+
+                        # If we found rows with last name but no match in expected_dropbox_matches, log warning
+                        if expected_matches and not match_found:
+                            logger.warning(f"\n=== WARNING: Found rows with last name '{last_name}' but expected_dropbox_matches not working ===")
+                            logger.warning(f"Account: {account_name}")
+                            logger.warning(f"Sheet: {sheet_name}")
+                            logger.warning(f"Expected matches: {expected_matches}")
+                            logger.warning("Matching rows found:")
+                            row_values_list = []
+                            for _, row in original_matching_rows.iterrows():
+                                row_values = [str(val) for val in row.values if not pd.isna(val)]
+                                logger.warning(f"  - {row_values}")
+                                row_values_list.append(row_values)
+                            if len(row_values_list) > 0:
+                                logger.warning(f"\n=== WARNING: Found rows with last name '{last_name}' expected_dropbox_matches: {expected_matches} row_values_list: {row_values_list} ===")
+
+                            logger.warning("=== END WARNING ===\n")
+
+                    if matching_rows.empty:
+                        logger.info(f"No matching rows found for last name: {last_name} in sheet: {sheet_name}, doing more sophisticated search...")
+
+                        # Search for expected matches
+                        matching_rows, match_found, match_sheet, account_row = self._search_for_matches(
+                            df, expected_matches, 'expected',
+                            dropbox_account_info, expected_matches, account_name, sheet_name
+                        )
+                        if match_found:
+                            break
+
+                        # Search for swapped names
+                        matching_rows, match_found, match_sheet, account_row = self._search_for_matches(
+                            df, dropbox_account_name_parts.get('swapped_names', []), 'swapped',
+                            dropbox_account_info, expected_matches, account_name, sheet_name
+                        )
+                        if match_found:
+                            break
+
+                        # Search for normalized names
+                        matching_rows, match_found, match_sheet, account_row = self._search_for_matches(
+                            df, dropbox_account_name_parts.get('normalized_names', []), 'normalized',
+                            dropbox_account_info, expected_matches, account_name, sheet_name
+                        )
+                        if match_found:
+                            break
+
+                    # Store matching rows and handle multiple matches
+                    if not matching_rows.empty:
+                        self._store_matching_rows(dropbox_account_info, matching_rows, sheet_name, last_name)
+
                 # Extract data if match found
                 if match_found and account_row is not None:
                     logger.info(f"\nExtracting data from {match_sheet} sheet")
@@ -513,35 +634,47 @@ class DropboxClient:
                 else:
                     logger.info("No match found in any sheet")
 
-                # If no match found, log detailed explanation
-                if not dropbox_account_info['account_data']:
-                    # Log to analyzer.log
-                    logging.info("\n=== NO MATCH EXPLANATION ===")
-                    logging.info(f"Account: {account_name}")
-                    logging.info(f"Last name searched: {dropbox_account_name_parts.get('last_name', '')}")
-                    logging.info(f"Normalized names: {dropbox_account_name_parts.get('normalized_names', [])}")
-                    logging.info(f"Expected matches: {dropbox_account_name_parts.get('expected_dropbox_matches', [])}")
-                    logging.info(f"Found matches: {dropbox_account_info['search_info']['matches']}")
-                    logging.info("\nSearch process:")
-                    for sheet_name in sheets:
-                        df = pd.read_excel(excel_file, sheet_name=sheet_name)
-                        logging.info(f"\nSheet: {sheet_name}")
-                        logging.info(f"  - Dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
-                        logging.info(f"  - Columns: {list(df.columns)}")
-                        logging.info(f"  - First row values: {[str(val) for val in df.iloc[0].values]}")
-                        logging.info(f"  - Search method: Searched for last name '{last_name}' in all columns")
-                        logging.info(f"  - Result: No matches found")
-                    logging.info("=== END NO MATCH EXPLANATION ===\n")
+                    # If no match found, log detailed explanation
+                    if not dropbox_account_info['account_data']:
+                        # Log to analyzer.log
+                        logger.info("\n*=== NO MATCH EXPLANATION ===")
+                        logger.info(f"Account: {account_name}")
+                        logger.info(f"Last name searched: {dropbox_account_name_parts.get('last_name', '')}")
+                        logger.info(f"Normalized names: {dropbox_account_name_parts.get('normalized_names', [])}")
+                        logger.info(f"Expected matches: {dropbox_account_name_parts.get('expected_dropbox_matches', [])}")
+                        logger.info(f"Found matches: {dropbox_account_info['search_info']['matches']}")
+                        logger.info("\nSearch process:")
+                        for sheet_name in sheets:
+                            df = pd.read_excel(excel_file, sheet_name=sheet_name)
+                            logger.info(f"\nSheet: {sheet_name}")
+                            logger.info(f"  - Dimensions: {df.shape[0]} rows x {df.shape[1]} columns")
+                            # logger.info(f"  - Columns: {list(df.columns)}")
+                            # logger.info(f"  - First row values: {[str(val) for val in df.iloc[0].values]}")
+                            logger.info(f"  - Search method: Searched for last name '{last_name}' in all columns")
+                            
+                            # Search for the last name in this sheet
+                            df_str = df.astype(str).apply(lambda x: x.apply(self._clean_cell_value).str.lower())
+                            mask = df_str.apply(lambda row: any(last_name in str(cell) for cell in row), axis=1)
+                            matching_rows = df[mask]
+                            
+                            if not matching_rows.empty:
+                                logger.info(f"  - Found {len(matching_rows)} matching rows:")
+                                for _, row in matching_rows.iterrows():
+                                    row_values = [str(val) for val in row.values if not pd.isna(val)]
+                                    logger.info(f"    * {row_values}")
+                            else:
+                                logger.info(f"  - Result: No matches found")
+                        logger.info("=== END NO MATCH EXPLANATION ===\n")
 
-                    # Log to report.log
-                    report_logger = logging.getLogger('report')
-                    report_logger.info("\n=== NO MATCH EXPLANATION ===")
-                    report_logger.info(f"Account: {account_name}")
-                    report_logger.info(f"Last name searched: {dropbox_account_name_parts.get('last_name', '')}")
-                    report_logger.info(f"Normalized names: {dropbox_account_name_parts.get('normalized_names', [])}")
-                    report_logger.info(f"Expected matches: {dropbox_account_name_parts.get('expected_dropbox_matches', [])}")
-                    report_logger.info(f"Found matches: {dropbox_account_info['search_info']['matches']}")
-                    report_logger.info("=== END NO MATCH EXPLANATION ===\n")
+                        # Log to report.log (without the detailed search process)
+                        report_logger = logging.getLogger('report')
+                        report_logger.info("\n=== NO MATCH EXPLANATION ===")
+                        report_logger.info(f"Account: {account_name}")
+                        report_logger.info(f"Last name searched: {dropbox_account_name_parts.get('last_name', '')}")
+                        report_logger.info(f"Normalized names: {dropbox_account_name_parts.get('normalized_names', [])}")
+                        report_logger.info(f"Expected matches: {dropbox_account_name_parts.get('expected_dropbox_matches', [])}")
+                        report_logger.info(f"Found matches: {dropbox_account_info['search_info']['matches']}")
+                        report_logger.info("=== END NO MATCH EXPLANATION ===\n")
 
             finally:
                 # No need to clean up temporary file since we're using the excel_file object directly
@@ -763,7 +896,6 @@ class DropboxClient:
             Optional[str]: Path to the downloaded file, or None if download failed
         """
         try:
-            logger = logging.getLogger('dropbox_utils')
             logger.info(f"Downloading holiday file: {holiday_file.name}")
             
             # Create a temporary file
@@ -796,7 +928,6 @@ class DropboxClient:
             - List[str]: List of sheet names
         """
         try:
-            logger = logging.getLogger('dropbox_utils')
             logger.info(f"Processing holiday file: {holiday_file}")
             
             # Get the holiday file metadata

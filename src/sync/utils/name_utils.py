@@ -136,7 +136,7 @@ def extract_name_parts(name: str, log: bool = False) -> Dict[str, Any]:
                 result['expected_dropbox_matches'] = rules['expected_salesforce_matches']
             if log:
                 logger.info(f"Applied special case rules: {rules}")
-            return result
+            return result  # Return early after applying special case rules
     
     # Remove any text in parentheses and clean up
     name = re.sub(r'\([^)]*\)', '', name).strip()
