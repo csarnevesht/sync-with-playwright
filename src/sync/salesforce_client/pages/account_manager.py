@@ -1042,23 +1042,23 @@ class AccountManager(BasePage):
             # Navigate to files section
             num_files = self.navigate_to_account_files_click_on_files_card_to_facilitate_file_operation()
             
-            # # Get file count using FileManager
+            # Get file count using FileManager
             file_manager_instance = file_manager.SalesforceFileManager(self.page)
-            # num_files = file_manager_instance.extract_files_count_from_status()
             self.log_helper.log(self.logger, 'info', f"Initial number of files: {num_files}")
             
-            # Scroll to load all files if we see a "50+" count
+            # If we have a string count like "50+", handle it appropriately
             if isinstance(num_files, str) and '+' in str(num_files):
                 if not scroll_to_bottom_of_account_files:
-                    self.log_helper.log(self.logger, 'info', f"Found '{num_files}+' count, not scrolling to load all files...")
+                    self.log_helper.log(self.logger, 'info', f"Found '{num_files}' count, not scrolling to load all files...")
                     return num_files
                 
-                self.log_helper.log(self.logger, 'info', f"Found '{num_files}+' count, scrolling to load all files...")
+                self.log_helper.log(self.logger, 'info', f"Found '{num_files}' count, scrolling to load all files...")
                 actual_count = file_manager_instance.scroll_to_bottom_of_page()
-                if actual_count > 0:
+                if isinstance(actual_count, (int, str)) and actual_count != 0:
                     self.log_helper.log(self.logger, 'info', f"Final number of files after scrolling: {actual_count}")
                     self.log_helper.dedent()
                     return actual_count
+                return num_files
             elif isinstance(num_files, int) and num_files > 0:
                 self.log_helper.dedent()
                 return num_files
@@ -1096,11 +1096,12 @@ class AccountManager(BasePage):
             self.log_helper.log(self.logger, 'info', f"account_id: {account_id}")
             num_files = self.navigate_to_account_files_and_get_number_of_files(account_id, scroll_to_bottom_of_account_files=True)
     
-                
             # Use FileManager to get file names
             file_manager_instance = file_manager.SalesforceFileManager(self.page)
             self.log_helper.dedent()
-            if num_files > 0:
+            
+            # Check if we have files (either a positive integer or a string like "50+")
+            if (isinstance(num_files, int) and num_files > 0) or (isinstance(num_files, str) and '+' in str(num_files)):
                 return file_manager_instance.get_all_file_names()
             else:
                 return []
@@ -1334,7 +1335,7 @@ class AccountManager(BasePage):
         """
         Check if the account has files.
         """
-        num_files = self.navigate_to_account_files_and_get_number_of_files(account_id)
+        num_files = self.navigate_to_account_files_and_get_number_of_files(account_id, scroll_to_bottom_of_account_files=False)
         if isinstance(num_files, str):
             # If we have a string like "50+", we know there are files
             self.log_helper.dedent()
