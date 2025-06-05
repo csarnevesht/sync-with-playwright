@@ -446,21 +446,6 @@ class DropboxClient:
             else:
                 logger.info(f"  ✗ No matches found for name: {name}")
 
-            # if not match_found:
-            #     # loop through expected words
-            #     for expected_word in expected_words:
-            #         logger.info(f"special case: Checking for {expected_word} in matching rows")
-            #         # loop through matching_rows and check if the expected_word is in the row
-            #         matching_rows = self.search_rows_for_sequential_word_matches(df, expected_word)
-            #         if not matching_rows.empty:
-            #             logger.info(f"  ✓ Found {len(matching_rows)} matching rows for name: {name}")
-            #             account_row = matching_rows.iloc[0]
-            #             match_found = True
-            #             self._update_match_status(dropbox_account_info, match_type, name, expected_matches, account_name)
-            #             logger.info(f"  ✓ Updated match status for {match_type} match")
-            #             return matching_rows, match_found, sheet_name, account_row
-            #         else:
-            #             logger.info(f"  ✗ No matches found for name: {name}")
         
         logger.info(f"=== No {match_type} matches found in sheet: {sheet_name} ===\n")
         return pd.DataFrame(), False, "", None
@@ -715,7 +700,8 @@ class DropboxClient:
                         )
                         if match_found:
                             break
-                
+
+                        
                     # Store matching rows and handle multiple matches
                     if not matching_rows.empty:
                         self._store_matching_rows(dropbox_account_info, matching_rows, sheet_name, last_name)
