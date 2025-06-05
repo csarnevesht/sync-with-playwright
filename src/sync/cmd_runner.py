@@ -160,6 +160,7 @@ def setup_logging(args):
     # Create file handler for main log
     file_handler = logging.FileHandler(log_file)
     file_handler.setFormatter(file_formatter)
+    file_handler.setLevel(logging.DEBUG)
     
     # Create file handler for report log
     report_handler = logging.FileHandler(report_file)
@@ -168,10 +169,11 @@ def setup_logging(args):
     # Create console handler
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(console_formatter)
+    console_handler.setLevel(logging.DEBUG)
     
     # Configure root logger
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
+    root_logger.setLevel(logging.DEBUG)
     
     # Remove any existing handlers
     for handler in root_logger.handlers[:]:
@@ -198,7 +200,7 @@ def setup_logging(args):
     
     # Log the log file locations
     root_logger.info(f"Main log file: {log_file}")
-    root_logger.info(f"Report log file: {report_file}")
+    report_logger.info(f"Report log file: {report_file}")
     
     return root_logger, report_logger
 
