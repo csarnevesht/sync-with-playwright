@@ -614,6 +614,16 @@ class DropboxClient:
                             logger.info(f"  - {row_values}")
                     
                     if not matching_rows.empty:
+                        # If we have exactly one matching row for the last name, consider it a valid match
+                        if len(matching_rows) == 1 and not match_found:
+                            logger.info(f"Found exactly one matching row for last name {last_name} in sheet: {sheet_name}")
+                            account_row = matching_rows.iloc[0]
+                            match_found = True
+                            match_sheet = sheet_name
+                            self._update_match_status(dropbox_account_info, 'exact_last_name', last_name, expected_matches, account_name)
+                            logger.info(f"  ✓ Updated match status for exact last name match")
+                            break
+
                         # Search for expected matches
                         matching_rows, match_found, match_sheet, account_row = self._search_for_matches_in_matching_rows(
                             matching_rows, expected_matches, 'expected',

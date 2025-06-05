@@ -164,10 +164,21 @@ def extract_name_parts(name: str, log: bool = False) -> Dict[str, Any]:
             logger.info(f"Found special case: {name}")
         rules = _get_special_case_rules(name)
         if rules:
+            # Store expected matches before updating other fields
+            expected_dropbox_matches = rules.get('expected_dropbox_matches', [])
+            expected_salesforce_matches = rules.get('expected_salesforce_matches', [])
+            
             # Update result with all fields from rules
             for key, value in rules.items():
                 if key not in ['normalized_names', 'swapped_names']:  # Don't overwrite these as they'll be generated
                     result[key] = value
+            
+            # Ensure expected matches are preserved
+            if expected_dropbox_matches:
+                result['expected_dropbox_matches'] = expected_dropbox_matches
+            if expected_salesforce_matches:
+                result['expected_salesforce_matches'] = expected_salesforce_matches
+            
             if log:
                 logger.info(f"Applied special case rules: {rules}")
             # Don't return early, continue with name normalization
