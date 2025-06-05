@@ -24,40 +24,35 @@ def _load_special_cases() -> Dict[str, Dict[str, Any]]:
     Returns:
         Dict[str, Dict[str, Any]]: Dictionary of special cases
     """
-    special_cases_path = os.path.join('accounts', 'special_cases.json')
-    if os.path.exists(special_cases_path):
-        try:
-            with open(special_cases_path, 'r') as f:
-                special_cases = json.load(f)
-                
-            # Convert the list of special cases to a dictionary keyed by folder_name
+    try:
+        with open('accounts/special_cases.json', 'r') as f:
+            data = json.load(f)
+            special_cases = data.get('special_cases', [])
+            
+            # Process each case to ensure expected matches exist
+            for case in special_cases:
+                if 'expected_salesforce_matches' not in case:
+                    case['expected_salesforce_matches'] = []
+                if 'expected_dropbox_matches' not in case:
+                    case['expected_dropbox_matches'] = []
+            
+            # Build dictionary with normalized folder names (single space)
             special_cases_dict = {}
-            for case in special_cases.get('special_cases', []):
-                folder_name = case.get('folder_name')
-                if folder_name:
-                    # Ensure both expected matches lists exist
-                    if 'expected_salesforce_matches' not in case:
-                        case['expected_salesforce_matches'] = []
-                    if 'expected_dropbox_matches' not in case:
-                        case['expected_dropbox_matches'] = []
-                    # Add both the original folder name and the cleaned version (without parentheses)
-                    special_cases_dict[folder_name] = case
-                    cleaned_name = re.sub(r'\([^)]*\)', '', folder_name).strip()
-                    if cleaned_name != folder_name:
-                        special_cases_dict[cleaned_name] = case
-                    # Also add the name with parentheses removed but keeping the content
-                    if '(' in folder_name and ')' in folder_name:
-                        paren_content = folder_name[folder_name.find('(')+1:folder_name.find(')')].strip()
-                        name_without_parens = re.sub(r'\([^)]*\)', '', folder_name).strip()
-                        name_with_content = f"{name_without_parens} {paren_content}"
-                        special_cases_dict[name_with_content] = case
+            for case in special_cases:
+                # Normalize whitespace in folder name (replace multiple spaces with single space)
+                normalized_folder_name = ' '.join(case['folder_name'].split())
+                special_cases_dict[normalized_folder_name] = case
             
             return special_cases_dict
-            
-        except Exception as e:
-            logging.error(f"Error loading special cases: {str(e)}")
-            return {}
-    return SPECIAL_CASES
+    except FileNotFoundError:
+        logger.warning("Special cases file not found, using hardcoded values")
+        return {}
+    except json.JSONDecodeError:
+        logger.error("Error decoding special cases JSON file")
+        return {}
+    except Exception as e:
+        logger.error(f"Error loading special cases: {str(e)}")
+        return {}
 
 def _is_special_case(name: str) -> bool:
     """Check if a name is a special case.
@@ -71,15 +66,24 @@ def _is_special_case(name: str) -> bool:
     special_cases = _load_special_cases()
     # Normalize whitespace in the name
     normalized_name = ' '.join(name.split())
-    # Check both the original name and the cleaned name (without parentheses)
     cleaned_name = re.sub(r'\([^)]*\)', '', normalized_name).strip()
-    # Also check the name with parentheses removed but keeping the content
-    if '(' in normalized_name and ')' in normalized_name:
+    
+    logger = logging.getLogger('name_utils')
+    logger.debug(f"[DEBUG] _is_special_case: normalized_name='{normalized_name}', cleaned_name='{cleaned_name}'")
+    logger.debug(f"[DEBUG] _is_special_case: special_cases keys={list(special_cases.keys())}")
+    
+    # Check if the name (with or without parentheses) is in special cases
+    found = normalized_name in special_cases or cleaned_name in special_cases
+    
+    # If not found and name has parentheses, try with parentheses content
+    if not found and '(' in normalized_name and ')' in normalized_name:
         paren_content = normalized_name[normalized_name.find('(')+1:normalized_name.find(')')].strip()
         name_without_parens = re.sub(r'\([^)]*\)', '', normalized_name).strip()
         name_with_content = f"{name_without_parens} {paren_content}"
-        return normalized_name in special_cases or cleaned_name in special_cases or name_with_content in special_cases
-    return normalized_name in special_cases or cleaned_name in special_cases
+        found = name_with_content in special_cases
+    
+    logger.debug(f"[DEBUG] _is_special_case: found={found}")
+    return found
 
 def _get_special_case_rules(name: str) -> Optional[Dict[str, Any]]:
     """Get the rules for a special case name.
@@ -91,19 +95,38 @@ def _get_special_case_rules(name: str) -> Optional[Dict[str, Any]]:
         Optional[Dict[str, Any]]: The rules for the special case, or None if not found
     """
     special_cases = _load_special_cases()
-    # Normalize whitespace in the name
     normalized_name = ' '.join(name.split())
-    # Try to get rules for both the original name and the cleaned name
+    logger = logging.getLogger('name_utils')
+    logger.debug(f"[DEBUG] _get_special_case_rules: normalized_name='{normalized_name}'")
+    logger.debug(f"[DEBUG] _get_special_case_rules: special_cases keys={list(special_cases.keys())}")
+    
+    # First try exact match
     rules = special_cases.get(normalized_name)
-    if rules is None:
-        cleaned_name = re.sub(r'\([^)]*\)', '', normalized_name).strip()
-        rules = special_cases.get(cleaned_name)
-        if rules is None and '(' in normalized_name and ')' in normalized_name:
-            paren_content = normalized_name[normalized_name.find('(')+1:normalized_name.find(')')].strip()
-            name_without_parens = re.sub(r'\([^)]*\)', '', normalized_name).strip()
-            name_with_content = f"{name_without_parens} {paren_content}"
-            rules = special_cases.get(name_with_content)
-    return rules
+    if rules is not None:
+        logger.debug(f"[DEBUG] _get_special_case_rules: found exact match")
+        return rules
+    
+    # Try without parentheses
+    cleaned_name = re.sub(r'\([^)]*\)', '', normalized_name).strip()
+    logger.debug(f"[DEBUG] _get_special_case_rules: cleaned_name='{cleaned_name}'")
+    rules = special_cases.get(cleaned_name)
+    if rules is not None:
+        logger.debug(f"[DEBUG] _get_special_case_rules: found match without parentheses")
+        return rules
+    
+    # Try with parentheses content
+    if '(' in normalized_name and ')' in normalized_name:
+        paren_content = normalized_name[normalized_name.find('(')+1:normalized_name.find(')')].strip()
+        name_without_parens = re.sub(r'\([^)]*\)', '', normalized_name).strip()
+        name_with_content = f"{name_without_parens} {paren_content}"
+        logger.debug(f"[DEBUG] _get_special_case_rules: name_with_content='{name_with_content}'")
+        rules = special_cases.get(name_with_content)
+        if rules is not None:
+            logger.debug(f"[DEBUG] _get_special_case_rules: found match with parentheses content")
+            return rules
+    
+    logger.debug(f"[DEBUG] _get_special_case_rules: no rules found")
+    return None
 
 def extract_name_parts(name: str, log: bool = False) -> Dict[str, Any]:
     """Extract and normalize name components from a full name.
@@ -154,6 +177,29 @@ def extract_name_parts(name: str, log: bool = False) -> Dict[str, Any]:
     if log:
         logger.info(f"Processing name: {name}")
 
+    # --- FIX: Check for special case using original name (with parentheses) first ---
+    original_name = name
+    if _is_special_case(original_name):
+        if log:
+            logger.info(f"Found special case: {original_name}")
+        rules = _get_special_case_rules(original_name)
+        if rules:
+            expected_dropbox_matches = rules.get('expected_dropbox_matches', [])
+            expected_salesforce_matches = rules.get('expected_salesforce_matches', [])
+            if not isinstance(expected_dropbox_matches, list):
+                expected_dropbox_matches = [expected_dropbox_matches]
+            if not isinstance(expected_salesforce_matches, list):
+                expected_salesforce_matches = [expected_salesforce_matches]
+            for key, value in rules.items():
+                if key not in ['normalized_names', 'swapped_names', 'expected_dropbox_matches', 'expected_salesforce_matches']:
+                    result[key] = value
+            result['expected_dropbox_matches'] = expected_dropbox_matches
+            result['expected_salesforce_matches'] = expected_salesforce_matches
+            if log:
+                logger.info(f"Applied special case rules: {rules}")
+            # Don't return early, continue with name normalization
+    # --- END FIX ---
+
     # Check for parentheses for additional info
     if '(' in name and ')' in name:
         main_name = name[:name.find('(')].strip()
@@ -161,32 +207,29 @@ def extract_name_parts(name: str, log: bool = False) -> Dict[str, Any]:
         logging.info(f"Found additional info in parentheses: {additional_info}")
         result['additional_info'] = additional_info
         name = main_name
-    
-    # Check for special cases first
-    if _is_special_case(name):
-        if log:
-            logger.info(f"Found special case: {name}")
-        rules = _get_special_case_rules(name)
-        if rules:
-            # Store expected matches before updating other fields
-            expected_dropbox_matches = rules.get('expected_dropbox_matches', [])
-            expected_salesforce_matches = rules.get('expected_salesforce_matches', [])
-            
-            # Update result with all fields from rules
-            for key, value in rules.items():
-                if key not in ['normalized_names', 'swapped_names']:  # Don't overwrite these as they'll be generated
-                    result[key] = value
-            
-            # Ensure expected matches are preserved
-            if expected_dropbox_matches:
-                result['expected_dropbox_matches'] = expected_dropbox_matches
-            if expected_salesforce_matches:
-                result['expected_salesforce_matches'] = expected_salesforce_matches
-            
+
+    # Check for special cases again after stripping parentheses (for legacy cases)
+    if not result['expected_dropbox_matches'] and not result['expected_salesforce_matches']:
+        if _is_special_case(name):
             if log:
-                logger.info(f"Applied special case rules: {rules}")
-            # Don't return early, continue with name normalization
-    
+                logger.info(f"Found special case: {name}")
+            rules = _get_special_case_rules(name)
+            if rules:
+                expected_dropbox_matches = rules.get('expected_dropbox_matches', [])
+                expected_salesforce_matches = rules.get('expected_salesforce_matches', [])
+                if not isinstance(expected_dropbox_matches, list):
+                    expected_dropbox_matches = [expected_dropbox_matches]
+                if not isinstance(expected_salesforce_matches, list):
+                    expected_salesforce_matches = [expected_salesforce_matches]
+                for key, value in rules.items():
+                    if key not in ['normalized_names', 'swapped_names', 'expected_dropbox_matches', 'expected_salesforce_matches']:
+                        result[key] = value
+                result['expected_dropbox_matches'] = expected_dropbox_matches
+                result['expected_salesforce_matches'] = expected_salesforce_matches
+                if log:
+                    logger.info(f"Applied special case rules: {rules}")
+                # Don't return early, continue with name normalization
+
     # Remove any text in parentheses and clean up
     name = re.sub(r'\([^)]*\)', '', name).strip()
     
