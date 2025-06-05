@@ -160,37 +160,8 @@ class SalesforceFileManager(BasePage):
             self.logger.info(f"Error checking files count: {str(e)}")
         return 0
 
-    def navigate_to_account_files_and_get_number_of_files(self, account_id: str, scroll_to_bottom_of_account_files: bool = False) -> int:
-        """Navigate to the Files page of the specified account and get the number of files.
-        
-        Args:
-            account_id: The Salesforce account ID to navigate to
-            scroll_to_bottom_of_account_files: Whether to scroll to load all files (default: False)
-            
-        Returns:
-            int: Number of files found in the account, -1 if there was an error
-        """
-        self.logger.info(f"****navigate_to_account_files_and_get_number_of_files for account {account_id}")
-        
-        try:
-            # Navigate to the account detail page
-            account_url = f"{self.base_url}/lightning/r/Account/{account_id}/view"
-            self.logger.info(f"Navigating to account URL: {account_url}")
-            self.page.goto(account_url)
-            
-            # Wait for the page to load
-            self.page.wait_for_load_state('networkidle')
-            
-            # Navigate to Files tab and get file count
-            return self.navigate_to_account_files_click_on_files_card_to_facilitate_file_operation(scroll_to_bottom_of_account_files)
-            
-        except Exception as e:
-            self.logger.error(f"Error navigating to account files: {str(e)}")
-            self.page.screenshot(path="account-files-error.png")
-            self.logger.info("Error screenshot saved as account-files-error.png")
-            return -1
 
-    def navigate_to_account_files_click_on_files_card_to_facilitate_file_operation(self, scroll_to_bottom_of_account_files: bool = False) -> int:
+    def navigate_to_account_files_click_on_files_card_to_facilitate_file_operation(self) -> int:
         """Navigate to the Files page of the current account. Assumes you are already on the account detail page.
         
         Returns:
