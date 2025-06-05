@@ -1023,7 +1023,7 @@ class AccountManager(BasePage):
             self._take_screenshot("account-navigation-error")
             sys.exit(1) 
 
-    def navigate_to_account_files_and_get_number_of_files(self, account_id: str) -> Union[int, str]:
+    def navigate_to_account_files_and_get_number_of_files(self, account_id: str, scroll_to_bottom_of_account_files: bool = True) -> Union[int, str]:
         """
         Navigate to the Files related list for the given account_id.
         Returns either an integer or a string (e.g. "50+") representing the number of files.
@@ -1036,52 +1036,6 @@ class AccountManager(BasePage):
             file_manager_instance = file_manager.SalesforceFileManager(self.page)
 
             num_files = file_manager_instance.navigate_to_account_files_click_on_files_card_to_facilitate_file_operation()
-            # # First try to find and click the Files card
-            # files_links = self.page.locator('a.slds-card__header-link.baseCard__header-title-container')
-            # found = False
-            
-            # for i in range(files_links.count()):
-            #     a = files_links.nth(i)
-            #     href = a.get_attribute('href')
-            #     if href and 'AttachedContentDocuments' in href:
-            #         # This is the Files card
-            #         a.click()
-            #         self.log_helper.log(self.logger, 'info', "Clicked Files card")
-            #         found = True
-            #         break
-            
-            # if not found:
-            #     # If Files card not found, try the Files tab
-            #     self.log_helper.log(self.logger, 'info', "Files card not found, trying Files tab...")
-                
-            #     # Scroll to make sure the Files tab is visible
-            #     self.log_helper.log(self.logger, 'info', "Scrolling to find Files tab...")
-            #     self.page.evaluate("window.scrollTo(0, 0)")  # First scroll to top
-                
-            #     # Try to find the Files tab
-            #     files_tab = self.page.locator('span[title="Files"]')
-                
-            #     # If not found, try scrolling down slowly
-            #     if files_tab.count() == 0:
-            #         self.log_helper.log(self.logger, 'info', "Files tab not found, trying to scroll...")
-            #         for i in range(0, 1000, 100):  # Scroll in increments of 100px
-            #             self.page.evaluate(f"window.scrollTo(0, {i})")
-            #             self.page.wait_for_timeout(100)  # Wait a bit for content to load
-            #             if files_tab.count() > 0:
-            #                 break
-                
-            #     if files_tab.count() > 0:
-            #         # Scroll the tab into view and click it
-            #         files_tab.scroll_into_view_if_needed()
-            #         self.page.wait_for_timeout(500)  # Wait for scroll to complete
-            #         files_tab.click()
-            #         self.log_helper.log(self.logger, 'info', "Clicked Files tab")
-            #     else:
-            #         self.log_helper.log(self.logger, 'error', "Could not find Files tab with any of the selectors")
-            #         return -1
-            
-            # # Wait for the files page to load
-            # self.page.wait_for_load_state('networkidle', timeout=10000)
             
             # Get file count using FileManager
             num_files = file_manager_instance.extract_files_count_from_status()
@@ -1089,6 +1043,10 @@ class AccountManager(BasePage):
             
             # Scroll to load all files if we see a "50+" count
             if isinstance(num_files, str) and '+' in str(num_files):
+                if not scroll_to_bottom_of_account_files:
+                    self.log_helper.log(self.logger, 'info', f"Found '{num_files}+' count, not scrolling to load all files...")
+                    return num_files
+                
                 self.log_helper.log(self.logger, 'info', f"Found '{num_files}+' count, scrolling to load all files...")
                 actual_count = file_manager_instance.scroll_to_bottom_of_page()
                 if actual_count > 0:
