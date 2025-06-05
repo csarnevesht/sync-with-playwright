@@ -116,7 +116,13 @@ def extract_name_parts(name: str, log: bool = False) -> Dict[str, Any]:
         'expected_dropbox_matches': []
     }
 
-     # Check for parentheses for additional info
+    # Initialize normalized_names list
+    normalized_names = []
+    
+    if log:
+        logger.info(f"Processing name: {name}")
+
+    # Check for parentheses for additional info
     if '(' in name and ')' in name:
         main_name = name[:name.find('(')].strip()
         additional_info = name[name.find('(')+1:name.find(')')].strip()
@@ -136,10 +142,13 @@ def extract_name_parts(name: str, log: bool = False) -> Dict[str, Any]:
                 result['expected_dropbox_matches'] = rules['expected_salesforce_matches']
             if log:
                 logger.info(f"Applied special case rules: {rules}")
-            return result  # Return early after applying special case rules
+            # Don't return early, continue with name normalization
     
     # Remove any text in parentheses and clean up
     name = re.sub(r'\([^)]*\)', '', name).strip()
+    
+    if log:
+        logger.info(f"Cleaned name: {name}")
     
     # Handle names with commas
     if ',' in name:
@@ -156,6 +165,13 @@ def extract_name_parts(name: str, log: bool = False) -> Dict[str, Any]:
             else:
                 result['first_name'] = first_part
                 
+            # Add normalized names for comma-separated format
+            normalized_names.extend([
+                f"{result['last_name']}, {result['first_name']}",
+                f"{result['last_name']},{result['first_name']}",
+                f"{result['first_name']} {result['last_name']}"
+            ])
+                
             # Handle additional parts
             if len(parts) > 2:
                 result['additional_info'] = ', '.join(parts[2:])
@@ -165,22 +181,64 @@ def extract_name_parts(name: str, log: bool = False) -> Dict[str, Any]:
         
         # Handle names with &/and
         if '&' in name or ' and ' in name:
+            if log:
+                logger.info(f"Found name with and/&: {name}")
             # Split on & or and
             if '&' in name:
                 parts = [p.strip() for p in name.split('&')]
             else:
+                # Split on " and " to avoid splitting words containing "and"
                 parts = [p.strip() for p in name.split(' and ')]
             
-            # First part is first name
-            result['first_name'] = parts[0]
+            if log:
+                logger.info(f"Split parts: {parts}")
             
-            # Last part is last name
-            if len(parts) > 1:
-                result['last_name'] = parts[-1]
-                
-            # Middle parts are additional info
-            if len(parts) > 2:
-                result['additional_info'] = ' '.join(parts[1:-1])
+            first_part = parts[0].split()
+            if len(first_part) == 1:
+                result['last_name'] = first_part[0]
+                if len(parts) > 1:
+                    result['first_name'] = ' '.join(parts[1:])
+                else:
+                    result['first_name'] = ''
+                # Add normalized names for the first part if it has more than just the last name
+                if len(parts[0].split()) > 1:
+                    first_name_candidate = ' '.join(parts[0].split()[1:])
+                    normalized_names.extend([
+                        f"{result['last_name']}, {first_name_candidate}",
+                        f"{result['last_name']},{first_name_candidate}",
+                        f"{first_name_candidate} {result['last_name']}"
+                    ])
+                # Add normalized names for each part after "and"
+                for part in parts[1:]:
+                    part_words = part.split()
+                    if len(part_words) >= 1:
+                        normalized_names.extend([
+                            f"{result['last_name']}, {part_words[0]}",
+                            f"{result['last_name']},{part_words[0]}",
+                            f"{part_words[0]} {result['last_name']}"
+                        ])
+            else:
+                # If first part has multiple words, treat first word as last name
+                result['last_name'] = first_part[0]
+                result['first_name'] = ' '.join(first_part[1:])
+                # Add normalized names for the first part
+                normalized_names.extend([
+                    f"{result['last_name']}, {result['first_name']}",
+                    f"{result['last_name']},{result['first_name']}",
+                    f"{result['first_name']} {result['last_name']}"
+                ])
+                # Additional parts are additional info
+                if len(parts) > 1:
+                    result['additional_info'] = ' '.join(parts[1:])
+                    # Add normalized names for each part after "and"
+                    for part in parts[1:]:
+                        part_words = part.split()
+                        if len(part_words) >= 1:
+                            normalized_names.extend([
+                                f"{result['last_name']}, {part_words[0]}",
+                                f"{result['last_name']},{part_words[0]}",
+                                f"{part_words[0]} {result['last_name']}"
+                            ])
         else:
             # Handle regular names
             if len(parts) == 1:
@@ -192,17 +250,40 @@ def extract_name_parts(name: str, log: bool = False) -> Dict[str, Any]:
                 result['first_name'] = parts[0]
                 result['last_name'] = parts[-1]
                 result['middle_name'] = ' '.join(parts[1:-1])
+            
+            # Add normalized names for regular names
+            if result['first_name'] and result['last_name']:
+                normalized_names.extend([
+                    f"{result['last_name']}, {result['first_name']}",
+                    f"{result['last_name']},{result['first_name']}",
+                    f"{result['first_name']} {result['last_name']}"
+                ])
     
-    # Generate normalized names
-    normalized_names = []
-    
-    # Original name variations
-    if result['first_name'] and result['last_name']:
-        normalized_names.extend([
-            f"{result['last_name']}, {result['first_name']}",
-            f"{result['last_name']},{result['first_name']}",
-            f"{result['first_name']} {result['last_name']}"
-        ])
+    # Check for son/daughter patterns
+    son_or_daughter_pattern = r'\b(son|sons|daughter)\b'
+    if re.search(son_or_daughter_pattern, name, re.IGNORECASE):
+        # Split the name into parts
+        name_parts = name.split()
+        for i, word in enumerate(name_parts):
+            if word.lower() in ['son', 'sons', 'daughter']:
+                # Check if there are two words after son/daughter
+                if i + 2 < len(name_parts):
+                    # Add the two words as a name
+                    two_words = f"{name_parts[i+1]} {name_parts[i+2]}"
+                    normalized_names.extend([
+                        two_words,
+                        f"{name_parts[i+2]}, {name_parts[i+1]}",
+                        f"{name_parts[i+2]},{name_parts[i+1]}"
+                    ])
+                # Check if there is one word after son/daughter
+                elif i + 1 < len(name_parts):
+                    # Add the last name and the one word
+                    if result['last_name']:
+                        normalized_names.extend([
+                            f"{result['last_name']} {name_parts[i+1]}",
+                            f"{name_parts[i+1]}, {result['last_name']}",
+                            f"{name_parts[i+1]},{result['last_name']}"
+                        ])
     
     # Middle name variations
     if result['middle_name']:
@@ -220,28 +301,19 @@ def extract_name_parts(name: str, log: bool = False) -> Dict[str, Any]:
                 f"{result['first_name']} {result['last_name']} ({result['additional_info']})"
             ])
     
+    # Add normalized names to result
+    result['normalized_names'] = normalized_names
+    
     # Generate swapped names
-    swapped_names = []
     if result['first_name'] and result['last_name']:
-        swapped_names.append(f"{result['last_name']} {result['first_name']}")
+        result['swapped_names'] = [
+            f"{result['first_name']} {result['last_name']}",
+            f"{result['last_name']} {result['first_name']}"
+        ]
     
-    # Update result with generated names
-    result['normalized_names'] = [name.lower() for name in normalized_names]
-    result['swapped_names'] = [name.lower() for name in swapped_names]
+    if log:
+        logger.info(f"Final result: {result}")
     
-    # if log:
-    #     logger.info(f"Extracted name parts: {result}")
-    
-    #  # Log summary
-    # logging.info(f"\nName Parsing Summary for '{name}':")
-    # logging.info(f"  First Name: {result['first_name']}")
-    # logging.info(f"  Middle Name: {result['middle_name']}")
-    # logging.info(f"  Last Name: {result['last_name']}")
-    # logging.info(f"  Number of normalized names: {len(result['normalized_names'])}")
-    # logging.info(f"  Number of swapped names: {len(result['swapped_names'])}")
-    # logging.info(f"  Normalized Names: {', '.join(result['normalized_names'])}")
-    # logging.info(f"  Swapped Names: {', '.join(result['swapped_names'])}")
-        
     return result
 
 
