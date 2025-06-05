@@ -565,7 +565,7 @@ def run_command(args):
 
                 if args.dropbox_account_info:
                     # DROPBOX ACCOUNT INFO
-                    logger.info('step: Get Dropbox Account Info')
+                    logger.info('step: Search for Dropbox Account Info')
                     # Always get account info since it's needed for commands
                     logger.info(f"Getting info for Dropbox account: {dropbox_account_folder_name}")
                     try:
