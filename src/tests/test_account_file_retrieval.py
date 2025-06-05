@@ -100,7 +100,7 @@ def test_account_file_retrieval(browser, page):
         
         # Navigate to files section
         logging.info("Navigating to files section")
-        num_files = account_manager.navigate_to_account_files_and_get_number_of_files(account_id, scroll_to_bottom_of_account_files=False)
+        account_manager.navigate_to_account_files_and_get_number_of_files(account_id, scroll_to_bottom_of_account_files=False)
 
         # account_manager.navigate_back_to_account_page()
         
