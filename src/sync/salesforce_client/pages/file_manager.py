@@ -27,6 +27,11 @@ class SalesforceFileManager(BasePage):
             initial_count = self.extract_files_count_from_status()
             self.logger.info(f"Initial file count: {initial_count}")
             
+            # If we have a string count like "50+", we know there are at least 50 files
+            if isinstance(initial_count, str) and '+' in initial_count:
+                self.logger.info(f"Found {initial_count} count, not scrolling further")
+                return initial_count
+            
             # Scroll to bottom
             self.logger.info("Scrolling to bottom...")
             self.page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
@@ -36,14 +41,24 @@ class SalesforceFileManager(BasePage):
             new_count = self.extract_files_count_from_status()
             self.logger.info(f"New file count: {new_count}")
             
+            # If we have a string count like "50+", we know there are at least 50 files
+            if isinstance(new_count, str) and '+' in new_count:
+                self.logger.info(f"Found {new_count} count, not scrolling further")
+                return new_count
+            
             # If we have more files, keep scrolling
-            while new_count > initial_count:
+            while isinstance(new_count, int) and isinstance(initial_count, int) and new_count > initial_count:
                 self.logger.info(f"Found more files ({new_count} > {initial_count}), scrolling again...")
                 initial_count = new_count
                 self.page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
                 self.page.wait_for_timeout(2000)  # Wait for content to load
                 new_count = self.extract_files_count_from_status()
                 self.logger.info(f"New file count: {new_count}")
+                
+                # If we get a string count like "50+", stop scrolling
+                if isinstance(new_count, str) and '+' in new_count:
+                    self.logger.info(f"Found {new_count} count, not scrolling further")
+                    return new_count
             
             self.logger.info(f"Final file count: {new_count}")
             return new_count
