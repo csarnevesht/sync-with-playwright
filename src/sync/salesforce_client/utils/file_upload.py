@@ -198,7 +198,7 @@ def upload_account_files(page: Page, account: dict, debug_mode: bool = True, max
 
                             # Navigate to Files page before each upload
                             logging.info("Navigating to Files page...")
-                            num_files = file_manager.navigate_to_account_files_click_on_files_card_to_facilitate_file_operation()
+                            num_files = account_manager.navigate_to_account_files_click_on_files_card_to_facilitate_file_operation()
                             logging.info(f"***Number of files in account: {num_files}")
                             
                             # Update expected items count

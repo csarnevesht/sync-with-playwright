@@ -1033,12 +1033,18 @@ class AccountManager(BasePage):
         self.log_helper.log(self.logger, 'info', f"Current URL: {self.page.url}")
         
         try:
-            file_manager_instance = file_manager.SalesforceFileManager(self.page)
+            # First ensure we're on the account view page
+            if not self.ensure_account_view_page(account_id):
+                self.log_helper.log(self.logger, 'error', "Failed to ensure account view page")
+                self.log_helper.dedent()
+                return -1
 
-            num_files = file_manager_instance.navigate_to_account_files_click_on_files_card_to_facilitate_file_operation()
+            # Navigate to files section
+            num_files = self.navigate_to_account_files_click_on_files_card_to_facilitate_file_operation()
             
-            # Get file count using FileManager
-            num_files = file_manager_instance.extract_files_count_from_status()
+            # # Get file count using FileManager
+            file_manager_instance = file_manager.SalesforceFileManager(self.page)
+            # num_files = file_manager_instance.extract_files_count_from_status()
             self.log_helper.log(self.logger, 'info', f"Initial number of files: {num_files}")
             
             # Scroll to load all files if we see a "50+" count
@@ -1089,10 +1095,7 @@ class AccountManager(BasePage):
             self.log_helper.log(self.logger, 'info', "Navigating to files section")
             self.log_helper.log(self.logger, 'info', f"account_id: {account_id}")
             num_files = self.navigate_to_account_files_and_get_number_of_files(account_id, scroll_to_bottom_of_account_files=True)
-            if num_files == -1:
-                self.log_helper.log(self.logger, 'error', "Failed to navigate to Files")
-                self.log_helper.dedent()
-                return []
+    
                 
             # Use FileManager to get file names
             file_manager_instance = file_manager.SalesforceFileManager(self.page)
@@ -1976,3 +1979,69 @@ class AccountManager(BasePage):
             self._take_screenshot("account-navigation-error")
             self.log_helper.dedent()
             return False
+
+    def navigate_to_account_files_click_on_files_card_to_facilitate_file_operation(self) -> int:
+        """Navigate to the Files page of the current account. Assumes you are already on the account detail page.
+        
+        Returns:
+            int: Number of files found in the account, -1 if there was an error
+        """
+        self.log_helper.log(self.logger, 'info', "****navigate_to_account_files_click_on_files_card_to_facilitate_file_operation")
+        self.log_helper.log(self.logger, 'info', "****Attempting to navigate to Files...")
+        self.log_helper.log(self.logger, 'info', f"Current URL: {self.page.url}")
+        
+        try:
+            # Try the most specific selector first: span[title="Files"]
+            try:
+                self.log_helper.log(self.logger, 'info', "Trying span[title='Files'] selector...")
+                files_span = self.page.wait_for_selector('span[title="Files"]', timeout=10000)
+                if files_span and files_span.is_visible():
+                    # Try to click the parent element (often the tab itself)
+                    parent = files_span.evaluate_handle('el => el.closest("a,button,li,div[role=\'tab\']")')
+                    if parent:
+                        parent.as_element().click()
+                        self.log_helper.log(self.logger, 'info', "Clicked Files card using span[title='Files'] parent.")
+                        
+                        # Verify URL pattern
+                        current_url = self.page.url
+                        self.log_helper.log(self.logger, 'info', f"Current URL after clicking Files tab: {current_url}")
+                        
+                        # Verify URL pattern: Account/{account_id}/related/AttachedContentDocuments/view
+                        if not re.match(r'.*Account/\w+/related/AttachedContentDocuments/view.*', current_url):
+                            raise Exception(f"Not on Files page. Current URL: {current_url}")
+                        
+                        # Extract and store account ID from URL
+                        account_id_match = re.search(r'/Account/(\w+)/related', current_url)
+                        if account_id_match:
+                            account_id = account_id_match.group(1)
+                            self.log_helper.log(self.logger, 'info', f"Extracted account ID from Files page URL: {account_id}")
+                            self.current_account_id = account_id
+                        
+                        # Use the new reusable method
+                        file_manager_instance = file_manager.SalesforceFileManager(self.page)
+                        item_count = file_manager_instance.extract_files_count_from_status()
+                        return item_count
+                    else:
+                        # If no parent found, try clicking the span directly
+                        files_span.click()
+                        self.log_helper.log(self.logger, 'info', "Clicked Files tab using span[title='Files'] directly.")
+                        self.page.wait_for_selector('div.slds-tabs_default__content', timeout=2000)
+                        self.log_helper.log(self.logger, 'info', "Files tab content loaded")
+                        return 0
+            except Exception as e:
+                self.log_helper.log(self.logger, 'info', f"span[title='Files'] selector failed: {str(e)}")
+
+            # If we get here, none of the selectors worked
+            self.log_helper.log(self.logger, 'error', "Could not find Files tab with any of the selectors")
+            
+            # Take a screenshot for debugging
+            self.page.screenshot(path="files-tab-error.png")
+            self.log_helper.log(self.logger, 'info', "Error screenshot saved as files-tab-error.png")
+            return -1
+            
+        except Exception as e:
+            self.log_helper.log(self.logger, 'error', f"Error navigating to Files tab: {str(e)}")
+            # Take a screenshot for debugging
+            self.page.screenshot(path="files-tab-error.png")
+            self.log_helper.log(self.logger, 'info', "Error screenshot saved as files-tab-error.png")
+            return -1
