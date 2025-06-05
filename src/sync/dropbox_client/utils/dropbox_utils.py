@@ -343,21 +343,25 @@ class DropboxClient:
             dropbox_account_info['search_info']['status'] = 'multiple_matches'
 
     def _split_words(self, text: str) -> List[str]:
+        """Split text into words and clean them."""
+        return [word.strip() for word in text.split() if word.strip()]
+
+    def _is_family_pattern_match(self, row_values: List[str], last_name: str) -> bool:
         """
-        Split text into words while removing commas and parentheses.
+        Check if a row matches the pattern of 'last_name Family' or 'Family last_name'.
         
         Args:
-            text (str): The text to split
+            row_values: List of values in the row
+            last_name: Last name to check for
             
         Returns:
-            List[str]: List of cleaned words
+            bool: True if the row matches the family pattern, False otherwise
         """
-        # Remove parentheses and their contents
-        text = re.sub(r'\([^)]*\)', '', text)
-        # Replace comma with space to handle cases with no space after comma
-        text = text.replace(',', ' ')
-        # Split on whitespace and filter out empty strings
-        return [word.strip() for word in text.split() if word.strip()]
+        for value in row_values:
+            value = str(value).lower()
+            if f"{last_name} family" in value or f"family {last_name}" in value:
+                return True
+        return False
 
     def _search_for_matches(self, df: pd.DataFrame, names_to_search: List[str], match_type: str, 
                           dropbox_account_info: Dict[str, Any], expected_matches: List[str], 
@@ -381,18 +385,47 @@ class DropboxClient:
             - Name of the sheet where match was found
             - The matching row (None if no match)
         """
-        logger.info(f"\n=== Searching for {match_type} names: {names_to_search} ===")
+        logger.info(f"\n=== Starting {match_type} name search in sheet: {sheet_name} ===")
+        logger.info(f"Searching for {len(names_to_search)} {match_type} names")
+        
+        # Get the last name from the account info
+        last_name = dropbox_account_info['name_parts'].get('last_name', '').lower()
+        logger.info(f"Using last name: {last_name}")
+        
+        # Initialize match_found to False
+        match_found = False
+        
+        # First check for family pattern matches
+        logger.info("Checking for family pattern matches...")
+        for _, row in df.iterrows():
+            row_values = [str(val) for val in row.values]
+            if self._is_family_pattern_match(row_values, last_name):
+                logger.info(f"  ✓ Found family pattern match in row: {row_values}")
+                match_found = True
+                self._update_match_status(dropbox_account_info, 'family_pattern', f"{last_name} Family", expected_matches, account_name)
+                logger.info(f"  ✓ Updated match status for family pattern match")
+                return pd.DataFrame([row]), match_found, sheet_name, row
+        
+        logger.info("No family pattern matches found, proceeding with name search...")
+        
+        # If no family pattern match, continue with normal search
         for name in names_to_search:
-            logger.info(f"  {match_type}_name: {name}")
+            logger.info(f"\n  Checking {match_type} name: {name}")
             expected_words = self._split_words(name.lower())
-            logger.info(f"expected_words: {expected_words}")
+            logger.info(f"  Split into words: {expected_words}")
+            
             matching_rows = self.search_rows_for_sequential_word_matches(df, expected_words)
             if not matching_rows.empty:
-                logger.info(f"  ***Found {len(matching_rows)} matching rows")
+                logger.info(f"  ✓ Found {len(matching_rows)} matching rows for name: {name}")
                 account_row = matching_rows.iloc[0]
                 match_found = True
                 self._update_match_status(dropbox_account_info, match_type, name, expected_matches, account_name)
+                logger.info(f"  ✓ Updated match status for {match_type} match")
                 return matching_rows, match_found, sheet_name, account_row
+            else:
+                logger.info(f"  ✗ No matches found for name: {name}")
+
+        logger.info(f"=== No {match_type} matches found in sheet: {sheet_name} ===\n")
         return pd.DataFrame(), False, "", None
 
     def _search_for_matches_in_matching_rows(self, matching_rows: pd.DataFrame, names_to_search: List[str], match_type: str, 
@@ -418,6 +451,20 @@ class DropboxClient:
             - The matching row (None if no match)
         """
         logger.info(f"\n=== Searching for {match_type} names in matching rows: {names_to_search} ===")
+        
+        # Get the last name from the account info
+        last_name = dropbox_account_info['name_parts'].get('last_name', '').lower()
+        
+        # First check for family pattern matches
+        for _, row in matching_rows.iterrows():
+            row_values = [str(val) for val in row.values]
+            if self._is_family_pattern_match(row_values, last_name):
+                logger.info(f"  Found family pattern match in row: {row_values}")
+                match_found = True
+                self._update_match_status(dropbox_account_info, 'family_pattern', f"{last_name} Family", expected_matches, account_name)
+                return pd.DataFrame([row]), match_found, sheet_name, row
+        
+        # If no family pattern match, continue with normal search
         for name in names_to_search:
             logger.info(f"  {match_type}_name: {name}")
             expected_words = self._split_words(name.lower())
@@ -589,6 +636,7 @@ class DropboxClient:
                         logger.info(f"No matching rows found for last name: {last_name} in sheet: {sheet_name}, doing more sophisticated search...")
 
                         # Search for expected matches
+                        logger.info(f"Searching for expected matches: {expected_matches}")
                         matching_rows, match_found, match_sheet, account_row = self._search_for_matches(
                             df, expected_matches, 'expected',
                             dropbox_account_info, expected_matches, account_name, sheet_name
@@ -596,7 +644,25 @@ class DropboxClient:
                         if match_found:
                             break
                             
+                        logger.info(f"Searching for reversed expected matches: {expected_matches}")
+                        reversed_expected_matches = []
+                        for name in expected_matches:
+                            logger.info(f"name: {name}")
+                            reversed_name_list = self._split_words(name)[::-1]
+                            reversed_name = ' '.join(reversed_name_list)
+                            logger.info(f"reversed_name: {reversed_name}")
+                            reversed_expected_matches.append(reversed_name)
+                        logger.info(f"reversed_expected_matches: {reversed_expected_matches}")
+
+                        matching_rows, match_found, match_sheet, account_row = self._search_for_matches(
+                            df, reversed_expected_matches, 'expected',
+                            dropbox_account_info, expected_matches, account_name, sheet_name
+                        )
+                        if match_found:
+                            break
+
                         # Search for swapped names
+                        logger.info(f"Searching for swapped names: {dropbox_account_name_parts.get('swapped_names', [])}")
                         matching_rows, match_found, match_sheet, account_row = self._search_for_matches(
                             df, dropbox_account_name_parts.get('swapped_names', []), 'swapped',
                             dropbox_account_info, expected_matches, account_name, sheet_name
@@ -605,6 +671,7 @@ class DropboxClient:
                             break
 
                         # Search for normalized names
+                        logger.info(f"Searching for normalized names: {dropbox_account_name_parts.get('normalized_names', [])}")
                         matching_rows, match_found, match_sheet, account_row = self._search_for_matches(
                             df, dropbox_account_name_parts.get('normalized_names', []), 'normalized',
                             dropbox_account_info, expected_matches, account_name, sheet_name
