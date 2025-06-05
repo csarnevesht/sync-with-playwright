@@ -30,18 +30,28 @@ def _load_special_cases() -> Dict[str, Dict[str, Any]]:
             with open(special_cases_path, 'r') as f:
                 special_cases = json.load(f)
                 
-            # Process each special case to ensure it has both expected matches
-            for case in special_cases.get('special_cases', []):
-                # Get the expected matches
-                expected_salesforce_matches = case.get('expected_salesforce_matches', [])
-                expected_dropbox_matches = case.get('expected_dropbox_matches', [])
-                
-                # Update the case with both expected matches
-                case['expected_salesforce_matches'] = expected_salesforce_matches
-                case['expected_dropbox_matches'] = expected_dropbox_matches
-            
             # Convert the list of special cases to a dictionary keyed by folder_name
-            special_cases_dict = {case['folder_name']: case for case in special_cases.get('special_cases', [])}
+            special_cases_dict = {}
+            for case in special_cases.get('special_cases', []):
+                folder_name = case.get('folder_name')
+                if folder_name:
+                    # Ensure both expected matches lists exist
+                    if 'expected_salesforce_matches' not in case:
+                        case['expected_salesforce_matches'] = []
+                    if 'expected_dropbox_matches' not in case:
+                        case['expected_dropbox_matches'] = []
+                    # Add both the original folder name and the cleaned version (without parentheses)
+                    special_cases_dict[folder_name] = case
+                    cleaned_name = re.sub(r'\([^)]*\)', '', folder_name).strip()
+                    if cleaned_name != folder_name:
+                        special_cases_dict[cleaned_name] = case
+                    # Also add the name with parentheses removed but keeping the content
+                    if '(' in folder_name and ')' in folder_name:
+                        paren_content = folder_name[folder_name.find('(')+1:folder_name.find(')')].strip()
+                        name_without_parens = re.sub(r'\([^)]*\)', '', folder_name).strip()
+                        name_with_content = f"{name_without_parens} {paren_content}"
+                        special_cases_dict[name_with_content] = case
+            
             return special_cases_dict
             
         except Exception as e:
@@ -59,7 +69,15 @@ def _is_special_case(name: str) -> bool:
         bool: True if the name is a special case, False otherwise
     """
     special_cases = _load_special_cases()
-    return name in special_cases
+    # Check both the original name and the cleaned name (without parentheses)
+    cleaned_name = re.sub(r'\([^)]*\)', '', name).strip()
+    # Also check the name with parentheses removed but keeping the content
+    if '(' in name and ')' in name:
+        paren_content = name[name.find('(')+1:name.find(')')].strip()
+        name_without_parens = re.sub(r'\([^)]*\)', '', name).strip()
+        name_with_content = f"{name_without_parens} {paren_content}"
+        return name in special_cases or cleaned_name in special_cases or name_with_content in special_cases
+    return name in special_cases or cleaned_name in special_cases
 
 def _get_special_case_rules(name: str) -> Optional[Dict[str, Any]]:
     """Get the rules for a special case name.
@@ -71,7 +89,17 @@ def _get_special_case_rules(name: str) -> Optional[Dict[str, Any]]:
         Optional[Dict[str, Any]]: The rules for the special case, or None if not found
     """
     special_cases = _load_special_cases()
-    return special_cases.get(name)
+    # Try to get rules for both the original name and the cleaned name
+    rules = special_cases.get(name)
+    if rules is None:
+        cleaned_name = re.sub(r'\([^)]*\)', '', name).strip()
+        rules = special_cases.get(cleaned_name)
+        if rules is None and '(' in name and ')' in name:
+            paren_content = name[name.find('(')+1:name.find(')')].strip()
+            name_without_parens = re.sub(r'\([^)]*\)', '', name).strip()
+            name_with_content = f"{name_without_parens} {paren_content}"
+            rules = special_cases.get(name_with_content)
+    return rules
 
 def extract_name_parts(name: str, log: bool = False) -> Dict[str, Any]:
     """Extract and normalize name components from a full name.
@@ -136,10 +164,10 @@ def extract_name_parts(name: str, log: bool = False) -> Dict[str, Any]:
             logger.info(f"Found special case: {name}")
         rules = _get_special_case_rules(name)
         if rules:
-            result.update(rules)
-            # If expected_dropbox_matches is not specified, use expected_salesforce_matches
-            if 'expected_salesforce_matches' in rules and 'expected_dropbox_matches' not in rules:
-                result['expected_dropbox_matches'] = rules['expected_salesforce_matches']
+            # Update result with all fields from rules
+            for key, value in rules.items():
+                if key not in ['normalized_names', 'swapped_names']:  # Don't overwrite these as they'll be generated
+                    result[key] = value
             if log:
                 logger.info(f"Applied special case rules: {rules}")
             # Don't return early, continue with name normalization
