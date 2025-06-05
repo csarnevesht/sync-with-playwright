@@ -23,7 +23,7 @@ import json
 from .date_utils import has_date_prefix, get_folder_creation_date
 from .path_utils import clean_dropbox_folder_name
 from .file_utils import log_renamed_file
-from src.config import DROPBOX_FOLDER, ACCOUNT_INFO_PATTERN, DRIVERS_LICENSE_PATTERN, DROPBOX_HOLIDAY_FOLDER, DROPBOX_SALESFORCE_FOLDER
+from src.config import DROPBOX_FOLDER, ACCOUNT_INFO_PATTERN, DRIVERS_LICENSE_PATTERN, DROPBOX_HOLIDAY_FOLDER, DROPBOX_SALESFORCE_FOLDER, DROPBOX_HOLIDAY_FILE
 
 # Configure logging
 # Get the logger for this module
@@ -214,11 +214,14 @@ class DropboxClient:
         """Get the configured Dropbox holiday folder path."""
         return self.dropbox_holiday_path
     
-    def get_dropbox_holiday_file(self, holiday_file: str = 'HOLIDAY CLIENT LIST.xlsx') -> Optional[FileMetadata]:
+    def get_dropbox_holiday_file(self, holiday_file: str = None) -> Optional[FileMetadata]:
         """Get the specified holiday file from the holiday folder."""
         if not self.dropbox_holiday_path:
             logging.warning("Dropbox holiday folder path is not set.")
             return None
+            
+        # Use the provided holiday_file or the default from environment
+        holiday_file = holiday_file or DROPBOX_HOLIDAY_FILE
         logging.info(f"Getting holiday file: {holiday_file} from {self.dropbox_holiday_path}")
 
         # Check if we already have the file info cached
@@ -1031,7 +1034,7 @@ class DropboxClient:
             logger.error(f"Error downloading holiday file: {str(e)}")
             return None
 
-    def _process_holiday_file(self, holiday_file: str = 'HOLIDAY CLIENT LIST.xlsx') -> Tuple[Optional[FileMetadata], Optional[str], Optional[pd.ExcelFile], Optional[List[str]]]:
+    def _process_holiday_file(self, holiday_file: str = 'HOLIDAY CLIENT LIST 2025.xlsx') -> Tuple[Optional[FileMetadata], Optional[str], Optional[pd.ExcelFile], Optional[List[str]]]:
         """Process the holiday file by locating, downloading, and reading it.
         
         Args:
