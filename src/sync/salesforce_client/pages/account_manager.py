@@ -1023,7 +1023,7 @@ class AccountManager(BasePage):
             self._take_screenshot("account-navigation-error")
             sys.exit(1) 
 
-    def navigate_to_files_and_get_number_of_account_files(self, account_id: str) -> Union[int, str]:
+    def navigate_to_account_files_and_get_number_of_files(self, account_id: str) -> Union[int, str]:
         """
         Navigate to the Files related list for the given account_id.
         Returns either an integer or a string (e.g. "50+") representing the number of files.
@@ -1035,7 +1035,7 @@ class AccountManager(BasePage):
         try:
             file_manager_instance = file_manager.SalesforceFileManager(self.page)
 
-            num_files = file_manager_instance.navigate_to_files_click_on_files_card_to_facilitate_file_operation()
+            num_files = file_manager_instance.navigate_to_account_files_click_on_files_card_to_facilitate_file_operation()
             # # First try to find and click the Files card
             # files_links = self.page.locator('a.slds-card__header-link.baseCard__header-title-container')
             # found = False
@@ -1121,10 +1121,16 @@ class AccountManager(BasePage):
         
         self.log_helper.indent()
         try:
+            # First ensure we're on the account view page
+            if not self.ensure_account_view_page(account_id):
+                self.log_helper.log(self.logger, 'error', "Failed to ensure account view page")
+                self.log_helper.dedent()
+                return []
+            
             # Navigate to files section
             self.log_helper.log(self.logger, 'info', "Navigating to files section")
             self.log_helper.log(self.logger, 'info', f"account_id: {account_id}")
-            num_files = self.navigate_to_files_and_get_number_of_account_files(account_id)
+            num_files = self.navigate_to_account_files_and_get_number_of_files(account_id)
             if num_files == -1:
                 self.log_helper.log(self.logger, 'error', "Failed to navigate to Files")
                 self.log_helper.dedent()
@@ -1314,7 +1320,7 @@ class AccountManager(BasePage):
         the_condition = condition if condition is not None else self.get_default_condition()
         for account in all_accounts:
             self.log_helper.log(self.logger, 'debug', f"Processing account: {account['name']}")
-            files_count = self.navigate_to_files_and_get_number_of_account_files(account['id'])
+            files_count = self.navigate_to_account_files_and_get_number_of_files(account['id'])
             account['files_count'] = files_count
             processed_accounts.append(account)
             if the_condition(account):
@@ -1367,7 +1373,7 @@ class AccountManager(BasePage):
         """
         Check if the account has files.
         """
-        num_files = self.navigate_to_files_and_get_number_of_account_files(account_id)
+        num_files = self.navigate_to_account_files_and_get_number_of_files(account_id)
         if isinstance(num_files, str):
             # If we have a string like "50+", we know there are files
             self.log_helper.dedent()
@@ -1964,3 +1970,51 @@ class AccountManager(BasePage):
                 'total_partial_matches': 0,
                 'total_no_matches': 1
             }
+
+    def ensure_account_view_page(self, account_id: str) -> bool:
+        """Ensure we are on the account view page for the specified account.
+        
+        Args:
+            account_id: The Salesforce account ID to navigate to
+            
+        Returns:
+            bool: True if successfully on account view page, False otherwise
+        """
+        self.log_helper.log(self.logger, 'info', f"****ensure_account_view_page for account {account_id}")
+        
+        self.log_helper.indent()
+        try:
+            # Check if we're already on the correct account view page
+            current_url = self.page.url
+            expected_url_pattern = f".*Account/{account_id}/view.*"
+            
+            if re.match(expected_url_pattern, current_url):
+                self.log_helper.log(self.logger, 'info', f"Already on account view page for {account_id}")
+                self.log_helper.dedent()
+                return True
+                
+            # If not on the correct page, navigate to it
+            self.log_helper.log(self.logger, 'info', f"Not on account view page, navigating to account {account_id}")
+            account_url = f"{SALESFORCE_URL}/lightning/r/Account/{account_id}/view"
+            self.page.goto(account_url)
+            
+            # Wait for the page to load
+            self.page.wait_for_load_state('networkidle')
+            
+            # Verify we're on the correct page
+            current_url = self.page.url
+            if not re.match(expected_url_pattern, current_url):
+                self.log_helper.log(self.logger, 'error', f"Failed to navigate to account view page. Current URL: {current_url}")
+                self._take_screenshot("account-navigation-error")
+                self.log_helper.dedent()
+                return False
+                
+            self.log_helper.log(self.logger, 'info', f"Successfully navigated to account view page for {account_id}")
+            self.log_helper.dedent()
+            return True
+            
+        except Exception as e:
+            self.log_helper.log(self.logger, 'error', f"Error ensuring account view page: {str(e)}")
+            self._take_screenshot("account-navigation-error")
+            self.log_helper.dedent()
+            return False
