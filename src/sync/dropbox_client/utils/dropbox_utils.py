@@ -652,7 +652,7 @@ class DropboxClient:
                             logger.warning(f"\n=== WARNING: Found rows with last name '{last_name}' but expected_dropbox_matches not working ===")
                             logger.warning(f"Account: {account_name}")
                             logger.warning(f"Sheet: {sheet_name}")
-                            logger.warning(f"Expected matches: {expected_matches}")
+                            logger.warning(f"1 Expected matches: {expected_matches}")
                             logger.warning("Matching rows found:")
                             row_values_list = []
                             for _, row in original_matching_rows.iterrows():
@@ -760,7 +760,7 @@ class DropboxClient:
                     logger.info(f"Account: {account_name}")
                     logger.info(f"Last name searched: {dropbox_account_name_parts.get('last_name', '')}")
                     logger.info(f"Normalized names: {dropbox_account_name_parts.get('normalized_names', [])}")
-                    logger.info(f"Expected matches: {dropbox_account_name_parts.get('expected_dropbox_matches', [])}")
+                    logger.info(f"2 Expected matches: {dropbox_account_name_parts.get('expected_dropbox_matches', [])}")
                     logger.info(f"Found matches: {dropbox_account_info['search_info']['matches']}")
                     logger.info("\nSearch process:")
                     for sheet_name in sheets:
@@ -789,7 +789,7 @@ class DropboxClient:
                     report_logger.info(f"Account: {account_name}")
                     report_logger.info(f"Last name searched: {dropbox_account_name_parts.get('last_name', '')}")
                     report_logger.info(f"Normalized names: {dropbox_account_name_parts.get('normalized_names', [])}")
-                    report_logger.info(f"Expected matches: {dropbox_account_name_parts.get('expected_dropbox_matches', [])}")
+                    report_logger.info(f"3 Expected matches: {dropbox_account_name_parts.get('expected_dropbox_matches', [])}")
                     report_logger.info(f"Found matches: {dropbox_account_info['search_info']['matches']}")
                     report_logger.info("=== END NO MATCH EXPLANATION ===\n")
 
