@@ -889,8 +889,8 @@ def format_summary_line(dropbox_folder_name, salesforce_info, dropbox_info):
     salesforce_account_name = salesforce_info.get('account_name', '--')
     salesforce_match = salesforce_info.get('match', '--')
     salesforce_view = salesforce_info.get('view', '--')
-    dropbox_icon = '📄' if dropbox_account_match == 'Exact Match' else '🟠'
-    salesforce_icon = '👤' if salesforce_match == 'Exact Match' else '🟠'
+    dropbox_icon = '📄' if dropbox_account_match == 'Exact Match' else '🔴'
+    salesforce_icon = '👤' if salesforce_match == 'Exact Match' else '🔴'
     return (f"📁 **Dropbox Folder** Name: {dropbox_folder_name}, "
             f"{dropbox_icon} Dropbox Name: {dropbox_account_search_name}, "
             f"Dropbox Match: {dropbox_account_match}, "
