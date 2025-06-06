@@ -635,7 +635,14 @@ def run_command(args):
                 salesforce_view = result.get('view', '--')
 
                 if args.dropbox_account_info:
-                    dropbox_account_search_name = dropbox_account_info['account_data'].get('Name', '--') if 'account_data' in dropbox_account_info else '--'
+                    # Use the same logic as summary for 'Name found'
+                    account_data = dropbox_account_info.get('search_info', {}).get('account_data', {}) if 'search_info' in dropbox_account_info else {}
+                    if account_data:
+                        dropbox_account_search_name = account_data.get('name') or (
+                            (account_data.get('first_name', '').strip() + ' ' + account_data.get('last_name', '').strip()).strip()
+                        ) or dropbox_folder_name or '--'
+                    else:
+                        dropbox_account_search_name = dropbox_folder_name or '--'
                     dropbox_account_match = dropbox_account_info['search_info']['match_info']['match_status'] if 'search_info' in dropbox_account_info else 'No match found'
                     log_block = f"""
 📁 **Dropbox Folder**
