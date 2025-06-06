@@ -56,6 +56,41 @@ Output:
     - Summary table showing Dropbox account names and their Salesforce matches
     - File migration status with date prefix compliance
     - Clear indication of accounts and files that need attention
+
+RESULTS DICTIONARY STRUCTURE:
+----------------------------
+The 'results' dictionary maps each Dropbox folder name (str) to a dictionary containing the Salesforce search results for that account. Example structure:
+
+results = {
+    'Montesino, Maria': {
+        'matches': [<list of matched Salesforce account names>],
+        'match_info': {
+            'match_status': 'Exact Match' | 'No Match' | ...,
+            ...
+        },
+        'view': <Salesforce view name>,
+        'status': <status string>,
+        'search_info': {
+            'account_data': {
+                'name': <Dropbox account name>,
+                'first_name': <first name>,
+                'last_name': <last name>,
+                ... (other fields from Dropbox account info)
+            },
+            ...
+        },
+        ... (other keys, e.g., 'expected_salesforce_matches', 'file_comparison', etc.)
+    },
+    ...
+}
+
+Each value is a dictionary (the Salesforce search result) with at least:
+- 'matches': list of Salesforce account names matched
+- 'match_info': dict with at least 'match_status' (e.g., 'Exact Match', 'No Match')
+- 'view': Salesforce view name (e.g., 'All Clients')
+- 'status': status string for the search
+- 'search_info': dict with Dropbox account info, including 'account_data' (fields like name, first_name, last_name, etc.)
+- (other keys may be present depending on the run options)
 """
 
 import os
@@ -571,14 +606,9 @@ def run_command(args):
                     # Always get account info since it's needed for commands
                     logger.info(f"Getting info for Dropbox account: {dropbox_account_folder_name}")
                     try:
-                        dropbox_search_results = dropbox_client.dropbox_search(dropbox_account_folder_name, dropbox_account_name_parts, excel_file)
-                        logger.info(f'dropbox_account_info: {dropbox_search_results}')
+                        dropbox_search_results = dropbox_client.dropbox_search_account(dropbox_account_folder_name, dropbox_account_name_parts, excel_file)
+                        logger.info(f'dropbox_search_results: {dropbox_search_results}')
                         logger.info(f"Successfully retrieved info for Dropbox account: {dropbox_account_folder_name}")
-                        # report_logger.info(f"\n📄 **Dropbox Account Search** (Results: '{dropbox_account_folder_name}' match:[{dropbox_account_info['search_info']['match_info']['match_status']}])")
-                        # if args.dropbox_account_info:
-                        #     account_data = dropbox_account_info['account_data']
-                        #     for key, value in account_data.items():
-                        #         report_logger.info(f"   + {key}: {value}")
                         
                         if command_runner:
                             command_runner.set_data('dropbox_account_info', dropbox_search_results)
@@ -722,6 +752,7 @@ def run_command(args):
                     'match_info': salesforce_search_result['match_info'] if account_manager else {'match_status': 'no_salesforce'},
                     'view': salesforce_search_result['view'] if account_manager else 'no_salesforce'
                 }
+                # CAROLINA HERE
                 summary_results.append(summary)
                 if account_manager:
                     salesforce_search_result['summary'] = summary
