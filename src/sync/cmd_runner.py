@@ -574,11 +574,11 @@ def run_command(args):
                         dropbox_account_info = dropbox_client.search_for_dropbox_account_info(dropbox_account_folder_name, dropbox_account_name_parts, excel_file)
                         logger.info(f'dropbox_account_info: {dropbox_account_info}')
                         logger.info(f"Successfully retrieved info for Dropbox account: {dropbox_account_folder_name}")
-                        report_logger.info(f"\n📄 Dropbox Account Search Results: '{dropbox_account_folder_name}' match:[{dropbox_account_info['search_info']['match_info']['match_status']}]")
-                        if args.dropbox_account_info:
-                            account_data = dropbox_account_info['account_data']
-                            for key, value in account_data.items():
-                                report_logger.info(f"   + {key}: {value}")
+                        # report_logger.info(f"\n📄 **Dropbox Account Search** (Results: '{dropbox_account_folder_name}' match:[{dropbox_account_info['search_info']['match_info']['match_status']}])")
+                        # if args.dropbox_account_info:
+                        #     account_data = dropbox_account_info['account_data']
+                        #     for key, value in account_data.items():
+                        #         report_logger.info(f"   + {key}: {value}")
                         
                         if command_runner:
                             command_runner.set_data('dropbox_account_info', dropbox_account_info)
@@ -648,19 +648,16 @@ def run_command(args):
 📁 **Dropbox Folder**
    - Name: {dropbox_folder_name}
    
-📄 **Dropbox Account Search**
-   - Name found: {dropbox_account_search_name}
-   - Match: {dropbox_account_match}
-
-👤 **Salesforce Account Search**
-   - Name found: {salesforce_account_name}
-   - Match: {salesforce_match}
-   - View: {salesforce_view}
+📄 **Dropbox Account Search** 
 """
+                if args.dropbox_account_info:
+                    account_data = dropbox_account_info['account_data']
+                    for key, value in account_data.items():
+                        log_block += f"   + {key}: {value}\n"
+                    log_block += "\n"
+                    log_block += f"👤 **Salesforce Account Search**\n   - Name found: {salesforce_account_name}\n   - Match: {salesforce_match}\n   - View: {salesforce_view}\n"
                 else:
                     log_block = f"""
-📁 **Dropbox Folder**
-   - Name: {dropbox_folder_name}
    
 👤 **Salesforce Account Search**
    - Name found: {salesforce_account_name}
