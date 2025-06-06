@@ -55,4 +55,4 @@ class Salesforce:
         
     def fuzzy_search_account(self, folder_name: str, view_name: str = "All Clients") -> dict:
         """Perform a fuzzy search for an account."""
-        return self.account_manager.fuzzy_search_account(folder_name, view_name) 
+        return self.account_manager.salesforce_search_account(folder_name, view_name) 

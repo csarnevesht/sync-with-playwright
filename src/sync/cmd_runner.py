@@ -622,10 +622,10 @@ def run_command(args):
 
                 logger.info('step: Salesforce Search Account')
                 # Perform fuzzy search
-                result = account_manager.fuzzy_search_account(dropbox_account_folder_name, view_name, dropbox_account_name_parts=dropbox_account_name_parts)
+                result = account_manager.salesforce_search_account(dropbox_account_folder_name, view_name, dropbox_account_name_parts=dropbox_account_name_parts)
                 results[dropbox_account_folder_name] = result
 
-                logger.info(f"*** result: {result}")
+                logger.debug(f"*** salesforce search result: {result}")
 
                 report_logger.info(f"\nDropbox account folder name: {dropbox_account_folder_name} match:[{result['match_info']['match_status']}] view:[{result['view']}]")
                 for match in result['matches']:
@@ -633,7 +633,6 @@ def run_command(args):
 
                 # Get Salesforce files if requested and account was found
                 salesforce_account_file_names = []
-                # logger.info(f"*** result: {result}")
                 salesforce_matches  = result['matches']
                 logger.info(f"*** salesforce_matches: {salesforce_matches}")
                 if args.salesforce_account_files and salesforce_matches and len(salesforce_matches) > 0 and salesforce_matches  != "--":
@@ -702,7 +701,7 @@ def run_command(args):
                 report_logger.info("\n=== SALESFORCE ACCOUNT MATCHES ===")
             for dropbox_account_folder_name, result in results.items():
                 logger.info(f"*** folder_name: {dropbox_account_folder_name}")
-                logger.debug(f"*** result: {result}")
+                logger.debug(f"*** salesforce search result: {result}")
                                 
                 report_logger.info(f"\nDropbox account folder name: {dropbox_account_folder_name} match:[{result['match_info']['match_status']}] view:[{result['view']}]")
                 for match in result['matches']:
