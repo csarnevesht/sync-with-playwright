@@ -574,7 +574,7 @@ def run_command(args):
                         dropbox_account_info = dropbox_client.search_for_dropbox_account_info(dropbox_account_folder_name, dropbox_account_name_parts, excel_file)
                         logger.info(f'dropbox_account_info: {dropbox_account_info}')
                         logger.info(f"Successfully retrieved info for Dropbox account: {dropbox_account_folder_name}")
-                        report_logger.info(f"\n👤 Dropbox Account Search Results: '{dropbox_account_folder_name}' match:[{dropbox_account_info['search_info']['match_info']['match_status']}]")
+                        report_logger.info(f"\n📄 Dropbox Account Search Results: '{dropbox_account_folder_name}' match:[{dropbox_account_info['search_info']['match_info']['match_status']}]")
                         if args.dropbox_account_info:
                             account_data = dropbox_account_info['account_data']
                             for key, value in account_data.items():
@@ -635,19 +635,32 @@ def run_command(args):
                 salesforce_view = result.get('view', '--')
 
                 if args.dropbox_account_info:
-                    account_data = result.get('search_info', {}).get('account_data', {})
-                    if account_data:
-                        dropbox_account_search_name = account_data.get('name') or (
-                            (account_data.get('first_name', '').strip() + ' ' + account_data.get('last_name', '').strip()).strip()
-                        ) or dropbox_folder_name or '--'
-                    else:
-                        dropbox_account_search_name = dropbox_folder_name or '--'
-                    dropbox_account_match = result['match_info']['match_status'] if 'match_info' in result else 'No match found'
-                    summary_line = f"📁 **Dropbox Folder** Name: {dropbox_folder_name}, Dropbox Name: {dropbox_account_search_name}, Dropbox Match: {dropbox_account_match}, Salesforce Account: {salesforce_account_name}, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
-                    report_logger.info(summary_line)
+                    dropbox_account_search_name = dropbox_account_info['account_data'].get('Name', '--') if 'account_data' in dropbox_account_info else '--'
+                    dropbox_account_match = dropbox_account_info['search_info']['match_info']['match_status'] if 'search_info' in dropbox_account_info else 'No match found'
+                    log_block = f"""
+📁 **Dropbox Folder**
+   - Name: {dropbox_folder_name}
+   
+📄 **Dropbox Account Search**
+   - Name found: {dropbox_account_search_name}
+   - Match: {dropbox_account_match}
+
+👤 **Salesforce Account Search**
+   - Name found: {salesforce_account_name}
+   - Match: {salesforce_match}
+   - View: {salesforce_view}
+"""
                 else:
-                    summary_line = f"📁 **Dropbox Folder** Name: {dropbox_folder_name}, Salesforce Account: {salesforce_account_name}, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
-                    report_logger.info(summary_line)
+                    log_block = f"""
+📁 **Dropbox Folder**
+   - Name: {dropbox_folder_name}
+   
+👤 **Salesforce Account Search**
+   - Name found: {salesforce_account_name}
+   - Match: {salesforce_match}
+   - View: {salesforce_view}
+"""
+                report_logger.info(log_block)
                 # --- END: New grouped logging ---
 
                 # Get Salesforce files if requested and account was found
@@ -793,10 +806,13 @@ def run_command(args):
                     else:
                         dropbox_account_search_name = dropbox_folder_name or '--'
                     dropbox_account_match = result['match_info']['match_status'] if 'match_info' in result else 'No match found'
-                    summary_line = f"📁 **Dropbox Folder** Name: {dropbox_folder_name}, Dropbox Name: {dropbox_account_search_name}, Dropbox Match: {dropbox_account_match}, Salesforce Account: {salesforce_account_name}, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
+                    dropbox_icon = '📄' if dropbox_account_match == 'Exact Match' else '🟠'
+                    salesforce_icon = '👤' if salesforce_match == 'Exact Match' else '🟠'
+                    summary_line = f"📁 **Dropbox Folder** Name: {dropbox_folder_name}, {dropbox_icon} Dropbox Name: {dropbox_account_search_name}, Dropbox Match: {dropbox_account_match}, {salesforce_icon} Salesforce Account: {salesforce_account_name}, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
                     report_logger.info(summary_line)
                 else:
-                    summary_line = f"📁 **Dropbox Folder** Name: {dropbox_folder_name}, Salesforce Account: {salesforce_account_name}, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
+                    salesforce_icon = '👤' if salesforce_match == 'Exact Match' else '🟠'
+                    summary_line = f"📁 **Dropbox Folder** Name: {dropbox_folder_name}, {salesforce_icon} Salesforce Account: {salesforce_account_name}, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
                     report_logger.info(summary_line)
 
                 # Show file summary if available
