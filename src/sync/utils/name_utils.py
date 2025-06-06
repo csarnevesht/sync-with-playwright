@@ -70,7 +70,7 @@ def _is_special_case(name: str) -> bool:
     
     logger = logging.getLogger('name_utils')
     logger.debug(f"[DEBUG] _is_special_case: normalized_name='{normalized_name}', cleaned_name='{cleaned_name}'")
-    logger.debug(f"[DEBUG] _is_special_case: special_cases keys={list(special_cases.keys())}")
+    # logger.debug(f"[DEBUG] _is_special_case: special_cases keys={list(special_cases.keys())}")
     
     # Check if the name (with or without parentheses) is in special cases
     found = normalized_name in special_cases or cleaned_name in special_cases
@@ -98,7 +98,7 @@ def _get_special_case_rules(name: str) -> Optional[Dict[str, Any]]:
     normalized_name = ' '.join(name.split())
     logger = logging.getLogger('name_utils')
     logger.debug(f"[DEBUG] _get_special_case_rules: normalized_name='{normalized_name}'")
-    logger.debug(f"[DEBUG] _get_special_case_rules: special_cases keys={list(special_cases.keys())}")
+    # logger.debug(f"[DEBUG] _get_special_case_rules: special_cases keys={list(special_cases.keys())}")
     
     # First try exact match
     rules = special_cases.get(normalized_name)
@@ -397,8 +397,8 @@ def extract_name_parts(name: str, log: bool = False) -> Dict[str, Any]:
             f"{result['last_name']} {result['first_name']}"
         ]
     
-    if log:
-        logger.info(f"Final result: {result}")
+    # if log:
+    #     logger.info(f"Final result: {result}")
     
     return result
 
