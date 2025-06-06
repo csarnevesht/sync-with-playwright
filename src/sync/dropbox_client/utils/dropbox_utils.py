@@ -510,7 +510,7 @@ class DropboxClient:
         
         return pd.DataFrame(), False, "", None
 
-    def dropbox_search(self, account_name: str, dropbox_account_name_parts: Dict[str, Any], excel_file: pd.ExcelFile = None) -> Dict[str, Any]:
+    def dropbox_search_account(self, account_name: str, dropbox_account_name_parts: Dict[str, Any], excel_file: pd.ExcelFile = None) -> Dict[str, Any]:
         """Get account information from the holiday Excel file.
         
         This method:
