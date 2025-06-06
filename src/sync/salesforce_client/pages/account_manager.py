@@ -1827,7 +1827,7 @@ class AccountManager(BasePage):
 
                 self.logger.info(f"\nDropbox account folder name: {folder_name} status:[{result['status']}] match:[{result['match_info']['match_status']}] view:[{result['view']}]")
                 for match in result['matches']:
-                    self.logger.info(f"  Salesforce account name: {match}")
+                    self.logger.info(f"  👤 Salesforce Account Search Results: {match}")
                 
                 # Add timing information
                 result['timing'] = {

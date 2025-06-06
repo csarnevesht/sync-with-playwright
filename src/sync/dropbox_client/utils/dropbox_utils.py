@@ -759,7 +759,7 @@ class DropboxClient:
                 # If no match found, log detailed explanation
                 if not dropbox_account_info['account_data']:
                     # Log to analyzer.log
-                    logger.info("\n*=== DROPBOX - NO MATCH EXPLANATION ===")
+                    logger.info("\n*=== DROPBOX SEARCH - NO MATCH EXPLANATION ===")
                     logger.info(f"Account: {account_name}")
                     logger.info(f"Last name searched: {dropbox_account_name_parts.get('last_name', '')}")
                     logger.info(f"Normalized names: {dropbox_account_name_parts.get('normalized_names', [])}")
@@ -788,7 +788,7 @@ class DropboxClient:
 
                     # Log to report.log (without the detailed search process)
                     report_logger = logging.getLogger('report')
-                    report_logger.info("\n=== NO MATCH EXPLANATION ===")
+                    report_logger.info("\n=== DROPBOX SEARCH - NO MATCH EXPLANATION ===")
                     report_logger.info(f"Account: {account_name}")
                     report_logger.info(f"Last name searched: {dropbox_account_name_parts.get('last_name', '')}")
                     report_logger.info(f"Normalized names: {dropbox_account_name_parts.get('normalized_names', [])}")

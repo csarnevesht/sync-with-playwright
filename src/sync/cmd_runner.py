@@ -574,7 +574,7 @@ def run_command(args):
                         dropbox_account_info = dropbox_client.search_for_dropbox_account_info(dropbox_account_folder_name, dropbox_account_name_parts, excel_file)
                         logger.info(f'dropbox_account_info: {dropbox_account_info}')
                         logger.info(f"Successfully retrieved info for Dropbox account: {dropbox_account_folder_name}")
-                        report_logger.info(f"\n👤 Dropbox Account Data: '{dropbox_account_folder_name}' match: [{dropbox_account_info['search_info']['match_info']['match_status']}]")
+                        report_logger.info(f"\n👤 Dropbox Account Search Results: '{dropbox_account_folder_name}' match:[{dropbox_account_info['search_info']['match_info']['match_status']}]")
                         if args.dropbox_account_info:
                             account_data = dropbox_account_info['account_data']
                             for key, value in account_data.items():
@@ -629,7 +629,7 @@ def run_command(args):
 
                 report_logger.info(f"\nDropbox account folder name: {dropbox_account_folder_name} match:[{result['match_info']['match_status']}] view:[{result['view']}]")
                 for match in result['matches']:
-                    report_logger.info(f"  Salesforce account name: {match}")
+                    report_logger.info(f" 👤 Salesforce Account Search Results:: {match}")
 
                 # Get Salesforce files if requested and account was found
                 salesforce_account_file_names = []
@@ -763,7 +763,7 @@ def run_command(args):
                 dropbox_account_folder_name = result['dropbox_name']
                 report_logger.info(f"\n[Summary] Dropbox account folder name: {dropbox_account_folder_name} match:[{result['match_info']['match_status']}] view:[{result['view']}]")
                 for match in result['matches']:
-                    report_logger.info(f"  Salesforce account name: {match}")
+                    report_logger.info(f"  👤 Salesforce Account Search Results: {match}")
                 match_info = result['match_info']
                 total_exact_matches += match_info['total_exact_matches']
                 total_partial_matches += match_info['total_partial_matches']
