@@ -178,17 +178,6 @@ class DropboxClient:
                 print(f"  + {file.name} (will be processed)")
 
         return files_to_process
-        
-
-    def get_dropbox_accounts(self) -> List[dropbox.files.FolderMetadata]:
-        """Get all account folders under the root folder."""
-        try:
-            entries = list_dropbox_folder_contents(self.dbx,self.root_folder)
-            all_account_folders = [entry.name for entry in entries if isinstance(entry, dropbox.files.FolderMetadata)]
-            return all_account_folders
-        except Exception as e:
-            print(f"Error getting account folders: {e}")
-            return []
             
 
     def get_dropbox_account_names(self) -> List[str]:

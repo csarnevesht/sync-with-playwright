@@ -962,7 +962,7 @@ class AccountManager(BasePage):
             self._take_screenshot("account-creation-error")
             sys.exit(1)
             
-    def _get_status_message(self) -> Optional[str]:
+    def deprecated_get_status_message(self) -> Optional[str]:
         """Get the status message from the page."""
         try:
             status_element = self.page.locator('span.countSortedByFilteredBy, span.slds-text-body_small, div.slds-text-body_small, span[class*="count"]').first
@@ -972,7 +972,7 @@ class AccountManager(BasePage):
             pass
         return None
         
-    def _extract_account_id(self, url: str) -> Optional[str]:
+    def deprecated_extract_account_id(self, url: str) -> Optional[str]:
         """Extract the account ID from the URL."""
         match = re.search(r'/Account/([^/]+)/view', url)
         return match.group(1) if match else None
@@ -1885,7 +1885,7 @@ class AccountManager(BasePage):
             self.log_helper.dedent()
             return []
 
-    def search_by_full_name(self, full_name: str) -> List[str]:
+    def deprecated_search_by_full_name(self, full_name: str) -> List[str]:
         self.log_helper.indent()
         try:
             self.log_helper.log(self.logger, 'info', f"INFO: search_by_full_name ***searching for full name: {full_name}")
