@@ -49,3 +49,4 @@ account_folders.txt
 accounts/**
 output.log*
 temp_downloads/**
+special_cases.txt
