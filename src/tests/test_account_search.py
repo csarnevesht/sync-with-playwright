@@ -26,9 +26,9 @@ from datetime import datetime
 import shutil
 import tempfile
 from sync.salesforce_client.pages.account_manager import AccountManager
-from sync.salesforce_client.pages.file_manager import FileManager
+from sync.salesforce_client.pages.file_manager import SalesforceFileManager
 from sync.salesforce_client.utils.browser import get_salesforce_page
-from sync.salesforce_client.utils.file_upload import upload_files_for_account
+from sync.salesforce_client.utils.file_upload import upload_account_files
 from sync.salesforce_client.utils.mock_data import get_mock_accounts
 from src.config import *
 
@@ -64,7 +64,7 @@ def test_search_account(browser: Browser, page: Page):
         
         # Initialize managers
         account_manager = AccountManager(page, debug_mode=True)
-        file_manager = FileManager(page, debug_mode=True)
+        file_manager = SalesforceFileManager(page, debug_mode=True)
         
         # Check if account exists and get search result
         account_exists = account_manager.account_exists(account_name, view_name=VIEW_NAME)
@@ -113,12 +113,12 @@ def test_search_account(browser: Browser, page: Page):
             mock = next((a for a in mock_accounts if f"{a['first_name']} {a['last_name']}" == account_name), None)
             if mock and mock.get('files'):
                 logging.info(f"Uploading files for newly created account: {account_name}")
-                upload_success = upload_files_for_account(page, mock, debug_mode=True)
+                upload_success = upload_account_files(page, mock, debug_mode=True)
                 assert upload_success, f"Failed to upload files for account: {account_name}"
         
         # Navigate to files and get count
         logging.info(f"Navigating to files for account {account_name}")
-        num_files = account_manager.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
+        num_files = account_manager.navigate_to_account_files_and_get_number_of_files(account_id)
         
         if num_files == -1:
             logging.error("Failed to navigate to files page")

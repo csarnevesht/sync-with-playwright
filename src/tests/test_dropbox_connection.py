@@ -22,19 +22,17 @@ import json
 from datetime import datetime
 import shutil
 import tempfile
-from src.sync.dropbox_client.utils.path_utils import clean_dropbox_path
+import dropbox
+from dropbox.exceptions import ApiError
+from src.sync.dropbox_client.utils.path_utils import clean_dropbox_folder_name
 from src.sync.dropbox_client.utils.dropbox_utils import (
-    DropboxClient,
     get_access_token,
     get_DROPBOX_FOLDER,
-    clean_dropbox_path,
-    list_folder_contents
 )
-from dropbox.exceptions import ApiError
 from dotenv import load_dotenv
 import argparse
-from dropbox_client.utils.path_utils import clean_dropbox_path
-from dropbox_client.utils.dropbox_utils import (
+from src.sync.dropbox_client.utils.path_utils import clean_dropbox_folder_name
+from src.sync.dropbox_client.utils.dropbox_utils import (
     get_access_token,
     get_DROPBOX_FOLDER,
     update_env_file

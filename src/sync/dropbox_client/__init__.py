@@ -9,13 +9,13 @@ This package provides utilities for interacting with Dropbox, including:
 """
 
 from .utils.dropbox_utils import DropboxClient
-from .utils.path_utils import clean_dropbox_path
+from .utils.path_utils import clean_dropbox_folder_name
 from .utils.account_utils import read_accounts_folders, read_ignored_folders
 from .utils.date_utils import has_date_prefix
 
 __all__ = [
     'DropboxClient',
-    'clean_dropbox_path',
+    'clean_dropbox_folder_name',
     'read_accounts_folders',
     'read_ignored_folders',
     'has_date_prefix'

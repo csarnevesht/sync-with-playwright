@@ -11,7 +11,7 @@ from src.config import SALESFORCE_URL
 from .pages.account_manager import AccountManager
 from .utils.browser import get_salesforce_page
 from .utils.mock_data import get_mock_accounts
-from .utils.file_upload import upload_files_for_account
+from .utils.file_upload import upload_account_files
 
 class Salesforce:
     """Main class for Salesforce operations."""
@@ -55,4 +55,4 @@ class Salesforce:
         
     def fuzzy_search_account(self, folder_name: str, view_name: str = "All Clients") -> dict:
         """Perform a fuzzy search for an account."""
-        return self.account_manager.fuzzy_search_account(folder_name, view_name) 
+        return self.account_manager.salesforce_search_account(folder_name, view_name) 

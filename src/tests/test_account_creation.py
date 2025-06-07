@@ -32,9 +32,9 @@ from datetime import datetime
 import shutil
 import tempfile
 from sync.salesforce_client.pages.account_manager import AccountManager
-from sync.salesforce_client.pages.file_manager import FileManager
+from sync.salesforce_client.pages.file_manager import SalesforceFileManager
 from sync.salesforce_client.utils.browser import get_salesforce_page
-from sync.salesforce_client.utils.file_upload import upload_files_for_account
+from sync.salesforce_client.utils.file_upload import upload_account_files
 from sync.salesforce_client.utils.mock_data import get_mock_accounts
 from playwright.sync_api import sync_playwright, TimeoutError
 from src.config import *
@@ -118,7 +118,7 @@ def get_full_name(account: dict) -> str:
     logger.debug(f"Generated full name: '{full_name}' from parts: {name_parts}")
     return full_name
 
-def verify_account_and_files(account_manager: AccountManager, file_manager: FileManager, account: dict, view_name: str = "FinServ__My_Clients") -> bool:
+def verify_account_and_files(account_manager: AccountManager, file_manager: SalesforceFileManager, account: dict, view_name: str = "FinServ__My_Clients") -> bool:
     """
     Verify that an account exists and has the expected number of files.
     
@@ -160,7 +160,7 @@ def verify_account_and_files(account_manager: AccountManager, file_manager: File
     
     # Navigate to Files and get count
     logger.debug(f"Navigating to Files for account {account_id}")
-    num_files = account_manager.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
+    num_files = account_manager.navigate_to_account_files_and_get_number_of_files(account_id, scroll_to_bottom_of_account_files=True)
     if num_files == -1:
         logger.error("Failed to navigate to Files")
         return False
@@ -188,7 +188,7 @@ def verify_account_and_files(account_manager: AccountManager, file_manager: File
     for file in account.get('files', []):
         logger.debug(f"Searching for file: {file['name']}")
         logger.debug(f"File data: {file}")
-        if not file_manager.search_file(file['name']):
+        if not file_manager.search_salesforce_file(file['name']):
             logger.error(f"File not found: {file['name']}")
             return False
             
@@ -219,7 +219,7 @@ def test_account_creation(browser: Browser, page: Page):
         # Initialize managers
         logger.debug("Initializing AccountManager and FileManager")
         account_manager = AccountManager(page, debug_mode=True)
-        file_manager = FileManager(page, debug_mode=True)
+        file_manager = SalesforceFileManager(page, debug_mode=True)
         
         # Set view name for all operations
         view_name = "FinServ__My_Clients"
@@ -258,7 +258,7 @@ def test_account_creation(browser: Browser, page: Page):
                     # Upload files for existing account
                     logger.info(f"Uploading files for existing account: {full_name}")
                     logger.debug(f"Account files to upload: {account.get('files', [])}")
-                    upload_success = upload_files_for_account(page, account, debug_mode=True)
+                    upload_success = upload_account_files(page, account, debug_mode=True)
                     if not upload_success:
                         logger.error(f"Failed to upload files for account: {full_name}")
                         continue
@@ -284,7 +284,7 @@ def test_account_creation(browser: Browser, page: Page):
                     # Upload files for new account
                     logger.info(f"Uploading files for new account: {full_name}")
                     logger.debug(f"Account files to upload: {account.get('files', [])}")
-                    upload_success = upload_files_for_account(page, account, debug_mode=True)
+                    upload_success = upload_account_files(page, account, debug_mode=True)
                     if not upload_success:
                         logger.error(f"Failed to upload files for account: {full_name}")
                         continue

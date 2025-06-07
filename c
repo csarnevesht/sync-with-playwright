@@ -152,10 +152,15 @@ else:
 
 # Function to run a command
 run_command() {
-    echo -e "\n${YELLOW}Run Command${NC}"
-    echo "-------------------------------------"
-    echo -n "Enter command number: "
-    read cmd_num
+    local cmd_num="$1"
+    
+    # If no argument provided, prompt for command number
+    if [ -z "$cmd_num" ]; then
+        echo -e "\n${YELLOW}Run Command${NC}"
+        echo "-------------------------------------"
+        echo -n "Enter command number: "
+        read cmd_num
+    fi
     
     # Get the command from commands.json
     cmd=$(python3 -c "
@@ -193,16 +198,27 @@ else:
         echo -e "\n${RED}Error: Invalid command number${NC}"
     fi
     
-    echo "-------------------------------------"
-    echo -n "Press Enter to continue..."
-    read
+    # Only show the "Press Enter to continue" prompt if we're in interactive mode
+    if [ -z "$1" ]; then
+        echo "-------------------------------------"
+        echo -n "Press Enter to continue..."
+        read
+    fi
 }
 
 # Main loop
 while true; do
     show_menu
-    read choice
-    choice=$(echo "$choice" | tr '[:upper:]' '[:lower:]')  # Convert to lowercase
+    read -r choice arg  # Read both choice and potential argument
+    
+    # Convert choice to lowercase
+    choice=$(echo "$choice" | tr '[:upper:]' '[:lower:]')
+    
+    # If choice is 'r' or '5' and an argument was provided, run the command
+    if [[ $choice =~ ^[5r]$ ]] && [ ! -z "$arg" ]; then
+        run_command "$arg"
+        continue
+    fi
     
     case $choice in
         1|a)

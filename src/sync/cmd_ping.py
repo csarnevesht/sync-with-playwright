@@ -8,7 +8,7 @@ from src.sync.salesforce_client.utils.browser import get_salesforce_page
 from src.sync.salesforce_client.pages.account_manager import AccountManager
 from dropbox.exceptions import ApiError
 from dotenv import load_dotenv
-from src.sync.dropbox_client.utils.path_utils import clean_dropbox_path
+from src.sync.dropbox_client.utils.path_utils import clean_dropbox_folder_name
 
 # Configure logging
 logging.basicConfig(
@@ -77,7 +77,7 @@ def ping_dropbox(token: str) -> bool:
         dropbox_path = get_DROPBOX_FOLDER()
         
         # Clean and format the path
-        dropbox_path = clean_dropbox_path(dropbox_path)
+        dropbox_path = clean_dropbox_folder_name(dropbox_path)
         
         # Initialize Dropbox client
         dbx = DropboxClient(token, debug_mode=False)

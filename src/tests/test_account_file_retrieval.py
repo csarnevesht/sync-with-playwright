@@ -30,7 +30,7 @@ from datetime import datetime
 import shutil
 import tempfile
 from src.sync.salesforce_client.pages.account_manager import AccountManager
-from src.sync.salesforce_client.pages.file_manager import FileManager
+from src.sync.salesforce_client.pages.file_manager import SalesforceFileManager
 from src.sync.salesforce_client.utils.browser import get_salesforce_page
 from src.sync.salesforce_client.utils.file_utils import get_file_type
 from src.config import *
@@ -74,7 +74,7 @@ def test_account_file_retrieval(browser, page):
     try:
         # Initialize managers
         account_manager = AccountManager(page, debug_mode=True)
-        file_manager = FileManager(page, debug_mode=True)
+        file_manager = SalesforceFileManager(page, debug_mode=True)
         
         # Search for account
         account_name = "Beth Albert"
@@ -100,14 +100,13 @@ def test_account_file_retrieval(browser, page):
         
         # Navigate to files section
         logging.info("Navigating to files section")
-        num_files = account_manager.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
-        if num_files == -1:
-            logging.error("Failed to navigate to Files")
-            return
+        account_manager.navigate_to_account_files_and_get_number_of_files(account_id, scroll_to_bottom_of_account_files=False)
+
+        # account_manager.navigate_back_to_account_page()
         
         # Get all file names
         logging.info("Getting all file names for this account")
-        files = account_manager.get_all_file_names_for_account(account_id)
+        files = account_manager.get_salesforce_account_file_names(account_id)
         
         # Display results
         logging.info("\nFiles found:")
