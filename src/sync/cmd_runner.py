@@ -817,9 +817,10 @@ def run_command(args):
             report_logger.info("\n=== SUMMARY ===")
             
             # Initialize counters for match types
-            total_matches = 0
-            total_partial_matches = 0
-            total_no_matches = 0
+            total_dropbox_matches = 0
+            total_dropbox_no_matches = 0
+            total_salesforce_matches = 0
+            total_salesforce_no_matches = 0
             
             for result_dict in summary_results:
                 build_and_log_summary_line(result_dict, report_logger, args)
@@ -847,9 +848,12 @@ def run_command(args):
             
             # Print match statistics
             report_logger.info("\n=== MATCH STATISTICS ===")
-            report_logger.info(f"Total Match Foundes: {total_matches}")
-            report_logger.info(f"Total Partial Matches: {total_partial_matches}")
-            report_logger.info(f"Total No Matches: {total_no_matches}")
+            if(args.dropbox_account_info):
+                report_logger.info(f"Total Dropbox Matches Found: {total_dropbox_matches}")
+                report_logger.info(f"Total Dropbox No Matches: {total_dropbox_no_matches}")
+            if(args.salesforce_accounts):
+                report_logger.info(f"Total Salesforce Matches Found: {total_salesforce_matches}")
+            report_logger.info(f"Total Salesforce No Matches: {total_salesforce_no_matches}")
             report_logger.info(f"Total Accounts Processed: {len(summary_results)}")
 
              
