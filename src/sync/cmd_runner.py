@@ -65,7 +65,7 @@ results = {
     'Montesino, Maria': {
         'matches': [<list of matched Salesforce account names>],
         'match_info': {
-            'match_status': 'Exact Match' | 'No Match' | ...,
+            'match_status': 'Match Found' | 'No Match' | ...,
             ...
         },
         'view': <Salesforce view name>,
@@ -86,7 +86,7 @@ results = {
 
 Each value is a dictionary (the Salesforce search result) with at least:
 - 'matches': list of Salesforce account names matched
-- 'match_info': dict with at least 'match_status' (e.g., 'Exact Match', 'No Match')
+- 'match_info': dict with at least 'match_status' (e.g., 'Match Found', 'No Match')
 - 'view': Salesforce view name (e.g., 'All Clients')
 - 'status': status string for the search
 - 'search_info': dict with Dropbox account info, including 'account_data' (fields like name, first_name, last_name, etc.)
@@ -817,7 +817,7 @@ def run_command(args):
             report_logger.info("\n=== SUMMARY ===")
             
             # Initialize counters for match types
-            total_exact_matches = 0
+            total_matches = 0
             total_partial_matches = 0
             total_no_matches = 0
             
@@ -847,7 +847,7 @@ def run_command(args):
             
             # Print match statistics
             report_logger.info("\n=== MATCH STATISTICS ===")
-            report_logger.info(f"Total Exact Matches: {total_exact_matches}")
+            report_logger.info(f"Total Match Foundes: {total_matches}")
             report_logger.info(f"Total Partial Matches: {total_partial_matches}")
             report_logger.info(f"Total No Matches: {total_no_matches}")
             report_logger.info(f"Total Accounts Processed: {len(summary_results)}")
@@ -889,7 +889,7 @@ def format_summary_line(dropbox_folder_name, salesforce_info, dropbox_info, args
         salesforce_account_name = salesforce_info.get('account_name', '--')
         salesforce_match = salesforce_info.get('match', '--')
         salesforce_view = salesforce_info.get('view', '--')
-        salesforce_icon = '👤' if salesforce_match == 'Exact Match' else '🔴'
+        salesforce_icon = '👤' if salesforce_match == 'Match Found' else '🔴'
         summary += f", {salesforce_icon} Salesforce Account: {salesforce_account_name}, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
     return summary
 

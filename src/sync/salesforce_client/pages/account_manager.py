@@ -1726,7 +1726,7 @@ class AccountManager(BasePage):
             'expected_salesforce_matches': [],
             'match_info': {
                 'match_status': "No match found",
-                'total_exact_matches': 0,
+                'total_matches': 0,
                 'total_partial_matches': 0,
                 'total_no_matches': 1
             }
@@ -1775,23 +1775,23 @@ class AccountManager(BasePage):
             # Update matches if found
             if search_result:
                 # Check for exact matches first
-                exact_matches = []
+                matches = []
                 for match in search_result:
                     match_lower = match.lower()
                     # Check normalized names
                     for normalized in result['normalized_names']:
                         normalized_lower = normalized.lower()
                         if match_lower in normalized_lower or normalized_lower in match_lower:
-                            if match not in exact_matches:
-                                exact_matches.append(match)
+                            if match not in matches:
+                                matches.append(match)
                                 self.logger.info(f"Found exact match: {match} (matches normalized name: {normalized})")
                     
                     # Check swapped names
                     for swapped in result['swapped_names']:
                         swapped_lower = swapped.lower()
                         if match_lower in swapped_lower or swapped_lower in match_lower:
-                            if match not in exact_matches:
-                                exact_matches.append(match)
+                            if match not in matches:
+                                matches.append(match)
                                 self.logger.info(f"Found exact match: {match} (matches swapped name: {swapped})")
 
                     logging.info(f"***result['expected_salesforce_matches']: {result['expected_salesforce_matches']}")
@@ -1801,15 +1801,15 @@ class AccountManager(BasePage):
                         expected_match_lower = expected_match.lower()
                         if match_lower in expected_match_lower or expected_match_lower in match_lower:
                             expected_match_found = True
-                            if match not in exact_matches:
-                                exact_matches.append(match)
+                            if match not in matches:
+                                matches.append(match)
                                 self.logger.info(f"Found exact match: {match} (matches expected match: {expected_match})")
                         
                 
-                if exact_matches:
-                    result['status'] = 'exact_match'
-                    result['matches'] = exact_matches  # Only include exact matches
-                    self.logger.info(f"Found {len(exact_matches)} exact matches: {exact_matches}")
+                if matches:
+                    result['status'] = 'match'
+                    result['matches'] = matches  # Only include exact matches
+                    self.logger.info(f"Found {len(matches)} exact matches: {matches}")
                 else:
                     if expected_salesforce_matches_exists and expected_match_found:
                         result['matches'] = search_result 
@@ -1960,7 +1960,7 @@ class AccountManager(BasePage):
             matches = result['matches']
             
             # Initialize counters for match types
-            total_exact_matches = 0
+            total_matches = 0
             total_partial_matches = 0
             total_no_matches = 0
             
@@ -1981,21 +1981,21 @@ class AccountManager(BasePage):
                 if isinstance(matches, list):
                     for name in matches:
                         if name.lower() in expected_names:
-                            match_status = "Exact Match"
+                            match_status = "Match Found"
                             break
-                    if result['status'] == 'exact_match':
-                        match_status = "Exact Match"
-                    if match_status != "Exact Match":
+                    if result['status'] == 'match':
+                        match_status = "Match Found"
+                    if match_status != "Match Found":
                         match_status = "Partial Match"
                 else:
                     if matches.lower() in expected_names:
-                        match_status = "Exact Match"
+                        match_status = "Match Found"
                     else:
                         match_status = "Partial Match"
             
             # Update counters based on match status
-            if match_status == "Exact Match":
-                total_exact_matches += 1
+            if match_status == "Match Found":
+                total_matches += 1
             elif match_status == "Partial Match":
                 total_partial_matches += 1
             else:
@@ -2003,14 +2003,14 @@ class AccountManager(BasePage):
             
             return {
                 'match_status': match_status,
-                'total_exact_matches': total_exact_matches,
+                'total_matches': total_matches,
                 'total_partial_matches': total_partial_matches,
                 'total_no_matches': total_no_matches
             }
         except (KeyError, TypeError) as e:
             return {
                 'match_status': "No match found",
-                'total_exact_matches': 0,
+                'total_matches': 0,
                 'total_partial_matches': 0,
                 'total_no_matches': 1
             }
