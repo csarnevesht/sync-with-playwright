@@ -755,7 +755,6 @@ def run_command(args):
                     'salesforce_account_search_result': salesforce_account_search_result if args.salesforce_accounts else {},
                     'dropbox_account_search_result': dropbox_account_search_result if args.dropbox_account_info else {}
                 }
-                # CAROLINA HERE
                 summary_results.append(summary)
                 if args.salesforce_accounts:
                     salesforce_account_search_result['summary'] = summary
