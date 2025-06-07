@@ -1,0 +1,109 @@
+Special Cases Documentation
+=========================
+
+This document contains information about special cases for client folder names and their corresponding matches in Salesforce and Dropbox.
+
+Format:
+- Folder Name: The original folder name
+- Last Name: Client's last name
+- First Name: Client's first name
+- Additional Info: Any additional information about the client
+- Expected Salesforce Matches: List of expected matches in Salesforce
+- Expected Dropbox Matches: List of expected matches in Dropbox (if applicable)
+
+Special Cases:
+-------------
+
+1. Amaran Martin & Teresita
+   - Last Name: Amaran
+   - First Name: Martin
+   - Additional Info: Martin and Teresita
+   - Expected Salesforce Matches:
+     * Martin Amaran
+     * Teresita Amaran
+
+2. Alexander & Armelia Rolle
+   - Last Name: Rolle
+   - First Name: Alexander
+   - Additional Info: Alexander and Armelia
+   - Expected Salesforce Matches:
+     * Alexander Rolle
+     * Armelia Rolle
+
+3. Garica, Nicolas & Daughter Marie Chavarri (Medicaid Mike)
+   - Last Name: Garica
+   - First Name: Nicolas
+   - Additional Info: Daughter Marie Chavarri (Medicaid Mike)
+   - Expected Salesforce Matches:
+     * Maria De Pilar Garcia
+
+4. Strinko Mary sons Greg and Steve
+   - Last Name: Strinko
+   - First Name: Mary
+   - Additional Info: sons Greg and Steve
+   - Expected Salesforce Matches:
+     * Strinko, Mary
+     * Mary Strinko
+     * Gregory Strinko
+   - Expected Dropbox Matches:
+     * strinko gregory
+
+5. Bauer Glenn and Brenda
+   - Last Name: Bauer
+   - First Name: Glenn
+   - Additional Info: Glenn and Brenda
+   - Expected Salesforce Matches:
+     * Bauer Household
+     * Bauer, Glenn
+     * Bauer, Brenda
+   - Expected Dropbox Matches:
+     * bauer family
+
+6. Bravo, Miriam
+   - Last Name: Bravo
+   - First Name: Miriam
+   - Expected Dropbox Matches:
+     * Miriam & Jorge Bravo/Padron
+     * Miriam Bravo/Padron
+
+7. Gabriel Armand and son Dave
+   - Last Name: Gabriel
+   - First Name: Armand
+   - Additional Info: son Dave
+   - Expected Salesforce Matches:
+     * Gabriel Household
+     * Gabriel Armand
+     * Gabriel David
+   - Expected Dropbox Matches:
+     * Gabriel, David
+
+8. Sanchez Manny and Kathleen
+   - Last Name: Sanchez
+   - First Name: Manny
+   - Additional Info: Manny and Kathleen
+   - Expected Salesforce Matches:
+     * Sanchez Household
+     * Sanchez Family
+     * Manny Sanchez
+     * Kathleen Sanchez
+
+9. Mason Patricia daughter Cheryl and Donna
+   - Last Name: Mason
+   - First Name: Patricia
+   - Additional Info: daughter Cheryl and Donna
+   - Expected Salesforce Matches:
+     * Mason Household
+     * Patricia Mason
+     * Cheryl Mason
+     * Donna Mason
+
+10. Dell Aglio, Elena (Mike)
+    - Last Name: Dell Aglio
+    - First Name: Elena
+    - Expected Salesforce Matches:
+      * Elena Dell Aglio
+      * Dell Aglio, Elena
+    - Expected Dropbox Matches:
+      * Elena Dellaglio
+
+[Note: This is a partial list. The complete file contains many more special cases. Each case follows the same format as above.] 
