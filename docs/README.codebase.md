@@ -42,11 +42,51 @@ The codebase includes a comprehensive test suite covering all major functionalit
 
 ## Key Features
 
+### Search Capabilities
+
+#### Dropbox Search
+The system implements sophisticated Dropbox account search functionality:
+- Searches through Excel files for account information
+- Handles complex name formats and variations
+- Supports multiple search strategies:
+  - Last name-based search
+  - Full name matching
+  - Normalized name variations
+  - Swapped name combinations
+- Provides detailed search results including:
+  - Exact matches
+  - Partial matches
+  - Match confidence levels
+  - Search timing information
+
+#### Salesforce Search
+The Salesforce search implementation includes:
+- Multi-strategy search approach:
+  1. Primary search by last name
+  2. Secondary search by full name
+  3. Additional search with normalized variations
+- Support for different Salesforce views (e.g., "All Clients", "Recent")
+- Comprehensive match analysis:
+  - Exact matches
+  - Partial matches with similarity scoring
+  - Match status tracking
+  - View-specific results
+- Detailed result structure including:
+  - Match status
+  - View information
+  - Search timing
+  - Match confidence levels
+
 ### Account Management
-- Search capabilities for account matching
-- Support for complex name formats
+- Advanced search capabilities for account matching
+- Support for complex name formats including:
+  - Names with commas
+  - Names with ampersands
+  - Names with parentheses
+  - Multiple name variations
 - Batch processing with configurable batch sizes
 - Detailed account status reporting
+- Comprehensive match tracking and analysis
 
 ### File Management
 - File migration status tracking
