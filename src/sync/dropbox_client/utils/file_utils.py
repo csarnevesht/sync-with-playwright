@@ -65,7 +65,7 @@ def log_processing_time(account_name, start_time, end_time, download_dir):
         f.write(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {account_name}: {format_duration(seconds)}\n")
 
 def read_allowed_folders(file_path='./accounts/main.txt'):
-    """Read the list of allowed folder names from dropbox_files.txt."""
+    """Read the list of allowed folder names from dropbox_account_file_names.txt."""
     try:
         if not os.path.exists(file_path):
             print(f"Warning: {file_path} not found. Will process all folders.")

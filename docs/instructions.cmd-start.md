@@ -1,5 +1,5 @@
 
-create sync/cmd_cp.py which is similar to sync/cmd_ping.py but what it does differently is:
+create sync/cmd_start.py which is similar to sync/cmd_ping.py but what it does differently is:
 - it launches a browser with remote debugging.
 - and it goes to url specified in SALESFORCE_URL as set in .env.
 

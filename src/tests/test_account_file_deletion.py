@@ -23,9 +23,9 @@ from datetime import datetime
 import shutil
 import tempfile
 from src.sync.salesforce_client.pages.account_manager import AccountManager
-from src.sync.salesforce_client.pages.file_manager import FileManager
+from src.sync.salesforce_client.pages.file_manager import SalesforceFileManager
 from src.sync.salesforce_client.utils.browser import get_salesforce_page
-from src.sync.salesforce_client.utils.file_upload import upload_files_for_account
+from src.sync.salesforce_client.utils.file_upload import upload_account_files
 from src.sync.salesforce_client.utils.mock_data import get_mock_accounts
 from src.config import *
 
@@ -69,7 +69,7 @@ def test_account_file_deletion(browser, page):
     try:
         # Initialize managers
         account_manager = AccountManager(page, debug_mode=True)
-        file_manager = FileManager(page, debug_mode=True)
+        file_manager = SalesforceFileManager(page, debug_mode=True)
         
         # Get mock accounts
         mock_accounts = get_mock_accounts()
@@ -100,7 +100,7 @@ def test_account_file_deletion(browser, page):
                 
             # Upload files for new account
             logging.info(f"Uploading files for new account: {account_name}")
-            upload_success = upload_files_for_account(page, account, debug_mode=True)
+            upload_success = upload_account_files(page, account, debug_mode=True)
             if not upload_success:
                 logging.error(f"Failed to upload files for account: {account_name}")
                 return
@@ -125,7 +125,7 @@ def test_account_file_deletion(browser, page):
         logging.info(f"Successfully navigated to account {account_name} with ID {account_id}")
         
         # Navigate to files section and get number of files
-        num_files = account_manager.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
+        num_files = account_manager.navigate_to_account_files_and_get_number_of_files(account_id, scroll_to_bottom_of_account_files=True)
         if num_files == -1:
             logging.error("Failed to navigate to Files")
             return
@@ -150,14 +150,14 @@ def test_account_file_deletion(browser, page):
         first_file_name = file_names[0]
         logging.info(f"Attempting to delete first file: {first_file_name}")
         
-        if not file_manager.delete_file(first_file_name):
+        if not file_manager.delete_salesforce_file(first_file_name):
             logging.error(f"Failed to delete file: {first_file_name}")
             return
         
         logging.info(f"Successfully deleted file: {first_file_name}")
         
         # Verify file was deleted by checking the new count
-        new_num_files = account_manager.navigate_to_files_and_get_number_of_files_for_this_account(account_id)
+        new_num_files = account_manager.navigate_to_account_files_and_get_number_of_files(account_id, scroll_to_bottom_of_account_files=True)
         logging.info(f"New file count: {new_num_files}")
         
         if new_num_files >= num_files:

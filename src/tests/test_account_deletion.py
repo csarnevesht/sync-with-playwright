@@ -31,9 +31,9 @@ from datetime import datetime
 import shutil
 import tempfile
 from sync.salesforce_client.pages.account_manager import AccountManager
-from sync.salesforce_client.pages.file_manager import FileManager
+from sync.salesforce_client.pages.file_manager import SalesforceFileManager
 from sync.salesforce_client.utils.mock_data import get_mock_accounts
-from sync.salesforce_client.utils.file_upload import upload_files_for_account
+from sync.salesforce_client.utils.file_upload import upload_account_files
 from playwright.sync_api import TimeoutError
 from sync.salesforce_client.utils.browser import get_salesforce_page
 
@@ -94,7 +94,7 @@ def test_account_deletion(browser: Browser, page: Page):
     try:
         # Initialize managers
         account_manager = AccountManager(page, debug_mode=True)
-        file_manager = FileManager(page, debug_mode=True)
+        file_manager = SalesforceFileManager(page, debug_mode=True)
         
         # Get mock accounts
         mock_accounts = get_mock_accounts()
@@ -125,7 +125,7 @@ def test_account_deletion(browser: Browser, page: Page):
                 
             # Upload files for new account
             logging.info(f"Uploading files for new account: {account_name}")
-            upload_success = upload_files_for_account(page, account, debug_mode=True)
+            upload_success = upload_account_files(page, account, debug_mode=True)
             if not upload_success:
                 logging.error(f"Failed to upload files for account: {account_name}")
                 return

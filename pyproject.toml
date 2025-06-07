@@ -27,6 +27,8 @@ dependencies = [
     "playwright",
     "dropbox",
     "python-dotenv",
+    "pandas>=2.0.0",
+    "openpyxl>=3.1.0",
 ]
 
 [project.optional-dependencies]
@@ -41,7 +43,7 @@ dev = [
 ]
 
 [project.scripts]
-cmd_analyzer = "sync.cmd_analyzer:main"
+cmd_runner = "sync.cmd_runner:main"
 cmd_ping = "sync.cmd_ping:main"
 cmd_cp = "sync.cmd_cp:main"
 

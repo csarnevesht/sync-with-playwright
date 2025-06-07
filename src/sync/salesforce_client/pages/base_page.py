@@ -3,6 +3,7 @@ import logging
 import time
 from typing import Optional, Any, List
 from ..utils.selectors import Selectors
+from src.config import SALESFORCE_URL
 
 class BasePage:
     """Base class for all page objects with common functionality."""
@@ -11,6 +12,24 @@ class BasePage:
         self.page = page
         self.debug_mode = debug_mode
         self.logger = logging.getLogger(self.__class__.__name__)
+        
+    def navigate_to_salesforce(self) -> bool:
+        """Navigate to the base Salesforce URL.
+        
+        Returns:
+            bool: True if navigation was successful, False otherwise
+        """
+        try:
+            self.logger.info(f"Navigating to Salesforce URL: {SALESFORCE_URL}")
+            self.page.goto(SALESFORCE_URL)
+            # self.page.wait_for_load_state('networkidle', timeout=20000)
+            # self.page.wait_for_load_state('domcontentloaded', timeout=20000)
+            self.logger.info("Successfully navigated to Salesforce")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to navigate to Salesforce: {str(e)}")
+            self._take_screenshot("salesforce-navigation-error")
+            return False
         
     def _wait_for_selector(self, category: str, key: str, timeout: int = 3000) -> Optional[Any]:
         """Wait for a selector to be visible and return the element."""

@@ -2,7 +2,7 @@
 
 import os
 import logging
-from typing import List, Set
+from typing import List, Set, Dict, Any
 
 logger = logging.getLogger(__name__)
 
@@ -96,4 +96,5 @@ def read_allowed_folders(file_path: str = 'main.txt') -> Set[str]:
             return {line.strip() for line in f if line.strip()}
     except Exception as e:
         logger.error(f"Error reading allowed folders file: {str(e)}")
-        return set() 
+        return set()
+
