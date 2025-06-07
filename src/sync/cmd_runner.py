@@ -348,11 +348,13 @@ def initialize_dropbox_client():
 
 def run_command(args):
     """
-    Run command
-    
-    Args:
-        args: Command line arguments containing all options
+    Run the command based on the provided arguments.
     """
+    # Initialize match statistics
+    total_dropbox_matches = 0
+    total_dropbox_no_matches = 0
+    total_salesforce_matches = 0
+    total_salesforce_no_matches = 0
 
     start_time = time.time()
 
@@ -757,6 +759,19 @@ def run_command(args):
                 summary_results.append(summary)
                 if args.salesforce_accounts:
                     salesforce_account_search_result['summary'] = summary
+                    
+                    # Increment match statistics
+                    if salesforce_account_search_result['match_info']['match_status'] == 'Match Found':
+                        total_salesforce_matches += 1
+                    else:
+                        total_salesforce_no_matches += 1
+                
+                if args.dropbox_account_info:
+                    dropbox_match_status = dropbox_account_search_result.get('search_info', {}).get('match_info', {}).get('match_status', 'No match found')
+                    if dropbox_match_status == 'Match found':
+                        total_dropbox_matches += 1
+                    else:
+                        total_dropbox_no_matches += 1
             
             # Print results summary
             if args.salesforce_accounts and account_manager:
@@ -815,12 +830,6 @@ def run_command(args):
             
             # Print final summary
             report_logger.info("\n=== SUMMARY ===")
-            
-            # Initialize counters for match types
-            total_dropbox_matches = 0
-            total_dropbox_no_matches = 0
-            total_salesforce_matches = 0
-            total_salesforce_no_matches = 0
             
             for result_dict in summary_results:
                 build_and_log_summary_line(result_dict, report_logger, args)
