@@ -556,7 +556,7 @@ class DropboxClient:
                 'timing': {},
                 'match_info': {
                     'match_status': "No match found",
-                    'total_exact_matches': 0,
+                    'total_matches': 0,
                     'total_partial_matches': 0,
                     'total_no_matches': 1
                 }
@@ -750,7 +750,7 @@ class DropboxClient:
                     # Update match status
                     dropbox_account_info['search_info']['status'] = 'found'
                     dropbox_account_info['search_info']['match_info']['match_status'] = "Match found"
-                    dropbox_account_info['search_info']['match_info']['total_exact_matches'] = 1
+                    dropbox_account_info['search_info']['match_info']['total_matches'] = 1
                     dropbox_account_info['search_info']['match_info']['total_no_matches'] = 0
                     logger.info(f"Successfully extracted account data from {match_sheet}")
                 else:
