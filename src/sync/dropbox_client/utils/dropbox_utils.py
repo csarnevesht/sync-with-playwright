@@ -1164,14 +1164,44 @@ def download_and_rename_file(dbx, dropbox_path, local_dir):
     except Exception as e:
         print(f"Error processing file {dropbox_path}: {e}")
 
-def list_dropbox_folder_contents(dbx, path) -> List[FileMetadata]:
-    """List the contents of a Dropbox folder, handling pagination."""
+def list_dropbox_folder_contents(dbx, path, sort_by_recency: bool = False) -> List[FileMetadata]:
+    """
+    List the contents of a Dropbox folder, handling pagination.
+    
+    Args:
+        dbx: Dropbox client instance
+        path: Path to list contents from
+        sort_by_recency: If True, sorts folders by their recency (most recent first)
+        
+    Returns:
+        List[FileMetadata]: List of folder contents, optionally sorted by recency
+    """
     try:
         result = dbx.files_list_folder(path)
         entries = result.entries
         while result.has_more:
             result = dbx.files_list_folder_continue(result.cursor)
             entries.extend(result.entries)
+            
+        if sort_by_recency:
+            # Separate folders and files
+            folders = []
+            files = []
+            for entry in entries:
+                if isinstance(entry, dropbox.files.FolderMetadata):
+                    folders.append(entry)
+                else:
+                    files.append(entry)
+            
+            # Sort folders by their creation time
+            folders.sort(key=lambda x: x.server_created, reverse=True)
+            
+            # Sort files by their modification time
+            files.sort(key=lambda x: x.server_modified, reverse=True)
+            
+            # Combine sorted folders and files
+            entries = folders + files
+            
         return entries
     except ApiError as e:
         print(f"Error listing folder {path}: {e}")
