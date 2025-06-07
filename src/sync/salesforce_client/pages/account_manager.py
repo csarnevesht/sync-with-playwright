@@ -30,7 +30,7 @@ class LoggingHelper:
         'account_elements': '\033[1;34m',    # Bold Blue
         'search_by_last_name': '\033[95m',   # Pink (Bright Magenta)
         'search_by_full_name': '\033[95m',   # Pink (Bright Magenta)
-        'fuzzy_search_account': '\033[1;37m',# Bold White
+        'search_account': '\033[1;37m',# Bold White
         'timing': '\033[1;33m',             # Bold Yellow
         'default': '',
     }
@@ -92,8 +92,8 @@ class LoggingHelper:
             color = cls.COLORS['search_by_last_name']
         elif 'search_by_full_name' in msg:
             color = cls.COLORS['search_by_full_name']
-        elif 'fuzzy_search_account' in msg:
-            color = cls.COLORS['fuzzy_search_account']
+        elif 'search_account' in msg:
+            color = cls.COLORS['search_account']
         elif 'timing' in msg:
             color = cls.COLORS['timing']
         if color:
@@ -1733,7 +1733,7 @@ class AccountManager(BasePage):
         }
         
         try:
-            self.logger.info(f"***fuzzy_search_account: {folder_name}") 
+            self.logger.info(f"***search_account: {folder_name}") 
             # Extract name parts
             # name_parts = extract_name_parts(folder_name)
             last_name = dropbox_account_name_parts.get('last_name', '')
@@ -1835,8 +1835,8 @@ class AccountManager(BasePage):
                     'search': 0  # No timing info from search_by_last_name
                 }
                 
-                self.logger.info(f"  Timing for fuzzy_search_account for folder: {folder_name}: {result['timing']['total']:.2f} seconds")
-                # self.logger.info(f"Returning from fuzzy_search_account: {result}")
+                self.logger.info(f"  Timing for search_account for folder: {folder_name}: {result['timing']['total']:.2f} seconds")
+                # self.logger.info(f"Returning from search_account: {result}")
                 return result
             else:
                 result['folder_name'] = folder_name
@@ -1854,7 +1854,7 @@ class AccountManager(BasePage):
                 return result
             
         except Exception as e:
-            self.logger.error(f"Error in fuzzy_search_account: {str(e)}")
+            self.logger.error(f"Error in search_account: {str(e)}")
             result['status'] = 'error'
             result['error'] = str(e)
             return result
