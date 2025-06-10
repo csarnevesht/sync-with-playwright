@@ -53,6 +53,6 @@ class Salesforce:
         """Delete an account."""
         return self.account_manager.delete_account(full_name, view_name=view_name)
         
-    def search_account(self, folder_name: str, view_name: str = "All Clients") -> dict:
+    def search_account(self, folder_name: str, view_name: str = "All Accounts") -> dict:
         """Perform a fuzzy search for an account."""
         return self.account_manager.salesforce_search_account(folder_name, view_name) 

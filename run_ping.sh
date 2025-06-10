@@ -14,7 +14,7 @@ if [ -f ".env" ]; then
 fi
 
 # Add current directory to PYTHONPATH
-export PYTHONPATH=$PYTHONPATH:$(pwd)
+#export PYTHONPATH=$PYTHONPATH:$(pwd)
 
 # Run the ping script
 python src/sync/cmd_ping.py 

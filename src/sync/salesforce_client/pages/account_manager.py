@@ -140,11 +140,11 @@ class AccountManager(BasePage):
             self.logger.setLevel(logging.DEBUG)
     
 
-    def navigate_to_accounts_list_page(self, view_name: str = "All Clients") -> bool:
+    def navigate_to_accounts_list_page(self, view_name: str = "All Accounts") -> bool:
         """Navigate to the Accounts page with a specific list view.
         
         Args:
-            view_name: Name of the list view to use (default: "All Clients")
+            view_name: Name of the list view to use (default: "All Accounts")
             
         Returns:
             bool: True if navigation was successful, False otherwise
@@ -253,7 +253,7 @@ class AccountManager(BasePage):
         self.log_helper.dedent()
         return False
 
-    def search_account(self, search_term: str, view_name: str = "All Clients") -> List[str]:
+    def search_account(self, search_term: str, view_name: str = "All Accounts") -> List[str]:
         """
         Search for an account in Salesforce.
         
@@ -1199,7 +1199,7 @@ class AccountManager(BasePage):
             return self.account_has_files(account['id'])
         return condition
 
-    def _get_accounts_base(self, view_name: str = "All Clients") -> List[Dict[str, str]]:
+    def _get_accounts_base(self, view_name: str = "All Accounts") -> List[Dict[str, str]]:
         """
         Get all accounts from the current list view.
         
@@ -1352,7 +1352,7 @@ class AccountManager(BasePage):
         self,
         max_number: int = 10,
         condition: Callable[[Dict[str, str]], bool] = None,
-        view_name: str = "All Clients"
+        view_name: str = "All Accounts"
     ) -> List[Dict[str, str]]:
         """
         Keep iterating through all accounts until max_number accounts that match a condition.
@@ -1711,7 +1711,7 @@ class AccountManager(BasePage):
             return False
 
 
-    def salesforce_search_account(self, folder_name: str, view_name: str = "All Clients", dropbox_account_name_parts: dict = None) -> Dict[str, Any]:
+    def salesforce_search_account(self, folder_name: str, view_name: str = "All Accounts", dropbox_account_name_parts: dict = None) -> Dict[str, Any]:
         """Perform a fuzzy search based on a folder name."""
         start_time = time.time()
         result = {
@@ -1859,7 +1859,7 @@ class AccountManager(BasePage):
             result['error'] = str(e)
             return result
 
-    def search_by_last_name(self, last_name: str, view_name: str = "All Clients") -> List[str]:
+    def search_by_last_name(self, last_name: str, view_name: str = "All Accounts") -> List[str]:
         """
         Search for accounts by last name.
         
