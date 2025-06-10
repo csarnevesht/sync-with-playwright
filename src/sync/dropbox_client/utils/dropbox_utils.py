@@ -1109,10 +1109,10 @@ class DropboxClient:
             mapped_data = {
                 'First Name': account_data.get('first_name', ''),
                 'Last Name': account_data.get('last_name', ''),
-                'Address 1': account_data.get('address', ''),
-                'City': account_data.get('city', ''),
-                'State': account_data.get('state', ''),
-                'Zip': account_data.get('zip', ''),
+                'Address 1: Street': account_data.get('address', ''),
+                'Address 1: City': account_data.get('city', ''),
+                'Address 1: State/Province': account_data.get('state', ''),
+                'Address 1: ZIP/Postal Code': account_data.get('zip', ''),
                 'Email': account_data.get('email', ''),  # Ensure capital E in Email
                 'Phone': account_data.get('phone', '')
             }
@@ -1187,11 +1187,6 @@ class DropboxClient:
             
             updated_dfs[sheet_name] = df
             
-            # Debug: Save intermediate CSV for this sheet
-            debug_csv_path = f"docs/debug_{sheet_name.replace(' ', '_')}.csv"
-            df.to_csv(debug_csv_path, index=False)
-            logger.info(f"\nSaved debug CSV for sheet {sheet_name} to {debug_csv_path}")
-            
             # Read all other sheets without modification
             for other_sheet in flatfile_excel.sheet_names:
                 if other_sheet != sheet_name:
@@ -1199,8 +1194,8 @@ class DropboxClient:
                     updated_dfs[other_sheet] = pd.read_excel(flatfile_excel, sheet_name=other_sheet)
             
             # Write the updated data to both Excel and CSV files
-            excel_output_path = output_path
-            csv_output_path = output_path.replace('.xlsx', '.csv')
+            excel_output_path = output_path.replace('docs/', 'accounts/')
+            csv_output_path = output_path.replace('docs/', 'accounts/').replace('.xlsx', '.csv')
             
             # Write Excel file
             logger.info(f"\nWriting Excel file to: {excel_output_path}")
@@ -1211,7 +1206,10 @@ class DropboxClient:
             
             # Write CSV file with only Clients sheet data
             logger.info(f"\nWriting CSV file to: {csv_output_path}")
-            updated_dfs["Clients"].to_csv(csv_output_path, index=False)
+            # Check if file exists to determine if we need to write header
+            file_exists = os.path.isfile(csv_output_path)
+            # Append the new data with header only if file doesn't exist
+            updated_dfs["Clients"].to_csv(csv_output_path, mode='a', header=not file_exists, index=False)
             
             logger.info(f"\n=== Successfully completed FlatFile update ===")
             logger.info(f"  Excel: {excel_output_path}")
