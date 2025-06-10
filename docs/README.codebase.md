@@ -77,6 +77,48 @@ The Salesforce search implementation includes:
   - Search timing
   - Match confidence levels
 
+### Special Cases Handling
+
+The system maintains a special cases registry to handle non-standard naming patterns and ensure accurate matching between Dropbox and Salesforce. This is particularly important because:
+
+1. **Dropbox Naming Flexibility**
+   - Dropbox folders can use various naming patterns for better organization
+   - Common patterns include:
+     * Family groupings (e.g., "Bauer Glenn and Brenda")
+     * Parent-child relationships (e.g., "Gabriel Armand and son Dave")
+     * Multiple family members (e.g., "Mason Patricia daughter Cheryl and Donna")
+     * Nicknames and aliases (e.g., "Dell Aglio, Elena (Mike)")
+
+2. **Salesforce Standardization**
+   - Salesforce requires consistent naming conventions
+   - Each special case maps to specific Salesforce account formats:
+     * Individual accounts (e.g., "Alexander Rolle")
+     * Household accounts (e.g., "Bauer Household")
+
+3. **Mapping Structure**
+   Each special case entry includes:
+   - Original folder name
+   - Last name and first name
+   - Additional information
+   - Expected Salesforce matches
+   - Expected Dropbox matches (if applicable)
+
+4. **Common Special Case Patterns**
+   - Family units with multiple members
+   - Parent-child relationships
+   - Married couples
+   - Households with multiple generations
+   - Cases with nicknames or aliases
+   - Compound last names
+   - Multiple surname variations
+
+5. **Implementation Details**
+   - Special cases are stored in a dedicated configuration file
+   - The system automatically checks for special cases during search
+   - Multiple match possibilities are considered for each case
+   - Results are weighted based on match confidence
+   - Clear documentation of expected matches in both systems
+
 ### Account Management
 - Advanced search capabilities for account matching
 - Support for complex name formats including:
