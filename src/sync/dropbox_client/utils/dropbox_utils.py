@@ -781,7 +781,10 @@ class DropboxClient:
                             'state': str(account_row.get('State', '')),
                             'zip': str(account_row.get('Zip', '')),
                             'email': str(account_row.get('Email', '')),
-                            'phone': str(account_row.get('Phone', ''))
+                            'phone': str(account_row.get('Phone', '')),
+                            'Birthday': account_info.get('drivers_license', {}).get('date_of_birth', ''),
+                            'Gender': account_info.get('drivers_license', {}).get('sex', ''),
+                            "Driver's License Number": account_info.get('drivers_license', {}).get('license_number', '')
                         }
                     
                     # Update match status
@@ -1136,6 +1139,36 @@ class DropboxClient:
                 logger.info("Exiting try_psm_modes")
                 return best_text
 
+            def crop_license_number_region(image):
+                width, height = image.size
+                # These values are tuned for typical Florida DL images
+                left = int(width * 0.45)
+                top = int(height * 0.10)
+                right = int(width * 0.95)
+                bottom = int(height * 0.25)
+                cropped = image.crop((left, top, right, bottom))
+                logger.info(f"Cropped license number region: ({left}, {top}, {right}, {bottom})")
+                # Save debug crop
+                debug_path = os.path.join(tempfile.gettempdir(), 'debug_dl_license_number_crop.png')
+                cropped.save(debug_path, 'PNG')
+                logger.info(f"Saved cropped license number region: {debug_path}")
+                return cropped
+
+            def crop_dob_region(image):
+                width, height = image.size
+                # These values are tuned for typical Florida DL images (DOB is mid-right)
+                left = int(width * 0.45)
+                top = int(height * 0.32)
+                right = int(width * 0.80)
+                bottom = int(height * 0.40)
+                cropped = image.crop((left, top, right, bottom))
+                logger.info(f"Cropped DOB region: ({left}, {top}, {right}, {bottom})")
+                # Save debug crop
+                debug_path = os.path.join(tempfile.gettempdir(), 'debug_dl_dob_crop.png')
+                cropped.save(debug_path, 'PNG')
+                logger.info(f"Saved cropped DOB region: {debug_path}")
+                return cropped
+
             if ext == '.pdf':
                 try:
                     text = self._extract_text_from_pdf(image_path)
@@ -1186,15 +1219,30 @@ class DropboxClient:
                     logger.debug(f"Image mode: {image.mode}, size: {image.size}")
                     found_license = False
                     all_text = []
-                    for band in [0, 1, 2]:
-                        band_image = preprocess_image(image, save_debug=(band == 1), crop_band=band)
-                        ocr_text = try_psm_modes(band_image, image_path=image_path)
-                        if ocr_text.strip():
-                            all_text.append(ocr_text)
-                            if re.search(r'[A-Z]\d{3}-\d{3}-\d{2}-\d{3}-\d', ocr_text):
-                                text = ocr_text
-                                found_license = True
-                                break
+                    # --- Try region crop for license number ---
+                    license_crop = crop_license_number_region(image)
+                    ocr_text = try_psm_modes(license_crop, image_path=image_path)
+                    if ocr_text.strip():
+                        all_text.append(ocr_text)
+                        if re.search(r'[A-Z]\d{3}-\d{3}-\d{2}-\d{3}-\d', ocr_text):
+                            text = ocr_text
+                            found_license = True
+                    # --- Try region crop for DOB ---
+                    dob_crop = crop_dob_region(image)
+                    dob_ocr_text = try_psm_modes(dob_crop, image_path=image_path)
+                    if dob_ocr_text.strip():
+                        all_text.append(dob_ocr_text)
+                    # If not found, try the usual band approach
+                    if not found_license:
+                        for band in [0, 1, 2]:
+                            band_image = preprocess_image(image, save_debug=(band == 1), crop_band=band)
+                            ocr_text = try_psm_modes(band_image, image_path=image_path)
+                            if ocr_text.strip():
+                                all_text.append(ocr_text)
+                                if re.search(r'[A-Z]\d{3}-\d{3}-\d{2}-\d{3}-\d', ocr_text):
+                                    text = ocr_text
+                                    found_license = True
+                                    break
                     if not found_license:
                         # Fallback: try the full image
                         full_image = preprocess_image(image, save_debug=True, crop_band=None)
@@ -1266,6 +1314,33 @@ class DropboxClient:
                     result['license_number'] = best
                     logger.info(f"Used best candidate as license number: {best}")
             
+            # --- DOB extraction from cropped region ---
+            dob_text = ''
+            try:
+                if 'dob_ocr_text' in locals() and dob_ocr_text.strip():
+                    dob_text = dob_ocr_text.replace('\n', ' ').replace('\r', ' ')
+                    dob_text = ' '.join(dob_text.split())
+                    # Try to extract DOB from this region
+                    dob_match = re.search(r'(?:DOB|BIRTH|DATE OF BIRTH)?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})', dob_text)
+                    if dob_match:
+                        result['date_of_birth'] = dob_match.group(1)
+                        logger.info(f"DOB extracted from cropped region: {result['date_of_birth']}")
+            except Exception as e:
+                logger.error(f"Error extracting DOB from cropped region: {str(e)}")
+            
+            # --- Expiration Date Extraction ---
+            exp_match = re.search(r'(?:EXP|EXPIRATION|EXPIRES|EXP DATE|EXPIRATION DATE)[^0-9]*([0-9]{2}/[0-9]{2}/[0-9]{4})', clean_text)
+            if exp_match:
+                result['expiration_date'] = exp_match.group(1)
+            else:
+                # Fallback: any MM/DD/YYYY after 'EXP'
+                exp_idx = clean_text.find('EXP')
+                if exp_idx != -1:
+                    after_exp = clean_text[exp_idx:exp_idx+30]  # look ahead 30 chars
+                    m2 = re.search(r'([0-9]{2}/[0-9]{2}/[0-9]{4})', after_exp)
+                    if m2:
+                        result['expiration_date'] = m2.group(1)
+
             return result
         except Exception as e:
             logger.error(f"Error extracting driver's license info: {str(e)}")
@@ -1380,7 +1455,10 @@ class DropboxClient:
                 'Address 1: State/Province': account_data.get('state', ''),
                 'Address 1: ZIP/Postal Code': account_data.get('zip', ''),
                 'Email': account_data.get('email', ''),  # Ensure capital E in Email
-                'Phone': account_data.get('phone', '')
+                'Phone': account_data.get('phone', ''),
+                'Birthday': account_info.get('drivers_license', {}).get('date_of_birth', ''),
+                'Gender': account_info.get('drivers_license', {}).get('sex', ''),
+                "Driver's License Number": account_info.get('drivers_license', {}).get('license_number', '')
             }
                 
             # Debug: Log mapped data
@@ -1492,107 +1570,103 @@ class DropboxClient:
     def _parse_dl_text(self, text: str) -> Dict[str, str]:
         """
         Parse text extracted from driver's license to extract relevant information.
-        
-        Args:
-            text (str): Text extracted from driver's license via OCR
-        
-        Returns:
-            Dict[str, str]: Dictionary containing extracted information with the following keys:
-                - license_number: Driver's license number
-                - expiration_date: License expiration date
-                - date_of_birth: Date of birth
-                - full_name: Full name
-                - address: Address
-                - gender: Gender (M/F)
-                - height: Height
-                - eye_color: Eye color
-                - hair_color: Hair color
-                - weight: Weight
-                - restrictions: License restrictions
-                - endorsements: License endorsements
+        Enhanced for Florida licenses: robustly extract license number, DOB, and sex.
         """
         result = {}
-        
-        # Clean and normalize text
         text = text.replace('\n', ' ').replace('\r', ' ')
-        text = ' '.join(text.split())  # Normalize whitespace
-        
-        # Common patterns for driver's license information
-        patterns = {
-            'license_number': [
-                r'(?:DL|LIC|LICENSE|ID|ID#|ID NUMBER|LICENSE NUMBER|LICENSE #|LIC #)[\s:]*([A-Z0-9\-]+)',
-                r'([A-Z]\d{3}-\d{3}-\d{2}-\d{3}-\d)',  # Specific pattern for format like M532-558-53-965-0
-                r'([A-Z0-9\-]{7,})',  # Generic pattern for license numbers with hyphens
-                r'([A-Z0-9]{7,})',  # Generic pattern for license numbers without hyphens
-            ],
-            'expiration_date': [
-                r'(?:EXP|EXPIRATION|EXPIRES|EXP DATE|EXPIRATION DATE)[\s:]*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})',
-                r'(?:EXP|EXPIRATION|EXPIRES|EXP DATE|EXPIRATION DATE)[\s:]*(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})',
-            ],
-            'date_of_birth': [
-                r'(?:DOB|BIRTH|BIRTH DATE|DATE OF BIRTH)[\s:]*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})',
-                r'(?:DOB|BIRTH|BIRTH DATE|DATE OF BIRTH)[\s:]*(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})',
-            ],
-            'full_name': [
-                r'(?:NAME|FULL NAME)[\s:]*([A-Za-z\s\'-]+)',
-                r'([A-Za-z\s\'-]+)(?=\s*(?:DOB|BIRTH|EXP|EXPIRATION|ADDRESS|LICENSE|DL|LIC))',
-            ],
-            'address': [
-                r'(?:ADDRESS|ADDR|RES)[\s:]*([A-Za-z0-9\s\',\.#-]+)',
-                r'([A-Za-z0-9\s\',\.#-]+)(?=\s*(?:DOB|BIRTH|EXP|EXPIRATION|LICENSE|DL|LIC))',
-            ],
-            'gender': [
-                r'(?:SEX|GENDER)[\s:]*([MF])',
-                r'([MF])(?=\s*(?:DOB|BIRTH|EXP|EXPIRATION|ADDRESS|LICENSE|DL|LIC))',
-            ],
-            'height': [
-                r'(?:HT|HEIGHT)[\s:]*(\d+\'?\s*\d+\"?)',
-                r'(\d+\'?\s*\d+\"?)',
-            ],
-            'eye_color': [
-                r'(?:EYE|EYES)[\s:]*([A-Za-z]+)',
-                r'([A-Za-z]+)(?=\s*(?:HT|HEIGHT|WT|WEIGHT|HAIR|SEX|GENDER))',
-            ],
-            'hair_color': [
-                r'(?:HAIR)[\s:]*([A-Za-z]+)',
-                r'([A-Za-z]+)(?=\s*(?:HT|HEIGHT|WT|WEIGHT|EYE|SEX|GENDER))',
-            ],
-            'weight': [
-                r'(?:WT|WEIGHT)[\s:]*(\d+)\s*lbs?',
-                r'(\d+)\s*lbs?(?=\s*(?:HT|HEIGHT|EYE|HAIR|SEX|GENDER))',
-            ],
-            'restrictions': [
-                r'(?:REST|RESTRICTIONS)[\s:]*([A-Z0-9\s]+)',
-                r'([A-Z0-9\s]+)(?=\s*(?:END|ENDORSEMENTS|EXP|EXPIRATION))',
-            ],
-            'endorsements': [
-                r'(?:END|ENDORSEMENTS)[\s:]*([A-Z0-9\s]+)',
-                r'([A-Z0-9\s]+)(?=\s*(?:REST|RESTRICTIONS|EXP|EXPIRATION))',
-            ]
+        text = ' '.join(text.split())
+
+        # --- License Number Extraction ---
+        # Fix common OCR errors
+        ocr_replacements = {
+            '¢': '0', '|': '1', '§': '5', '©': '0', '®': '0', '“': '1', '”': '1', '‘': '1', '’': '1',
+            'S': '5', 'O': '0', 'I': '1', 'L': '1', 'B': '8', 'G': '6', 'Z': '2', 'Q': '0', 'D': '0', 'T': '7', 'A': '4',
+            '(': '0', ')': '0', '{': '0', '}': '0', '[': '0', ']': '0', 'o': '0', 's': '5', 'l': '1', 'i': '1', 'a': '4',
+            'b': '6', 'g': '9', 'z': '2', 'q': '0', 'd': '0', 't': '7', 'e': '6', 'E': '6', 'B': '8', 'G': '6', 'Z': '2', 'Q': '0', 'D': '0', 'T': '7', 'A': '4'
         }
-        
-        # Try each pattern for each field
-        for field, field_patterns in patterns.items():
-            for pattern in field_patterns:
-                match = re.search(pattern, text, re.IGNORECASE)
-                if match:
-                    value = match.group(1).strip()
-                    # Clean up the value
-                    value = re.sub(r'\s+', ' ', value)  # Normalize whitespace
-                    value = value.strip()
-                    if value:
-                        result[field] = value
-                        break
-        
-        # Log the extracted information
+        clean_text = text
+        for wrong, correct in ocr_replacements.items():
+            clean_text = clean_text.replace(wrong, correct)
+
+        # Remove all whitespace and newlines for aggressive search
+        clean_text_no_space = re.sub(r'\s+', '', clean_text)
+
+        # Try to find license number with or without dashes, possibly missing leading M
+        lic_patterns = [
+            r'([A-Z][0-9]{3}-[0-9]{3}-[0-9]{2}-[0-9]{3}-[0-9])',
+            r'([0-9]{3}-[0-9]{3}-[0-9]{2}-[0-9]{3}-[0-9])',
+            r'([A-Z][0-9]{12})',
+            r'([0-9]{12})',
+            r'([A-Z][0-9]{3}[0-9]{3}[0-9]{2}[0-9]{3}[0-9])',
+            r'([0-9]{3}[0-9]{3}[0-9]{2}[0-9]{3}[0-9])'
+        ]
+        license_number = None
+        for pat in lic_patterns:
+            m = re.search(pat, clean_text)
+            if m:
+                license_number = m.group(1)
+                break
+        # If not found, try on the whitespace-stripped version
+        if not license_number:
+            for pat in lic_patterns:
+                m = re.search(pat, clean_text_no_space)
+                if m:
+                    license_number = m.group(1)
+                    break
+        # If still not found, try to join split fragments
+        if not license_number:
+            # Find all fragments that look like part of the license number
+            frags = re.findall(r'[A-Z0-9]{2,}', clean_text_no_space)
+            joined = ''.join(frags)
+            for pat in lic_patterns:
+                m = re.search(pat, joined)
+                if m:
+                    license_number = m.group(1)
+                    break
+        # Post-process: if missing leading M, add it
+        if license_number:
+            if re.match(r'^[0-9]', license_number):
+                license_number = 'M' + license_number
+            # Remove dashes for normalization
+            lic_digits = re.sub(r'[^A-Z0-9]', '', license_number)
+            # Reformat to M###-###-##-###-#
+            if len(lic_digits) == 13:
+                license_number = f"{lic_digits[0]}{lic_digits[1:4]}-{lic_digits[4:7]}-{lic_digits[7:9]}-{lic_digits[9:12]}-{lic_digits[12]}"
+            result['license_number'] = license_number
+
+        # --- DOB Extraction ---
+        dob_match = re.search(r'(?:DOB|BIRTH|DATE OF BIRTH)?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})', clean_text)
+        if dob_match:
+            result['date_of_birth'] = dob_match.group(1)
+        else:
+            # Fallback: any MM/DD/YYYY
+            dob_match = re.search(r'([0-9]{2}/[0-9]{2}/[0-9]{4})', clean_text)
+            if dob_match:
+                result['date_of_birth'] = dob_match.group(1)
+
+        # --- Sex Extraction ---
+        # Try to find 'SEX' label first
+        sex_match = re.search(r'SEX[:=\-~ ]*([MF])', clean_text)
+        if sex_match:
+            result['sex'] = sex_match.group(1)
+        else:
+            # Fallback: look for F or M after DOB
+            if 'date_of_birth' in result:
+                dob_idx = clean_text.find(result['date_of_birth'])
+                if dob_idx != -1:
+                    after_dob = clean_text[dob_idx+len(result['date_of_birth']):dob_idx+len(result['date_of_birth'])+10]
+                    m2 = re.search(r'([MF])', after_dob)
+                    if m2:
+                        result['sex'] = m2.group(1)
+
+        # Optionally: log the extracted information
         if result:
-            logger.info("Extracted driver's license information:")
+            logger.info("Extracted driver's license information (enhanced):")
             for field, value in result.items():
                 logger.info(f"  {field}: {value}")
         else:
-            logger.warning("No information could be extracted from driver's license")
+            logger.warning("No information could be extracted from driver's license (enhanced)")
             logger.debug(f"Raw OCR text: {text}")
-        
         return result
 
 def update_env_file(env_file, token=None, root_folder=None, directory=None):
