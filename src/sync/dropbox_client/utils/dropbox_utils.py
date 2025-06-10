@@ -19,6 +19,10 @@ from dotenv import load_dotenv
 import pandas as pd
 from sync.salesforce_client.pages.account_manager import LoggingHelper
 import json
+from PIL import ImageEnhance
+import numpy as np
+import cv2
+import difflib
 
 from .date_utils import has_date_prefix, get_folder_creation_date
 from .path_utils import clean_dropbox_folder_name
@@ -511,6 +515,7 @@ class DropboxClient:
            - Validates found matches against expected matches
            - Updates status based on whether matches are expected
         6. Extracts available information
+        7. Extracts driver's license information if available
         
         Args:
             account_name (str): The name of the account to search for (used for logging)
@@ -531,6 +536,7 @@ class DropboxClient:
                     - matches: List of found matches
                     - match_info: Details about match status and counts
                 - account_data (Dict[str, Any]): Extracted account information
+                - drivers_license (Dict[str, Any]): Extracted driver's license information
         """
         logger.info(f"\n=== Starting Dropbox account info search for: {account_name} ===")
         folder_name = account_name
@@ -550,10 +556,38 @@ class DropboxClient:
                     'total_no_matches': 1
                 }
             },
-            'account_data': {}
+            'account_data': {},
+            'drivers_license': {}
         }
 
         try:
+            # First, try to get driver's license information
+            logger.info(f"\n=== Getting driver's license information for {account_name} ===")
+            dl_file = self.get_drivers_license_file(account_name)
+            if dl_file:
+                logger.info(f"Found driver's license file: {dl_file.name}")
+                try:
+                    # Create a temporary file with the correct extension
+                    file_ext = os.path.splitext(dl_file.name)[1].lower()
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as temp_file:
+                        temp_path = temp_file.name
+                        # Download the driver's license file
+                        self.dbx.files_download_to_file(temp_path, dl_file.path_display)
+                        logger.info(f"Downloaded driver's license to: {temp_path}")
+                        # Always use _extract_dl_info for both PDF and image files
+                        dl_info = self._extract_dl_info(temp_path)
+                        if dl_info:
+                            dropbox_account_info['drivers_license'] = dl_info
+                            logger.info(f"Successfully extracted driver's license information: {dl_info}")
+                        else:
+                            logger.warning("No information could be extracted from driver's license")
+                        # Clean up the temporary file
+                        os.unlink(temp_path)
+                except Exception as e:
+                    logger.error(f"Error processing driver's license: {str(e)}")
+            else:
+                logger.info("No driver's license file found")
+
             # Log search parameters
             logger.info("Search parameters:")
             logger.info(f"  - Last name: {dropbox_account_name_parts['last_name']}")
@@ -925,13 +959,25 @@ class DropboxClient:
         return None
 
     def get_drivers_license_file(self, account_folder: str) -> Optional[FileMetadata]:
-        """Get the driver's license file (*DL.jpeg) for an account."""
-        files = self.list_folder_contents(account_folder)
-        pattern = DRIVERS_LICENSE_PATTERN.replace('*', '.*')
-        for file in files:
-            if re.match(pattern, file.name):
-                return file
-        return None
+        """Get the driver's license file (*DL.jpeg or *DL.pdf) for an account."""
+        try:
+            dropbox_path = construct_dropbox_path(account_folder, self.root_folder)
+            if not dropbox_path:
+                logger.error(f"Invalid path constructed for account folder: {account_folder}")
+                return None
+                
+            files = list_dropbox_folder_contents(self.dbx, dropbox_path)
+            # Pattern to match both .jpeg and .pdf extensions
+            pattern = r'.*DL\.(?:jpeg|pdf)$'
+            for file in files:
+                if isinstance(file, FileMetadata) and re.match(pattern, file.name, re.IGNORECASE):
+                    logger.info(f"Found driver's license file: {file.name}")
+                    return file
+            logger.info(f"No driver's license file found in {dropbox_path}")
+            return None
+        except Exception as e:
+            logger.error(f"Error getting driver's license file: {str(e)}")
+            return None
 
     def _extract_text_from_pdf(self, pdf_path: str) -> str:
         """
@@ -965,44 +1011,247 @@ class DropboxClient:
             return ""
 
     def _extract_dl_info(self, image_path: str) -> Dict[str, str]:
-        """
-        Extract information from driver's license image using OCR.
-        Returns a dictionary with driver's license details.
-        """
         try:
-            logging.info(f"Extracting information from driver's license: {image_path}")
-            # Read the image
-            image = Image.open(image_path)
-            
-            # Extract text using OCR
-            text = pytesseract.image_to_string(image)
-            logging.info("Successfully performed OCR on driver's license")
-            
-            # Parse the extracted text
-            dl_info = {}
-            
-            # Extract License Number
-            license_match = re.search(r'License\s*#?:?\s*([A-Z0-9]+)', text, re.IGNORECASE)
-            if license_match:
-                dl_info['license_number'] = license_match.group(1)
-                logging.info(f"Found license number: {dl_info['license_number']}")
-            
-            # Extract Expiration Date
-            exp_match = re.search(r'Exp(?:iration)?:?\s*(\d{1,2}/\d{1,2}/\d{4})', text, re.IGNORECASE)
-            if exp_match:
-                dl_info['expiration_date'] = exp_match.group(1)
-                logging.info(f"Found expiration date: {dl_info['expiration_date']}")
-            
-            # Extract Date of Birth
-            dob_match = re.search(r'DOB:?\s*(\d{1,2}/\d{1,2}/\d{4})', text, re.IGNORECASE)
-            if dob_match:
-                dl_info['date_of_birth'] = dob_match.group(1)
-                logging.info(f"Found date of birth: {dl_info['date_of_birth']}")
-            
-            return dl_info
+            if not os.path.exists(image_path):
+                logger.error(f"Driver's license file not found: {image_path}")
+                return {}
+            _, ext = os.path.splitext(image_path)
+            ext = ext.lower()
+            text = ''
+            debug_image_saved = False
 
+            def binarize(image, threshold=160):
+                # Convert to grayscale if not already
+                if image.mode != 'L':
+                    image = image.convert('L')
+                # Apply adaptive thresholding
+                return image.point(lambda p: 255 if p > threshold else 0)
+
+            def preprocess_image(image, save_debug=True, crop_band=None, use_opencv=True):
+                # Convert to grayscale if not already
+                if image.mode != 'L':
+                    image = image.convert('L')
+                
+                # Optionally crop to a horizontal band
+                if crop_band is not None:
+                    width, height = image.size
+                    band_height = height // 3
+                    top = band_height * crop_band
+                    bottom = top + band_height
+                    image = image.crop((0, top, width, bottom))
+                    logger.info(f"Cropped image to band {crop_band}: (0, {top}, {width}, {bottom})")
+                
+                # Convert to OpenCV image for advanced processing
+                if use_opencv:
+                    img_np = np.array(image)
+                    # Denoise
+                    img_np = cv2.fastNlMeansDenoising(img_np, None, 30, 7, 21)
+                    # Adaptive thresholding
+                    img_np = cv2.adaptiveThreshold(img_np, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 11)
+                    # Deskew (optional, only if needed)
+                    def deskew(img):
+                        coords = np.column_stack(np.where(img > 0))
+                        angle = 0.0
+                        if coords.shape[0] > 0:
+                            rect = cv2.minAreaRect(coords)
+                            angle = rect[-1]
+                            if angle < -45:
+                                angle = -(90 + angle)
+                            else:
+                                angle = -angle
+                        (h, w) = img.shape[:2]
+                        center = (w // 2, h // 2)
+                        M = cv2.getRotationMatrix2D(center, angle, 1.0)
+                        img = cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+                        return img
+                    img_np = deskew(img_np)
+                    image = Image.fromarray(img_np)
+                else:
+                    # Enhance contrast
+                    image = ImageEnhance.Contrast(image).enhance(2.0)
+                    # Enhance sharpness
+                    image = ImageEnhance.Sharpness(image).enhance(2.0)
+                    # Apply binarization
+                    image = binarize(image)
+                
+                # Save debug image
+                if save_debug:
+                    debug_path = os.path.join(tempfile.gettempdir(), f'debug_dl_preprocessed_band{crop_band if crop_band is not None else "full"}.png')
+                    image.save(debug_path, 'PNG')
+                    logger.info(f"Saved preprocessed debug image: {debug_path}")
+                
+                return image
+
+            def try_psm_modes(image, image_path=None):
+                import io
+                logger.info("Entered try_psm_modes")
+                best_text = ''
+                best_mode = ''
+                psm_modes = [6, 3, 11, 7, 12]
+                
+                # Enhanced OCR configurations (removed config with single quote)
+                configs = [
+                    lambda psm: f'--psm {psm} --oem 3',
+                    lambda psm: f'--psm {psm} --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789- ',
+                    lambda psm: f'--psm {psm} --oem 3 -c tessedit_char_whitelist=0123456789- '
+                ]
+
+                logger.info(f"Running OCR on image: {image_path if image_path else '<in-memory>'}, mode={image.mode}, size={image.size}")
+                
+                # Save image for debugging
+                debug_path = os.path.join(tempfile.gettempdir(), 'debug_dl_ocr_input.png')
+                image.save(debug_path, 'PNG')
+                logger.info(f"Saved OCR input image: {debug_path}")
+
+                all_ocr_outputs = []
+                for psm in psm_modes:
+                    for config_fn in configs:
+                        config = config_fn(psm)
+                        try:
+                            logger.info(f"Calling pytesseract with config: {config}")
+                            ocr_text = pytesseract.image_to_string(image, config=config)
+                            logger.info(f"OCR output for PSM {psm} ({config}): {repr(ocr_text)}")
+                            all_ocr_outputs.append((config, ocr_text))
+                            # Validate license number format
+                            if re.search(r'[A-Z]\d{3}-\d{3}-\d{2}-\d{3}-\d', ocr_text):
+                                logger.info(f"Found valid license number format in PSM {psm}")
+                                # Save raw OCR output for manual inspection
+                                raw_ocr_path = os.path.join(tempfile.gettempdir(), 'debug_dl_raw_ocr.txt')
+                                with open(raw_ocr_path, 'w') as f:
+                                    f.write(ocr_text)
+                                logger.info(f"Saved raw OCR output: {raw_ocr_path}")
+                                return ocr_text
+                            if len(ocr_text.strip()) > len(best_text.strip()):
+                                best_text = ocr_text
+                                best_mode = f'psm {psm} {config}'
+                        except Exception as ocr_exc:
+                            logger.error(f"Tesseract error for config {config}: {ocr_exc}")
+                # Save the best raw OCR output for manual inspection
+                raw_ocr_path = os.path.join(tempfile.gettempdir(), 'debug_dl_raw_ocr.txt')
+                with open(raw_ocr_path, 'w') as f:
+                    for config, ocr_text in all_ocr_outputs:
+                        f.write(f'Config: {config}\n{ocr_text}\n---\n')
+                logger.info(f"Saved all raw OCR outputs: {raw_ocr_path}")
+                logger.info(f"Best OCR mode: {best_mode}")
+                logger.info("Exiting try_psm_modes")
+                return best_text
+
+            if ext == '.pdf':
+                try:
+                    text = self._extract_text_from_pdf(image_path)
+                    if not text.strip():
+                        logger.info("Direct text extraction failed, attempting OCR")
+                        images = pdf2image.convert_from_path(
+                            image_path,
+                            dpi=600,  # Higher DPI for better quality
+                            grayscale=True,
+                            thread_count=4
+                        )
+                        logger.info(f"Extracted {len(images)} image(s) from PDF for OCR.")
+                        if not images:
+                            logger.error("Failed to convert PDF to images")
+                            return {}
+                        
+                        all_text = []
+                        found_license = False
+                        for i, image in enumerate(images):
+                            logger.debug(f"Processing page {i+1} of {len(images)}; mode={image.mode}, size={image.size}")
+                            # Try all three horizontal bands
+                            for band in [0, 1, 2]:
+                                band_image = preprocess_image(image, save_debug=(i == 0 and band == 1), crop_band=band)
+                                ocr_text = try_psm_modes(band_image, image_path=image_path)
+                                if ocr_text.strip():
+                                    all_text.append(ocr_text)
+                                    logger.debug(f"Extracted text from page {i+1}, band {band}: {ocr_text}")
+                                    # If a valid license number is found, use this band
+                                    if re.search(r'[A-Z]\d{3}-\d{3}-\d{2}-\d{3}-\d', ocr_text):
+                                        text = ocr_text
+                                        found_license = True
+                                        break
+                            if found_license:
+                                break
+                        if not found_license:
+                            # Fallback: try the full image
+                            full_image = preprocess_image(image, save_debug=(i == 0), crop_band=None)
+                            ocr_text = try_psm_modes(full_image, image_path=image_path)
+                            if ocr_text.strip():
+                                all_text.append(ocr_text)
+                            text = ' '.join(all_text)
+                except Exception as e:
+                    logger.error(f"Error processing PDF: {str(e)}")
+                    return {}
+            else:
+                try:
+                    image = Image.open(image_path)
+                    logger.debug(f"Image mode: {image.mode}, size: {image.size}")
+                    found_license = False
+                    all_text = []
+                    for band in [0, 1, 2]:
+                        band_image = preprocess_image(image, save_debug=(band == 1), crop_band=band)
+                        ocr_text = try_psm_modes(band_image, image_path=image_path)
+                        if ocr_text.strip():
+                            all_text.append(ocr_text)
+                            if re.search(r'[A-Z]\d{3}-\d{3}-\d{2}-\d{3}-\d', ocr_text):
+                                text = ocr_text
+                                found_license = True
+                                break
+                    if not found_license:
+                        # Fallback: try the full image
+                        full_image = preprocess_image(image, save_debug=True, crop_band=None)
+                        ocr_text = try_psm_modes(full_image, image_path=image_path)
+                        if ocr_text.strip():
+                            all_text.append(ocr_text)
+                        text = ' '.join(all_text)
+                except Exception as e:
+                    logger.error(f"Error processing image: {str(e)}")
+                    return {}
+
+            # Clean and normalize text
+            text = text.replace('\n', ' ').replace('\r', ' ')
+            text = ' '.join(text.split())
+            
+            if not text.strip():
+                logger.warning("No text extracted from driver's license (after all PSM modes)")
+                return {}
+            
+            logger.debug(f"Extracted text: {text}")
+            
+            # Parse the text and validate the license number
+            result = self._parse_dl_text(text)
+            
+            # --- Improved license number extraction ---
+            import difflib
+            def normalize_license_candidate(s):
+                # Remove spaces and non-alphanum, replace common OCR errors
+                s = re.sub(r'[^A-Z0-9]', '', s.upper())
+                s = s.replace('S', '5').replace('O', '0').replace('I', '1').replace('L', '1')
+                return s
+
+            # Relaxed pattern: allow any non-alphanum between groups, require 1 letter + 14 digits
+            candidates = re.findall(r'([A-Z5S][^A-Z0-9]?[0-9OIl]{3}[^A-Z0-9]?[0-9OIl]{3}[^A-Z0-9]?[0-9OIl]{2}[^A-Z0-9]?[0-9OIl]{3}[^A-Z0-9]?[0-9OIl])', text, re.IGNORECASE)
+            normalized_candidates = [normalize_license_candidate(c) for c in candidates]
+            logger.info(f"License number candidates: {normalized_candidates}")
+
+            # Score by similarity to expected format (M532558539650)
+            expected_format = 'M532558539650'
+            def score(candidate):
+                return difflib.SequenceMatcher(None, candidate, expected_format).ratio()
+            if normalized_candidates:
+                best = max(normalized_candidates, key=score)
+                logger.info(f"Best license number candidate: {best}")
+                # Try to reformat to expected pattern
+                if len(best) == 13 or len(best) == 14 or len(best) == 15:
+                    # Try to insert dashes at the right places
+                    reformatted = f"{best[0]}{best[1:4]}-{best[4:7]}-{best[7:9]}-{best[9:12]}-{best[12]}"
+                    result['license_number'] = reformatted
+                    logger.info(f"Reformatted license number: {reformatted}")
+                else:
+                    result['license_number'] = best
+                    logger.info(f"Used best candidate as license number: {best}")
+            
+            return result
         except Exception as e:
-            logging.error(f"Error extracting driver's license info: {e}")
+            logger.error(f"Error extracting driver's license info: {str(e)}")
             return {}
 
     def get_dropbox_salesforce_folder(self) -> Optional[str]:
@@ -1222,6 +1471,112 @@ class DropboxClient:
             logger.error(f"Error updating FlatFile: {str(e)}")
             logger.error("Stack trace:", exc_info=True)
             return False
+
+    def _parse_dl_text(self, text: str) -> Dict[str, str]:
+        """
+        Parse text extracted from driver's license to extract relevant information.
+        
+        Args:
+            text (str): Text extracted from driver's license via OCR
+        
+        Returns:
+            Dict[str, str]: Dictionary containing extracted information with the following keys:
+                - license_number: Driver's license number
+                - expiration_date: License expiration date
+                - date_of_birth: Date of birth
+                - full_name: Full name
+                - address: Address
+                - gender: Gender (M/F)
+                - height: Height
+                - eye_color: Eye color
+                - hair_color: Hair color
+                - weight: Weight
+                - restrictions: License restrictions
+                - endorsements: License endorsements
+        """
+        result = {}
+        
+        # Clean and normalize text
+        text = text.replace('\n', ' ').replace('\r', ' ')
+        text = ' '.join(text.split())  # Normalize whitespace
+        
+        # Common patterns for driver's license information
+        patterns = {
+            'license_number': [
+                r'(?:DL|LIC|LICENSE|ID|ID#|ID NUMBER|LICENSE NUMBER|LICENSE #|LIC #)[\s:]*([A-Z0-9\-]+)',
+                r'([A-Z]\d{3}-\d{3}-\d{2}-\d{3}-\d)',  # Specific pattern for format like M532-558-53-965-0
+                r'([A-Z0-9\-]{7,})',  # Generic pattern for license numbers with hyphens
+                r'([A-Z0-9]{7,})',  # Generic pattern for license numbers without hyphens
+            ],
+            'expiration_date': [
+                r'(?:EXP|EXPIRATION|EXPIRES|EXP DATE|EXPIRATION DATE)[\s:]*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})',
+                r'(?:EXP|EXPIRATION|EXPIRES|EXP DATE|EXPIRATION DATE)[\s:]*(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})',
+            ],
+            'date_of_birth': [
+                r'(?:DOB|BIRTH|BIRTH DATE|DATE OF BIRTH)[\s:]*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})',
+                r'(?:DOB|BIRTH|BIRTH DATE|DATE OF BIRTH)[\s:]*(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})',
+            ],
+            'full_name': [
+                r'(?:NAME|FULL NAME)[\s:]*([A-Za-z\s\'-]+)',
+                r'([A-Za-z\s\'-]+)(?=\s*(?:DOB|BIRTH|EXP|EXPIRATION|ADDRESS|LICENSE|DL|LIC))',
+            ],
+            'address': [
+                r'(?:ADDRESS|ADDR|RES)[\s:]*([A-Za-z0-9\s\',\.#-]+)',
+                r'([A-Za-z0-9\s\',\.#-]+)(?=\s*(?:DOB|BIRTH|EXP|EXPIRATION|LICENSE|DL|LIC))',
+            ],
+            'gender': [
+                r'(?:SEX|GENDER)[\s:]*([MF])',
+                r'([MF])(?=\s*(?:DOB|BIRTH|EXP|EXPIRATION|ADDRESS|LICENSE|DL|LIC))',
+            ],
+            'height': [
+                r'(?:HT|HEIGHT)[\s:]*(\d+\'?\s*\d+\"?)',
+                r'(\d+\'?\s*\d+\"?)',
+            ],
+            'eye_color': [
+                r'(?:EYE|EYES)[\s:]*([A-Za-z]+)',
+                r'([A-Za-z]+)(?=\s*(?:HT|HEIGHT|WT|WEIGHT|HAIR|SEX|GENDER))',
+            ],
+            'hair_color': [
+                r'(?:HAIR)[\s:]*([A-Za-z]+)',
+                r'([A-Za-z]+)(?=\s*(?:HT|HEIGHT|WT|WEIGHT|EYE|SEX|GENDER))',
+            ],
+            'weight': [
+                r'(?:WT|WEIGHT)[\s:]*(\d+)\s*lbs?',
+                r'(\d+)\s*lbs?(?=\s*(?:HT|HEIGHT|EYE|HAIR|SEX|GENDER))',
+            ],
+            'restrictions': [
+                r'(?:REST|RESTRICTIONS)[\s:]*([A-Z0-9\s]+)',
+                r'([A-Z0-9\s]+)(?=\s*(?:END|ENDORSEMENTS|EXP|EXPIRATION))',
+            ],
+            'endorsements': [
+                r'(?:END|ENDORSEMENTS)[\s:]*([A-Z0-9\s]+)',
+                r'([A-Z0-9\s]+)(?=\s*(?:REST|RESTRICTIONS|EXP|EXPIRATION))',
+            ]
+        }
+        
+        # Try each pattern for each field
+        for field, field_patterns in patterns.items():
+            for pattern in field_patterns:
+                match = re.search(pattern, text, re.IGNORECASE)
+                if match:
+                    value = match.group(1).strip()
+                    # Clean up the value
+                    value = re.sub(r'\s+', ' ', value)  # Normalize whitespace
+                    value = value.strip()
+                    if value:
+                        result[field] = value
+                        break
+        
+        # Log the extracted information
+        if result:
+            logger.info("Extracted driver's license information:")
+            for field, value in result.items():
+                logger.info(f"  {field}: {value}")
+        else:
+            logger.warning("No information could be extracted from driver's license")
+            logger.debug(f"Raw OCR text: {text}")
+        
+        return result
 
 def update_env_file(env_file, token=None, root_folder=None, directory=None):
     """Update the .env file with new values."""

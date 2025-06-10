@@ -6,11 +6,18 @@ This project includes a Chrome extension and a Python script to automatically in
 
 1. Python 3.7 or higher
 2. Google Chrome browser
-3. Required Python packages:
+3. Required system dependencies:
+   - poppler (for PDF processing)
+   - tesseract (for OCR)
+4. Required Python packages:
    - websocket-client
    - psutil
    - python-dotenv
    - requests
+   - pdf2image
+   - pytesseract
+   - Pillow
+   - PyPDF2
 
 ## Installation
 
@@ -20,7 +27,25 @@ git clone <repository-url>
 cd <repository-directory>
 ```
 
-2. Install required Python packages:
+2. Install system dependencies:
+
+For macOS:
+```bash
+brew install poppler tesseract
+```
+
+For Ubuntu/Debian:
+```bash
+sudo apt-get update
+sudo apt-get install -y poppler-utils tesseract-ocr
+```
+
+For Windows:
+- Download and install poppler from: https://github.com/oschwartz10612/poppler-windows/releases/
+- Download and install tesseract from: https://github.com/UB-Mannheim/tesseract/wiki
+- Add both to your system PATH
+
+3. Install required Python packages:
 ```bash
 pip install -r requirements.txt
 ```
@@ -64,6 +89,11 @@ export CHROME_USER_DATA_DIR="/path/to/your/chrome/profile"
 set CHROME_USER_DATA_DIR=C:\path\to\your\chrome\profile
 ```
 
+4. If you encounter PDF or OCR related issues:
+   - Verify poppler is installed and in PATH: `poppler --version`
+   - Verify tesseract is installed and in PATH: `tesseract --version`
+   - Check if the required Python packages are installed: `pip list | grep -E "pdf2image|pytesseract|Pillow|PyPDF2"`
+
 ## Development
 
 The extension is located in the `chrome_extension` directory. To modify the extension:
@@ -76,4 +106,5 @@ The extension is located in the `chrome_extension` directory. To modify the exte
 If you encounter any issues, please:
 1. Check the `sync_services.log` file for error messages
 2. Make sure Chrome is up to date
-3. Try running Chrome with a clean profile 
+3. Try running Chrome with a clean profile
+4. Verify all system dependencies are properly installed 
