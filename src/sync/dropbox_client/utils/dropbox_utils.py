@@ -1224,7 +1224,14 @@ class DropboxClient:
             def normalize_license_candidate(s):
                 # Remove spaces and non-alphanum, replace common OCR errors
                 s = re.sub(r'[^A-Z0-9]', '', s.upper())
-                s = s.replace('S', '5').replace('O', '0').replace('I', '1').replace('L', '1')
+                # Common OCR errors
+                replacements = {
+                    'S': '5', 'O': '0', 'I': '1', 'L': '1',
+                    'B': '8', 'G': '6', 'Z': '2', 'Q': '0',
+                    'D': '0', 'T': '7', 'A': '4'
+                }
+                for wrong, correct in replacements.items():
+                    s = s.replace(wrong, correct)
                 return s
 
             # Relaxed pattern: allow any non-alphanum between groups, require 1 letter + 14 digits
@@ -1235,7 +1242,17 @@ class DropboxClient:
             # Score by similarity to expected format (M532558539650)
             expected_format = 'M532558539650'
             def score(candidate):
-                return difflib.SequenceMatcher(None, candidate, expected_format).ratio()
+                # Base score from sequence matcher
+                base_score = difflib.SequenceMatcher(None, candidate, expected_format).ratio()
+                
+                # Additional scoring factors
+                length_score = 1.0 if len(candidate) == 13 else 0.5  # Perfect length gets full points
+                format_score = 1.0 if re.match(r'^[A-Z]\d{12}$', candidate) else 0.5  # Perfect format gets full points
+                
+                # Weight the scores
+                final_score = (base_score * 0.4) + (length_score * 0.3) + (format_score * 0.3)
+                return final_score
+
             if normalized_candidates:
                 best = max(normalized_candidates, key=score)
                 logger.info(f"Best license number candidate: {best}")
