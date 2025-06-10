@@ -98,6 +98,7 @@ import sys
 import argparse
 import time
 import re
+import pandas as pd
 
 from sync import salesforce_client
 from sync.utils.name_utils import extract_name_parts
@@ -534,7 +535,7 @@ def run_command(args):
             page = None
             account_manager = None
             file_manager = None
-            view_name="All Accounts"
+            view_name="All Clients"
             
             if args.salesforce_accounts or args.salesforce_account_files:
                 browser, page = get_salesforce_page(p)
@@ -571,13 +572,31 @@ def run_command(args):
             report_logger.info(f"\nStarting to process {total_folders} folders...")
 
             excel_file = None
+            flatfile_excel = None
             if args.dropbox_account_info:
+                # Process holiday file
                 holiday_file, temp_path, excel_file, sheets = dropbox_client._process_holiday_file()
                 if not all([holiday_file, temp_path, excel_file, sheets]):
                     logger.error("Failed to process holiday file")
                     report_logger.info("Failed to process holiday file")
                     return
-            
+
+                # Process FlatFile template
+                template_path = os.path.join('docs', 'FlatFile Template 5.2025.xlsx')
+                output_path = os.path.join('docs', 'FlatFile.5.2025.xlsx')
+                if os.path.exists(template_path):
+                    try:
+                        flatfile_excel = pd.ExcelFile(template_path)
+                        logger.info("Successfully loaded FlatFile template")
+                    except Exception as e:
+                        logger.error(f"Error loading FlatFile template: {str(e)}")
+                        report_logger.info(f"Error loading FlatFile template: {str(e)}")
+                        return
+                else:
+                    logger.error(f"FlatFile template not found: {template_path}")
+                    report_logger.info(f"FlatFile template not found: {template_path}")
+                    return
+
             # Process each folder name
             for index, dropbox_account_folder_name in enumerate(ACCOUNT_FOLDERS, 1):
                 logger.info(f"[{index}/{total_folders}] Processing Dropbox account folder: {dropbox_account_folder_name}")
@@ -624,6 +643,19 @@ def run_command(args):
                             dropbox_account_search_result = dropbox_client.dropbox_search_account(dropbox_account_folder_name, dropbox_account_name_parts, excel_file)
                             logger.info(f'dropbox_account_search_result: {dropbox_account_search_result}')
                             logger.info(f"Successfully retrieved info for Dropbox account: {dropbox_account_folder_name}")
+
+                            # Update FlatFile with account info if found
+                            if dropbox_account_search_result.get('account_data'):
+                                logger.info("Updating FlatFile with account info...")
+                                if dropbox_client.update_flatfile_with_account_info(
+                                    dropbox_account_search_result,
+                                    flatfile_excel=flatfile_excel,
+                                    template_path=template_path,
+                                    output_path=output_path
+                                ):
+                                    logger.info("Successfully updated FlatFile with account info")
+                                else:
+                                    logger.error("Failed to update FlatFile with account info")
                             
                             if command_runner:
                                 command_runner.set_data('dropbox_account_info', dropbox_account_search_result)

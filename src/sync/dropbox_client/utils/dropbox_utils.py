@@ -722,6 +722,20 @@ class DropboxClient:
                             'state': str(account_row.iloc[7]),    # Column H
                             'zip': str(account_row.iloc[8])       # Column I
                         }
+                    elif match_sheet == "Client Mailing List":
+                        # Extract data from Client Mailing List sheet using row values directly
+                        row_values = [str(val) for val in account_row.values if not pd.isna(val)]
+                        dropbox_account_info['account_data'] = {
+                            'name': f"{row_values[1]} {row_values[0]}",  # First name + Last name
+                            'first_name': str(row_values[1]),
+                            'last_name': str(row_values[0]),
+                            'address': str(row_values[2]),
+                            'city': str(row_values[3]),
+                            'state': str(row_values[4]),
+                            'zip': str(row_values[5]),
+                            'email': str(row_values[6]),
+                            'phone': str(row_values[7])
+                        }
                     else:
                         # Extract data from standard sheet format
                         dropbox_account_info['account_data'] = {
@@ -1064,6 +1078,152 @@ class DropboxClient:
         except Exception as e:
             logger.error(f"Error processing holiday file: {str(e)}")
             return None, None, None, None
+
+    def update_flatfile_with_account_info(self, account_info: Dict[str, Any], flatfile_excel: pd.ExcelFile = None, template_path: str = None, output_path: str = None) -> bool:
+        """Update the FlatFile Excel with Dropbox account information.
+        
+        Args:
+            account_info (Dict[str, Any]): Dictionary containing account information
+            flatfile_excel (pd.ExcelFile): The Excel file object for the template
+            template_path (str): Path to the template file
+            output_path (str): Path to the output file
+            
+        Returns:
+            bool: True if update was successful, False otherwise
+        """
+        try:
+            account_name = account_info.get('name_parts', {}).get('folder_name', '')
+            logger.info(f"\n=== Starting FlatFile update for account: {account_name} ===")
+            
+            if not all([flatfile_excel, template_path, output_path]):
+                logger.error("Missing required parameters for FlatFile update")
+                return False
+                
+            # Get account data
+            account_data = account_info.get('account_data', {})
+            if not account_data:
+                logger.warning("No account data found to update")
+                return False
+                
+            # Map account data fields to Clients sheet columns
+            mapped_data = {
+                'First Name': account_data.get('first_name', ''),
+                'Last Name': account_data.get('last_name', ''),
+                'Address 1': account_data.get('address', ''),
+                'City': account_data.get('city', ''),
+                'State': account_data.get('state', ''),
+                'Zip': account_data.get('zip', ''),
+                'Email': account_data.get('email', ''),  # Ensure capital E in Email
+                'Phone': account_data.get('phone', '')
+            }
+                
+            # Debug: Log mapped data
+            logger.info("\nMapped account data to Clients sheet columns:")
+            for key, value in mapped_data.items():
+                logger.info(f"  {key}: {value}")
+                
+            # Create a dictionary to store the updated dataframes
+            updated_dfs = {}
+            
+            # Process only the Clients sheet
+            sheet_name = "Clients"
+            logger.info(f"\nProcessing sheet: {sheet_name}")
+            df = pd.read_excel(flatfile_excel, sheet_name=sheet_name)
+            
+            # Debug: Log current sheet data
+            logger.info(f"Current sheet data shape: {df.shape}")
+            logger.info("Columns in sheet:")
+            for col in df.columns:
+                logger.info(f"  - {col}")
+            
+            # Check if this is a new entry or update
+            last_name = mapped_data['Last Name'].lower()
+            first_name = mapped_data['First Name'].lower()
+            
+            logger.info(f"\nSearching for matches with first_name: {first_name}, last_name: {last_name}")
+            
+            # Create a mask for matching rows
+            mask = df.apply(lambda row: any(
+                str(val).lower() == last_name or str(val).lower() == first_name 
+                for val in row.values
+            ), axis=1)
+            
+            matching_rows = df[mask]
+            
+            if not matching_rows.empty:
+                # Update existing entry
+                logger.info(f"\n=== Updating existing entry ===")
+                logger.info(f"Found {len(matching_rows)} matching rows in sheet: {sheet_name}")
+                for idx in matching_rows.index:
+                    logger.info(f"\nUpdating row at index {idx}")
+                    logger.info("Current row data:")
+                    for col in df.columns:
+                        logger.info(f"  {col}: {df.at[idx, col]}")
+                    
+                    # Update the row with new data
+                    logger.info("\nUpdating with new data:")
+                    for col in df.columns:
+                        if col in mapped_data:
+                            old_value = df.at[idx, col]
+                            new_value = mapped_data[col]
+                            if str(old_value).lower() != str(new_value).lower():
+                                df.at[idx, col] = new_value
+                                logger.info(f"  {col}: {old_value} -> {new_value}")
+                            else:
+                                logger.info(f"  {col}: No change (already matches)")
+            else:
+                # Add new entry
+                logger.info(f"\n=== Adding new entry ===")
+                logger.info(f"No matching rows found, adding new entry to sheet: {sheet_name}")
+                # Create a new row with the same columns as the DataFrame
+                new_row = pd.DataFrame([{col: mapped_data.get(col, '') for col in df.columns}])
+                df = pd.concat([df, new_row], ignore_index=True)
+                logger.info("\nNew row data:")
+                for col in df.columns:
+                    if col in mapped_data:
+                        logger.info(f"  {col}: {mapped_data[col]}")
+                    else:
+                        logger.info(f"  {col}: <empty>")
+            
+            updated_dfs[sheet_name] = df
+            
+            # Debug: Save intermediate CSV for this sheet
+            debug_csv_path = f"docs/debug_{sheet_name.replace(' ', '_')}.csv"
+            df.to_csv(debug_csv_path, index=False)
+            logger.info(f"\nSaved debug CSV for sheet {sheet_name} to {debug_csv_path}")
+            
+            # Read all other sheets without modification
+            for other_sheet in flatfile_excel.sheet_names:
+                if other_sheet != sheet_name:
+                    logger.info(f"Reading unchanged sheet: {other_sheet}")
+                    updated_dfs[other_sheet] = pd.read_excel(flatfile_excel, sheet_name=other_sheet)
+            
+            # Write the updated data to both Excel and CSV files
+            excel_output_path = output_path
+            csv_output_path = output_path.replace('.xlsx', '.csv')
+            
+            # Write Excel file
+            logger.info(f"\nWriting Excel file to: {excel_output_path}")
+            with pd.ExcelWriter(excel_output_path, engine='openpyxl') as writer:
+                for sheet_name, df in updated_dfs.items():
+                    logger.info(f"Writing sheet {sheet_name} with {len(df)} rows")
+                    df.to_excel(writer, sheet_name=sheet_name, index=False)
+            
+            # Write CSV file with only Clients sheet data
+            logger.info(f"\nWriting CSV file to: {csv_output_path}")
+            updated_dfs["Clients"].to_csv(csv_output_path, index=False)
+            
+            logger.info(f"\n=== Successfully completed FlatFile update ===")
+            logger.info(f"  Excel: {excel_output_path}")
+            logger.info(f"  CSV: {csv_output_path}")
+            logger.info(f"  Account: {account_name}")
+            logger.info("=== End FlatFile update ===\n")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error updating FlatFile: {str(e)}")
+            logger.error("Stack trace:", exc_info=True)
+            return False
 
 def update_env_file(env_file, token=None, root_folder=None, directory=None):
     """Update the .env file with new values."""
