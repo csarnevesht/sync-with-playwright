@@ -626,6 +626,7 @@ def run_command(args):
                             logger.info("Refreshing page")
                             account_manager.refresh_page()
 
+                        # Get Dropbox account info
                         if args.dropbox_account_info:
                             # DROPBOX ACCOUNT INFO
                             logger.info('step: Search for Dropbox Account Info')
@@ -633,6 +634,15 @@ def run_command(args):
                             dropbox_account_search_result = dropbox_client.dropbox_search_account(dropbox_account_folder_name, dropbox_account_name_parts, excel_file)
                             logger.info(f'dropbox_account_search_result: {dropbox_account_search_result}')
                             logger.info(f"Successfully retrieved info for Dropbox account: {dropbox_account_folder_name}")
+
+                            # Add to summary results
+                            summary_results.append({
+                                'dropbox_name': dropbox_account_folder_name,
+                                'dropbox_account_search_result': dropbox_account_search_result,
+                                'dropbox_account_file_names': dropbox_account_file_names,
+                                'salesforce_account_file_names': salesforce_account_file_names,
+                                'file_comparison': file_comparison
+                            })
 
                             # Update FlatFile with account info if found
                             if dropbox_account_search_result.get('account_data'):
@@ -910,7 +920,7 @@ def run_command(args):
                     dropbox_result = result_dict.get('dropbox_account_search_result', {})
                     if dropbox_result:
                         match_info = dropbox_result.get('search_info', {}).get('match_info', {})
-                        if match_info.get('match_status') == 'Match found':
+                        if match_info.get('match_status', '').lower() == 'match found':
                             total_dropbox_matches += 1
                         else:
                             total_dropbox_no_matches += 1
@@ -922,7 +932,7 @@ def run_command(args):
                     salesforce_result = result_dict.get('salesforce_account_search_result', {})
                     if salesforce_result:
                         match_info = salesforce_result.get('match_info', {})
-                        if match_info.get('match_status') == 'Match Found':
+                        if match_info.get('match_status', '').lower() == 'match found':
                             total_salesforce_matches += 1
                         else:
                             total_salesforce_no_matches += 1
