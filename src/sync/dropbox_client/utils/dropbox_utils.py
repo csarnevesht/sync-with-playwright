@@ -878,26 +878,27 @@ class DropboxClient:
             
             # Log driver's license information to report.log
             report_logger = logging.getLogger('report')
-            if dropbox_account_info['drivers_license_info']['status'] == 'found':
-                if dropbox_account_info['drivers_license']:
-                    report_logger.info("\n📄 **Driver's License Information**")
-                    report_logger.info(f"   + Status: Found and extracted")
-                    report_logger.info(f"   + File: {dropbox_account_info['drivers_license_info']['file_path']}")
-                    for key, value in dropbox_account_info['drivers_license'].items():
-                        report_logger.info(f"   + {key}: {value}")
+            if hasattr(self, 'args') and getattr(self.args, 'dl', False):
+                if dropbox_account_info['drivers_license_info']['status'] == 'found':
+                    if dropbox_account_info['drivers_license']:
+                        report_logger.info("\n📄 **Driver's License Information**")
+                        report_logger.info(f"   + Status: Found and extracted")
+                        report_logger.info(f"   + File: {dropbox_account_info['drivers_license_info']['file_path']}")
+                        for key, value in dropbox_account_info['drivers_license'].items():
+                            report_logger.info(f"   + {key}: {value}")
+                    else:
+                        report_logger.info("\n📄 **Driver's License Information**")
+                        report_logger.info(f"   + Status: Found but no information extracted")
+                        report_logger.info(f"   + File: {dropbox_account_info['drivers_license_info']['file_path']}")
                 else:
                     report_logger.info("\n📄 **Driver's License Information**")
-                    report_logger.info(f"   + Status: Found but no information extracted")
-                    report_logger.info(f"   + File: {dropbox_account_info['drivers_license_info']['file_path']}")
-            else:
-                report_logger.info("\n📄 **Driver's License Information**")
-                report_logger.info(f"   + Status: {dropbox_account_info['drivers_license_info']['status']}")
-                if dropbox_account_info['drivers_license_info']['reason']:
-                    report_logger.info(f"   + Reason: {dropbox_account_info['drivers_license_info']['reason']}")
-                if dropbox_account_info['drivers_license_info']['extraction_errors']:
-                    report_logger.info("   + Errors:")
-                    for error in dropbox_account_info['drivers_license_info']['extraction_errors']:
-                        report_logger.info(f"     - {error}")
+                    report_logger.info(f"   + Status: {dropbox_account_info['drivers_license_info']['status']}")
+                    if dropbox_account_info['drivers_license_info']['reason']:
+                        report_logger.info(f"   + Reason: {dropbox_account_info['drivers_license_info']['reason']}")
+                    if dropbox_account_info['drivers_license_info']['extraction_errors']:
+                        report_logger.info("   + Errors:")
+                        for error in dropbox_account_info['drivers_license_info']['extraction_errors']:
+                            report_logger.info(f"     - {error}")
             
             return dropbox_account_info
             
