@@ -583,18 +583,8 @@ def run_command(args):
 
                 # Process FlatFile template
                 template_path = os.path.join('docs', 'FlatFile Template 5.2025.xlsx')
-                output_path = os.path.join('docs', 'FlatFile.5.2025.xlsx')
-                if os.path.exists(template_path):
-                    try:
-                        flatfile_excel = pd.ExcelFile(template_path)
-                        logger.info("Successfully loaded FlatFile template")
-                    except Exception as e:
-                        logger.error(f"Error loading FlatFile template: {str(e)}")
-                        report_logger.info(f"Error loading FlatFile template: {str(e)}")
-                        return
-                else:
-                    logger.error(f"FlatFile template not found: {template_path}")
-                    report_logger.info(f"FlatFile template not found: {template_path}")
+                flatfile_excel = prepare_flatfile_from_template(template_path, logger, report_logger)
+                if flatfile_excel is None:
                     return
 
             # Process each folder name
@@ -647,11 +637,12 @@ def run_command(args):
                             # Update FlatFile with account info if found
                             if dropbox_account_search_result.get('account_data'):
                                 logger.info("Updating FlatFile with account info...")
+                                output_xlsx = os.path.join('accounts', 'FlatFile.5.2025.xlsx')
                                 if dropbox_client.update_flatfile_with_account_info(
                                     dropbox_account_search_result,
                                     flatfile_excel=flatfile_excel,
                                     template_path=template_path,
-                                    output_path=output_path
+                                    output_path=output_xlsx
                                 ):
                                     logger.info("Successfully updated FlatFile with account info")
                                 else:
@@ -712,6 +703,7 @@ def run_command(args):
                             salesforce_match = salesforce_account_search_result['match_info']['match_status'] if 'match_info' in salesforce_account_search_result else 'No match found'
                             salesforce_view = salesforce_account_search_result.get('view', '--')
 
+                        if args.salesforce_accounts or args.dropbox_account_info:
                             log_block = f"""
 📁 **Dropbox Folder**
    - Name: {dropbox_account_folder_name}
@@ -1011,6 +1003,34 @@ def build_and_log_summary_line(result, report_logger, args):
         salesforce_info = {'account_name': '--', 'match': '--', 'view': '--'}
         summary_line = format_summary_line(dropbox_folder_name, salesforce_info, dropbox_info, args=args)
         report_logger.info(summary_line)
+
+def prepare_flatfile_from_template(template_path, logger, report_logger):
+    """
+    Prepare the FlatFile Excel template: delete the output CSV and XLSX in accounts/ if they exist, then load and return the pd.ExcelFile object, or None if loading fails.
+    """
+    output_xlsx = os.path.join('accounts', 'FlatFile.5.2025.xlsx')
+    output_csv = output_xlsx.replace('.xlsx', '.csv')
+    for out_path in [output_csv, output_xlsx]:
+        if os.path.exists(out_path):
+            try:
+                os.remove(out_path)
+                logger.info(f"Deleted existing output file: {out_path}")
+            except Exception as e:
+                logger.error(f"Error deleting output file {out_path}: {str(e)}")
+                report_logger.info(f"Error deleting output file {out_path}: {str(e)}")
+    if os.path.exists(template_path):
+        try:
+            flatfile_excel = pd.ExcelFile(template_path)
+            logger.info("Successfully loaded FlatFile template")
+            return flatfile_excel
+        except Exception as e:
+            logger.error(f"Error loading FlatFile template: {str(e)}")
+            report_logger.info(f"Error loading FlatFile template: {str(e)}")
+            return None
+    else:
+        logger.error(f"FlatFile template does not exist: {template_path}")
+        report_logger.info(f"FlatFile template does not exist: {template_path}")
+        return None
 
 if __name__ == "__main__":
     args = parse_args()

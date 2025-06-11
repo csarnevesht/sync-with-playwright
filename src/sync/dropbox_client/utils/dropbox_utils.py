@@ -756,6 +756,13 @@ class DropboxClient:
                             'state': str(account_row.iloc[7]),    # Column H
                             'zip': str(account_row.iloc[8])       # Column I
                         }
+                        if dropbox_account_info['drivers_license']:
+                            dropbox_account_info['account_data']['drivers_license'] = dropbox_account_info['drivers_license']
+                        # Update match status
+                        dropbox_account_info['search_info']['status'] = 'found'
+                        dropbox_account_info['search_info']['match_info']['match_status'] = "Match found"
+                        dropbox_account_info['search_info']['match_info']['total_matches'] = 1
+                        dropbox_account_info['search_info']['match_info']['total_no_matches'] = 0
                     elif match_sheet == "Client Mailing List":
                         # Extract data from Client Mailing List sheet using row values directly
                         row_values = [str(val) for val in account_row.values if not pd.isna(val)]
@@ -770,6 +777,13 @@ class DropboxClient:
                             'email': str(row_values[6]),
                             'phone': str(row_values[7])
                         }
+                        if dropbox_account_info['drivers_license']:
+                            dropbox_account_info['account_data']['drivers_license'] = dropbox_account_info['drivers_license']
+                        # Update match status
+                        dropbox_account_info['search_info']['status'] = 'found'
+                        dropbox_account_info['search_info']['match_info']['match_status'] = "Match found"
+                        dropbox_account_info['search_info']['match_info']['total_matches'] = 1
+                        dropbox_account_info['search_info']['match_info']['total_no_matches'] = 0
                     else:
                         # Extract data from standard sheet format
                         dropbox_account_info['account_data'] = {
@@ -781,20 +795,15 @@ class DropboxClient:
                             'state': str(account_row.get('State', '')),
                             'zip': str(account_row.get('Zip', '')),
                             'email': str(account_row.get('Email', '')),
-                            'phone': str(account_row.get('Phone', '')),
-                            'Birthday': account_info.get('drivers_license', {}).get('date_of_birth', ''),
-                            'Gender': account_info.get('drivers_license', {}).get('sex', ''),
-                            "Driver's License Number": account_info.get('drivers_license', {}).get('license_number', '')
+                            'phone': str(account_row.get('Phone', ''))
                         }
-                    
-                    # Update match status
-                    dropbox_account_info['search_info']['status'] = 'found'
-                    dropbox_account_info['search_info']['match_info']['match_status'] = "Match found"
-                    dropbox_account_info['search_info']['match_info']['total_matches'] = 1
-                    dropbox_account_info['search_info']['match_info']['total_no_matches'] = 0
-                    logger.info(f"Successfully extracted account data from {match_sheet}")
-                else:
-                    logger.info("No match found in any sheet")
+                        if dropbox_account_info['drivers_license']:
+                            dropbox_account_info['account_data']['drivers_license'] = dropbox_account_info['drivers_license']
+                        # Update match status
+                        dropbox_account_info['search_info']['status'] = 'found'
+                        dropbox_account_info['search_info']['match_info']['match_status'] = "Match found"
+                        dropbox_account_info['search_info']['match_info']['total_matches'] = 1
+                        dropbox_account_info['search_info']['match_info']['total_no_matches'] = 0
 
                 # If no match found, log detailed explanation
                 if not dropbox_account_info['account_data']:
@@ -839,6 +848,13 @@ class DropboxClient:
             finally:
                 # No need to clean up temporary file since we're using the excel_file object directly
                 pass
+            
+            # Merge driver's license info into account_data if present
+            if dropbox_account_info['drivers_license']:
+                dropbox_account_info['account_data']['drivers_license'] = dropbox_account_info['drivers_license']
+                logger.info(f"DEBUG: driver's_license info: {dropbox_account_info['drivers_license']}")
+            else:
+                logger.info("DEBUG: No driver's_license info extracted.")
             
             return dropbox_account_info
             
@@ -1329,14 +1345,14 @@ class DropboxClient:
                 logger.error(f"Error extracting DOB from cropped region: {str(e)}")
             
             # --- Expiration Date Extraction ---
-            exp_match = re.search(r'(?:EXP|EXPIRATION|EXPIRES|EXP DATE|EXPIRATION DATE)[^0-9]*([0-9]{2}/[0-9]{2}/[0-9]{4})', clean_text)
+            exp_match = re.search(r'(?:EXP|EXPIRATION|EXPIRES|EXP DATE|EXPIRATION DATE)[^0-9]*([0-9]{2}/[0-9]{2}/[0-9]{4})', text)
             if exp_match:
                 result['expiration_date'] = exp_match.group(1)
             else:
                 # Fallback: any MM/DD/YYYY after 'EXP'
-                exp_idx = clean_text.find('EXP')
+                exp_idx = text.find('EXP')
                 if exp_idx != -1:
-                    after_exp = clean_text[exp_idx:exp_idx+30]  # look ahead 30 chars
+                    after_exp = text[exp_idx:exp_idx+30]  # look ahead 30 chars
                     m2 = re.search(r'([0-9]{2}/[0-9]{2}/[0-9]{4})', after_exp)
                     if m2:
                         result['expiration_date'] = m2.group(1)
@@ -1456,10 +1472,11 @@ class DropboxClient:
                 'Address 1: ZIP/Postal Code': account_data.get('zip', ''),
                 'Email': account_data.get('email', ''),  # Ensure capital E in Email
                 'Phone': account_data.get('phone', ''),
-                'Birthday': account_info.get('drivers_license', {}).get('date_of_birth', ''),
-                'Gender': account_info.get('drivers_license', {}).get('sex', ''),
-                "Driver's License Number": account_info.get('drivers_license', {}).get('license_number', '')
+                'Birthday': account_data.get('drivers_license', {}).get('date_of_birth', ''),
+                'Gender': account_data.get('drivers_license', {}).get('sex', ''),
+                "Driver's License Number": account_data.get('drivers_license', {}).get('license_number', '')
             }
+            logger.info(f"DEBUG: mapped_data before writing: {mapped_data}")
                 
             # Debug: Log mapped data
             logger.info("\nMapped account data to Clients sheet columns:")
