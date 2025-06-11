@@ -721,7 +721,7 @@ def run_command(args):
                             salesforce_match = salesforce_account_search_result['match_info']['match_status'] if 'match_info' in salesforce_account_search_result else 'No match found'
                             salesforce_view = salesforce_account_search_result.get('view', '--')
 
-                        if args.salesforce_accounts or args.dropbox_account_info:
+                        if args.salesforce_accounts or args.dropbox_account_info or args.dropbox_accounts:
                             # Add to summary results
                             summary_results.append({
                                 'dropbox_name': dropbox_account_folder_name,
@@ -731,6 +731,8 @@ def run_command(args):
                                 'salesforce_account_file_names': salesforce_account_file_names,
                                 'file_comparison': file_comparison
                             })
+                            logger.info(f"CAROLINA summary_results: {summary_results}")
+                            
 
                         if args.salesforce_accounts or args.dropbox_account_info:
 
@@ -991,90 +993,99 @@ def run_command(args):
     logging.info(duration_message)
     report_logger.info(duration_message)   
 
-def format_summary_line(dropbox_folder_name, salesforce_info, dropbox_info, args=None):
+def build_and_log_summary_line(result, report_logger, args):
+    """
+    Builds and logs a summary line for the report log.
+    """
+    # Initialize salesforce_info with default values
+    salesforce_info = result.get('salesforce_account_search_result', {})
+    salesforce_info.setdefault('matches', [])
+    salesforce_info.setdefault('match', '--')
+    salesforce_info.setdefault('view', '--')
+    
+    # Set match status based on matches
+    if salesforce_info.get('matches'):
+        salesforce_info['match'] = 'Match Found'
+    
+    # Initialize dropbox_info with default values
+    dropbox_info = result.get('dropbox_account_search_result', {})
+    dropbox_info.setdefault('account_name', '--')
+    dropbox_info.setdefault('match', '--')
+    
+    # Format the summary line
+    summary_line = format_summary_line(result.get('dropbox_name', '--'), salesforce_info, dropbox_info, args)
+    
+    # Log the summary line
+    report_logger.info(summary_line)
+    
+    return summary_line
+
+def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox_info: dict, args=None):
     """
     Returns a formatted summary line for the report log.
     dropbox_folder_name: str
-    salesforce_info: dict with keys 'account_name', 'match', 'view'
-    dropbox_info: dict with keys 'account_name', 'match'
+    salesforce_info: dict with keys 'matches' (list of all matching accounts), 'match', 'view'
+    dropbox_info: dict with keys 'account_data', 'search_info', 'match_info'
     args: argparse.Namespace (optional, to check for salesforce_accounts flag)
     """
-    print('[[[*******dropbox_info*********', dropbox_info)
-    dropbox_account_search_name = dropbox_info.get('account_name', '--')
-    dropbox_account_match = dropbox_info.get('match', '--')
-    dropbox_icon = '📄' if dropbox_account_match == 'Match found' else '🔴'
+    # Build the base summary with just the folder name
+    summary = f"📁 **Dropbox Folder** Name: {dropbox_folder_name}"
     
-    # Check for driver's license
-    drivers_license_info = dropbox_info.get('drivers_license_info', {})
-    drivers_license_status = drivers_license_info.get('status', 'not_found')
-    drivers_license_data = dropbox_info.get('drivers_license', {})
-    drivers_license_icon = '🪪' if drivers_license_status == 'found' else '🟥'
+    # Add Dropbox info only if --dropbox-accounts flag is set
+    if args.dropbox_account_info:
+        # Get account data
+        account_data = dropbox_info.get('account_data', {})
+        search_info = dropbox_info.get('search_info', {})
+        match_info = search_info.get('match_info', {})
+        
+        # Get account name and match status
+        dropbox_account_search_name = account_data.get('name', '--')
+        dropbox_account_match = match_info.get('match_status', '--')
+        dropbox_icon = '📄' if dropbox_account_match == 'Match found' else '🔴'
+        summary += f", {dropbox_icon} Dropbox Name: {dropbox_account_search_name}, Dropbox Match: {dropbox_account_match}"
+        
+        # Add driver's license info if available
+        drivers_license_info = dropbox_info.get('drivers_license_info', {})
+        if drivers_license_info:
+            drivers_license_status = drivers_license_info.get('status', 'not_found')
+            drivers_license_data = dropbox_info.get('drivers_license', {})
+            drivers_license_icon = '🪪' if drivers_license_status == 'found' else '🟥'
+            
+            # Build driver's license details if available
+            dl_details = ""
+            if drivers_license_status == 'found' and drivers_license_data:
+                dl_details = f" (DL#: {drivers_license_data.get('license_number', 'N/A')}"
+                if 'date_of_birth' in drivers_license_data:
+                    dl_details += f", DOB: {drivers_license_data['date_of_birth']}"
+                dl_details += ")"
+            
+            summary += f", {drivers_license_icon} {'DL Found' if drivers_license_icon == '🪪' else 'No DL'}{dl_details}"
     
-    # Build driver's license details if available
-    dl_details = ""
-    if drivers_license_status == 'found' and drivers_license_data:
-        dl_details = f" (DL#: {drivers_license_data.get('license_number', 'N/A')}"
-        if 'date_of_birth' in drivers_license_data:
-            dl_details += f", DOB: {drivers_license_data['date_of_birth']}"
-        dl_details += ")"
-    
-    summary = f"📁 **Dropbox Folder** Name: {dropbox_folder_name}, {dropbox_icon} Dropbox Name: {dropbox_account_search_name}, Dropbox Match: {dropbox_account_match}"
-    if args and getattr(args, 'dl', False):
-        summary += f", {drivers_license_icon} {'DL Found' if drivers_license_icon == '🪪' else 'No DL'}{dl_details}"
-    
-    if args and getattr(args, 'salesforce_accounts', False):
-        logger.info(f"salesforce_info: {salesforce_info}")
-        salesforce_account_name = salesforce_info.get('account_name', '--')
+    # Add Salesforce info if available
+    if args.salesforce_accounts:
+        salesforce_matches = salesforce_info.get('matches', [])
         salesforce_match = salesforce_info.get('match', '--')
         salesforce_view = salesforce_info.get('view', '--')
-        salesforce_icon = '👤' if salesforce_match == 'Match Found' else '🔴'
-        summary += f", {salesforce_icon} Salesforce Account: {salesforce_account_name}, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
-    return summary
-
-def build_and_log_summary_line(result, report_logger, args):
-    dropbox_folder_name = result.get('dropbox_name', '--')
-    salesforce_result = result.get('salesforce_account_search_result', {})
-    dropbox_result = result.get('dropbox_account_search_result', {})
-    
-    # Initialize salesforce_info with default values
-    salesforce_info = {'account_name': '--', 'match': '--', 'view': '--'}
-    
-    # Get Dropbox info
-    if args.dropbox_account_info:
-        account_data = dropbox_result.get('account_data', {})
-        if account_data:
-            dropbox_account_search_name = account_data.get('name') or (
-                (account_data.get('first_name', '').strip() + ' ' + account_data.get('last_name', '').strip()).strip()
-            ) or dropbox_folder_name or '--'
+        
+        # Update match status to include count if there are multiple accounts
+        if salesforce_match == 'Match Found' and len(salesforce_matches) > 1:
+            salesforce_match = f"Match Found ({len(salesforce_matches)})"
+        
+        salesforce_icon = '👤' if salesforce_match.startswith('Match Found') else '🔴'
+        
+        # Add the first account to the summary
+        if salesforce_matches:
+            first_account = salesforce_matches[0]
+            summary += f", {salesforce_icon} Salesforce Account: {first_account}, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
+            
+            # Add additional accounts if there are more
+            if len(salesforce_matches) > 1:
+                for account in salesforce_matches[1:]:
+                    summary += f"\n{' ' * 50}👤 Additional Account: {account}"
         else:
-            dropbox_account_search_name = dropbox_folder_name or '--'
-        dropbox_search_info = dropbox_result.get('search_info', {})
-        dropbox_match_info = dropbox_search_info.get('match_info', {})
-        dropbox_account_match = dropbox_match_info.get('match_status', 'No match found')
-        dropbox_info = {
-            'account_name': dropbox_account_search_name, 
-            'match': dropbox_account_match,
-            'drivers_license': account_data.get('drivers_license', {}),
-            'drivers_license_info': dropbox_result.get('drivers_license_info', {})
-        }
-    else:
-        # Only Dropbox info in summary
-        dropbox_info = {'account_name': '--', 'match': '--'}
+            summary += f", {salesforce_icon} Salesforce Account: --, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
     
-    # Get Salesforce info if available
-    if args.salesforce_accounts and salesforce_result:
-        salesforce_matches = salesforce_result.get('matches', [])
-        salesforce_account_name = salesforce_matches[0] if salesforce_matches else '--'
-        salesforce_match = salesforce_result.get('match_info', {}).get('match_status', 'No match found')
-        salesforce_view = salesforce_result.get('view', '--')
-        salesforce_info = {
-            'account_name': salesforce_account_name,
-            'match': salesforce_match,
-            'view': salesforce_view
-        }
-    
-    summary_line = format_summary_line(dropbox_folder_name, salesforce_info, dropbox_info, args=args)
-    report_logger.info(summary_line)
+    return summary
 
 def prepare_flatfile_from_template(template_path, logger, report_logger):
     """
