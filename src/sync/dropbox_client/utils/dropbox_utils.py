@@ -567,41 +567,44 @@ class DropboxClient:
         }
 
         try:
-            # First, try to get driver's license information
-            logger.info(f"\n=== Getting driver's license information for {account_name} ===")
-            dl_file = self.get_drivers_license_file(account_name)
-            if dl_file:
-                logger.info(f"Found driver's license file: {dl_file.name}")
-                dropbox_account_info['drivers_license_info']['status'] = 'found'
-                dropbox_account_info['drivers_license_info']['file_path'] = dl_file.path_display
-                try:
-                    # Create a temporary file with the correct extension
-                    file_ext = os.path.splitext(dl_file.name)[1].lower()
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as temp_file:
-                        temp_path = temp_file.name
-                        # Download the driver's license file
-                        self.dbx.files_download_to_file(temp_path, dl_file.path_display)
-                        logger.info(f"Downloaded driver's license to: {temp_path}")
-                        # Always use _extract_dl_info for both PDF and image files
-                        dl_info = self._extract_dl_info(temp_path)
-                        if dl_info:
-                            dropbox_account_info['drivers_license'] = dl_info
-                            logger.info(f"Successfully extracted driver's license information: {dl_info}")
-                        else:
-                            logger.warning("No information could be extracted from driver's license")
-                            dropbox_account_info['drivers_license_info']['status'] = 'extraction_failed'
-                            dropbox_account_info['drivers_license_info']['reason'] = 'No information could be extracted from the file'
-                        # Clean up the temporary file
-                        os.unlink(temp_path)
-                except Exception as e:
-                    logger.error(f"Error processing driver's license: {str(e)}")
-                    dropbox_account_info['drivers_license_info']['status'] = 'processing_error'
-                    dropbox_account_info['drivers_license_info']['reason'] = f'Error processing file: {str(e)}'
-                    dropbox_account_info['drivers_license_info']['extraction_errors'].append(str(e))
+            # First, try to get driver's license information only if --dl flag is set
+            if hasattr(self, 'args') and getattr(self.args, 'dl', False):
+                logger.info(f"\n=== Getting driver's license information for {account_name} ===")
+                dl_file = self.get_drivers_license_file(account_name)
+                if dl_file:
+                    logger.info(f"Found driver's license file: {dl_file.name}")
+                    dropbox_account_info['drivers_license_info']['status'] = 'found'
+                    dropbox_account_info['drivers_license_info']['file_path'] = dl_file.path_display
+                    try:
+                        # Create a temporary file with the correct extension
+                        file_ext = os.path.splitext(dl_file.name)[1].lower()
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as temp_file:
+                            temp_path = temp_file.name
+                            # Download the driver's license file
+                            self.dbx.files_download_to_file(temp_path, dl_file.path_display)
+                            logger.info(f"Downloaded driver's license to: {temp_path}")
+                            # Always use _extract_dl_info for both PDF and image files
+                            dl_info = self._extract_dl_info(temp_path)
+                            if dl_info:
+                                dropbox_account_info['drivers_license'] = dl_info
+                                logger.info(f"Successfully extracted driver's license information: {dl_info}")
+                            else:
+                                logger.warning("No information could be extracted from driver's license")
+                                dropbox_account_info['drivers_license_info']['status'] = 'extraction_failed'
+                                dropbox_account_info['drivers_license_info']['reason'] = 'No information could be extracted from the file'
+                            # Clean up the temporary file
+                            os.unlink(temp_path)
+                    except Exception as e:
+                        logger.error(f"Error processing driver's license: {str(e)}")
+                        dropbox_account_info['drivers_license_info']['status'] = 'processing_error'
+                        dropbox_account_info['drivers_license_info']['reason'] = f'Error processing file: {str(e)}'
+                        dropbox_account_info['drivers_license_info']['extraction_errors'].append(str(e))
+                else:
+                    logger.info("No driver's license file found")
+                    dropbox_account_info['drivers_license_info']['status'] = 'not_found'
+                    dropbox_account_info['drivers_license_info']['reason'] = 'No driver\'s license file found in the account folder'
             else:
-                logger.info("No driver's license file found")
-                dropbox_account_info['drivers_license_info']['status'] = 'not_found'
-                dropbox_account_info['drivers_license_info']['reason'] = 'No driver\'s license file found in the account folder'
+                logger.info("Skipping driver's license processing (--dl flag not set)")
 
             # Log search parameters
             logger.info("Search parameters:")
@@ -780,18 +783,20 @@ class DropboxClient:
                         dropbox_account_info['search_info']['match_info']['total_no_matches'] = 0
                     elif match_sheet == "Client Mailing List":
                         # Extract data from Client Mailing List sheet using row values directly
-                        row_values = [str(val) for val in account_row.values if not pd.isna(val)]
+                        row_values = [str(val) if not pd.isna(val) else '' for val in account_row.values]
+                        logger.info(f"row_values: {row_values}")
                         dropbox_account_info['account_data'] = {
-                            'name': f"{row_values[1]} {row_values[0]}",  # First name + Last name
-                            'first_name': str(row_values[1]),
-                            'last_name': str(row_values[0]),
-                            'address': str(row_values[2]),
-                            'city': str(row_values[3]),
-                            'state': str(row_values[4]),
-                            'zip': str(row_values[5]),
-                            'email': str(row_values[6]),
-                            'phone': str(row_values[7])
+                            'name': f"{row_values[2]} {row_values[1]}".strip(),  # First name + Last name
+                            'first_name': row_values[2],
+                            'last_name': row_values[1],
+                            'address': row_values[3],
+                            'city': row_values[5],
+                            'state': row_values[6],
+                            'zip': row_values[7],
+                            'email': row_values[11],
+                            'phone': row_values[10]
                         }
+
                         if dropbox_account_info['drivers_license']:
                             dropbox_account_info['account_data']['drivers_license'] = dropbox_account_info['drivers_license']
                         # Update match status
@@ -810,7 +815,7 @@ class DropboxClient:
                             'state': str(account_row.get('State', '')),
                             'zip': str(account_row.get('Zip', '')),
                             'email': str(account_row.get('Email', '')),
-                            'phone': str(account_row.get('Phone', ''))
+                            'phone': str(account_row.get('Phone', '')) if 'Phone' in account_row else ''
                         }
                         if dropbox_account_info['drivers_license']:
                             dropbox_account_info['account_data']['drivers_license'] = dropbox_account_info['drivers_license']
@@ -1529,11 +1534,17 @@ class DropboxClient:
                 'Address 1: State/Province': account_data.get('state', ''),
                 'Address 1: ZIP/Postal Code': account_data.get('zip', ''),
                 'Email': account_data.get('email', ''),  # Ensure capital E in Email
-                'Phone': account_data.get('phone', ''),
-                'Birthday': account_data.get('drivers_license', {}).get('date_of_birth', ''),
-                'Gender': account_data.get('drivers_license', {}).get('sex', ''),
-                "Driver's License Number": account_data.get('drivers_license', {}).get('license_number', '')
+                'Phone': account_data.get('phone', '')
             }
+            
+            # Only add driver's license info if --dl flag is set
+            if hasattr(self, 'args') and getattr(self.args, 'dl', False):
+                mapped_data.update({
+                    'Birthday': account_data.get('drivers_license', {}).get('date_of_birth', ''),
+                    'Gender': account_data.get('drivers_license', {}).get('sex', ''),
+                    "Driver's License Number": account_data.get('drivers_license', {}).get('license_number', '')
+                })
+            
             logger.info(f"DEBUG: mapped_data before writing: {mapped_data}")
                 
             # Debug: Log mapped data
