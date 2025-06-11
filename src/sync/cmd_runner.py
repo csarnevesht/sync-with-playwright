@@ -1044,22 +1044,23 @@ def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox
         dropbox_icon = '📄' if dropbox_account_match == 'Match found' else '🔴'
         summary += f", {dropbox_icon} Dropbox Name: {dropbox_account_search_name}, Dropbox Match: {dropbox_account_match}"
         
-        # Add driver's license info if available
-        drivers_license_info = dropbox_info.get('drivers_license_info', {})
-        if drivers_license_info:
-            drivers_license_status = drivers_license_info.get('status', 'not_found')
-            drivers_license_data = dropbox_info.get('drivers_license', {})
-            drivers_license_icon = '🪪' if drivers_license_status == 'found' else '🟥'
-            
-            # Build driver's license details if available
-            dl_details = ""
-            if drivers_license_status == 'found' and drivers_license_data:
-                dl_details = f" (DL#: {drivers_license_data.get('license_number', 'N/A')}"
-                if 'date_of_birth' in drivers_license_data:
-                    dl_details += f", DOB: {drivers_license_data['date_of_birth']}"
-                dl_details += ")"
-            
-            summary += f", {drivers_license_icon} {'DL Found' if drivers_license_icon == '🪪' else 'No DL'}{dl_details}"
+        # Add driver's license info only if --dl flag is set
+        if args.dl:
+            drivers_license_info = dropbox_info.get('drivers_license_info', {})
+            if drivers_license_info:
+                drivers_license_status = drivers_license_info.get('status', 'not_found')
+                drivers_license_data = dropbox_info.get('drivers_license', {})
+                drivers_license_icon = '🪪' if drivers_license_status == 'found' else '🟥'
+                
+                # Build driver's license details if available
+                dl_details = ""
+                if drivers_license_status == 'found' and drivers_license_data:
+                    dl_details = f" (DL#: {drivers_license_data.get('license_number', 'N/A')}"
+                    if 'date_of_birth' in drivers_license_data:
+                        dl_details += f", DOB: {drivers_license_data['date_of_birth']}"
+                    dl_details += ")"
+                
+                summary += f", {drivers_license_icon} {'DL Found' if drivers_license_icon == '🪪' else 'No DL'}{dl_details}"
     
     # Add Salesforce info if available
     if args.salesforce_accounts:
