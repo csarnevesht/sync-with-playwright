@@ -161,7 +161,7 @@ class AccountManager(BasePage):
                 return False
                 
             # Wait for the search input
-            if not self._wait_for_selector('ACCOUNT', 'search_input', timeout=20000):
+            if not self._wait_for_selector('ACCOUNT', 'search_view_input', timeout=20000):
                 self.log_helper.log(self.logger, 'error', "Search input not found")
                 self._take_screenshot("accounts-navigation-error")
                 self.log_helper.dedent()
@@ -494,7 +494,7 @@ class AccountManager(BasePage):
             
             # Define selectors
             container_selectors = [
-                # "div.DESKTOP.uiContainerManager",
+                "div.DESKTOP.uiContainerManager",
                 # "div[class*='uiContainerManager']",
                 # "div.forceListViewManagerGrid",
                 "div.listViewContent"
@@ -618,7 +618,7 @@ class AccountManager(BasePage):
             
             # Wait for the search input to be visible
             self.log_helper.log(self.logger, 'info', "Waiting for search input...")
-            search_input = self.page.wait_for_selector(Selectors.get_selector('ACCOUNT', 'search_input'), timeout=20000)
+            search_input = self.page.wait_for_selector(Selectors.get_selector('ACCOUNT', 'search_view_input'), timeout=20000)
             if not search_input:
                 self.log_helper.log(self.logger, 'error', "Search input not found")
                 self._take_screenshot("search-input-not-found")
