@@ -668,14 +668,6 @@ def run_command(args):
                             if command_runner:
                                 command_runner.set_data('dropbox_account_info', dropbox_account_search_result)
 
-                        # Navigate to accounts page
-                        # if args.salesforce_accounts and account_manager:
-                        #     logger.info('Navigating to accounts page')
-                        #     if not account_manager.navigate_to_accounts_list_page(view_name=view_name):
-                        #         logger.error("Failed to navigate to accounts page")
-                        #         report_logger.info("Failed to navigate to accounts page")
-                        #         raise Exception("Failed to navigate to accounts page")
-
                         # Get Dropbox files if requested
                         dropbox_account_file_names = []
                         if args.dropbox_account_files:
