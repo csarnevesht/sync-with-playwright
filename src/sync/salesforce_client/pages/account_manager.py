@@ -487,64 +487,110 @@ class AccountManager(BasePage):
             self.log_helper.log(self.logger, 'info', "Waiting for search results to load...")
             self.page.wait_for_timeout(2000)  # Initial wait for results
             
-            # Try multiple selectors for the results container
-            result_selectors = [
-                "div.searchResultsContainer",
-                "div.searchResults",
-                "div[class*='searchResults']",
-                "div[class*='search-results']",
-                "div[class*='SearchResults']",
-                "div[class*='search-results-container']",
-                "div[class*='search-results-wrapper']",
-                "div[class*='search-results-area']",
-                "div[class*='search-results-panel']",
-                "div[class*='search-results-list']"
-            ]
+            # Log the page content for debugging
+            self.log_helper.log(self.logger, 'info', "Examining page content...")
+            page_content = self.page.content()
+            self.log_helper.log(self.logger, 'info', "=== PAGE CONTENT START ===")
+            self.log_helper.log(self.logger, 'info', page_content)
+            self.log_helper.log(self.logger, 'info', "=== PAGE CONTENT END ===")
             
-            results_container = None
-            for selector in result_selectors:
+            # Log all visible elements that might be search results
+            self.log_helper.log(self.logger, 'info', "Examining visible elements...")
+            visible_elements = self.page.locator("*").all()
+            for idx, element in enumerate(visible_elements):
                 try:
-                    self.log_helper.log(self.logger, 'info', f"Trying results container selector: {selector}")
-                    container = self.page.locator(selector)
-                    if container.is_visible():
-                        results_container = container
-                        self.log_helper.log(self.logger, 'info', f"Found visible results container with selector: {selector}")
-                        break
+                    if element.is_visible():
+                        tag_name = element.evaluate("el => el.tagName")
+                        class_name = element.evaluate("el => el.className")
+                        text_content = element.text_content()
+                        self.log_helper.log(self.logger, 'info', f"Element {idx}:")
+                        self.log_helper.log(self.logger, 'info', f"  Tag: {tag_name}")
+                        self.log_helper.log(self.logger, 'info', f"  Class: {class_name}")
+                        self.log_helper.log(self.logger, 'info', f"  Text: {text_content}")
                 except Exception as e:
-                    self.log_helper.log(self.logger, 'info', f"Error checking results container selector {selector}: {str(e)}")
                     continue
             
-            if not results_container:
-                self.log_helper.log(self.logger, 'info', "No results container found, trying to find account links directly")
-                # Try to find account links directly
-                account_links = self.page.locator("a[data-refid='recordLink']").all()
-                if account_links:
-                    self.log_helper.log(self.logger, 'info', f"Found {len(account_links)} account links directly")
-                    for link in account_links:
-                        try:
-                            name = link.text_content()
-                            if name:
-                                found_account_names.append(name.strip())
-                        except Exception as e:
-                            self.log_helper.log(self.logger, 'error', f"Error getting account name from link: {str(e)}")
-            else:
-                # Extract account names from the results container
-                account_links = results_container.locator("a[data-refid='recordLink']").all()
-                self.log_helper.log(self.logger, 'info', f"Found {len(account_links)} account links in results container")
-                
-                for link in account_links:
-                    try:
-                        name = link.text_content()
-                        if name:
-                            found_account_names.append(name.strip())
-                    except Exception as e:
-                        self.log_helper.log(self.logger, 'error', f"Error getting account name from link: {str(e)}")
+            # Try multiple selectors for the results container
+            result_selectors = [
+                "div.DESKTOP.uiContainerManager",
+                "div[class*='uiContainerManager']",
+                "div.forceListViewManagerGrid",
+                "div.listViewContent"
+            ]
             
-            self.log_helper.log(self.logger, 'info', f"Found {len(found_account_names)} matching accounts:")
-            for name in found_account_names:
-                self.log_helper.log(self.logger, 'info', f"  - {name}")
+            # Try multiple selectors for account name links
+            account_link_selectors = [
+                "a.slds-truncate.outputLookupLink",
+                "a[class*='outputLookupLink']",
+                "a[class*='forceOutputLookup']",
+                "a[title]"
+            ]
             
-            return found_account_names
+            results = []
+            for container_selector in result_selectors:
+                try:
+                    container = self.page.locator(container_selector)
+                    if container.is_visible():
+                        # Try each account link selector within the container
+                        for link_selector in account_link_selectors:
+                            links = container.locator(link_selector).all()
+                            for link in links:
+                                try:
+                                    if link.is_visible():
+                                        name = link.text_content().strip()
+                                        if name and name not in results:
+                                            # Skip UI elements and instructions
+                                            if any(skip in name.lower() for skip in [
+                                                'search', 'search by object type', 'clear', 'show more results',
+                                                'to scroll through', 'do more with search', 'get the right answers',
+                                                'get insights', 'learn more', 'show actions', 'sort', 'show',
+                                                'column actions', 'item number', 'account name', 'account site',
+                                                'phone', 'account owner', 'alias', 'action', 'cancel', 'save'
+                                            ]):
+                                                continue
+                                            # Skip lines that are just "Account" or "Household"
+                                            if name.lower() in ['account', 'household']:
+                                                continue
+                                            # Skip lines that are just numbers or special characters
+                                            if name.isdigit() or all(c in '.,+-' for c in name):
+                                                continue
+                                            # Skip lines that are just usernames/aliases
+                                            if name.lower() == 'muser':
+                                                continue
+                                            # Skip lines that are just quotes or examples
+                                            if name.startswith('"') and name.endswith('"'):
+                                                continue
+                                            # Add the name if it looks like an account name
+                                            if name and not name.startswith('"') and not name.endswith('"'):
+                                                # Clean up the name (remove extra spaces, etc.)
+                                                cleaned_name = ' '.join(name.split())
+                                                if cleaned_name:
+                                                    results.append(cleaned_name)
+                                except Exception as e:
+                                    self.log_helper.log(self.logger, 'debug', f"Error processing link: {str(e)}")
+                                    continue
+                    
+                    if results:
+                        self.log_helper.log(self.logger, 'info', f"Found {len(results)} results using container selector: {container_selector}")
+                        break
+                except Exception as e:
+                    self.log_helper.log(self.logger, 'debug', f"Container selector {container_selector} failed: {str(e)}")
+                    continue
+            
+            if not results:
+                self.log_helper.log(self.logger, 'warning', "No results found with any selector")
+                return []
+            
+            # Remove duplicates while preserving order
+            unique_results = []
+            seen = set()
+            for result in results:
+                if result not in seen:
+                    seen.add(result)
+                    unique_results.append(result)
+            
+            self.log_helper.log(self.logger, 'info', f"Final unique results: {unique_results}")
+            return unique_results
             
         except Exception as e:
             self.log_helper.log(self.logger, 'error', f"Error searching for accounts: {str(e)}")
