@@ -254,22 +254,15 @@ class AccountManager(BasePage):
         return False
 
     def search_account(self, search_term: str, view_name: str = "All Accounts") -> List[str]:
-        """
-        Search for an account in Salesforce.
-        
-        Args:
-            search_term: The term to search for
-            view_name: The name of the list view to use
-            
-        Returns:
-            bool: True if search was successful, False otherwise
-        """
-        self.log_helper.start_timing()
-        found_account_names = []  # Initialize once before the loop
+        """Search for accounts matching the search term."""
         self.log_helper.indent()
+        self.log_helper.start_timing()
+        found_account_names = []
+        
         try:
-            # Navigate to accounts page if not already there
-            if not self.navigate_to_accounts_list_page():
+            # Navigate to the list view
+            if not self._navigate_to_accounts_list_view_url(view_name):
+                self.log_helper.log(self.logger, 'error', "Failed to navigate to list view")
                 self.log_helper.dedent()
                 return found_account_names
             
@@ -279,7 +272,7 @@ class AccountManager(BasePage):
             self.log_helper.log(self.logger, 'info', f"INFO: search_account ***searching for search term: {search_term}")
 
             # Enter search term
-            search_input = self.page.locator("input[placeholder='Search this list...']")
+            search_input = self.page.locator(Selectors.get_selector('ACCOUNT', 'search_input'))
             search_input.fill(search_term)
             search_input.press("Enter")
             self.log_helper.log(self.logger, 'info', f"Pressed Enter for search term: {search_term}")
@@ -424,7 +417,7 @@ class AccountManager(BasePage):
                 self.log_helper.log(self.logger, 'info', f"Clear search attempt {attempt}/{max_attempts}")
                 
                 # Clear and fill search input
-                search_input = self.page.locator("input[placeholder='Search this list...']")
+                search_input = self.page.locator(Selectors.get_selector('ACCOUNT', 'search_input'))
                 self.log_helper.log(self.logger, 'info', "Found search input field")
                 
                 search_input.fill("--")
@@ -536,15 +529,7 @@ class AccountManager(BasePage):
             return []
 
     def account_exists(self, account_name: str, view_name: str = "All Accounts") -> bool:
-        """Check if an account exists with the exact name.
-        
-        Args:
-            account_name: The name of the account to check
-            view_name: The name of the list view to use (default: "All Accounts")
-            
-        Returns:
-            bool: True if the account exists, False otherwise
-        """
+        """Check if an account exists with the exact name."""
         self.log_helper.log(self.logger, 'info', f"Checking if account exists: {account_name} in view: {view_name}")
         
         self.log_helper.indent()
@@ -557,7 +542,7 @@ class AccountManager(BasePage):
             
             # Wait for the search input to be visible
             self.log_helper.log(self.logger, 'info', "Waiting for search input...")
-            search_input = self.page.wait_for_selector('input[placeholder="Search this list..."]', timeout=20000)
+            search_input = self.page.wait_for_selector(Selectors.get_selector('ACCOUNT', 'search_input'), timeout=20000)
             if not search_input:
                 self.log_helper.log(self.logger, 'error', "Search input not found")
                 self._take_screenshot("search-input-not-found")
