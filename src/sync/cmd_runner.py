@@ -642,14 +642,14 @@ def run_command(args):
                             logger.info(f'dropbox_account_search_result: {dropbox_account_search_result}')
                             logger.info(f"Successfully retrieved info for Dropbox account: {dropbox_account_folder_name}")
 
-                            # Add to summary results
-                            summary_results.append({
-                                'dropbox_name': dropbox_account_folder_name,
-                                'dropbox_account_search_result': dropbox_account_search_result,
-                                'dropbox_account_file_names': dropbox_account_file_names,
-                                'salesforce_account_file_names': salesforce_account_file_names,
-                                'file_comparison': file_comparison
-                            })
+                            # # Add to summary results
+                            # summary_results.append({
+                            #     'dropbox_name': dropbox_account_folder_name,
+                            #     'dropbox_account_search_result': dropbox_account_search_result,
+                            #     'dropbox_account_file_names': dropbox_account_file_names,
+                            #     'salesforce_account_file_names': salesforce_account_file_names,
+                            #     'file_comparison': file_comparison
+                            # })
 
                             # Update FlatFile with account info if found
                             if dropbox_account_search_result.get('account_data'):
@@ -701,15 +701,16 @@ def run_command(args):
                                 'dropbox_account_search_result': dropbox_account_search_result
                             }
 
-                            # Add to summary results
-                            summary_results.append({
-                                'dropbox_name': dropbox_account_folder_name,
-                                'salesforce_account_search_result': salesforce_account_search_result,
-                                'dropbox_account_search_result': dropbox_account_search_result,
-                                'dropbox_account_file_names': dropbox_account_file_names,
-                                'salesforce_account_file_names': salesforce_account_file_names,
-                                'file_comparison': file_comparison
-                            })
+                            # # Add to summary results
+                            # summary_results.append({
+                            #     'dropbox_name': dropbox_account_folder_name,
+                            #     'salesforce_account_search_result': salesforce_account_search_result,
+                            #     'dropbox_account_search_result': dropbox_account_search_result,
+                            #     'dropbox_account_file_names': dropbox_account_file_names,
+                            #     'salesforce_account_file_names': salesforce_account_file_names,
+                            #     'file_comparison': file_comparison
+                            # })
+
 
                             logger.debug(f"*** salesforce search result: {salesforce_account_search_result}")
 
@@ -721,6 +722,18 @@ def run_command(args):
                             salesforce_view = salesforce_account_search_result.get('view', '--')
 
                         if args.salesforce_accounts or args.dropbox_account_info:
+                            # Add to summary results
+                            summary_results.append({
+                                'dropbox_name': dropbox_account_folder_name,
+                                'salesforce_account_search_result': salesforce_account_search_result,
+                                'dropbox_account_search_result': dropbox_account_search_result,
+                                'dropbox_account_file_names': dropbox_account_file_names,
+                                'salesforce_account_file_names': salesforce_account_file_names,
+                                'file_comparison': file_comparison
+                            })
+
+                        if args.salesforce_accounts or args.dropbox_account_info:
+
                             log_block = f"""
 📁 **Dropbox Folder**
    - Name: {dropbox_account_folder_name}
@@ -1010,6 +1023,7 @@ def format_summary_line(dropbox_folder_name, salesforce_info, dropbox_info, args
         summary += f", {drivers_license_icon} {'DL Found' if drivers_license_icon == '🪪' else 'No DL'}{dl_details}"
     
     if args and getattr(args, 'salesforce_accounts', False):
+        logger.info(f"salesforce_info: {salesforce_info}")
         salesforce_account_name = salesforce_info.get('account_name', '--')
         salesforce_match = salesforce_info.get('match', '--')
         salesforce_view = salesforce_info.get('view', '--')
@@ -1021,6 +1035,11 @@ def build_and_log_summary_line(result, report_logger, args):
     dropbox_folder_name = result.get('dropbox_name', '--')
     salesforce_result = result.get('salesforce_account_search_result', {})
     dropbox_result = result.get('dropbox_account_search_result', {})
+    
+    # Initialize salesforce_info with default values
+    salesforce_info = {'account_name': '--', 'match': '--', 'view': '--'}
+    
+    # Get Dropbox info
     if args.dropbox_account_info:
         account_data = dropbox_result.get('account_data', {})
         if account_data:
@@ -1030,32 +1049,32 @@ def build_and_log_summary_line(result, report_logger, args):
         else:
             dropbox_account_search_name = dropbox_folder_name or '--'
         dropbox_search_info = dropbox_result.get('search_info', {})
-        print('*********dropbox_search_info*********', dropbox_search_info)
         dropbox_match_info = dropbox_search_info.get('match_info', {})
         dropbox_account_match = dropbox_match_info.get('match_status', 'No match found')
-        print('*********dropbox_result*********', dropbox_result)
         dropbox_info = {
             'account_name': dropbox_account_search_name, 
             'match': dropbox_account_match,
             'drivers_license': account_data.get('drivers_license', {}),
             'drivers_license_info': dropbox_result.get('drivers_license_info', {})
         }
-        print('*********dropbox_info*********', dropbox_info)
-        salesforce_info = {'account_name': '--', 'match': '--', 'view': '--'}
-        if args.salesforce_accounts:
-            salesforce_matches = salesforce_result.get('matches', [])
-            salesforce_account_name = salesforce_matches[0] if salesforce_matches else '--'
-            salesforce_match = salesforce_result.get('match_info', {}).get('match_status', 'No match found')
-            salesforce_view = salesforce_result.get('view', '--')
-            salesforce_info = {'account_name': salesforce_account_name, 'match': salesforce_match, 'view': salesforce_view}
-        summary_line = format_summary_line(dropbox_folder_name, salesforce_info, dropbox_info, args=args)
-        report_logger.info(summary_line)
     else:
         # Only Dropbox info in summary
         dropbox_info = {'account_name': '--', 'match': '--'}
-        salesforce_info = {'account_name': '--', 'match': '--', 'view': '--'}
-        summary_line = format_summary_line(dropbox_folder_name, salesforce_info, dropbox_info, args=args)
-        report_logger.info(summary_line)
+    
+    # Get Salesforce info if available
+    if args.salesforce_accounts and salesforce_result:
+        salesforce_matches = salesforce_result.get('matches', [])
+        salesforce_account_name = salesforce_matches[0] if salesforce_matches else '--'
+        salesforce_match = salesforce_result.get('match_info', {}).get('match_status', 'No match found')
+        salesforce_view = salesforce_result.get('view', '--')
+        salesforce_info = {
+            'account_name': salesforce_account_name,
+            'match': salesforce_match,
+            'view': salesforce_view
+        }
+    
+    summary_line = format_summary_line(dropbox_folder_name, salesforce_info, dropbox_info, args=args)
+    report_logger.info(summary_line)
 
 def prepare_flatfile_from_template(template_path, logger, report_logger):
     """
