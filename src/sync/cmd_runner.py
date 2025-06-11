@@ -701,17 +701,6 @@ def run_command(args):
                                 'dropbox_account_search_result': dropbox_account_search_result
                             }
 
-                            # # Add to summary results
-                            # summary_results.append({
-                            #     'dropbox_name': dropbox_account_folder_name,
-                            #     'salesforce_account_search_result': salesforce_account_search_result,
-                            #     'dropbox_account_search_result': dropbox_account_search_result,
-                            #     'dropbox_account_file_names': dropbox_account_file_names,
-                            #     'salesforce_account_file_names': salesforce_account_file_names,
-                            #     'file_comparison': file_comparison
-                            # })
-
-
                             logger.debug(f"*** salesforce search result: {salesforce_account_search_result}")
 
                             # --- START: New grouped logging for report.log and analyzer.log ---
