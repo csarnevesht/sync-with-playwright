@@ -271,8 +271,13 @@ class AccountManager(BasePage):
             
             self.log_helper.log(self.logger, 'info', f"INFO: search_account ***searching for search term: {search_term}")
 
-            # Enter search term
-            search_input = self.page.locator(Selectors.get_selector('ACCOUNT', 'search_input'))
+            # Click the search button to open the search input
+            search_button = self.page.locator(Selectors.get_selector('ACCOUNT', 'search_input'))
+            search_button.click()
+            self.page.wait_for_timeout(500)  # Wait for search input to appear
+
+            # Find and fill the search input that appears
+            search_input = self.page.locator('input[type="search"], input[placeholder="Search..."]')
             search_input.fill(search_term)
             search_input.press("Enter")
             self.log_helper.log(self.logger, 'info', f"Pressed Enter for search term: {search_term}")
@@ -416,10 +421,13 @@ class AccountManager(BasePage):
             try:
                 self.log_helper.log(self.logger, 'info', f"Clear search attempt {attempt}/{max_attempts}")
                 
-                # Clear and fill search input
-                search_input = self.page.locator(Selectors.get_selector('ACCOUNT', 'search_input'))
-                self.log_helper.log(self.logger, 'info', "Found search input field")
+                # Click the search button to open the search input
+                search_button = self.page.locator(Selectors.get_selector('ACCOUNT', 'search_input'))
+                search_button.click()
+                self.page.wait_for_timeout(500)  # Wait for search input to appear
                 
+                # Find and fill the search input that appears
+                search_input = self.page.locator('input[type="search"], input[placeholder="Search..."]')
                 search_input.fill("--")
                 self.log_helper.log(self.logger, 'info', "Filled search input with '--'")
                 
