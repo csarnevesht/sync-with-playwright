@@ -70,3 +70,9 @@ from InquirerPy import inquirer
 
 desc = inquirer.text(message="Enter description:").execute()
 print("You entered:", desc)
+
+
+
+unset DROPBOX_TOKEN && clear && python -m sync.cmd_runner  --salesforce-accounts --dropbox-account-info --dropbox-accounts
+
+unset DROPBOX_TOKEN && clear && python -m sync.cmd_runner  --salesforce-accounts --dropbox-account-info --dropbox-accounts --dropbox-accounts-file='accounts/relationships.txt'
