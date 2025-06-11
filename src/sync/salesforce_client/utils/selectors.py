@@ -5,7 +5,8 @@ class Selectors:
     
     # Account page selectors
     ACCOUNT = {
-        'search_input': 'input[placeholder="Search this list..."]',
+        'search_input': 'button.slds-button.slds-button_neutral.search-button',
+        'search_view_input': 'input[placeholder="Search this list..."]',
         'account_table': 'table[role="grid"]',
         'account_link': 'a[data-refid="recordId"][data-special-link="true"]',
         'account_name': 'h1.slds-page-header__title',
