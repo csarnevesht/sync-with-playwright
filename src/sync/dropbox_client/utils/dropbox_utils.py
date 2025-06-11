@@ -1618,17 +1618,44 @@ class DropboxClient:
             
             # Write Excel file
             logger.info(f"\nWriting Excel file to: {excel_output_path}")
-            with pd.ExcelWriter(excel_output_path, engine='openpyxl') as writer:
+            
+            # Read existing Excel file if it exists
+            if os.path.exists(excel_output_path):
+                existing_excel = pd.ExcelFile(excel_output_path)
+                existing_dfs = {}
+                for sheet_name in existing_excel.sheet_names:
+                    existing_dfs[sheet_name] = pd.read_excel(existing_excel, sheet_name=sheet_name)
+                
+                # Combine existing data with new data
+                for sheet_name in updated_dfs:
+                    if sheet_name in existing_dfs:
+                        # Concatenate existing and new data
+                        combined_df = pd.concat([existing_dfs[sheet_name], updated_dfs[sheet_name]], ignore_index=True)
+                        # Remove any duplicates based on all columns
+                        combined_df = combined_df.drop_duplicates()
+                        updated_dfs[sheet_name] = combined_df
+            
+            # Write the combined data
+            with pd.ExcelWriter(excel_output_path, engine='openpyxl', mode='w') as writer:
                 for sheet_name, df in updated_dfs.items():
                     logger.info(f"Writing sheet {sheet_name} with {len(df)} rows")
                     df.to_excel(writer, sheet_name=sheet_name, index=False)
             
             # Write CSV file with only Clients sheet data
             logger.info(f"\nWriting CSV file to: {csv_output_path}")
-            # Check if file exists to determine if we need to write header
-            file_exists = os.path.isfile(csv_output_path)
-            # Append the new data with header only if file doesn't exist
-            updated_dfs["Clients"].to_csv(csv_output_path, mode='a', header=not file_exists, index=False)
+            
+            # Read existing CSV file if it exists
+            if os.path.exists(csv_output_path):
+                existing_df = pd.read_csv(csv_output_path)
+                # Combine with new data
+                combined_df = pd.concat([existing_df, updated_dfs["Clients"]], ignore_index=True)
+                # Remove any duplicates
+                combined_df = combined_df.drop_duplicates()
+                # Write the combined data
+                combined_df.to_csv(csv_output_path, index=False)
+            else:
+                # Write new data with header
+                updated_dfs["Clients"].to_csv(csv_output_path, index=False)
             
             logger.info(f"\n=== Successfully completed FlatFile update ===")
             logger.info(f"  Excel: {excel_output_path}")
