@@ -557,7 +557,13 @@ class DropboxClient:
                 }
             },
             'account_data': {},
-            'drivers_license': {}
+            'drivers_license': {},
+            'drivers_license_info': {
+                'status': 'not_found',
+                'reason': None,
+                'file_path': None,
+                'extraction_errors': []
+            }
         }
 
         try:
@@ -566,6 +572,8 @@ class DropboxClient:
             dl_file = self.get_drivers_license_file(account_name)
             if dl_file:
                 logger.info(f"Found driver's license file: {dl_file.name}")
+                dropbox_account_info['drivers_license_info']['status'] = 'found'
+                dropbox_account_info['drivers_license_info']['file_path'] = dl_file.path_display
                 try:
                     # Create a temporary file with the correct extension
                     file_ext = os.path.splitext(dl_file.name)[1].lower()
@@ -581,12 +589,19 @@ class DropboxClient:
                             logger.info(f"Successfully extracted driver's license information: {dl_info}")
                         else:
                             logger.warning("No information could be extracted from driver's license")
+                            dropbox_account_info['drivers_license_info']['status'] = 'extraction_failed'
+                            dropbox_account_info['drivers_license_info']['reason'] = 'No information could be extracted from the file'
                         # Clean up the temporary file
                         os.unlink(temp_path)
                 except Exception as e:
                     logger.error(f"Error processing driver's license: {str(e)}")
+                    dropbox_account_info['drivers_license_info']['status'] = 'processing_error'
+                    dropbox_account_info['drivers_license_info']['reason'] = f'Error processing file: {str(e)}'
+                    dropbox_account_info['drivers_license_info']['extraction_errors'].append(str(e))
             else:
                 logger.info("No driver's license file found")
+                dropbox_account_info['drivers_license_info']['status'] = 'not_found'
+                dropbox_account_info['drivers_license_info']['reason'] = 'No driver\'s license file found in the account folder'
 
             # Log search parameters
             logger.info("Search parameters:")
@@ -856,6 +871,29 @@ class DropboxClient:
             else:
                 logger.info("DEBUG: No driver's_license info extracted.")
             
+            # Log driver's license information to report.log
+            report_logger = logging.getLogger('report')
+            if dropbox_account_info['drivers_license_info']['status'] == 'found':
+                if dropbox_account_info['drivers_license']:
+                    report_logger.info("\n📄 **Driver's License Information**")
+                    report_logger.info(f"   + Status: Found and extracted")
+                    report_logger.info(f"   + File: {dropbox_account_info['drivers_license_info']['file_path']}")
+                    for key, value in dropbox_account_info['drivers_license'].items():
+                        report_logger.info(f"   + {key}: {value}")
+                else:
+                    report_logger.info("\n📄 **Driver's License Information**")
+                    report_logger.info(f"   + Status: Found but no information extracted")
+                    report_logger.info(f"   + File: {dropbox_account_info['drivers_license_info']['file_path']}")
+            else:
+                report_logger.info("\n📄 **Driver's License Information**")
+                report_logger.info(f"   + Status: {dropbox_account_info['drivers_license_info']['status']}")
+                if dropbox_account_info['drivers_license_info']['reason']:
+                    report_logger.info(f"   + Reason: {dropbox_account_info['drivers_license_info']['reason']}")
+                if dropbox_account_info['drivers_license_info']['extraction_errors']:
+                    report_logger.info("   + Errors:")
+                    for error in dropbox_account_info['drivers_license_info']['extraction_errors']:
+                        report_logger.info(f"     - {error}")
+            
             return dropbox_account_info
             
         except Exception as e:
@@ -986,12 +1024,20 @@ class DropboxClient:
                 return None
                 
             files = list_dropbox_folder_contents(self.dbx, dropbox_path)
-            # Pattern to match both .jpeg and .pdf extensions
-            pattern = r'.*DL\.(?:jpeg|pdf)$'
+            # Pattern to match both .jpeg and .pdf extensions, and files containing variations of "driver(s) license"
+            patterns = [
+                r'.*DL\.(?:jpeg|pdf)$',  # Original pattern
+                r'.*divers licen.*\.(?:jpeg|pdf|jpg|png)$',  # French variation
+                r'.*drivers licen.*\.(?:jpeg|pdf|jpg|png)$',  # English plural
+                r'.*driver licen.*\.(?:jpeg|pdf|jpg|png)$'   # English singular
+            ]
+            
             for file in files:
-                if isinstance(file, FileMetadata) and re.match(pattern, file.name, re.IGNORECASE):
-                    logger.info(f"Found driver's license file: {file.name}")
-                    return file
+                if isinstance(file, FileMetadata):
+                    for pattern in patterns:
+                        if re.match(pattern, file.name, re.IGNORECASE):
+                            logger.info(f"Found driver's license file: {file.name}")
+                            return file
             logger.info(f"No driver's license file found in {dropbox_path}")
             return None
         except Exception as e:
