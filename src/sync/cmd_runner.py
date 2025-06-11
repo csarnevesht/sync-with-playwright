@@ -298,13 +298,19 @@ def parse_args():
     parser.add_argument('--dropbox-accounts-only',
                       help='Process only Dropbox accounts',
                       action='store_true')
+    parser.add_argument('--dl',
+                      help='Process driver\'s license information',
+                      action='store_true')
     
     return parser.parse_args()
 
-def initialize_dropbox_client():
+def initialize_dropbox_client(args):
     """
     Initialize Dropbox client with proper token handling and logging.
     
+    Args:
+        args: Command line arguments
+        
     Returns:
         DropboxClient: Initialized client or None if initialization fails
     """
@@ -324,6 +330,7 @@ def initialize_dropbox_client():
         # Initialize client with debug mode
         logger.info("Initializing Dropbox client...")
         dbx = DropboxClient(token, debug_mode=True)
+        dbx.args = args  # Pass args to the client
         
         # Test connection
         try:
@@ -400,7 +407,7 @@ def run_command(args):
     elif args.dropbox_accounts or (not args.dropbox_account_name and not args.dropbox_accounts_file):
         logger.info("step: Get Dropbox Account Folders")
         # Initialize Dropbox client with enhanced logging
-        dropbox_client = initialize_dropbox_client()
+        dropbox_client = initialize_dropbox_client(args)
         if not dropbox_client:
             logger.error("Failed to initialize Dropbox client. Exiting...")
             report_logger.info("\nFailed to initialize Dropbox client. Exiting...")
@@ -522,7 +529,7 @@ def run_command(args):
     logger.info('step: Process Dropbox Account folders')
     
     # Initialize Dropbox client once before Playwright context
-    dropbox_client = initialize_dropbox_client()
+    dropbox_client = initialize_dropbox_client(args)
     if not dropbox_client:
         logger.error("Failed to initialize Dropbox client. Exiting...")
         report_logger.info("Failed to initialize Dropbox client. Exiting...")
@@ -987,10 +994,20 @@ def format_summary_line(dropbox_folder_name, salesforce_info, dropbox_info, args
     # Check for driver's license
     drivers_license_info = dropbox_info.get('drivers_license_info', {})
     drivers_license_status = drivers_license_info.get('status', 'not_found')
-    drivers_license_icon = '🪪' if drivers_license_status == 'found' and dropbox_info.get('drivers_license') else '🟥'
+    drivers_license_data = dropbox_info.get('drivers_license', {})
+    drivers_license_icon = '🪪' if drivers_license_status == 'found' else '🟥'
+    
+    # Build driver's license details if available
+    dl_details = ""
+    if drivers_license_status == 'found' and drivers_license_data:
+        dl_details = f" (DL#: {drivers_license_data.get('license_number', 'N/A')}"
+        if 'date_of_birth' in drivers_license_data:
+            dl_details += f", DOB: {drivers_license_data['date_of_birth']}"
+        dl_details += ")"
     
     summary = f"📁 **Dropbox Folder** Name: {dropbox_folder_name}, {dropbox_icon} Dropbox Name: {dropbox_account_search_name}, Dropbox Match: {dropbox_account_match}"
-    summary += f", {drivers_license_icon} {'DL Found' if drivers_license_icon == '🪪' else 'No DL'}"
+    if args and getattr(args, 'dl', False):
+        summary += f", {drivers_license_icon} {'DL Found' if drivers_license_icon == '🪪' else 'No DL'}{dl_details}"
     
     if args and getattr(args, 'salesforce_accounts', False):
         salesforce_account_name = salesforce_info.get('account_name', '--')
@@ -1005,7 +1022,7 @@ def build_and_log_summary_line(result, report_logger, args):
     salesforce_result = result.get('salesforce_account_search_result', {})
     dropbox_result = result.get('dropbox_account_search_result', {})
     if args.dropbox_account_info:
-        account_data = dropbox_result.get('search_info', {}).get('account_data', {})
+        account_data = dropbox_result.get('account_data', {})
         if account_data:
             dropbox_account_search_name = account_data.get('name') or (
                 (account_data.get('first_name', '').strip() + ' ' + account_data.get('last_name', '').strip()).strip()
@@ -1020,7 +1037,7 @@ def build_and_log_summary_line(result, report_logger, args):
         dropbox_info = {
             'account_name': dropbox_account_search_name, 
             'match': dropbox_account_match,
-            'drivers_license': dropbox_result.get('drivers_license', {}),
+            'drivers_license': account_data.get('drivers_license', {}),
             'drivers_license_info': dropbox_result.get('drivers_license_info', {})
         }
         print('*********dropbox_info*********', dropbox_info)
