@@ -726,11 +726,13 @@ def run_command(args):
                             print('*********log_block*********', log_block)
                             report_logger.info(log_block)
 
-                            build_and_log_summary_line({
+                            # Create result dictionary before calling build_and_log_summary_line
+                            result_dict = {
                                 'dropbox_name': dropbox_account_folder_name,
                                 'salesforce_account_search_result': salesforce_account_search_result if args.salesforce_accounts else {},
                                 'dropbox_account_search_result': dropbox_account_search_result
-                            }, report_logger, args)
+                            }
+                            build_and_log_summary_line(result_dict, report_logger, args)
 
                             # Get Salesforce files if requested and account was found
                             if args.salesforce_account_files and salesforce_matches and len(salesforce_matches) > 0 and salesforce_matches != "--":
@@ -960,7 +962,15 @@ def format_summary_line(dropbox_folder_name, salesforce_info, dropbox_info, args
     dropbox_account_search_name = dropbox_info.get('account_name', '--')
     dropbox_account_match = dropbox_info.get('match', '--')
     dropbox_icon = '📄' if dropbox_account_match == 'Match found' else '🔴'
+    
+    # Check for driver's license
+    drivers_license_info = dropbox_info.get('drivers_license_info', {})
+    drivers_license_status = drivers_license_info.get('status', 'not_found')
+    drivers_license_icon = '🪪' if drivers_license_status == 'found' and dropbox_info.get('drivers_license') else '🟥'
+    
     summary = f"📁 **Dropbox Folder** Name: {dropbox_folder_name}, {dropbox_icon} Dropbox Name: {dropbox_account_search_name}, Dropbox Match: {dropbox_account_match}"
+    summary += f", {drivers_license_icon} {'DL Found' if drivers_license_icon == '🪪' else 'No DL'}"
+    
     if args and getattr(args, 'salesforce_accounts', False):
         salesforce_account_name = salesforce_info.get('account_name', '--')
         salesforce_match = salesforce_info.get('match', '--')
@@ -986,7 +996,12 @@ def build_and_log_summary_line(result, report_logger, args):
         dropbox_match_info = dropbox_search_info.get('match_info', {})
         dropbox_account_match = dropbox_match_info.get('match_status', 'No match found')
         print('*********dropbox_result*********', dropbox_result)
-        dropbox_info = {'account_name': dropbox_account_search_name, 'match': dropbox_account_match}
+        dropbox_info = {
+            'account_name': dropbox_account_search_name, 
+            'match': dropbox_account_match,
+            'drivers_license': dropbox_result.get('drivers_license', {}),
+            'drivers_license_info': dropbox_result.get('drivers_license_info', {})
+        }
         print('*********dropbox_info*********', dropbox_info)
         salesforce_info = {'account_name': '--', 'match': '--', 'view': '--'}
         if args.salesforce_accounts:
