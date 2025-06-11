@@ -4,6 +4,7 @@ import re
 import time
 import json
 from pathlib import Path
+import traceback
 
 from . import file_manager
 from .base_page import BasePage
@@ -253,6 +254,220 @@ class AccountManager(BasePage):
         self.log_helper.dedent()
         return False
 
+    def enter_search_term(self, search_term: str) -> bool:
+        """Enter a search term into the search input field."""
+        self.log_helper.indent()
+        try:
+            self.log_helper.log(self.logger, 'info', "Looking for search input...")
+            
+            # Log the current URL and page title
+            current_url = self.page.url
+            current_title = self.page.title()
+            self.log_helper.log(self.logger, 'info', f"Current URL: {current_url}")
+            self.log_helper.log(self.logger, 'info', f"Current page title: {current_title}")
+            
+            # Wait for the page to be fully loaded
+            self.log_helper.log(self.logger, 'info', "Waiting for page to be fully loaded...")
+            self.page.wait_for_load_state("networkidle")
+            self.page.wait_for_load_state("domcontentloaded")
+            
+            # Try to find the search button first
+            self.log_helper.log(self.logger, 'info', "Looking for search button...")
+            search_button_selectors = [
+                'button[title="Search"]',
+                'button.search-button',
+                'button[aria-label="Search"]',
+                'button[class*="search"]',
+                'button[class*="Search"]',
+                'button.search',
+                'button.Search'
+            ]
+            
+            search_button = None
+            for selector in search_button_selectors:
+                try:
+                    self.log_helper.log(self.logger, 'info', f"Trying search button selector: {selector}")
+                    button = self.page.locator(selector)
+                    is_visible = button.is_visible()
+                    self.log_helper.log(self.logger, 'info', f"Search button {selector} visible: {is_visible}")
+                    
+                    if is_visible:
+                        search_button = button
+                        self.log_helper.log(self.logger, 'info', f"Found visible search button with selector: {selector}")
+                        break
+                except Exception as e:
+                    self.log_helper.log(self.logger, 'info', f"Error checking search button selector {selector}: {str(e)}")
+                    continue
+            
+            if search_button:
+                self.log_helper.log(self.logger, 'info', "Clicking search button...")
+                try:
+                    search_button.click()
+                    self.log_helper.log(self.logger, 'info', "Successfully clicked search button")
+                    self.page.wait_for_timeout(1000)  # Wait for search input to appear
+                except Exception as e:
+                    self.log_helper.log(self.logger, 'error', f"Failed to click search button: {str(e)}")
+            
+            # Try multiple selectors for the search input
+            selectors = [
+                'input[placeholder="Search..."]',
+                'input[placeholder="Search Accounts and more..."]',
+                'input[type="search"]',
+                'input.search-input',
+                'input[aria-label="Search"]',
+                'input[data-aura-class="searchInput"]',
+                'input[class*="search"]',
+                'input[class*="Search"]',
+                'input[role="searchbox"]',
+                'input.search',
+                'input.Search'
+            ]
+            
+            self.log_helper.log(self.logger, 'info', "Trying multiple selectors for search input...")
+            search_input = None
+            for selector in selectors:
+                try:
+                    self.log_helper.log(self.logger, 'info', f"Trying selector: {selector}")
+                    input_element = self.page.locator(selector)
+                    is_visible = input_element.is_visible()
+                    self.log_helper.log(self.logger, 'info', f"Selector {selector} visible: {is_visible}")
+                    
+                    if is_visible:
+                        search_input = input_element
+                        self.log_helper.log(self.logger, 'info', f"Found visible search input with selector: {selector}")
+                        break
+                except Exception as e:
+                    self.log_helper.log(self.logger, 'info', f"Error checking selector {selector}: {str(e)}")
+                    continue
+            
+            if not search_input:
+                self.log_helper.log(self.logger, 'error', "No search input found with any selector")
+                # Log all input elements on the page for debugging
+                self.log_helper.log(self.logger, 'info', "Listing all input elements on the page:")
+                all_inputs = self.page.locator('input').all()
+                for idx, input_elem in enumerate(all_inputs):
+                    try:
+                        placeholder = input_elem.get_attribute('placeholder')
+                        input_type = input_elem.get_attribute('type')
+                        input_class = input_elem.get_attribute('class')
+                        input_role = input_elem.get_attribute('role')
+                        input_aria_label = input_elem.get_attribute('aria-label')
+                        self.log_helper.log(self.logger, 'info', f"Input {idx}: type={input_type}, placeholder={placeholder}, class={input_class}, role={input_role}, aria-label={input_aria_label}")
+                    except Exception as e:
+                        self.log_helper.log(self.logger, 'info', f"Could not get attributes for input {idx}: {str(e)}")
+                return False
+            
+            # Click the input first to ensure it's focused
+            self.log_helper.log(self.logger, 'info', "Clicking search input...")
+            try:
+                search_input.click()
+                self.log_helper.log(self.logger, 'info', "Successfully clicked search input")
+            except Exception as e:
+                self.log_helper.log(self.logger, 'error', f"Failed to click search input: {str(e)}")
+                return False
+            
+            self.page.wait_for_timeout(1000)
+            
+            # Clear any existing text
+            self.log_helper.log(self.logger, 'info', "Clearing existing text...")
+            try:
+                search_input.fill("")
+                self.log_helper.log(self.logger, 'info', "Successfully cleared search input")
+            except Exception as e:
+                self.log_helper.log(self.logger, 'error', f"Failed to clear search input: {str(e)}")
+                return False
+            
+            self.page.wait_for_timeout(500)
+            
+            # Fill the input with the search term
+            self.log_helper.log(self.logger, 'info', f"Filling search input with: {search_term}")
+            try:
+                search_input.fill(search_term)
+                self.log_helper.log(self.logger, 'info', "Successfully filled search input")
+            except Exception as e:
+                self.log_helper.log(self.logger, 'error', f"Failed to fill search input: {str(e)}")
+                return False
+            
+            self.page.wait_for_timeout(500)
+            
+            # Press Enter
+            self.log_helper.log(self.logger, 'info', "Pressing Enter...")
+            try:
+                search_input.press("Enter")
+                self.log_helper.log(self.logger, 'info', "Successfully pressed Enter")
+            except Exception as e:
+                self.log_helper.log(self.logger, 'error', f"Failed to press Enter: {str(e)}")
+                return False
+            
+            # Wait for the search to complete
+            self.page.wait_for_timeout(2000)
+            
+            self.log_helper.log(self.logger, 'info', "Search completed successfully")
+            return True
+            
+        except Exception as e:
+            self.log_helper.log(self.logger, 'error', f"Error entering search term: {str(e)}")
+            return False
+        finally:
+            self.log_helper.dedent()
+
+    def clear_search(self):
+        self.log_helper.indent()
+        try:
+            self.log_helper.log(self.logger, 'info', "Clearing 'Search this list...' input")
+            search_input = self.page.locator("input[placeholder='Search this list...']")
+            search_input.click()  # Focus the input
+            search_input.fill("")  # Clear the input
+            self.log_helper.log(self.logger, 'info', "Cleared search input")
+            search_input.press("Enter")  # Press Enter
+            self.log_helper.log(self.logger, 'info', "Pressed Enter to clear search")
+            self.page.wait_for_timeout(500)  # Short wait for UI to react
+
+            # Optionally, trigger blur (click away)
+            self.page.locator("body").click()
+            self.log_helper.log(self.logger, 'info', "Clicked body to blur input")
+
+            # Wait for the table to reload (wait for spinner or table update)
+            try:
+                self.page.wait_for_selector('.slds-spinner_container', state='hidden', timeout=5000)
+                self.log_helper.log(self.logger, 'info', "Spinner disappeared after clearing search")
+            except Exception:
+                self.log_helper.log(self.logger, 'info', "No spinner found or already disappeared")
+
+            # Wait for the table to be visible
+            table = self.page.locator("table.slds-table").first
+            table.wait_for(state="visible", timeout=5000)
+            self.log_helper.log(self.logger, 'info', "Table is visible after clearing search")
+            self.log_helper.dedent()
+            return True
+        except Exception as e:
+            self.log_helper.log(self.logger, 'error', f"Failed to clear search: {str(e)}")
+            self.log_helper.dedent()
+            return False
+
+    def dashboard_search(self, search_term: str) -> bool:
+        """Search for accounts from the dashboard."""
+        self.log_helper.indent()
+        try:
+            self.log_helper.log(self.logger, 'info', "Navigating to dashboard for search")
+            self.navigate_to_dashboard()
+            
+            # Use enter_search_term to perform the search
+            if not self.enter_search_term(search_term):
+                self.log_helper.log(self.logger, 'error', "Failed to enter search term")
+                self.log_helper.dedent()
+                return False
+            
+            # Wait for results to load
+            self.page.wait_for_timeout(2000)
+            
+            self.log_helper.dedent()
+            return True
+        except Exception as e:
+            self.log_helper.log(self.logger, 'error', f"Dashboard search failed: {str(e)}")
+            self.log_helper.dedent()
+            return False
+
     def search_account(self, search_term: str, view_name: str = "All Accounts") -> List[str]:
         """Search for accounts matching the search term."""
         self.log_helper.indent()
@@ -260,237 +475,83 @@ class AccountManager(BasePage):
         found_account_names = []
         
         try:
-            # Navigate to the list view
-            if not self._navigate_to_accounts_list_view_url(view_name):
-                self.log_helper.log(self.logger, 'error', "Failed to navigate to list view")
-                self.log_helper.dedent()
-                return found_account_names
+            self.log_helper.log(self.logger, 'info', f"Searching in view: {view_name}")
+            self.log_helper.log(self.logger, 'info', f"  INFO: ***search_by_last_name: searching for last name: {search_term}")
             
-            # Clear any existing search
-            self.clear_search()
+            # Navigate to dashboard and perform search
+            if not self.dashboard_search(search_term):
+                self.log_helper.log(self.logger, 'error', "Failed to perform dashboard search")
+                return []
             
-            self.log_helper.log(self.logger, 'info', f"INFO: search_account ***searching for search term: {search_term}")
-
-            # Click the search button to open the search input
-            search_button = self.page.locator(Selectors.get_selector('ACCOUNT', 'search_input'))
-            search_button.click()
-            self.page.wait_for_timeout(500)  # Wait for search input to appear
-
-            # Find and fill the search input that appears
-            search_input = self.page.locator('input[type="search"], input[placeholder="Search..."]')
-            search_input.fill(search_term)
-            search_input.press("Enter")
-            self.log_helper.log(self.logger, 'info', f"Pressed Enter for search term: {search_term}")
-            self.log_helper.log(self.logger, 'info', f"Waiting for 2 second(s)...")
-            self.page.wait_for_timeout(2000)
+            # Wait for search results to load
+            self.log_helper.log(self.logger, 'info', "Waiting for search results to load...")
+            self.page.wait_for_timeout(2000)  # Initial wait for results
             
-            # After pressing Enter, check for empty content before checking for rows
-            try:
-                # Wait for either the empty content or the table to appear
-                self.page.wait_for_selector(
-                    'div.emptyContent.slds-is-absolute, table.slds-table',
-                    timeout=10000
-                )
-                # Check if the empty content is visible
-                empty_content = self.page.locator('div.emptyContent.slds-is-absolute').first
-                if empty_content and empty_content.is_visible():
-                    self.log_helper.log(self.logger, 'info', f"No items to display for search term: {search_term}")
-                    self.log_helper.dedent()
-                    return found_account_names
-            except Exception as e:
-                self.log_helper.log(self.logger, 'warning', f"Error waiting for empty content or table: {str(e)}")
+            # Try multiple selectors for the results container
+            result_selectors = [
+                "div.searchResultsContainer",
+                "div.searchResults",
+                "div[class*='searchResults']",
+                "div[class*='search-results']",
+                "div[class*='SearchResults']",
+                "div[class*='search-results-container']",
+                "div[class*='search-results-wrapper']",
+                "div[class*='search-results-area']",
+                "div[class*='search-results-panel']",
+                "div[class*='search-results-list']"
+            ]
             
-            # Wait for search results
-            try:
-                # Wait for the loading spinner to disappear
-                self.page.wait_for_selector('div.slds-spinner_container', state='hidden', timeout=5000)
-                
-                # Wait for the table to be visible
-                table = self.page.wait_for_selector('table.slds-table', timeout=10000)
-                if not table:
-                    self.log_helper.log(self.logger, 'error', "Search results table not found")
-                    self.log_helper.dedent()
-                    return found_account_names
-                
-                # Parse the number of items from the status bar (e.g., '0 items' or '50+ items')
-                num_items = None
+            results_container = None
+            for selector in result_selectors:
                 try:
-                    status_bar = self.page.locator('span.countSortedByFilteredBy[role="status"]').first
-                    if status_bar:
-                        status_bar.wait_for(state='visible', timeout=5000)
-                        status_text = status_bar.text_content().strip()
-                        import re
-                        match = re.search(r'(\d+\+?) items?', status_text)
-                        if match:
-                            num_items_str = match.group(1)
-                            if num_items_str.endswith('+'):
-                                num_items = int(num_items_str[:-1])
-                                self.log_helper.log(self.logger, 'info', f"Salesforce reports {num_items_str} items (50+ means 50 or more) for search term: {search_term}")
-                            else:
-                                num_items = int(num_items_str)
-                                self.log_helper.log(self.logger, 'info', f"Salesforce reports {num_items} items for search term: {search_term}")
-                        else:
-                            self.log_helper.log(self.logger, 'warning', f"Could not parse number of items from status bar: '{status_text}'")
-                    else:
-                        self.log_helper.log(self.logger, 'warning', "Status bar element not found for item count.")
+                    self.log_helper.log(self.logger, 'info', f"Trying results container selector: {selector}")
+                    container = self.page.locator(selector)
+                    if container.is_visible():
+                        results_container = container
+                        self.log_helper.log(self.logger, 'info', f"Found visible results container with selector: {selector}")
+                        break
                 except Exception as e:
-                    self.log_helper.log(self.logger, 'warning', f"Error parsing number of items from status bar: {str(e)}")
+                    self.log_helper.log(self.logger, 'info', f"Error checking results container selector {selector}: {str(e)}")
+                    continue
+            
+            if not results_container:
+                self.log_helper.log(self.logger, 'info', "No results container found, trying to find account links directly")
+                # Try to find account links directly
+                account_links = self.page.locator("a[data-refid='recordLink']").all()
+                if account_links:
+                    self.log_helper.log(self.logger, 'info', f"Found {len(account_links)} account links directly")
+                    for link in account_links:
+                        try:
+                            name = link.text_content()
+                            if name:
+                                found_account_names.append(name.strip())
+                        except Exception as e:
+                            self.log_helper.log(self.logger, 'error', f"Error getting account name from link: {str(e)}")
+            else:
+                # Extract account names from the results container
+                account_links = results_container.locator("a[data-refid='recordLink']").all()
+                self.log_helper.log(self.logger, 'info', f"Found {len(account_links)} account links in results container")
                 
-                # Wait for any rows to be visible
-                rows = self.page.locator('table.slds-table tbody tr').all()
-                num_rows = len(rows)
-                self.log_helper.log(self.logger, 'info', f"Found {num_rows} rows in table for search term: {search_term}")
-
-                # If status bar says 50+ and num_rows < 50, warn about lazy loading
-                if num_items is not None and isinstance(num_items, int) and num_rows < num_items:
-                    self.log_helper.log(self.logger, 'warning', f"Table may not have loaded all rows: status bar says {num_items}+ items, but only {num_rows} rows are visible. Consider implementing scrolling or pagination.")
-                    # After warning, check for the empty content indicator
-                    empty_content = self.page.locator('div.emptyContent.slds-is-absolute').first
-                    if empty_content and empty_content.is_visible():
-                        self.log_helper.log(self.logger, 'info', f"No items to display for search term: {search_term}")
-                        self.log_helper.dedent()
-                        return found_account_names
-                    else:
-                        self.log_helper.log(self.logger, 'info', f"***Table loaded with {num_rows} rows for search term: {search_term}")
-                
-                # Log each result
-                for row in rows:
+                for link in account_links:
                     try:
-                        # Try several selectors for the account name
-                        name_cell = None
-                        for selector in ['td:nth-child(2) a', 'th[scope="row"] a', 'td:first-child a']:
-                            candidate = row.locator(selector).first
-                            try:
-                                if candidate and candidate.is_visible(timeout=1000):
-                                    name_cell = candidate
-                                    break
-                            except Exception:
-                                continue
-                        
-                        if name_cell:
-                            name = name_cell.text_content(timeout=2000).strip()
-                            self.log_helper.log(self.logger, 'info', f"Found account: {name} in name_cell")
-                            found_account_names.append(name)
-                        else:
-                            self.log_helper.log(self.logger, 'warning', f"Could not find account name link in row for search term: {search_term}")
+                        name = link.text_content()
+                        if name:
+                            found_account_names.append(name.strip())
                     except Exception as e:
-                        self.log_helper.log(self.logger, 'warning', f"Error getting account name from row: {str(e)}")
-                        continue
-                
-                # Only log if no account names were found
-                self.log_helper.log(self.logger, 'info', f"DEBUG: found_account_names = {found_account_names}")
-                self.log_helper.log(self.logger, 'info', f"DEBUG: len(found_account_names) = {len(found_account_names)}")
-                if len(found_account_names) == 0:
-                    self.log_helper.log(self.logger, 'info', "***No account names found in search results")
-                
-                # Compare the parsed number of items to the number of rows
-                if num_items is not None:
-                    if num_items != num_rows:
-                        self.log_helper.log(self.logger, 'warning', f"Discrepancy: Salesforce reports {num_items} items, but found {num_rows} rows in table for search term: {search_term}")
-                    else:
-                        self.log_helper.log(self.logger, 'info', f"Number of items matches number of rows for search term: {search_term}")
-                
-                # If 0 items, log and return
-                if num_items == 0 or num_rows == 0:
-                    self.log_helper.log(self.logger, 'info', f"No results found for search term: {search_term}")
-                    self.log_helper.dedent()
-                    return found_account_names
-                
-                self.log_helper.dedent()
-                self.log_helper.log_timing(self.logger, f"search_account for term: {search_term}")
-                return found_account_names
-                
-            except Exception as e:
-                self.log_helper.log(self.logger, 'error', f"Error waiting for search results: {str(e)}")
-                self.log_helper.dedent()
-                return found_account_names
+                        self.log_helper.log(self.logger, 'error', f"Error getting account name from link: {str(e)}")
+            
+            self.log_helper.log(self.logger, 'info', f"Found {len(found_account_names)} matching accounts:")
+            for name in found_account_names:
+                self.log_helper.log(self.logger, 'info', f"  - {name}")
+            
+            return found_account_names
             
         except Exception as e:
-            self.log_helper.log(self.logger, 'error', f"Error searching for account: {str(e)}")
-            self.log_helper.log_timing(self.logger, f"search_account (error) for term: {search_term}")
-            self.log_helper.dedent()
+            self.log_helper.log(self.logger, 'error', f"Error searching for accounts: {str(e)}")
             return []
-
-    def clear_search(self):
-        """Clear the search field by searching for '--' and verifying no results."""
-        self.log_helper.indent()
-        max_attempts = 2
-        attempt = 1
-        
-        while attempt <= max_attempts:
-            try:
-                self.log_helper.log(self.logger, 'info', f"Clear search attempt {attempt}/{max_attempts}")
-                
-                # Click the search button to open the search input
-                search_button = self.page.locator(Selectors.get_selector('ACCOUNT', 'search_input'))
-                search_button.click()
-                self.page.wait_for_timeout(500)  # Wait for search input to appear
-                
-                # Find and fill the search input that appears
-                search_input = self.page.locator('input[type="search"], input[placeholder="Search..."]')
-                search_input.fill("--")
-                self.log_helper.log(self.logger, 'info', "Filled search input with '--'")
-                
-                search_input.press("Enter")
-                self.log_helper.log(self.logger, 'info', "Pressed Enter")
-                
-                self.page.wait_for_timeout(1000)  # Wait for search to complete
-                self.log_helper.log(self.logger, 'info', "Waited for search to complete")
-                
-                # Wait for the status bar to be visible
-                status_bar = self.page.locator('span.countSortedByFilteredBy[role="status"]').first
-                if status_bar:
-                    self.log_helper.log(self.logger, 'info', "Found status bar element")
-                    status_bar.wait_for(state='visible', timeout=5000)
-                    status_text = status_bar.text_content().strip()
-                    self.log_helper.log(self.logger, 'info', f"Status bar text: '{status_text}'")
-                    
-                    import re
-                    match = re.search(r'(\d+\+?) items?', status_text)
-                    if match:
-                        num_items_str = match.group(1)
-                        if num_items_str.endswith('+'):
-                            num_items = int(num_items_str[:-1])
-                        else:
-                            num_items = int(num_items_str)
-                        
-                        self.log_helper.log(self.logger, 'info', f"Found {num_items_str} items")
-                        
-                        if num_items == 0:
-                            self.log_helper.log(self.logger, 'info', "Successfully cleared search (0 items found)")
-                            self.log_helper.dedent()
-                            return True
-                        else:
-                            self.log_helper.log(self.logger, 'warning', f"Attempt {attempt}: Found {num_items_str} items, expected 0")
-                    else:
-                        self.log_helper.log(self.logger, 'warning', f"Attempt {attempt}: Could not parse number of items from status bar: '{status_text}'")
-                else:
-                    self.log_helper.log(self.logger, 'warning', f"Attempt {attempt}: Status bar element not found")
-                
-                # If we get here, the attempt failed
-                if attempt < max_attempts:
-                    self.log_helper.log(self.logger, 'info', f"Retrying in 1 second...")
-                    self.page.wait_for_timeout(1000)
-                attempt += 1
-                
-            except Exception as e:
-                self.log_helper.log(self.logger, 'error', f"Attempt {attempt} failed with error: {str(e)}")
-                if attempt < max_attempts:
-                    self.log_helper.log(self.logger, 'info', f"Retrying in 1 second...")
-                    self.page.wait_for_timeout(1000)
-                attempt += 1
-        
-        # If we get here, all attempts failed
-        self.log_helper.log(self.logger, 'error', f"Failed to clear search after {max_attempts} attempts")
-        # Call navigate_to_salesforce and refresh_page before exiting
-        self.log_helper.log(self.logger, 'info', "Navigating to Salesforce base URL and refreshing page after failed clear_search attempts.")
-        self.navigate_to_salesforce()
-        self.refresh_page()
-        if not self.navigate_to_accounts_list_page():
-            self.log_helper.log(self.logger, 'error', "Failed to navigate to accounts list page after failed clear_search attempts.")
+        finally:
+            self.log_helper.log(self.logger, 'info', f"  Timing for search_account: {self.log_helper.end_timing():.2f} seconds")
             self.log_helper.dedent()
-            sys.exit(1)
-        self.log_helper.dedent()
 
     def deprecated_get_account_names(self) -> List[str]:
         """
@@ -1899,45 +1960,18 @@ class AccountManager(BasePage):
         Returns:
             bool: True if refresh was successful, False otherwise
         """
-        self.log_helper.indent()
         try:
-            self.log_helper.log(self.logger, 'info', "Refreshing page...")
-            
-            # Store current URL for verification
-            current_url = self.page.url
-            self.log_helper.log(self.logger, 'info', f"Current URL before refresh: {current_url}")
-            
-            # Refresh the page
+            self.logger.info("Refreshing page")
             self.page.reload()
-            
             # Wait for network to be idle
-            # self.page.wait_for_load_state('networkidle', timeout=10000)
-            # self.log_helper.log(self.logger, 'info', "Network is idle after refresh")
-            
+            self.page.wait_for_load_state('networkidle', timeout=20000)
             # Wait for DOM content to be loaded
-            # self.page.wait_for_load_state('domcontentloaded', timeout=10000)
-            self.log_helper.log(self.logger, 'info', "DOM content loaded after refresh")
-            
-            # Verify we're still on the same page
-            new_url = self.page.url
-            if new_url != current_url:
-                self.log_helper.log(self.logger, 'warning', f"URL changed after refresh. Old: {current_url}, New: {new_url}")
-            
-            # Wait for any loading spinners to disappear
-            try:
-                self.page.wait_for_selector('.slds-spinner_container', state='hidden', timeout=5000)
-                self.log_helper.log(self.logger, 'info', "Loading spinner disappeared")
-            except Exception as e:
-                self.log_helper.log(self.logger, 'info', f"No loading spinner found or already disappeared: {str(e)}")
-            
-            self.log_helper.log(self.logger, 'info', "Page refresh completed successfully")
-            self.log_helper.dedent()
+            self.page.wait_for_load_state('domcontentloaded', timeout=20000)
+            self.logger.info("Successfully refreshed page")
             return True
-            
         except Exception as e:
-            self.log_helper.log(self.logger, 'error', f"Error refreshing page: {str(e)}")
+            self.logger.error(f"Error refreshing page: {str(e)}")
             self._take_screenshot("page-refresh-error")
-            self.log_helper.dedent()
             return False
     
     def get_match_info(self, result):
@@ -2121,3 +2155,19 @@ class AccountManager(BasePage):
             self.page.screenshot(path="files-tab-error.png")
             self.log_helper.log(self.logger, 'info', "Error screenshot saved as files-tab-error.png")
             return -1
+
+    def navigate_to_dashboard(self) -> bool:
+        """Navigate to the Salesforce dashboard page."""
+        self.log_helper.indent()
+        dashboard_url = f"{SALESFORCE_URL}/lightning/n/command__Dashboard"
+        try:
+            self.log_helper.log(self.logger, 'info', f"Navigating to dashboard: {dashboard_url}")
+            self.page.goto(dashboard_url, timeout=30000)
+            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
+            self.log_helper.log(self.logger, 'info', "Successfully navigated to dashboard")
+            self.log_helper.dedent()
+            return True
+        except Exception as e:
+            self.log_helper.log(self.logger, 'error', f"Failed to navigate to dashboard: {str(e)}")
+            self.log_helper.dedent()
+            return False
