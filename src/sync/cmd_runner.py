@@ -748,10 +748,14 @@ def run_command(args):
                                     log_block += f"   + {key}: {value}\n"
                                 log_block += "\n"
                             if args.salesforce_accounts:
+                                # Update match status to include count if there are multiple matches
+                                if salesforce_matches and len(salesforce_matches) > 1:
+                                    salesforce_match = f"Match Found ({len(salesforce_matches)})"
+                                
                                 log_block = f"""
    
 👤 **Salesforce Account Search**
-   - Name found: {salesforce_account_name}
+   - Names found: {', '.join(salesforce_matches) if salesforce_matches else '--'}
    - Match: {salesforce_match}
    - View: {salesforce_view}
 """                 
@@ -1071,6 +1075,8 @@ def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox
         # Update match status to include count if there are multiple accounts
         if salesforce_match == 'Match Found' and len(salesforce_matches) > 1:
             salesforce_match = f"Match Found ({len(salesforce_matches)})"
+        elif salesforce_matches:
+            salesforce_match = "Match Found"
         
         salesforce_icon = '👤' if salesforce_match.startswith('Match Found') else '🔴'
         
@@ -1081,8 +1087,8 @@ def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox
             
             # Add additional accounts if there are more
             if len(salesforce_matches) > 1:
-                for account in salesforce_matches[1:]:
-                    summary += f"\n{' ' * 50}👤 Additional Account: {account}"
+                for match in salesforce_matches[1:]:  # Skip the first match as it's already shown
+                    summary += f"\n                                                  👤 Additional Account: {match}"
         else:
             summary += f", {salesforce_icon} Salesforce Account: --, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
     
