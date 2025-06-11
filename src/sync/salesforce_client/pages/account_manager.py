@@ -277,7 +277,7 @@ class AccountManager(BasePage):
             self.page.wait_for_timeout(500)  # Wait for search input to appear
 
             # Find and fill the search input that appears
-            search_input = self.page.locator('input[type="search"], input[placeholder="Search..."]')
+            search_input = self.page.get_by_role("searchbox", name="Search this list...")
             search_input.fill(search_term)
             search_input.press("Enter")
             self.log_helper.log(self.logger, 'info', f"Pressed Enter for search term: {search_term}")
@@ -427,7 +427,7 @@ class AccountManager(BasePage):
                 self.page.wait_for_timeout(500)  # Wait for search input to appear
                 
                 # Find and fill the search input that appears
-                search_input = self.page.locator('input[type="search"], input[placeholder="Search..."]')
+                search_input = self.page.get_by_role("searchbox", name="Search this list...")
                 search_input.fill("--")
                 self.log_helper.log(self.logger, 'info', "Filled search input with '--'")
                 
