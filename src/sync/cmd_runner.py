@@ -916,6 +916,8 @@ def run_command(args):
             report_logger.info("\n=== MATCH STATISTICS ===")
             if(args.dropbox_account_info):
                 # Update Dropbox match statistics
+                total_dl_matches = 0
+                total_dl_no_matches = 0
                 for result_dict in summary_results:
                     dropbox_result = result_dict.get('dropbox_account_search_result', {})
                     if dropbox_result:
@@ -924,8 +926,17 @@ def run_command(args):
                             total_dropbox_matches += 1
                         else:
                             total_dropbox_no_matches += 1
+                        
+                        # Check for driver's license
+                        drivers_license_info = dropbox_result.get('drivers_license_info', {})
+                        if drivers_license_info.get('status') == 'found':
+                            total_dl_matches += 1
+                        else:
+                            total_dl_no_matches += 1
                 report_logger.info(f"Total Dropbox Matches Found: {total_dropbox_matches}")
                 report_logger.info(f"Total Dropbox No Matches: {total_dropbox_no_matches}")
+                report_logger.info(f"Total Driver's License Matches Found: {total_dl_matches}")
+                report_logger.info(f"Total Driver's License No Matches: {total_dl_no_matches}")
             if(args.salesforce_accounts):
                 # Update Salesforce match statistics
                 for result_dict in summary_results:
