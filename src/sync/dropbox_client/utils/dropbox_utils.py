@@ -1024,20 +1024,32 @@ class DropboxClient:
                 return None
                 
             files = list_dropbox_folder_contents(self.dbx, dropbox_path)
+            logger.info(f"Files found in {dropbox_path}:")
+            for file in files:
+                if isinstance(file, FileMetadata):
+                    logger.info(f"  - {file.name}")
+            
             # Pattern to match both .jpeg and .pdf extensions, and files containing variations of "driver(s) license"
             patterns = [
-                r'.*DL\.(?:jpeg|pdf)$',  # Original pattern
-                r'.*divers licen.*\.(?:jpeg|pdf|jpg|png)$',  # French variation
-                r'.*drivers licen.*\.(?:jpeg|pdf|jpg|png)$',  # English plural
-                r'.*driver licen.*\.(?:jpeg|pdf|jpg|png)$'   # English singular
+                r'.*DL\.(?:jpeg|pdf|jpg|png)$',  # Basic DL pattern with common extensions
+                r'.*DL\s*\.(?:jpeg|pdf|jpg|png)$',  # DL with optional space before extension
+                r'.*DL\s*[-_]?\d*\.(?:jpeg|pdf|jpg|png)$',  # DL with optional number or separator
+                r'.*driver[s]?\s*licen[cs]e?.*\.(?:jpeg|pdf|jpg|png)$',  # Full text variations
+                r'.*divers?\s*licen[cs]e?.*\.(?:jpeg|pdf|jpg|png)$',  # French variations
+                r'.*DL.*\.(?:jpeg|pdf|jpg|png)$',  # Any file with DL in the name
+                r'.*ID\s*card.*\.(?:jpeg|pdf|jpg|png)$',  # ID card variations
+                r'.*identification.*\.(?:jpeg|pdf|jpg|png)$'  # Identification variations
             ]
             
             for file in files:
                 if isinstance(file, FileMetadata):
+                    logger.info(f"Checking file: {file.name}")
                     for pattern in patterns:
                         if re.match(pattern, file.name, re.IGNORECASE):
-                            logger.info(f"Found driver's license file: {file.name}")
+                            logger.info(f"Found driver's license file: {file.name} matching pattern: {pattern}")
                             return file
+                        else:
+                            logger.info(f"File {file.name} did not match pattern: {pattern}")
             logger.info(f"No driver's license file found in {dropbox_path}")
             return None
         except Exception as e:
