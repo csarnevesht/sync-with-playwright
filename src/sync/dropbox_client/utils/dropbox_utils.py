@@ -1624,8 +1624,8 @@ class DropboxClient:
                     updated_dfs[other_sheet] = pd.read_excel(flatfile_excel, sheet_name=other_sheet)
             
             # Write the updated data to both Excel and CSV files
-            excel_output_path = output_path.replace('docs/', 'accounts/')
-            csv_output_path = output_path.replace('docs/', 'accounts/').replace('.xlsx', '.csv')
+            excel_output_path = output_path.replace('docs/', 'data/')
+            csv_output_path = output_path.replace('docs/', 'data/').replace('.xlsx', '.csv')
             
             # Write Excel file
             logger.info(f"\nWriting Excel file to: {excel_output_path}")

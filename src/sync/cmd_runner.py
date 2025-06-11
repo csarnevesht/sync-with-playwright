@@ -654,7 +654,7 @@ def run_command(args):
                             # Update FlatFile with account info if found
                             if dropbox_account_search_result.get('account_data'):
                                 logger.info("Updating FlatFile with account info...")
-                                output_xlsx = os.path.join('accounts', 'FlatFile.5.2025.xlsx')
+                                output_xlsx = os.path.join('data', 'FlatFile.5.2025.xlsx')
                                 if dropbox_client.update_flatfile_with_account_info(
                                     dropbox_account_search_result,
                                     flatfile_excel=flatfile_excel,
@@ -1061,7 +1061,7 @@ def prepare_flatfile_from_template(template_path, logger, report_logger):
     """
     Prepare the FlatFile Excel template: delete the output CSV and XLSX in accounts/ if they exist, then load and return the pd.ExcelFile object, or None if loading fails.
     """
-    output_xlsx = os.path.join('accounts', 'FlatFile.5.2025.xlsx')
+    output_xlsx = os.path.join('data', 'FlatFile.5.2025.xlsx')
     output_csv = output_xlsx.replace('.xlsx', '.csv')
     for out_path in [output_csv, output_xlsx]:
         if os.path.exists(out_path):
