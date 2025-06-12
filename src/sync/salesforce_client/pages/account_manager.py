@@ -1724,6 +1724,7 @@ class AccountManager(BasePage):
             self.log_helper.log(self.logger, 'info', "Attempting to get account name")
             name_selectors = [
                 'lightning-formatted-text[slot="primaryField"]',
+                'lightning-formatted-name[slot="primaryField"]',
                 'h1.slds-page-header__title',
                 'span.slds-page-header__title'
             ]
@@ -1836,6 +1837,38 @@ class AccountManager(BasePage):
             except Exception as e:
                 self.log_helper.log(self.logger, 'warn', f"Error getting additional account details: {str(e)}")
             
+            # Extract secondary fields (header details)
+            try:
+                secondary_fields = self.page.query_selector('div.secondaryFields, [class*="secondaryFields"]')
+                if secondary_fields:
+                    detail_items = secondary_fields.query_selector_all('records-highlights-details-item')
+                    for item in detail_items:
+                        label_elem = item.query_selector('p.slds-text-title')
+                        value_elem = item.query_selector('p.fieldComponent')
+                        if label_elem and value_elem:
+                            label = label_elem.inner_text().strip()
+                            value = value_elem.inner_text().strip()
+                            if label and value:
+                                account_info[label.lower().replace(' ', '_')] = value
+                                self.log_helper.log(self.logger, 'info', f"Found {label}: {value}")
+            except Exception as e:
+                self.log_helper.log(self.logger, 'warn', f"Error extracting secondary fields: {str(e)}")
+
+            # Extract general information from records-record-layout-item blocks
+            try:
+                layout_items = self.page.query_selector_all('records-record-layout-item')
+                for item in layout_items:
+                    label_elem = item.query_selector('.test-id__field-label')
+                    value_elem = item.query_selector('.test-id__field-value')
+                    if label_elem and value_elem:
+                        label = label_elem.inner_text().strip()
+                        value = value_elem.inner_text().strip()
+                        if label and value:
+                            account_info[label.lower().replace(' ', '_')] = value
+                            self.log_helper.log(self.logger, 'info', f"Found {label}: {value}")
+            except Exception as e:
+                self.log_helper.log(self.logger, 'warn', f"Error extracting general info fields: {str(e)}")
+
             self.log_helper.log(self.logger, 'info', f"Successfully retrieved account information: {account_info}")
             self.log_helper.dedent()
             return account_info
