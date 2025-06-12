@@ -2471,6 +2471,14 @@ class AccountManager(BasePage):
         self.log_helper.log(self.logger, 'info', f"Current URL: {self.page.url}")
         
         try:
+            # First verify we're on a valid account page
+            is_valid, account_id = self.verify_account_page_url()
+            if not is_valid or not account_id:
+                self.log_helper.log(self.logger, 'warning', "Not on a valid account page")
+                # Try to navigate back to the account page
+                self.navigate_back_to_account_page()
+        
+            
             # Try the most specific selector first: span[title="Files"]
             try:
                 self.log_helper.log(self.logger, 'info', "Trying span[title='Files'] selector...")
