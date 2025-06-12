@@ -1692,44 +1692,325 @@ class AccountManager(BasePage):
         self.log_helper.dedent()
         return num_files > 0
     
-    
-    def deprecated_account_has_files(self, account_id: str) -> bool:
+    def get_account_information(self, account_id: str) -> dict:
         """
-        Check if the account has files.
+        Get all available information for an account.
+        
+        Args:
+            account_id: The Salesforce account ID
+            
+        Returns:
+            dict: Dictionary containing account information
         """
-        account_url = f"{SALESFORCE_URL}/lightning/r/{account_id}/view"
-        self.log_helper.log(self.logger, 'info', f"Navigating to account view page: {account_url}")
-        self.page.goto(account_url)
-        # self.page.wait_for_load_state('networkidle', timeout=30000)
+        self.log_helper.log(self.logger, 'info', f"Getting information for account {account_id}")
         self.log_helper.indent()
+        
         try:
-            # Find all matching <a> elements
-            files_links = self.page.locator('a.slds-card__header-link.baseCard__header-title-container')
-            found = False
-            for i in range(files_links.count()):
-                a = files_links.nth(i)
-                href = a.get_attribute('href')
-                outer_html = a.evaluate('el => el.outerHTML')
-                if href and 'AttachedContentDocuments' in href:
-                    # This is the Files card
-                    files_number_span = a.locator('span').nth(1)
-                    files_number_text = files_number_span.text_content(timeout=1000)
-                    files_number_match = re.search(r'\((\d+\+?)\)', files_number_text)
-                    if files_number_match:
-                        files_number_str = files_number_match.group(1)
-                        files_number = int(files_number_str.rstrip('+'))
-                    else:
-                        files_number = 0
-                    self.log_helper.log(self.logger, 'info', f"Account {account_id} Files count: {files_number}")
-                    found = True
-                    self.log_helper.dedent()
-                    return files_number > 0
-            if not found:
-                self.log_helper.log(self.logger, 'error', f"Files card not found for account {account_id}")
-                sys.exit(1)
+            # Ensure we're on the account view page
+            if not self.ensure_account_view_page(account_id):
+                self.log_helper.log(self.logger, 'error', "Failed to ensure account view page")
+                self.log_helper.dedent()
+                return {}
+            
+            # Wait for the page to be fully loaded
+            self.log_helper.log(self.logger, 'info', "Waiting for page to be fully loaded")
+            self.page.wait_for_load_state('networkidle', timeout=10000)
+            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
+            
+            # Get account details from the page
+            account_info = {}
+            
+            # Get account name with Lightning component selector
+            self.log_helper.log(self.logger, 'info', "Attempting to get account name")
+            name_selectors = [
+                'lightning-formatted-text[slot="primaryField"]',
+                'h1.slds-page-header__title',
+                'span.slds-page-header__title'
+            ]
+            
+            name_found = False
+            for selector in name_selectors:
+                try:
+                    name_element = self.page.wait_for_selector(selector, timeout=5000)
+                    if name_element:
+                        account_info['name'] = name_element.inner_text()
+                        self.log_helper.log(self.logger, 'info', f"Found account name: {account_info['name']}")
+                        name_found = True
+                        break
+                except Exception as e:
+                    self.log_helper.log(self.logger, 'debug', f"Failed to get name with selector {selector}: {str(e)}")
+                    continue
+            
+            if not name_found:
+                self.log_helper.log(self.logger, 'warn', "Could not find account name with any selector")
+            
+            # Get account type with Lightning component selector
+            self.log_helper.log(self.logger, 'info', "Attempting to get account type")
+            type_selectors = [
+                'lightning-formatted-text[data-field-name="Type"]',
+                'span[data-aura-class="forceOutputText"][data-field-name="Type"]',
+                'span[data-aura-class="forceOutputText"]'
+            ]
+            
+            type_found = False
+            for selector in type_selectors:
+                try:
+                    type_elements = self.page.query_selector_all(selector)
+                    for element in type_elements:
+                        label = element.get_attribute('data-field-name') or element.get_attribute('data-aura-rendered-by')
+                        if label and 'Type' in label:
+                            account_info['type'] = element.inner_text()
+                            self.log_helper.log(self.logger, 'info', f"Found account type: {account_info['type']}")
+                            type_found = True
+                            break
+                    if type_found:
+                        break
+                except Exception as e:
+                    self.log_helper.log(self.logger, 'debug', f"Failed to get type with selector {selector}: {str(e)}")
+                    continue
+            
+            if not type_found:
+                self.log_helper.log(self.logger, 'warn', "Could not find account type")
+            
+            # Get account record type with Lightning component selector
+            self.log_helper.log(self.logger, 'info', "Attempting to get account record type")
+            record_type_selectors = [
+                'lightning-formatted-text[data-field-name="RecordType"]',
+                'span[data-aura-class="forceOutputText"][data-field-name="RecordType"]',
+                'span[data-aura-class="forceOutputText"]'
+            ]
+            
+            record_type_found = False
+            for selector in record_type_selectors:
+                try:
+                    record_type_elements = self.page.query_selector_all(selector)
+                    for element in record_type_elements:
+                        label = element.get_attribute('data-field-name') or element.get_attribute('data-aura-rendered-by')
+                        if label and 'Record Type' in label:
+                            account_info['record_type'] = element.inner_text()
+                            self.log_helper.log(self.logger, 'info', f"Found account record type: {account_info['record_type']}")
+                            record_type_found = True
+                            break
+                    if record_type_found:
+                        break
+                except Exception as e:
+                    self.log_helper.log(self.logger, 'debug', f"Failed to get record type with selector {selector}: {str(e)}")
+                    continue
+            
+            if not record_type_found:
+                self.log_helper.log(self.logger, 'warn', "Could not find account record type")
+            
+            # Get additional account details with Lightning component selectors
+            self.log_helper.log(self.logger, 'info', "Attempting to get additional account details")
+            try:
+                # Try both Lightning and classic selectors
+                detail_selectors = [
+                    'lightning-formatted-text',
+                    'span[data-aura-class="forceOutputText"]',
+                    'div.slds-form-element'
+                ]
+                
+                for selector in detail_selectors:
+                    try:
+                        elements = self.page.query_selector_all(selector)
+                        for element in elements:
+                            try:
+                                # Try to get label from various attributes
+                                label = (
+                                    element.get_attribute('data-field-name') or
+                                    element.get_attribute('data-aura-rendered-by') or
+                                    element.get_attribute('title')
+                                )
+                                
+                                if label:
+                                    value = element.inner_text().strip()
+                                    if value:
+                                        account_info[label.lower().replace(' ', '_')] = value
+                                        self.log_helper.log(self.logger, 'info', f"Found {label}: {value}")
+                            except Exception as e:
+                                self.log_helper.log(self.logger, 'debug', f"Error processing element: {str(e)}")
+                                continue
+                    except Exception as e:
+                        self.log_helper.log(self.logger, 'debug', f"Failed to get details with selector {selector}: {str(e)}")
+                        continue
+            except Exception as e:
+                self.log_helper.log(self.logger, 'warn', f"Error getting additional account details: {str(e)}")
+            
+            self.log_helper.log(self.logger, 'info', f"Successfully retrieved account information: {account_info}")
+            self.log_helper.dedent()
+            return account_info
+            
         except Exception as e:
-            self.log_helper.log(self.logger, 'error', f"Could not extract files count for account {account_id}: {e}")
-            sys.exit(1)
+            self.log_helper.log(self.logger, 'error', f"Error getting account information: {str(e)}")
+            self.log_helper.dedent()
+            return {}
+
+    def get_account_relationships(self, account_id: str) -> List[Dict[str, Any]]:
+        """
+        Get all relationship accounts for a given Salesforce account ID.
+        
+        Args:
+            account_id: The Salesforce account ID
+            
+        Returns:
+            List of dictionaries containing relationship information
+        """
+        try:
+            # Ensure we're on the account view page
+            if not self.verify_account_page_url()[0]:
+                self.logger.error(f"Not on account view page for ID: {account_id}")
+                return []
+            
+            # Wait for the page to load
+            self.page.wait_for_load_state('networkidle', timeout=10000)
+            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
+            
+            # Find and click the Relationships tab
+            tab_selectors = [
+                "a[title='Relationships']",
+                "a[data-label='Relationships']",
+                "//a[contains(@class, 'tabHeader') and contains(text(), 'Relationships')]",
+                "//a[contains(@class, 'tabHeader') and @title='Relationships']"
+            ]
+            
+            tab_found = False
+            for selector in tab_selectors:
+                try:
+                    if selector.startswith("//"):
+                        tab = self.page.locator(f"xpath={selector}")
+                    else:
+                        tab = self.page.locator(selector)
+                    
+                    if tab.count() > 0:
+                        tab.click()
+                        tab_found = True
+                        self.logger.info("Clicked on Relationships tab")
+                        break
+                except Exception as e:
+                    self.logger.warn(f"Failed to find/click tab with selector {selector}: {str(e)}")
+                    continue
+            
+            if not tab_found:
+                self.logger.error("Could not find Relationships tab")
+                return []
+            
+            # Wait for the relationships content to load
+            self.page.wait_for_load_state('networkidle', timeout=10000)
+            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
+            
+            # Find the relationships tree container
+            tree_selectors = [
+                "div.FinServRelationshipsTreeLeaf",
+                "div[data-aura-class='FinServRelationshipsTreeLeaf']",
+                "//div[contains(@class, 'FinServRelationshipsTreeLeaf')]"
+            ]
+            
+            tree_found = False
+            for selector in tree_selectors:
+                try:
+                    if selector.startswith("//"):
+                        tree = self.page.locator(f"xpath={selector}")
+                    else:
+                        tree = self.page.locator(selector)
+                    
+                    if tree.count() > 0:
+                        tree_found = True
+                        self.logger.info("Found relationships tree")
+                        break
+                except Exception as e:
+                    self.logger.warn(f"Failed to find tree with selector {selector}: {str(e)}")
+                    continue
+            
+            if not tree_found:
+                self.logger.error("Could not find relationships tree")
+                return []
+            
+            # Extract household information
+            household_info = {}
+            household_selectors = [
+                "div.leaf-header h3 a",
+                "div[data-aura-class='FinServRelationshipsTreeLeaf'] h3 a",
+                "//div[contains(@class, 'leaf-header')]//h3//a"
+            ]
+            
+            for selector in household_selectors:
+                try:
+                    if selector.startswith("//"):
+                        household = self.page.locator(f"xpath={selector}")
+                    else:
+                        household = self.page.locator(selector)
+                    
+                    if household.count() > 0:
+                        household_info['name'] = household.text_content()
+                        household_info['id'] = household.get_attribute('data-recordid')
+                        self.logger.info(f"Found household: {household_info['name']}")
+                        break
+                except Exception as e:
+                    self.logger.warn(f"Failed to find household with selector {selector}: {str(e)}")
+                    continue
+            
+            # Extract relationship contacts
+            relationships = []
+            contact_selectors = [
+                "div.FinServRelationshipEntityBlock",
+                "div[data-aura-class='FinServRelationshipEntityBlock']",
+                "//div[contains(@class, 'FinServRelationshipEntityBlock')]"
+            ]
+            
+            for selector in contact_selectors:
+                try:
+                    if selector.startswith("//"):
+                        contacts = self.page.locator(f"xpath={selector}")
+                    else:
+                        contacts = self.page.locator(selector)
+                    
+                    if contacts.count() > 0:
+                        for i in range(contacts.count()):
+                            contact = contacts.nth(i)
+                            
+                            # Get contact name and ID
+                            name_element = contact.locator("a.outputLookupLink")
+                            if name_element.count() > 0:
+                                name = name_element.text_content()
+                                contact_id = name_element.get_attribute('data-recordid')
+                                
+                                # Get role
+                                role_element = contact.locator("li.slds-truncate span")
+                                role = role_element.text_content() if role_element.count() > 0 else "Unknown"
+                                
+                                # Get type (from icon)
+                                type_element = contact.locator("lightning-icon")
+                                type = "Contact"  # Default type
+                                if type_element.count() > 0:
+                                    icon_name = type_element.get_attribute('icon-name')
+                                    if icon_name:
+                                        type = icon_name.split(':')[-1].capitalize()
+                                
+                                relationship = {
+                                    'name': name,
+                                    'id': contact_id,
+                                    'type': type,
+                                    'role': role,
+                                    'account_info': {
+                                        'name': household_info.get('name', ''),
+                                        'id': household_info.get('id', ''),
+                                        'type': 'Household'
+                                    }
+                                }
+                                
+                                relationships.append(relationship)
+                                self.logger.info(f"Found relationship: {name} ({role})")
+                        break
+                except Exception as e:
+                    self.logger.warn(f"Failed to find contacts with selector {selector}: {str(e)}")
+                    continue
+            
+            self.logger.info(f"Successfully retrieved {len(relationships)} relationships")
+            return relationships
+            
+        except Exception as e:
+            self.logger.error(f"Error getting account relationships: {str(e)}")
+            return []
 
     def delete_account(self, full_name: str, view_name: str = "Recent") -> bool:
         """
