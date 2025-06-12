@@ -1152,9 +1152,9 @@ def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox
                         fields_info.append('📧')
                     if account_info.get('phone'):
                         fields_info.append('📞')
-                    if account_info.get('billing_address') or account_info.get('shipping_address'):
+                    if account_info.get('billing_address') or account_info.get('shipping_address') or account_info.get('mailing_address'):
                         fields_info.append('📍')
-                    if account_info.get('ssn'):
+                    if account_info.get('ssn/tax_id'):
                         fields_info.append('🔒')
                     if account_info.get('birthdate'):
                         fields_info.append('🎂')
