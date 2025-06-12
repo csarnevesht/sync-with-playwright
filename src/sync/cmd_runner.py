@@ -1114,6 +1114,25 @@ def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox
     """
     # Build the base summary with just the folder name
     summary = f"📁 **Dropbox Folder** Name: {dropbox_folder_name}"
+
+    # Add driver's license info only if --dl flag is set
+    if args.dl:
+        drivers_license_info = dropbox_info.get('drivers_license_info', {})
+        if drivers_license_info:
+            drivers_license_status = drivers_license_info.get('status', 'not_found')
+            drivers_license_data = dropbox_info.get('drivers_license', {})
+            drivers_license_icon = '🪪' if drivers_license_status == 'found' else '🔺'
+            
+            # Build driver's license details if available
+            dl_details = ""
+            if drivers_license_status == 'found' and drivers_license_data:
+                dl_details = f" (DL#: {drivers_license_data.get('license_number', 'N/A')}"
+                if 'date_of_birth' in drivers_license_data:
+                    dl_details += f", DOB: {drivers_license_data['date_of_birth']}"
+                dl_details += ")"
+            
+            summary += f", {drivers_license_icon} {'DL Found' if drivers_license_icon == '🪪' else 'No DL'}{dl_details}"
+    
     
     # Add Dropbox info only if --dropbox-accounts flag is set
     if args.dropbox_account_info:
@@ -1166,6 +1185,8 @@ def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox
                         relationship_info += f" [{' '.join(fields_info)}]"
                     
                     summary += f"\n                                                  👤 Additional Account: {rel['name']}{relationship_info}"
+        else:
+            summary += f", 🟥 Salesforce Account: --, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
     
     return summary
 
