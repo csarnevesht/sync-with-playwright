@@ -746,6 +746,22 @@ def run_command(args):
                                                         report_logger.info(f"  Name: {rel['name']}")
                                                         report_logger.info(f"  Type: {rel['type']}")
                                                         report_logger.info(f"  Role: {rel['role']}")
+                                                        # Get account information for each relationship
+                                                        # CAROLINA HERE
+                                                        # Check if account exists and store result
+                                                        report_logger.info(f"Checking if account exists: {rel['name']} in view: {view_name}")
+                                                        account_exists = account_manager.account_exists(rel['name'], view_name=view_name)
+                                                        if account_exists:
+                                                            logger.info(f"Account exists: {rel['name']}")
+                                                            report_logger.info(f"Account exists: {rel['name']}")
+                                                            # Then click on the relationship account
+                                                            if account_manager.click_account_name(rel['name']):
+                                                                rel_is_valid, rel_account_id = account_manager.verify_account_page_url()
+                                                                if rel_is_valid and rel_account_id:
+                                                                    rel_info = account_manager.get_account_information(rel_account_id)
+                                                                    rel['account_info'] = rel_info
+                                                                    # Navigate back to original account
+                                                                    account_manager.navigate_back_to_account_page()
                                                     # Store relationships in salesforce_account_search_result, avoiding duplicates
                                                     if 'relationships' not in salesforce_account_search_result:
                                                         salesforce_account_search_result['relationships'] = []
@@ -1114,6 +1130,28 @@ def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox
             if 'relationships' in salesforce_info:
                 for rel in salesforce_info['relationships']:
                     relationship_info = f" (Role: {rel['role']}, Type: {rel['type']})"
+                    # Add account information if available
+                    account_info = rel.get('account_info', {})
+                    fields_info = []
+                    logger.info(f"CAROLINA account_info: {account_info}")
+                    # Check for each field and add to fields_info if present
+                    if account_info.get('email'):
+                        fields_info.append('📧')
+                    if account_info.get('phone'):
+                        fields_info.append('📞')
+                    if account_info.get('billing_address') or account_info.get('shipping_address'):
+                        fields_info.append('📍')
+                    if account_info.get('ssn'):
+                        fields_info.append('🔒')
+                    if account_info.get('birthdate'):
+                        fields_info.append('🎂')
+                    if account_info.get('age'):
+                        fields_info.append('👶')
+                    
+                    # Add fields info to the relationship line
+                    if fields_info:
+                        relationship_info += f" [{' '.join(fields_info)}]"
+                    
                     summary += f"\n                                                  👤 Additional Account: {rel['name']}{relationship_info}"
     
     return summary
