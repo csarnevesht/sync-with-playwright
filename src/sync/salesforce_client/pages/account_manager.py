@@ -710,6 +710,16 @@ class AccountManager(BasePage):
                 self.page.wait_for_timeout(1000)  # Wait for search to complete
                 self.log_helper.log(self.logger, 'info', "Waited for search to complete")
                 
+                # Click the refresh button
+                refresh_button = self.page.locator('button[name="refreshButton"]').first
+                if refresh_button:
+                    self.log_helper.log(self.logger, 'info', "Found refresh button")
+                    refresh_button.click()
+                    self.log_helper.log(self.logger, 'info', "Clicked refresh button")
+                    self.page.wait_for_timeout(1000)  # Wait for refresh to complete
+                else:
+                    self.log_helper.log(self.logger, 'warning', "Refresh button not found")
+                
                 # Wait for the status bar to be visible
                 status_bar = self.page.locator('span.countSortedByFilteredBy[role="status"]').first
                 if status_bar:
