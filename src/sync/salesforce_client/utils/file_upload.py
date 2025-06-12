@@ -185,9 +185,8 @@ def upload_account_files(page: Page, account: dict, debug_mode: bool = True, max
                             logging.info(f"File {file_name_of_file_to_upload} already exists, skipping upload for file: {file_path}")
                             account_manager.navigate_back_to_account_page()
                             continue
-                    
-                    account_manager.navigate_back_to_account_page()
-                    
+                                        
+                    # CAROLINA HERE HERE
                     # Try uploading the file with retries
                     logging.info(f"**** Try uploading the file with retries, file: {file_path}")
                     current_try = 1
@@ -196,8 +195,11 @@ def upload_account_files(page: Page, account: dict, debug_mode: bool = True, max
                         try:
                             logging.info(f"Attempt {current_try} of {max_tries}")
 
+                            logging.info("Navigating back to account page...")
+                            account_manager.navigate_back_to_account_page()
+
                             # Navigate to Files page before each upload
-                            logging.info("Navigating to Files page...")
+                            logging.info("Navigating to account Files page...")
                             num_files = account_manager.navigate_to_account_files_click_on_files_card_to_facilitate_file_operation()
                             logging.info(f"***Number of files in account: {num_files}")
                             
@@ -211,6 +213,7 @@ def upload_account_files(page: Page, account: dict, debug_mode: bool = True, max
                             logging.info(f"***Number of files: {num_files}")
                             logging.info(f"***Expected number of items: {expected_items}")
 
+                            # CAROLINA HERE upload_account_file
                             logging.info(f"**** Uploading single file")
                             if upload_account_file(page, file_path, expected_items):
                                 file_success = True

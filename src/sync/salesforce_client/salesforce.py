@@ -33,7 +33,7 @@ class Salesforce:
             account_info=account_info
         )
         
-    def account_exists(self, account_name: str, view_name: str = "All Accounts") -> bool:
+    def account_exists(self, account_name: str, view_name: str = "All Clients") -> bool:
         """Check if an account exists."""
         return self.account_manager.account_exists(account_name, view_name)
         
@@ -53,6 +53,6 @@ class Salesforce:
         """Delete an account."""
         return self.account_manager.delete_account(full_name, view_name=view_name)
         
-    def fuzzy_search_account(self, folder_name: str, view_name: str = "All Clients") -> dict:
+    def search_account(self, folder_name: str, view_name: str = "All Clients") -> dict:
         """Perform a fuzzy search for an account."""
         return self.account_manager.salesforce_search_account(folder_name, view_name) 
