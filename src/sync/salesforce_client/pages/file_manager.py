@@ -27,44 +27,66 @@ class SalesforceFileManager(BasePage):
             initial_count = self.extract_files_count_from_status()
             self.logger.info(f"Initial file count: {initial_count}")
             
-            # If we have a string count like "50+", we know there are at least 50 files
-            if isinstance(initial_count, str) and '+' in initial_count:
-                self.logger.info(f"Found {initial_count} count, not scrolling further")
-                return initial_count
+            # Get the viewport height
+            viewport_height = self.page.evaluate("window.innerHeight")
+            self.logger.info(f"Viewport height: {viewport_height}")
             
-            # Scroll to bottom
-            self.logger.info("Scrolling to bottom...")
-            self.page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
-            self.page.wait_for_timeout(2000)  # Wait for content to load
-            
-            # Get the new count
-            new_count = self.extract_files_count_from_status()
-            self.logger.info(f"New file count: {new_count}")
-            
-            # If we have a string count like "50+", we know there are at least 50 files
-            if isinstance(new_count, str) and '+' in new_count:
-                self.logger.info(f"Found {new_count} count, not scrolling further")
-                return new_count
+            # Track previous counts to detect when we're not loading more files
+            previous_counts = []
+            max_attempts = 10  # Prevent infinite loops
+            attempt = 0
             
             # If we have more files, keep scrolling
-            while isinstance(new_count, int) and isinstance(initial_count, int) and new_count > initial_count:
-                self.logger.info(f"Found more files ({new_count} > {initial_count}), scrolling again...")
-                initial_count = new_count
-                self.page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
-                self.page.wait_for_timeout(2000)  # Wait for content to load
+            while attempt < max_attempts:
+                attempt += 1
+                self.logger.info(f"Scroll attempt {attempt}/{max_attempts}")
+                
+                # Store current count
+                previous_counts.append(initial_count)
+                if len(previous_counts) > 3:
+                    previous_counts.pop(0)
+                
+                # Use mouse wheel to scroll down
+                self.logger.info("Scrolling down using mouse wheel...")
+                self.page.mouse.wheel(0, viewport_height)
+                self.page.wait_for_timeout(1000)  # Wait for scroll to complete
+                
+                # Get the new count
                 new_count = self.extract_files_count_from_status()
                 self.logger.info(f"New file count: {new_count}")
                 
-                # If we get a string count like "50+", stop scrolling
+                # If we have a string count like "50+", we know there are at least 50 files
+                # so we should continue scrolling
                 if isinstance(new_count, str) and '+' in new_count:
-                    self.logger.info(f"Found {new_count} count, not scrolling further")
-                    return new_count
+                    self.logger.info(f"Found {new_count} count, continuing to scroll...")
+                    continue
+                
+                # If we have more files, keep scrolling
+                if isinstance(new_count, int) and isinstance(initial_count, int) and new_count > initial_count:
+                    self.logger.info(f"Found more files ({new_count} > {initial_count}), scrolling again...")
+                    initial_count = new_count
+                else:
+                    # Check if we've seen the same count multiple times
+                    if len(previous_counts) >= 3 and all(x == previous_counts[0] for x in previous_counts):
+                        self.logger.info("Count has remained the same for multiple scrolls, stopping...")
+                        break
+                    else:
+                        # Try one more scroll even if count didn't increase
+                        self.logger.info("Count didn't increase, trying one more scroll...")
+                        self.page.mouse.wheel(0, viewport_height)
+                        self.page.wait_for_timeout(1000)
+                        new_count = self.extract_files_count_from_status()
+                        self.logger.info(f"New file count after extra scroll: {new_count}")
+                        if new_count == previous_counts[-1]:
+                            break
             
             self.logger.info(f"Final file count: {new_count}")
             return new_count
             
         except Exception as e:
             self.logger.error(f"Error scrolling to bottom: {str(e)}")
+            self.page.screenshot(path="scroll-error.png")
+            self.logger.info("Error screenshot saved as scroll-error.png")
             return 0
 
     def extract_files_count_from_status(self) -> Union[int, str]:
