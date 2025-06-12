@@ -746,6 +746,10 @@ def run_command(args):
                                                         report_logger.info(f"  Name: {rel['name']}")
                                                         report_logger.info(f"  Type: {rel['type']}")
                                                         report_logger.info(f"  Role: {rel['role']}")
+                                                    # Store relationships in salesforce_account_search_result
+                                                    if 'relationships' not in salesforce_account_search_result:
+                                                        salesforce_account_search_result['relationships'] = []
+                                                    salesforce_account_search_result['relationships'].extend(relationships)
                                                 else:
                                                     report_logger.info("\nNo relationship accounts found")
                                             else:
@@ -1084,24 +1088,6 @@ def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox
         dropbox_account_match = match_info.get('match_status', '--')
         dropbox_icon = '📄' if dropbox_account_match == 'Match found' else '🔴'
         summary += f", {dropbox_icon} Dropbox Name: {dropbox_account_search_name}, Dropbox Match: {dropbox_account_match}"
-        
-        # Add driver's license info only if --dl flag is set
-        if args.dl:
-            drivers_license_info = dropbox_info.get('drivers_license_info', {})
-            if drivers_license_info:
-                drivers_license_status = drivers_license_info.get('status', 'not_found')
-                drivers_license_data = dropbox_info.get('drivers_license', {})
-                drivers_license_icon = '🪪' if drivers_license_status == 'found' else '🟥'
-                
-                # Build driver's license details if available
-                dl_details = ""
-                if drivers_license_status == 'found' and drivers_license_data:
-                    dl_details = f" (DL#: {drivers_license_data.get('license_number', 'N/A')}"
-                    if 'date_of_birth' in drivers_license_data:
-                        dl_details += f", DOB: {drivers_license_data['date_of_birth']}"
-                    dl_details += ")"
-                
-                summary += f", {drivers_license_icon} {'DL Found' if drivers_license_icon == '🪪' else 'No DL'}{dl_details}"
     
     # Add Salesforce info if available
     if args.salesforce_accounts:
@@ -1109,25 +1095,22 @@ def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox
         salesforce_match = salesforce_info.get('match', '--')
         salesforce_view = salesforce_info.get('view', '--')
         
-        # Update match status to include count if there are multiple accounts
-        if salesforce_match == 'Match Found' and len(salesforce_matches) > 1:
-            salesforce_match = f"Match Found ({len(salesforce_matches)})"
-        elif salesforce_matches:
-            salesforce_match = "Match Found"
-        
-        salesforce_icon = '👤' if salesforce_match.startswith('Match Found') else '🔴'
-        
-        # Add the first account to the summary
+        # Add primary Salesforce account info
         if salesforce_matches:
-            first_account = salesforce_matches[0]
-            summary += f", {salesforce_icon} Salesforce Account: {first_account}, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
+            primary_account = salesforce_matches[0]
+            summary += f", 👤 Salesforce Account: {primary_account}, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
             
-            # Add additional accounts if there are more
+            # Add additional accounts with their relationship info if available
             if len(salesforce_matches) > 1:
-                for match in salesforce_matches[1:]:  # Skip the first match as it's already shown
-                    summary += f"\n                                                  👤 Additional Account: {match}"
-        else:
-            summary += f", {salesforce_icon} Salesforce Account: --, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
+                for additional_account in salesforce_matches[1:]:
+                    # Get relationship info for this account
+                    relationship_info = ""
+                    if 'relationships' in salesforce_info:
+                        for rel in salesforce_info['relationships']:
+                            if rel['name'] == additional_account:
+                                relationship_info = f" (Role: {rel['role']}, Type: {rel['type']})"
+                                break
+                    summary += f"\n                                                  👤 Additional Account: {additional_account}{relationship_info}"
     
     return summary
 
