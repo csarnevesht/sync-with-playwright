@@ -20,7 +20,7 @@ show_menu() {
     echo "4) (u) File Upload Test"
     echo "5) (d) Account Deletion Test"
     echo "6) (f) Account Filter Test"
-    echo "7) (r) Account File Retrieval Test"
+    echo "7) (r) Account File Retrieval Test (and Scrolling)"
     echo "8) (x) Account File Deletion Test"
     echo "9) (t) Toggle Debug Mode (Currently: ${DEBUG_MODE:-OFF})"
     echo "10) (q) Quit"
