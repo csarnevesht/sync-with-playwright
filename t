@@ -9,6 +9,9 @@ NC='\033[0m' # No Color
 # Set PYTHONPATH to include the src directory
 export PYTHONPATH="$(pwd)/src:$PYTHONPATH"
 
+# Variable to store the last command
+LAST_COMMAND=""
+
 # Function to display the menu
 show_menu() {
     clear
@@ -23,7 +26,8 @@ show_menu() {
     echo "7) (r) Account File Retrieval Test (and Scrolling)"
     echo "8) (x) Account File Deletion Test"
     echo "9) (t) Toggle Debug Mode (Currently: ${DEBUG_MODE:-OFF})"
-    echo "10) (q) Quit"
+    echo "10) (l) Run Last Command"
+    echo "11) (q) Quit"
     echo "====================================="
     echo -n "Enter your choice (number or shortcut): "
 }
@@ -35,10 +39,17 @@ run_test() {
     echo "-------------------------------------"
     
     # Build the command with debug flag if enabled
-    local cmd="python3 src/test_sync.py --test \"$test_option\""
+    local cmd="python3 src/test_sync.py --test $test_option"
     if [ "$DEBUG_MODE" = "ON" ]; then
         cmd="$cmd --debug"
     fi
+    
+    # Store the command
+    LAST_COMMAND="$cmd"
+    
+    # Show the command being executed
+    echo -e "${YELLOW}Executing command:${NC} $cmd"
+    echo "-------------------------------------"
     
     # Run the test without capturing output to allow real-time logging
     eval $cmd
@@ -51,6 +62,37 @@ run_test() {
         echo -e "\n${RED}Test failed!${NC}"
     fi
     
+    # Show the command again at the end
+    echo -e "\n${YELLOW}Command that was executed:${NC} $cmd"
+    echo "-------------------------------------"
+    echo -n "Press Enter to continue..."
+    read
+}
+
+# Function to run the last command
+run_last_command() {
+    if [ -z "$LAST_COMMAND" ]; then
+        echo -e "\n${RED}No previous command available${NC}"
+        sleep 2
+        return
+    fi
+    
+    echo -e "\n${YELLOW}Running last command:${NC}"
+    echo "-------------------------------------"
+    echo -e "${YELLOW}Executing command:${NC} $LAST_COMMAND"
+    echo "-------------------------------------"
+    
+    eval $LAST_COMMAND
+    exit_code=$?
+    
+    if [ $exit_code -eq 0 ]; then
+        echo -e "\n${GREEN}Test completed successfully!${NC}"
+    else
+        echo -e "\n${RED}Test failed!${NC}"
+    fi
+    
+    # Show the command again at the end
+    echo -e "\n${YELLOW}Command that was executed:${NC} $LAST_COMMAND"
     echo "-------------------------------------"
     echo -n "Press Enter to continue..."
     read
@@ -102,7 +144,10 @@ while true; do
         9|t)
             toggle_debug
             ;;
-        10|q)
+        10|l)
+            run_last_command
+            ;;
+        11|q)
             echo -e "\n${GREEN}Goodbye!${NC}"
             exit 0
             ;;
