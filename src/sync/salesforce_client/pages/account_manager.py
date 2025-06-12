@@ -462,22 +462,21 @@ class AccountManager(BasePage):
             # Define selectors
             container_selectors = [
                 "div.DESKTOP.uiContainerManager",
-                # "div[class*='uiContainerManager']",
-                # "div.forceListViewManagerGrid",
-                "div.listViewContent"
+                "div.listViewContent.slds-table--header-fixed_container",
+                "div.listViewContent.slds-table_header-fixed_container"
             ]
             
             link_selectors = [
                 "a[title]"
             ]
             
-            
             # Find and process results
-            results = set()  # Use set for automatic deduplication
+            results = set()
             
             for container_selector in container_selectors:
                 try:
-                    container = self.page.locator(container_selector)
+                    # Use first() to handle multiple elements
+                    container = self.page.locator(container_selector).first
                     if not container.is_visible():
                         continue
                         

@@ -689,7 +689,7 @@ def run_command(args):
                         
                         if args.salesforce_accounts and account_manager:
                             logger.info('step: Salesforce Search Account')
-                            # Perform fuzzy search
+                            # Perform salesforce account search
                             salesforce_account_search_result = account_manager.salesforce_search_account(dropbox_account_folder_name, view_name, dropbox_account_name_parts=dropbox_account_name_parts)
                             results[dropbox_account_folder_name] = {
                                 'salesforce_account_search_result': salesforce_account_search_result,
