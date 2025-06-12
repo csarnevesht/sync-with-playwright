@@ -1845,42 +1845,32 @@ class AccountManager(BasePage):
             self.log_helper.dedent()
             return {}
 
-    def get_account_relationships(self, account_id: str) -> List[Dict[str, Any]]:
+    def get_account_relationships(self, account_id: str) -> list[dict]:
         """
         Get all relationship accounts for a given Salesforce account ID.
-        
-        Args:
-            account_id: The Salesforce account ID
-            
-        Returns:
-            List of dictionaries containing relationship information
+        Returns a list of dictionaries with keys: name, role, type.
         """
         try:
             # Ensure we're on the account view page
             if not self.verify_account_page_url()[0]:
                 self.logger.error(f"Not on account view page for ID: {account_id}")
                 return []
-            
+
             # Wait for the page to load
             self.page.wait_for_load_state('networkidle', timeout=10000)
             self.page.wait_for_load_state('domcontentloaded', timeout=10000)
-            
-            # Find and click the Relationships tab
+
+            # Click the Relationships tab
             tab_selectors = [
                 "a[title='Relationships']",
                 "a[data-label='Relationships']",
                 "//a[contains(@class, 'tabHeader') and contains(text(), 'Relationships')]",
                 "//a[contains(@class, 'tabHeader') and @title='Relationships']"
             ]
-            
             tab_found = False
             for selector in tab_selectors:
                 try:
-                    if selector.startswith("//"):
-                        tab = self.page.locator(f"xpath={selector}")
-                    else:
-                        tab = self.page.locator(selector)
-                    
+                    tab = self.page.locator(f"xpath={selector}") if selector.startswith("//") else self.page.locator(selector)
                     if tab.count() > 0:
                         tab.click()
                         tab_found = True
@@ -1889,125 +1879,41 @@ class AccountManager(BasePage):
                 except Exception as e:
                     self.logger.warn(f"Failed to find/click tab with selector {selector}: {str(e)}")
                     continue
-            
             if not tab_found:
                 self.logger.error("Could not find Relationships tab")
                 return []
-            
-            # Wait for the relationships content to load
-            self.page.wait_for_load_state('networkidle', timeout=10000)
-            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
-            
-            # Find the relationships tree container
-            tree_selectors = [
-                "div.FinServRelationshipsTreeLeaf",
-                "div[data-aura-class='FinServRelationshipsTreeLeaf']",
-                "//div[contains(@class, 'FinServRelationshipsTreeLeaf')]"
-            ]
-            
-            tree_found = False
-            for selector in tree_selectors:
-                try:
-                    if selector.startswith("//"):
-                        tree = self.page.locator(f"xpath={selector}")
-                    else:
-                        tree = self.page.locator(selector)
-                    
-                    if tree.count() > 0:
-                        tree_found = True
-                        self.logger.info("Found relationships tree")
-                        break
-                except Exception as e:
-                    self.logger.warn(f"Failed to find tree with selector {selector}: {str(e)}")
-                    continue
-            
-            if not tree_found:
-                self.logger.error("Could not find relationships tree")
+
+            # Wait for at least one relationship block to appear
+            try:
+                self.page.wait_for_selector('div.FinServRelationshipEntityBlock', timeout=10000)
+            except Exception as e:
+                self.logger.error(f"No relationship blocks found: {str(e)}")
                 return []
-            
-            # Extract household information
-            household_info = {}
-            household_selectors = [
-                "div.leaf-header h3 a",
-                "div[data-aura-class='FinServRelationshipsTreeLeaf'] h3 a",
-                "//div[contains(@class, 'leaf-header')]//h3//a"
-            ]
-            
-            for selector in household_selectors:
-                try:
-                    if selector.startswith("//"):
-                        household = self.page.locator(f"xpath={selector}")
-                    else:
-                        household = self.page.locator(selector)
-                    
-                    if household.count() > 0:
-                        household_info['name'] = household.text_content()
-                        household_info['id'] = household.get_attribute('data-recordid')
-                        self.logger.info(f"Found household: {household_info['name']}")
-                        break
-                except Exception as e:
-                    self.logger.warn(f"Failed to find household with selector {selector}: {str(e)}")
-                    continue
-            
-            # Extract relationship contacts
+
+            relationship_blocks = self.page.query_selector_all('div.FinServRelationshipEntityBlock')
             relationships = []
-            contact_selectors = [
-                "div.FinServRelationshipEntityBlock",
-                "div[data-aura-class='FinServRelationshipEntityBlock']",
-                "//div[contains(@class, 'FinServRelationshipEntityBlock')]"
-            ]
-            
-            for selector in contact_selectors:
-                try:
-                    if selector.startswith("//"):
-                        contacts = self.page.locator(f"xpath={selector}")
-                    else:
-                        contacts = self.page.locator(selector)
-                    
-                    if contacts.count() > 0:
-                        for i in range(contacts.count()):
-                            contact = contacts.nth(i)
-                            
-                            # Get contact name and ID
-                            name_element = contact.locator("a.outputLookupLink")
-                            if name_element.count() > 0:
-                                name = name_element.text_content()
-                                contact_id = name_element.get_attribute('data-recordid')
-                                
-                                # Get role
-                                role_element = contact.locator("li.slds-truncate span")
-                                role = role_element.text_content() if role_element.count() > 0 else "Unknown"
-                                
-                                # Get type (from icon)
-                                type_element = contact.locator("lightning-icon")
-                                type = "Contact"  # Default type
-                                if type_element.count() > 0:
-                                    icon_name = type_element.get_attribute('icon-name')
-                                    if icon_name:
-                                        type = icon_name.split(':')[-1].capitalize()
-                                
-                                relationship = {
-                                    'name': name,
-                                    'id': contact_id,
-                                    'type': type,
-                                    'role': role,
-                                    'account_info': {
-                                        'name': household_info.get('name', ''),
-                                        'id': household_info.get('id', ''),
-                                        'type': 'Household'
-                                    }
-                                }
-                                
-                                relationships.append(relationship)
-                                self.logger.info(f"Found relationship: {name} ({role})")
-                        break
-                except Exception as e:
-                    self.logger.warn(f"Failed to find contacts with selector {selector}: {str(e)}")
-                    continue
-            
+            for block in relationship_blocks:
+                # Name
+                name_elem = block.query_selector('a.outputLookupLink')
+                name = name_elem.inner_text().strip() if name_elem else None
+                # Role
+                role_elem = block.query_selector('span[title], .slds-text-heading--label-normal span')
+                role = role_elem.inner_text().strip() if role_elem else None
+                # Type (from icon or context)
+                type_elem = block.query_selector('lightning-icon')
+                type_ = "Contact"
+                if type_elem:
+                    icon_name = type_elem.get_attribute('icon-name')
+                    if icon_name:
+                        type_ = icon_name.split(':')[-1].capitalize()
+                relationships.append({
+                    'name': name,
+                    'role': role,
+                    'type': type_,
+                })
+                self.logger.info(f"Found relationship: name={name}, role={role}, type={type_}")
             self.logger.info(f"Successfully retrieved {len(relationships)} relationships")
             return relationships
-            
         except Exception as e:
             self.logger.error(f"Error getting account relationships: {str(e)}")
             return []
