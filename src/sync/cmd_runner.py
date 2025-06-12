@@ -746,10 +746,20 @@ def run_command(args):
                                                         report_logger.info(f"  Name: {rel['name']}")
                                                         report_logger.info(f"  Type: {rel['type']}")
                                                         report_logger.info(f"  Role: {rel['role']}")
-                                                    # Store relationships in salesforce_account_search_result
+                                                    # Store relationships in salesforce_account_search_result, avoiding duplicates
                                                     if 'relationships' not in salesforce_account_search_result:
                                                         salesforce_account_search_result['relationships'] = []
-                                                    salesforce_account_search_result['relationships'].extend(relationships)
+                                                    # Create a set of existing relationships to avoid duplicates
+                                                    existing_relationships = {
+                                                        (rel['name'], rel['role'], rel['type']) 
+                                                        for rel in salesforce_account_search_result['relationships']
+                                                    }
+                                                    # Only add relationships that aren't already in the set
+                                                    for rel in relationships:
+                                                        rel_key = (rel['name'], rel['role'], rel['type'])
+                                                        if rel_key not in existing_relationships:
+                                                            salesforce_account_search_result['relationships'].append(rel)
+                                                            existing_relationships.add(rel_key)
                                                 else:
                                                     report_logger.info("\nNo relationship accounts found")
                                             else:
@@ -1100,17 +1110,11 @@ def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox
             primary_account = salesforce_matches[0]
             summary += f", 👤 Salesforce Account: {primary_account}, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
             
-            # Add additional accounts with their relationship info if available
-            if len(salesforce_matches) > 1:
-                for additional_account in salesforce_matches[1:]:
-                    # Get relationship info for this account
-                    relationship_info = ""
-                    if 'relationships' in salesforce_info:
-                        for rel in salesforce_info['relationships']:
-                            if rel['name'] == additional_account:
-                                relationship_info = f" (Role: {rel['role']}, Type: {rel['type']})"
-                                break
-                    summary += f"\n                                                  👤 Additional Account: {additional_account}{relationship_info}"
+            # Add all relationships
+            if 'relationships' in salesforce_info:
+                for rel in salesforce_info['relationships']:
+                    relationship_info = f" (Role: {rel['role']}, Type: {rel['type']})"
+                    summary += f"\n                                                  👤 Additional Account: {rel['name']}{relationship_info}"
     
     return summary
 
