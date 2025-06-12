@@ -1386,12 +1386,11 @@ class AccountManager(BasePage):
         Navigate to the Files related list for the given account_id.
         Returns either an integer or a string (e.g. "50+") representing the number of files.
         """
-        self.log_helper.log(self.logger, 'info', f"****navigate_to_files_and_get_number_of_account_files")
+        self.log_helper.log(self.logger, 'info', f"****navigate_to_account_files_and_get_number_of_files scroll_to_bottom_of_account_files={scroll_to_bottom_of_account_files}")
         self.log_helper.log(self.logger, 'info', f"****Attempting to navigate to Files...")
         self.log_helper.log(self.logger, 'info', f"Current URL: {self.page.url}")
         
         try:
-            self.log_helper.log(self.logger, 'info', f"****navigate_to_account_files_and_get_number_of_files scroll_to_bottom_of_account_files={scroll_to_bottom_of_account_files}")
             # First ensure we're on the account view page
             if not self.ensure_account_view_page(account_id):
                 self.log_helper.log(self.logger, 'error', "Failed to ensure account view page")

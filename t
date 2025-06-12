@@ -38,8 +38,11 @@ run_test() {
     echo -e "\n${YELLOW}Running test: $test_option${NC}"
     echo "-------------------------------------"
     
+    # Create logs directory if it doesn't exist
+    mkdir -p logs
+    
     # Build the command with debug flag if enabled
-    local cmd="python3 src/test_sync.py --test $test_option"
+    local cmd="unset DROPBOX_TOKEN && clear && PYTHONPATH=\"$(pwd)/src:\$PYTHONPATH\" python3 src/test_sync.py --test $test_option 2>&1 | tee logs/output.log"
     if [ "$DEBUG_MODE" = "ON" ]; then
         cmd="$cmd --debug"
     fi
