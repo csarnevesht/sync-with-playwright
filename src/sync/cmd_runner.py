@@ -994,6 +994,24 @@ def run_command(args):
             # Print final summary
             report_logger.info("\n=== SUMMARY ===")
             
+            # Add icon legend
+            report_logger.info("\nIcon Legend:")
+            report_logger.info("📁 - Dropbox Folder")
+            report_logger.info("🪪 - Driver's License Found")
+            report_logger.info("🔺 - No Driver's License")
+            report_logger.info("📄 - Dropbox Account Match Found")
+            report_logger.info("🔴 - No Dropbox Account Match")
+            report_logger.info("👤 - Salesforce Account")
+            report_logger.info("🟥 - No Salesforce Account")
+            report_logger.info("\nAdditional Account Information:")
+            report_logger.info("📧 - Email")
+            report_logger.info("📞 - Phone")
+            report_logger.info("📍 - Address")
+            report_logger.info("🔒 - SSN/Tax ID")
+            report_logger.info("🎂 - Birthdate")
+            report_logger.info("👶 - Age")
+            report_logger.info("\n" + "="*50 + "\n")
+            
             for result_dict in summary_results:
                 build_and_log_summary_line(result_dict, report_logger, args)
 
