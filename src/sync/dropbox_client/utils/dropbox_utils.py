@@ -19,6 +19,10 @@ from dotenv import load_dotenv
 import pandas as pd
 from sync.salesforce_client.pages.account_manager import LoggingHelper
 import json
+from PIL import ImageEnhance
+import numpy as np
+import cv2
+import difflib
 
 from .date_utils import has_date_prefix, get_folder_creation_date
 from .path_utils import clean_dropbox_folder_name
@@ -178,17 +182,6 @@ class DropboxClient:
                 print(f"  + {file.name} (will be processed)")
 
         return files_to_process
-        
-
-    def get_dropbox_accounts(self) -> List[dropbox.files.FolderMetadata]:
-        """Get all account folders under the root folder."""
-        try:
-            entries = list_dropbox_folder_contents(self.dbx,self.root_folder)
-            all_account_folders = [entry.name for entry in entries if isinstance(entry, dropbox.files.FolderMetadata)]
-            return all_account_folders
-        except Exception as e:
-            print(f"Error getting account folders: {e}")
-            return []
             
 
     def get_dropbox_account_names(self) -> List[str]:
@@ -522,6 +515,7 @@ class DropboxClient:
            - Validates found matches against expected matches
            - Updates status based on whether matches are expected
         6. Extracts available information
+        7. Extracts driver's license information if available
         
         Args:
             account_name (str): The name of the account to search for (used for logging)
@@ -542,6 +536,7 @@ class DropboxClient:
                     - matches: List of found matches
                     - match_info: Details about match status and counts
                 - account_data (Dict[str, Any]): Extracted account information
+                - drivers_license (Dict[str, Any]): Extracted driver's license information
         """
         logger.info(f"\n=== Starting Dropbox account info search for: {account_name} ===")
         folder_name = account_name
@@ -561,10 +556,56 @@ class DropboxClient:
                     'total_no_matches': 1
                 }
             },
-            'account_data': {}
+            'account_data': {},
+            'drivers_license': {},
+            'drivers_license_info': {
+                'status': 'not_found',
+                'reason': None,
+                'file_path': None,
+                'extraction_errors': []
+            }
         }
 
         try:
+            # First, try to get driver's license information only if --dl flag is set
+            if hasattr(self, 'args') and getattr(self.args, 'dl', False):
+                logger.info(f"\n=== Getting driver's license information for {account_name} ===")
+                dl_file = self.get_drivers_license_file(account_name)
+                if dl_file:
+                    logger.info(f"Found driver's license file: {dl_file.name}")
+                    dropbox_account_info['drivers_license_info']['status'] = 'found'
+                    dropbox_account_info['drivers_license_info']['file_path'] = dl_file.path_display
+                    try:
+                        # Create a temporary file with the correct extension
+                        file_ext = os.path.splitext(dl_file.name)[1].lower()
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as temp_file:
+                            temp_path = temp_file.name
+                            # Download the driver's license file
+                            self.dbx.files_download_to_file(temp_path, dl_file.path_display)
+                            logger.info(f"Downloaded driver's license to: {temp_path}")
+                            # Always use _extract_dl_info for both PDF and image files
+                            dl_info = self._extract_dl_info(temp_path)
+                            if dl_info:
+                                dropbox_account_info['drivers_license'] = dl_info
+                                logger.info(f"Successfully extracted driver's license information: {dl_info}")
+                            else:
+                                logger.warning("No information could be extracted from driver's license")
+                                dropbox_account_info['drivers_license_info']['status'] = 'extraction_failed'
+                                dropbox_account_info['drivers_license_info']['reason'] = 'No information could be extracted from the file'
+                            # Clean up the temporary file
+                            os.unlink(temp_path)
+                    except Exception as e:
+                        logger.error(f"Error processing driver's license: {str(e)}")
+                        dropbox_account_info['drivers_license_info']['status'] = 'processing_error'
+                        dropbox_account_info['drivers_license_info']['reason'] = f'Error processing file: {str(e)}'
+                        dropbox_account_info['drivers_license_info']['extraction_errors'].append(str(e))
+                else:
+                    logger.info("No driver's license file found")
+                    dropbox_account_info['drivers_license_info']['status'] = 'not_found'
+                    dropbox_account_info['drivers_license_info']['reason'] = 'No driver\'s license file found in the account folder'
+            else:
+                logger.info("Skipping driver's license processing (--dl flag not set)")
+
             # Log search parameters
             logger.info("Search parameters:")
             logger.info(f"  - Last name: {dropbox_account_name_parts['last_name']}")
@@ -733,6 +774,36 @@ class DropboxClient:
                             'state': str(account_row.iloc[7]),    # Column H
                             'zip': str(account_row.iloc[8])       # Column I
                         }
+                        if dropbox_account_info['drivers_license']:
+                            dropbox_account_info['account_data']['drivers_license'] = dropbox_account_info['drivers_license']
+                        # Update match status
+                        dropbox_account_info['search_info']['status'] = 'found'
+                        dropbox_account_info['search_info']['match_info']['match_status'] = "Match found"
+                        dropbox_account_info['search_info']['match_info']['total_matches'] = 1
+                        dropbox_account_info['search_info']['match_info']['total_no_matches'] = 0
+                    elif match_sheet == "Client Mailing List":
+                        # Extract data from Client Mailing List sheet using row values directly
+                        row_values = [str(val) if not pd.isna(val) else '' for val in account_row.values]
+                        logger.info(f"row_values: {row_values}")
+                        dropbox_account_info['account_data'] = {
+                            'name': f"{row_values[2]} {row_values[1]}".strip(),  # First name + Last name
+                            'first_name': row_values[2],
+                            'last_name': row_values[1],
+                            'address': row_values[3],
+                            'city': row_values[5],
+                            'state': row_values[6],
+                            'zip': row_values[7],
+                            'email': row_values[11],
+                            'phone': row_values[10]
+                        }
+
+                        if dropbox_account_info['drivers_license']:
+                            dropbox_account_info['account_data']['drivers_license'] = dropbox_account_info['drivers_license']
+                        # Update match status
+                        dropbox_account_info['search_info']['status'] = 'found'
+                        dropbox_account_info['search_info']['match_info']['match_status'] = "Match found"
+                        dropbox_account_info['search_info']['match_info']['total_matches'] = 1
+                        dropbox_account_info['search_info']['match_info']['total_no_matches'] = 0
                     else:
                         # Extract data from standard sheet format
                         dropbox_account_info['account_data'] = {
@@ -744,17 +815,15 @@ class DropboxClient:
                             'state': str(account_row.get('State', '')),
                             'zip': str(account_row.get('Zip', '')),
                             'email': str(account_row.get('Email', '')),
-                            'phone': str(account_row.get('Phone', ''))
+                            'phone': str(account_row.get('Phone', '')) if 'Phone' in account_row else ''
                         }
-                    
-                    # Update match status
-                    dropbox_account_info['search_info']['status'] = 'found'
-                    dropbox_account_info['search_info']['match_info']['match_status'] = "Match found"
-                    dropbox_account_info['search_info']['match_info']['total_matches'] = 1
-                    dropbox_account_info['search_info']['match_info']['total_no_matches'] = 0
-                    logger.info(f"Successfully extracted account data from {match_sheet}")
-                else:
-                    logger.info("No match found in any sheet")
+                        if dropbox_account_info['drivers_license']:
+                            dropbox_account_info['account_data']['drivers_license'] = dropbox_account_info['drivers_license']
+                        # Update match status
+                        dropbox_account_info['search_info']['status'] = 'found'
+                        dropbox_account_info['search_info']['match_info']['match_status'] = "Match found"
+                        dropbox_account_info['search_info']['match_info']['total_matches'] = 1
+                        dropbox_account_info['search_info']['match_info']['total_no_matches'] = 0
 
                 # If no match found, log detailed explanation
                 if not dropbox_account_info['account_data']:
@@ -799,6 +868,37 @@ class DropboxClient:
             finally:
                 # No need to clean up temporary file since we're using the excel_file object directly
                 pass
+            
+            # Merge driver's license info into account_data if present
+            if dropbox_account_info['drivers_license']:
+                dropbox_account_info['account_data']['drivers_license'] = dropbox_account_info['drivers_license']
+                logger.info(f"DEBUG: driver's_license info: {dropbox_account_info['drivers_license']}")
+            else:
+                logger.info("DEBUG: No driver's_license info extracted.")
+            
+            # Log driver's license information to report.log
+            report_logger = logging.getLogger('report')
+            if hasattr(self, 'args') and getattr(self.args, 'dl', False):
+                if dropbox_account_info['drivers_license_info']['status'] == 'found':
+                    if dropbox_account_info['drivers_license']:
+                        report_logger.info("\n📄 **Driver's License Information**")
+                        report_logger.info(f"   + Status: Found and extracted")
+                        report_logger.info(f"   + File: {dropbox_account_info['drivers_license_info']['file_path']}")
+                        for key, value in dropbox_account_info['drivers_license'].items():
+                            report_logger.info(f"   + {key}: {value}")
+                    else:
+                        report_logger.info("\n📄 **Driver's License Information**")
+                        report_logger.info(f"   + Status: Found but no information extracted")
+                        report_logger.info(f"   + File: {dropbox_account_info['drivers_license_info']['file_path']}")
+                else:
+                    report_logger.info("\n📄 **Driver's License Information**")
+                    report_logger.info(f"   + Status: {dropbox_account_info['drivers_license_info']['status']}")
+                    if dropbox_account_info['drivers_license_info']['reason']:
+                        report_logger.info(f"   + Reason: {dropbox_account_info['drivers_license_info']['reason']}")
+                    if dropbox_account_info['drivers_license_info']['extraction_errors']:
+                        report_logger.info("   + Errors:")
+                        for error in dropbox_account_info['drivers_license_info']['extraction_errors']:
+                            report_logger.info(f"     - {error}")
             
             return dropbox_account_info
             
@@ -922,13 +1022,45 @@ class DropboxClient:
         return None
 
     def get_drivers_license_file(self, account_folder: str) -> Optional[FileMetadata]:
-        """Get the driver's license file (*DL.jpeg) for an account."""
-        files = self.list_folder_contents(account_folder)
-        pattern = DRIVERS_LICENSE_PATTERN.replace('*', '.*')
-        for file in files:
-            if re.match(pattern, file.name):
-                return file
-        return None
+        """Get the driver's license file (*DL.jpeg or *DL.pdf) for an account."""
+        try:
+            dropbox_path = construct_dropbox_path(account_folder, self.root_folder)
+            if not dropbox_path:
+                logger.error(f"Invalid path constructed for account folder: {account_folder}")
+                return None
+                
+            files = list_dropbox_folder_contents(self.dbx, dropbox_path)
+            logger.info(f"Files found in {dropbox_path}:")
+            for file in files:
+                if isinstance(file, FileMetadata):
+                    logger.info(f"  - {file.name}")
+            
+            # Pattern to match both .jpeg and .pdf extensions, and files containing variations of "driver(s) license"
+            patterns = [
+                r'.*DL\.(?:jpeg|pdf|jpg|png)$',  # Basic DL pattern with common extensions
+                r'.*DL\s*\.(?:jpeg|pdf|jpg|png)$',  # DL with optional space before extension
+                r'.*DL\s*[-_]?\d*\.(?:jpeg|pdf|jpg|png)$',  # DL with optional number or separator
+                r'.*driver[s]?\s*licen[cs]e?.*\.(?:jpeg|pdf|jpg|png)$',  # Full text variations
+                r'.*divers?\s*licen[cs]e?.*\.(?:jpeg|pdf|jpg|png)$',  # French variations
+                r'.*DL.*\.(?:jpeg|pdf|jpg|png)$',  # Any file with DL in the name
+                r'.*ID\s*card.*\.(?:jpeg|pdf|jpg|png)$',  # ID card variations
+                r'.*identification.*\.(?:jpeg|pdf|jpg|png)$'  # Identification variations
+            ]
+            
+            for file in files:
+                if isinstance(file, FileMetadata):
+                    logger.info(f"Checking file: {file.name}")
+                    for pattern in patterns:
+                        if re.match(pattern, file.name, re.IGNORECASE):
+                            logger.info(f"Found driver's license file: {file.name} matching pattern: {pattern}")
+                            return file
+                        else:
+                            logger.info(f"File {file.name} did not match pattern: {pattern}")
+            logger.info(f"No driver's license file found in {dropbox_path}")
+            return None
+        except Exception as e:
+            logger.error(f"Error getting driver's license file: {str(e)}")
+            return None
 
     def _extract_text_from_pdf(self, pdf_path: str) -> str:
         """
@@ -962,44 +1094,336 @@ class DropboxClient:
             return ""
 
     def _extract_dl_info(self, image_path: str) -> Dict[str, str]:
-        """
-        Extract information from driver's license image using OCR.
-        Returns a dictionary with driver's license details.
-        """
         try:
-            logging.info(f"Extracting information from driver's license: {image_path}")
-            # Read the image
-            image = Image.open(image_path)
-            
-            # Extract text using OCR
-            text = pytesseract.image_to_string(image)
-            logging.info("Successfully performed OCR on driver's license")
-            
-            # Parse the extracted text
-            dl_info = {}
-            
-            # Extract License Number
-            license_match = re.search(r'License\s*#?:?\s*([A-Z0-9]+)', text, re.IGNORECASE)
-            if license_match:
-                dl_info['license_number'] = license_match.group(1)
-                logging.info(f"Found license number: {dl_info['license_number']}")
-            
-            # Extract Expiration Date
-            exp_match = re.search(r'Exp(?:iration)?:?\s*(\d{1,2}/\d{1,2}/\d{4})', text, re.IGNORECASE)
-            if exp_match:
-                dl_info['expiration_date'] = exp_match.group(1)
-                logging.info(f"Found expiration date: {dl_info['expiration_date']}")
-            
-            # Extract Date of Birth
-            dob_match = re.search(r'DOB:?\s*(\d{1,2}/\d{1,2}/\d{4})', text, re.IGNORECASE)
-            if dob_match:
-                dl_info['date_of_birth'] = dob_match.group(1)
-                logging.info(f"Found date of birth: {dl_info['date_of_birth']}")
-            
-            return dl_info
+            if not os.path.exists(image_path):
+                logger.error(f"Driver's license file not found: {image_path}")
+                return {}
+            _, ext = os.path.splitext(image_path)
+            ext = ext.lower()
+            text = ''
+            debug_image_saved = False
 
+            def binarize(image, threshold=160):
+                # Convert to grayscale if not already
+                if image.mode != 'L':
+                    image = image.convert('L')
+                # Apply adaptive thresholding
+                return image.point(lambda p: 255 if p > threshold else 0)
+
+            def preprocess_image(image, save_debug=True, crop_band=None, use_opencv=True):
+                # Convert to grayscale if not already
+                if image.mode != 'L':
+                    image = image.convert('L')
+                
+                # Optionally crop to a horizontal band
+                if crop_band is not None:
+                    width, height = image.size
+                    band_height = height // 3
+                    top = band_height * crop_band
+                    bottom = top + band_height
+                    image = image.crop((0, top, width, bottom))
+                    logger.info(f"Cropped image to band {crop_band}: (0, {top}, {width}, {bottom})")
+                
+                # Convert to OpenCV image for advanced processing
+                if use_opencv:
+                    img_np = np.array(image)
+                    # Denoise
+                    img_np = cv2.fastNlMeansDenoising(img_np, None, 30, 7, 21)
+                    # Adaptive thresholding
+                    img_np = cv2.adaptiveThreshold(img_np, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 11)
+                    # Deskew (optional, only if needed)
+                    def deskew(img):
+                        coords = np.column_stack(np.where(img > 0))
+                        angle = 0.0
+                        if coords.shape[0] > 0:
+                            rect = cv2.minAreaRect(coords)
+                            angle = rect[-1]
+                            if angle < -45:
+                                angle = -(90 + angle)
+                            else:
+                                angle = -angle
+                        (h, w) = img.shape[:2]
+                        center = (w // 2, h // 2)
+                        M = cv2.getRotationMatrix2D(center, angle, 1.0)
+                        img = cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+                        return img
+                    img_np = deskew(img_np)
+                    image = Image.fromarray(img_np)
+                else:
+                    # Enhance contrast
+                    image = ImageEnhance.Contrast(image).enhance(2.0)
+                    # Enhance sharpness
+                    image = ImageEnhance.Sharpness(image).enhance(2.0)
+                    # Apply binarization
+                    image = binarize(image)
+                
+                # Save debug image
+                if save_debug:
+                    debug_path = os.path.join(tempfile.gettempdir(), f'debug_dl_preprocessed_band{crop_band if crop_band is not None else "full"}.png')
+                    image.save(debug_path, 'PNG')
+                    logger.info(f"Saved preprocessed debug image: {debug_path}")
+                
+                return image
+
+            def try_psm_modes(image, image_path=None):
+                import io
+                logger.info("Entered try_psm_modes")
+                best_text = ''
+                best_mode = ''
+                psm_modes = [6, 3, 11, 7, 12]
+                
+                # Enhanced OCR configurations (removed config with single quote)
+                configs = [
+                    lambda psm: f'--psm {psm} --oem 3',
+                    lambda psm: f'--psm {psm} --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789- ',
+                    lambda psm: f'--psm {psm} --oem 3 -c tessedit_char_whitelist=0123456789- '
+                ]
+
+                logger.info(f"Running OCR on image: {image_path if image_path else '<in-memory>'}, mode={image.mode}, size={image.size}")
+                
+                # Save image for debugging
+                debug_path = os.path.join(tempfile.gettempdir(), 'debug_dl_ocr_input.png')
+                image.save(debug_path, 'PNG')
+                logger.info(f"Saved OCR input image: {debug_path}")
+
+                all_ocr_outputs = []
+                for psm in psm_modes:
+                    for config_fn in configs:
+                        config = config_fn(psm)
+                        try:
+                            logger.info(f"Calling pytesseract with config: {config}")
+                            ocr_text = pytesseract.image_to_string(image, config=config)
+                            logger.info(f"OCR output for PSM {psm} ({config}): {repr(ocr_text)}")
+                            all_ocr_outputs.append((config, ocr_text))
+                            # Validate license number format
+                            if re.search(r'[A-Z]\d{3}-\d{3}-\d{2}-\d{3}-\d', ocr_text):
+                                logger.info(f"Found valid license number format in PSM {psm}")
+                                # Save raw OCR output for manual inspection
+                                raw_ocr_path = os.path.join(tempfile.gettempdir(), 'debug_dl_raw_ocr.txt')
+                                with open(raw_ocr_path, 'w') as f:
+                                    f.write(ocr_text)
+                                logger.info(f"Saved raw OCR output: {raw_ocr_path}")
+                                return ocr_text
+                            if len(ocr_text.strip()) > len(best_text.strip()):
+                                best_text = ocr_text
+                                best_mode = f'psm {psm} {config}'
+                        except Exception as ocr_exc:
+                            logger.error(f"Tesseract error for config {config}: {ocr_exc}")
+                # Save the best raw OCR output for manual inspection
+                raw_ocr_path = os.path.join(tempfile.gettempdir(), 'debug_dl_raw_ocr.txt')
+                with open(raw_ocr_path, 'w') as f:
+                    for config, ocr_text in all_ocr_outputs:
+                        f.write(f'Config: {config}\n{ocr_text}\n---\n')
+                logger.info(f"Saved all raw OCR outputs: {raw_ocr_path}")
+                logger.info(f"Best OCR mode: {best_mode}")
+                logger.info("Exiting try_psm_modes")
+                return best_text
+
+            def crop_license_number_region(image):
+                width, height = image.size
+                # These values are tuned for typical Florida DL images
+                left = int(width * 0.45)
+                top = int(height * 0.10)
+                right = int(width * 0.95)
+                bottom = int(height * 0.25)
+                cropped = image.crop((left, top, right, bottom))
+                logger.info(f"Cropped license number region: ({left}, {top}, {right}, {bottom})")
+                # Save debug crop
+                debug_path = os.path.join(tempfile.gettempdir(), 'debug_dl_license_number_crop.png')
+                cropped.save(debug_path, 'PNG')
+                logger.info(f"Saved cropped license number region: {debug_path}")
+                return cropped
+
+            def crop_dob_region(image):
+                width, height = image.size
+                # These values are tuned for typical Florida DL images (DOB is mid-right)
+                left = int(width * 0.45)
+                top = int(height * 0.32)
+                right = int(width * 0.80)
+                bottom = int(height * 0.40)
+                cropped = image.crop((left, top, right, bottom))
+                logger.info(f"Cropped DOB region: ({left}, {top}, {right}, {bottom})")
+                # Save debug crop
+                debug_path = os.path.join(tempfile.gettempdir(), 'debug_dl_dob_crop.png')
+                cropped.save(debug_path, 'PNG')
+                logger.info(f"Saved cropped DOB region: {debug_path}")
+                return cropped
+
+            if ext == '.pdf':
+                try:
+                    text = self._extract_text_from_pdf(image_path)
+                    if not text.strip():
+                        logger.info("Direct text extraction failed, attempting OCR")
+                        images = pdf2image.convert_from_path(
+                            image_path,
+                            dpi=600,  # Higher DPI for better quality
+                            grayscale=True,
+                            thread_count=4
+                        )
+                        logger.info(f"Extracted {len(images)} image(s) from PDF for OCR.")
+                        if not images:
+                            logger.error("Failed to convert PDF to images")
+                            return {}
+                        
+                        all_text = []
+                        found_license = False
+                        for i, image in enumerate(images):
+                            logger.debug(f"Processing page {i+1} of {len(images)}; mode={image.mode}, size={image.size}")
+                            # Try all three horizontal bands
+                            for band in [0, 1, 2]:
+                                band_image = preprocess_image(image, save_debug=(i == 0 and band == 1), crop_band=band)
+                                ocr_text = try_psm_modes(band_image, image_path=image_path)
+                                if ocr_text.strip():
+                                    all_text.append(ocr_text)
+                                    logger.debug(f"Extracted text from page {i+1}, band {band}: {ocr_text}")
+                                    # If a valid license number is found, use this band
+                                    if re.search(r'[A-Z]\d{3}-\d{3}-\d{2}-\d{3}-\d', ocr_text):
+                                        text = ocr_text
+                                        found_license = True
+                                        break
+                            if found_license:
+                                break
+                        if not found_license:
+                            # Fallback: try the full image
+                            full_image = preprocess_image(image, save_debug=(i == 0), crop_band=None)
+                            ocr_text = try_psm_modes(full_image, image_path=image_path)
+                            if ocr_text.strip():
+                                all_text.append(ocr_text)
+                            text = ' '.join(all_text)
+                except Exception as e:
+                    logger.error(f"Error processing PDF: {str(e)}")
+                    return {}
+            else:
+                try:
+                    image = Image.open(image_path)
+                    logger.debug(f"Image mode: {image.mode}, size: {image.size}")
+                    found_license = False
+                    all_text = []
+                    # --- Try region crop for license number ---
+                    license_crop = crop_license_number_region(image)
+                    ocr_text = try_psm_modes(license_crop, image_path=image_path)
+                    if ocr_text.strip():
+                        all_text.append(ocr_text)
+                        if re.search(r'[A-Z]\d{3}-\d{3}-\d{2}-\d{3}-\d', ocr_text):
+                            text = ocr_text
+                            found_license = True
+                    # --- Try region crop for DOB ---
+                    dob_crop = crop_dob_region(image)
+                    dob_ocr_text = try_psm_modes(dob_crop, image_path=image_path)
+                    if dob_ocr_text.strip():
+                        all_text.append(dob_ocr_text)
+                    # If not found, try the usual band approach
+                    if not found_license:
+                        for band in [0, 1, 2]:
+                            band_image = preprocess_image(image, save_debug=(band == 1), crop_band=band)
+                            ocr_text = try_psm_modes(band_image, image_path=image_path)
+                            if ocr_text.strip():
+                                all_text.append(ocr_text)
+                                if re.search(r'[A-Z]\d{3}-\d{3}-\d{2}-\d{3}-\d', ocr_text):
+                                    text = ocr_text
+                                    found_license = True
+                                    break
+                    if not found_license:
+                        # Fallback: try the full image
+                        full_image = preprocess_image(image, save_debug=True, crop_band=None)
+                        ocr_text = try_psm_modes(full_image, image_path=image_path)
+                        if ocr_text.strip():
+                            all_text.append(ocr_text)
+                        text = ' '.join(all_text)
+                except Exception as e:
+                    logger.error(f"Error processing image: {str(e)}")
+                    return {}
+
+            # Clean and normalize text
+            text = text.replace('\n', ' ').replace('\r', ' ')
+            text = ' '.join(text.split())
+            
+            if not text.strip():
+                logger.warning("No text extracted from driver's license (after all PSM modes)")
+                return {}
+            
+            logger.debug(f"Extracted text: {text}")
+            
+            # Parse the text and validate the license number
+            result = self._parse_dl_text(text)
+            
+            # --- Improved license number extraction ---
+            import difflib
+            def normalize_license_candidate(s):
+                # Remove spaces and non-alphanum, replace common OCR errors
+                s = re.sub(r'[^A-Z0-9]', '', s.upper())
+                # Common OCR errors
+                replacements = {
+                    'S': '5', 'O': '0', 'I': '1', 'L': '1',
+                    'B': '8', 'G': '6', 'Z': '2', 'Q': '0',
+                    'D': '0', 'T': '7', 'A': '4'
+                }
+                for wrong, correct in replacements.items():
+                    s = s.replace(wrong, correct)
+                return s
+
+            # Relaxed pattern: allow any non-alphanum between groups, require 1 letter + 14 digits
+            candidates = re.findall(r'([A-Z5S][^A-Z0-9]?[0-9OIl]{3}[^A-Z0-9]?[0-9OIl]{3}[^A-Z0-9]?[0-9OIl]{2}[^A-Z0-9]?[0-9OIl]{3}[^A-Z0-9]?[0-9OIl])', text, re.IGNORECASE)
+            normalized_candidates = [normalize_license_candidate(c) for c in candidates]
+            logger.info(f"License number candidates: {normalized_candidates}")
+
+            # Score by similarity to expected format (M532558539650)
+            expected_format = 'M532558539650'
+            def score(candidate):
+                # Base score from sequence matcher
+                base_score = difflib.SequenceMatcher(None, candidate, expected_format).ratio()
+                
+                # Additional scoring factors
+                length_score = 1.0 if len(candidate) == 13 else 0.5  # Perfect length gets full points
+                format_score = 1.0 if re.match(r'^[A-Z]\d{12}$', candidate) else 0.5  # Perfect format gets full points
+                
+                # Weight the scores
+                final_score = (base_score * 0.4) + (length_score * 0.3) + (format_score * 0.3)
+                return final_score
+
+            if normalized_candidates:
+                best = max(normalized_candidates, key=score)
+                logger.info(f"Best license number candidate: {best}")
+                # Try to reformat to expected pattern
+                if len(best) == 13 or len(best) == 14 or len(best) == 15:
+                    # Try to insert dashes at the right places
+                    reformatted = f"{best[0]}{best[1:4]}-{best[4:7]}-{best[7:9]}-{best[9:12]}-{best[12]}"
+                    result['license_number'] = reformatted
+                    logger.info(f"Reformatted license number: {reformatted}")
+                else:
+                    result['license_number'] = best
+                    logger.info(f"Used best candidate as license number: {best}")
+            
+            # --- DOB extraction from cropped region ---
+            dob_text = ''
+            try:
+                if 'dob_ocr_text' in locals() and dob_ocr_text.strip():
+                    dob_text = dob_ocr_text.replace('\n', ' ').replace('\r', ' ')
+                    dob_text = ' '.join(dob_text.split())
+                    # Try to extract DOB from this region
+                    dob_match = re.search(r'(?:DOB|BIRTH|DATE OF BIRTH)?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})', dob_text)
+                    if dob_match:
+                        result['date_of_birth'] = dob_match.group(1)
+                        logger.info(f"DOB extracted from cropped region: {result['date_of_birth']}")
+            except Exception as e:
+                logger.error(f"Error extracting DOB from cropped region: {str(e)}")
+            
+            # --- Expiration Date Extraction ---
+            exp_match = re.search(r'(?:EXP|EXPIRATION|EXPIRES|EXP DATE|EXPIRATION DATE)[^0-9]*([0-9]{2}/[0-9]{2}/[0-9]{4})', text)
+            if exp_match:
+                result['expiration_date'] = exp_match.group(1)
+            else:
+                # Fallback: any MM/DD/YYYY after 'EXP'
+                exp_idx = text.find('EXP')
+                if exp_idx != -1:
+                    after_exp = text[exp_idx:exp_idx+30]  # look ahead 30 chars
+                    m2 = re.search(r'([0-9]{2}/[0-9]{2}/[0-9]{4})', after_exp)
+                    if m2:
+                        result['expiration_date'] = m2.group(1)
+
+            return result
         except Exception as e:
-            logging.error(f"Error extracting driver's license info: {e}")
+            logger.error(f"Error extracting driver's license info: {str(e)}")
             return {}
 
     def get_dropbox_salesforce_folder(self) -> Optional[str]:
@@ -1075,6 +1499,289 @@ class DropboxClient:
         except Exception as e:
             logger.error(f"Error processing holiday file: {str(e)}")
             return None, None, None, None
+
+    def update_flatfile_with_account_info(self, account_info: Dict[str, Any], flatfile_excel: pd.ExcelFile = None, template_path: str = None, output_path: str = None) -> bool:
+        """Update the FlatFile Excel with Dropbox account information.
+        
+        Args:
+            account_info (Dict[str, Any]): Dictionary containing account information
+            flatfile_excel (pd.ExcelFile): The Excel file object for the template
+            template_path (str): Path to the template file
+            output_path (str): Path to the output file
+            
+        Returns:
+            bool: True if update was successful, False otherwise
+        """
+        try:
+            account_name = account_info.get('name_parts', {}).get('folder_name', '')
+            logger.info(f"\n=== Starting FlatFile update for account: {account_name} ===")
+            
+            if not all([flatfile_excel, template_path, output_path]):
+                logger.error("Missing required parameters for FlatFile update")
+                return False
+                
+            # Get account data
+            account_data = account_info.get('account_data', {})
+            if not account_data:
+                logger.warning("No account data found to update")
+                return False
+                
+            # Map account data fields to Clients sheet columns
+            mapped_data = {
+                'First Name': account_data.get('first_name', ''),
+                'Last Name': account_data.get('last_name', ''),
+                'Address 1: Street': account_data.get('address', ''),
+                'Address 1: City': account_data.get('city', ''),
+                'Address 1: State/Province': account_data.get('state', ''),
+                'Address 1: ZIP/Postal Code': account_data.get('zip', ''),
+                'Email': account_data.get('email', ''),  # Ensure capital E in Email
+                'Phone': account_data.get('phone', '')
+            }
+            
+            # Only add driver's license info if --dl flag is set
+            if hasattr(self, 'args') and getattr(self.args, 'dl', False):
+                mapped_data.update({
+                    'Birthday': account_data.get('drivers_license', {}).get('date_of_birth', ''),
+                    'Gender': account_data.get('drivers_license', {}).get('sex', ''),
+                    "Driver's License Number": account_data.get('drivers_license', {}).get('license_number', '')
+                })
+            
+            logger.info(f"DEBUG: mapped_data before writing: {mapped_data}")
+                
+            # Debug: Log mapped data
+            logger.info("\nMapped account data to Clients sheet columns:")
+            for key, value in mapped_data.items():
+                logger.info(f"  {key}: {value}")
+                
+            # Create a dictionary to store the updated dataframes
+            updated_dfs = {}
+            
+            # Process only the Clients sheet
+            sheet_name = "Clients"
+            logger.info(f"\nProcessing sheet: {sheet_name}")
+            df = pd.read_excel(flatfile_excel, sheet_name=sheet_name)
+            
+            # Debug: Log current sheet data
+            logger.info(f"Current sheet data shape: {df.shape}")
+            logger.info("Columns in sheet:")
+            for col in df.columns:
+                logger.info(f"  - {col}")
+            
+            # Check if this is a new entry or update
+            last_name = mapped_data['Last Name'].lower()
+            first_name = mapped_data['First Name'].lower()
+            
+            logger.info(f"\nSearching for matches with first_name: {first_name}, last_name: {last_name}")
+            
+            # Create a mask for matching rows
+            mask = df.apply(lambda row: any(
+                str(val).lower() == last_name or str(val).lower() == first_name 
+                for val in row.values
+            ), axis=1)
+            
+            matching_rows = df[mask]
+            
+            if not matching_rows.empty:
+                # Update existing entry
+                logger.info(f"\n=== Updating existing entry ===")
+                logger.info(f"Found {len(matching_rows)} matching rows in sheet: {sheet_name}")
+                for idx in matching_rows.index:
+                    logger.info(f"\nUpdating row at index {idx}")
+                    logger.info("Current row data:")
+                    for col in df.columns:
+                        logger.info(f"  {col}: {df.at[idx, col]}")
+                    
+                    # Update the row with new data
+                    logger.info("\nUpdating with new data:")
+                    for col in df.columns:
+                        if col in mapped_data:
+                            old_value = df.at[idx, col]
+                            new_value = mapped_data[col]
+                            if str(old_value).lower() != str(new_value).lower():
+                                df.at[idx, col] = new_value
+                                logger.info(f"  {col}: {old_value} -> {new_value}")
+                            else:
+                                logger.info(f"  {col}: No change (already matches)")
+            else:
+                # Add new entry
+                logger.info(f"\n=== Adding new entry ===")
+                logger.info(f"No matching rows found, adding new entry to sheet: {sheet_name}")
+                # Create a new row with the same columns as the DataFrame
+                new_row = pd.DataFrame([{col: mapped_data.get(col, '') for col in df.columns}])
+                df = pd.concat([df, new_row], ignore_index=True)
+                logger.info("\nNew row data:")
+                for col in df.columns:
+                    if col in mapped_data:
+                        logger.info(f"  {col}: {mapped_data[col]}")
+                    else:
+                        logger.info(f"  {col}: <empty>")
+            
+            updated_dfs[sheet_name] = df
+            
+            # Read all other sheets without modification
+            for other_sheet in flatfile_excel.sheet_names:
+                if other_sheet != sheet_name:
+                    logger.info(f"Reading unchanged sheet: {other_sheet}")
+                    updated_dfs[other_sheet] = pd.read_excel(flatfile_excel, sheet_name=other_sheet)
+            
+            # Write the updated data to both Excel and CSV files
+            excel_output_path = output_path.replace('docs/', 'data/')
+            csv_output_path = output_path.replace('docs/', 'data/').replace('.xlsx', '.csv')
+            
+            # Write Excel file
+            logger.info(f"\nWriting Excel file to: {excel_output_path}")
+            
+            # Read existing Excel file if it exists
+            if os.path.exists(excel_output_path):
+                existing_excel = pd.ExcelFile(excel_output_path)
+                existing_dfs = {}
+                for sheet_name in existing_excel.sheet_names:
+                    existing_dfs[sheet_name] = pd.read_excel(existing_excel, sheet_name=sheet_name)
+                
+                # Combine existing data with new data
+                for sheet_name in updated_dfs:
+                    if sheet_name in existing_dfs:
+                        # Concatenate existing and new data
+                        combined_df = pd.concat([existing_dfs[sheet_name], updated_dfs[sheet_name]], ignore_index=True)
+                        # Remove any duplicates based on all columns
+                        combined_df = combined_df.drop_duplicates()
+                        updated_dfs[sheet_name] = combined_df
+            
+            # Write the combined data
+            with pd.ExcelWriter(excel_output_path, engine='openpyxl', mode='w') as writer:
+                for sheet_name, df in updated_dfs.items():
+                    logger.info(f"Writing sheet {sheet_name} with {len(df)} rows")
+                    df.to_excel(writer, sheet_name=sheet_name, index=False)
+            
+            # Write CSV file with only Clients sheet data
+            logger.info(f"\nWriting CSV file to: {csv_output_path}")
+            
+            # Read existing CSV file if it exists
+            if os.path.exists(csv_output_path):
+                existing_df = pd.read_csv(csv_output_path)
+                # Combine with new data
+                combined_df = pd.concat([existing_df, updated_dfs["Clients"]], ignore_index=True)
+                # Remove any duplicates
+                combined_df = combined_df.drop_duplicates()
+                # Write the combined data
+                combined_df.to_csv(csv_output_path, index=False)
+            else:
+                # Write new data with header
+                updated_dfs["Clients"].to_csv(csv_output_path, index=False)
+            
+            logger.info(f"\n=== Successfully completed FlatFile update ===")
+            logger.info(f"  Excel: {excel_output_path}")
+            logger.info(f"  CSV: {csv_output_path}")
+            logger.info(f"  Account: {account_name}")
+            logger.info("=== End FlatFile update ===\n")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error updating FlatFile: {str(e)}")
+            logger.error("Stack trace:", exc_info=True)
+            return False
+
+    def _parse_dl_text(self, text: str) -> Dict[str, str]:
+        """
+        Parse text extracted from driver's license to extract relevant information.
+        Enhanced for Florida licenses: robustly extract license number, DOB, and sex.
+        """
+        result = {}
+        text = text.replace('\n', ' ').replace('\r', ' ')
+        text = ' '.join(text.split())
+
+        # --- License Number Extraction ---
+        # Fix common OCR errors
+        ocr_replacements = {
+            '¢': '0', '|': '1', '§': '5', '©': '0', '®': '0', '“': '1', '”': '1', '‘': '1', '’': '1',
+            'S': '5', 'O': '0', 'I': '1', 'L': '1', 'B': '8', 'G': '6', 'Z': '2', 'Q': '0', 'D': '0', 'T': '7', 'A': '4',
+            '(': '0', ')': '0', '{': '0', '}': '0', '[': '0', ']': '0', 'o': '0', 's': '5', 'l': '1', 'i': '1', 'a': '4',
+            'b': '6', 'g': '9', 'z': '2', 'q': '0', 'd': '0', 't': '7', 'e': '6', 'E': '6', 'B': '8', 'G': '6', 'Z': '2', 'Q': '0', 'D': '0', 'T': '7', 'A': '4'
+        }
+        clean_text = text
+        for wrong, correct in ocr_replacements.items():
+            clean_text = clean_text.replace(wrong, correct)
+
+        # Remove all whitespace and newlines for aggressive search
+        clean_text_no_space = re.sub(r'\s+', '', clean_text)
+
+        # Try to find license number with or without dashes, possibly missing leading M
+        lic_patterns = [
+            r'([A-Z][0-9]{3}-[0-9]{3}-[0-9]{2}-[0-9]{3}-[0-9])',
+            r'([0-9]{3}-[0-9]{3}-[0-9]{2}-[0-9]{3}-[0-9])',
+            r'([A-Z][0-9]{12})',
+            r'([0-9]{12})',
+            r'([A-Z][0-9]{3}[0-9]{3}[0-9]{2}[0-9]{3}[0-9])',
+            r'([0-9]{3}[0-9]{3}[0-9]{2}[0-9]{3}[0-9])'
+        ]
+        license_number = None
+        for pat in lic_patterns:
+            m = re.search(pat, clean_text)
+            if m:
+                license_number = m.group(1)
+                break
+        # If not found, try on the whitespace-stripped version
+        if not license_number:
+            for pat in lic_patterns:
+                m = re.search(pat, clean_text_no_space)
+                if m:
+                    license_number = m.group(1)
+                    break
+        # If still not found, try to join split fragments
+        if not license_number:
+            # Find all fragments that look like part of the license number
+            frags = re.findall(r'[A-Z0-9]{2,}', clean_text_no_space)
+            joined = ''.join(frags)
+            for pat in lic_patterns:
+                m = re.search(pat, joined)
+                if m:
+                    license_number = m.group(1)
+                    break
+        # Post-process: if missing leading M, add it
+        if license_number:
+            if re.match(r'^[0-9]', license_number):
+                license_number = 'M' + license_number
+            # Remove dashes for normalization
+            lic_digits = re.sub(r'[^A-Z0-9]', '', license_number)
+            # Reformat to M###-###-##-###-#
+            if len(lic_digits) == 13:
+                license_number = f"{lic_digits[0]}{lic_digits[1:4]}-{lic_digits[4:7]}-{lic_digits[7:9]}-{lic_digits[9:12]}-{lic_digits[12]}"
+            result['license_number'] = license_number
+
+        # --- DOB Extraction ---
+        dob_match = re.search(r'(?:DOB|BIRTH|DATE OF BIRTH)?\s*([0-9]{2}/[0-9]{2}/[0-9]{4})', clean_text)
+        if dob_match:
+            result['date_of_birth'] = dob_match.group(1)
+        else:
+            # Fallback: any MM/DD/YYYY
+            dob_match = re.search(r'([0-9]{2}/[0-9]{2}/[0-9]{4})', clean_text)
+            if dob_match:
+                result['date_of_birth'] = dob_match.group(1)
+
+        # --- Sex Extraction ---
+        # Try to find 'SEX' label first
+        sex_match = re.search(r'SEX[:=\-~ ]*([MF])', clean_text)
+        if sex_match:
+            result['sex'] = sex_match.group(1)
+        else:
+            # Fallback: look for F or M after DOB
+            if 'date_of_birth' in result:
+                dob_idx = clean_text.find(result['date_of_birth'])
+                if dob_idx != -1:
+                    after_dob = clean_text[dob_idx+len(result['date_of_birth']):dob_idx+len(result['date_of_birth'])+10]
+                    m2 = re.search(r'([MF])', after_dob)
+                    if m2:
+                        result['sex'] = m2.group(1)
+
+        # Optionally: log the extracted information
+        if result:
+            logger.info("Extracted driver's license information (enhanced):")
+            for field, value in result.items():
+                logger.info(f"  {field}: {value}")
+        else:
+            logger.warning("No information could be extracted from driver's license (enhanced)")
+            logger.debug(f"Raw OCR text: {text}")
+        return result
 
 def update_env_file(env_file, token=None, root_folder=None, directory=None):
     """Update the .env file with new values."""
@@ -1175,14 +1882,44 @@ def download_and_rename_file(dbx, dropbox_path, local_dir):
     except Exception as e:
         print(f"Error processing file {dropbox_path}: {e}")
 
-def list_dropbox_folder_contents(dbx, path) -> List[FileMetadata]:
-    """List the contents of a Dropbox folder, handling pagination."""
+def list_dropbox_folder_contents(dbx, path, sort_by_recency: bool = False) -> List[FileMetadata]:
+    """
+    List the contents of a Dropbox folder, handling pagination.
+    
+    Args:
+        dbx: Dropbox client instance
+        path: Path to list contents from
+        sort_by_recency: If True, sorts folders by their recency (most recent first)
+        
+    Returns:
+        List[FileMetadata]: List of folder contents, optionally sorted by recency
+    """
     try:
         result = dbx.files_list_folder(path)
         entries = result.entries
         while result.has_more:
             result = dbx.files_list_folder_continue(result.cursor)
             entries.extend(result.entries)
+            
+        if sort_by_recency:
+            # Separate folders and files
+            folders = []
+            files = []
+            for entry in entries:
+                if isinstance(entry, dropbox.files.FolderMetadata):
+                    folders.append(entry)
+                else:
+                    files.append(entry)
+            
+            # Sort folders by their creation time
+            folders.sort(key=lambda x: x.server_created, reverse=True)
+            
+            # Sort files by their modification time
+            files.sort(key=lambda x: x.server_modified, reverse=True)
+            
+            # Combine sorted folders and files
+            entries = folders + files
+            
         return entries
     except ApiError as e:
         print(f"Error listing folder {path}: {e}")

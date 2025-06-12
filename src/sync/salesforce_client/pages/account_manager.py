@@ -4,6 +4,7 @@ import re
 import time
 import json
 from pathlib import Path
+import traceback
 
 from . import file_manager
 from .base_page import BasePage
@@ -30,7 +31,7 @@ class LoggingHelper:
         'account_elements': '\033[1;34m',    # Bold Blue
         'search_by_last_name': '\033[95m',   # Pink (Bright Magenta)
         'search_by_full_name': '\033[95m',   # Pink (Bright Magenta)
-        'fuzzy_search_account': '\033[1;37m',# Bold White
+        'search_account': '\033[1;37m',# Bold White
         'timing': '\033[1;33m',             # Bold Yellow
         'default': '',
     }
@@ -92,8 +93,8 @@ class LoggingHelper:
             color = cls.COLORS['search_by_last_name']
         elif 'search_by_full_name' in msg:
             color = cls.COLORS['search_by_full_name']
-        elif 'fuzzy_search_account' in msg:
-            color = cls.COLORS['fuzzy_search_account']
+        elif 'search_account' in msg:
+            color = cls.COLORS['search_account']
         elif 'timing' in msg:
             color = cls.COLORS['timing']
         if color:
@@ -160,7 +161,7 @@ class AccountManager(BasePage):
                 return False
                 
             # Wait for the search input
-            if not self._wait_for_selector('ACCOUNT', 'search_input', timeout=20000):
+            if not self._wait_for_selector('ACCOUNT', 'search_view_input', timeout=20000):
                 self.log_helper.log(self.logger, 'error', "Search input not found")
                 self._take_screenshot("accounts-navigation-error")
                 self.log_helper.dedent()
@@ -252,6 +253,279 @@ class AccountManager(BasePage):
         self.log_helper.log(self.logger, 'error', f"Failed to navigate to list view URL after {max_attempts} attempts")
         self.log_helper.dedent()
         return False
+
+    def enter_search_term(self, search_term: str) -> bool:
+        """Enter a search term into the search input field."""
+        self.log_helper.indent()
+        try:
+            self.log_helper.log(self.logger, 'info', "Looking for search input...")
+            
+            # Log the current URL and page title
+            current_url = self.page.url
+            current_title = self.page.title()
+            self.log_helper.log(self.logger, 'info', f"Current URL: {current_url}")
+            self.log_helper.log(self.logger, 'info', f"Current page title: {current_title}")
+            
+            # Wait for the page to be fully loaded
+            self.log_helper.log(self.logger, 'info', "Waiting for page to be fully loaded...")
+            self.page.wait_for_load_state("networkidle")
+            self.page.wait_for_load_state("domcontentloaded")
+            
+            # Try to find the search button first
+            self.log_helper.log(self.logger, 'info', "Looking for search button...")
+            search_button_selectors = [
+                'button[title="Search"]',
+                'button.search-button',
+                'button[aria-label="Search"]',
+                'button[class*="search"]',
+                'button[class*="Search"]',
+                'button.search',
+                'button.Search'
+            ]
+            
+            search_button = None
+            for selector in search_button_selectors:
+                try:
+                    self.log_helper.log(self.logger, 'info', f"Trying search button selector: {selector}")
+                    button = self.page.locator(selector)
+                    is_visible = button.is_visible()
+                    self.log_helper.log(self.logger, 'info', f"Search button {selector} visible: {is_visible}")
+                    
+                    if is_visible:
+                        search_button = button
+                        self.log_helper.log(self.logger, 'info', f"Found visible search button with selector: {selector}")
+                        break
+                except Exception as e:
+                    self.log_helper.log(self.logger, 'info', f"Error checking search button selector {selector}: {str(e)}")
+                    continue
+            
+            if search_button:
+                self.log_helper.log(self.logger, 'info', "Clicking search button...")
+                try:
+                    search_button.click()
+                    self.log_helper.log(self.logger, 'info', "Successfully clicked search button")
+                    self.page.wait_for_timeout(1000)  # Wait for search input to appear
+                except Exception as e:
+                    self.log_helper.log(self.logger, 'error', f"Failed to click search button: {str(e)}")
+            
+            # Try multiple selectors for the search input
+            selectors = [
+                'input[placeholder="Search..."]',
+                'input[placeholder="Search Accounts and more..."]',
+                'input[type="search"]',
+                'input.search-input',
+                'input[aria-label="Search"]',
+                'input[data-aura-class="searchInput"]',
+                'input[class*="search"]',
+                'input[class*="Search"]',
+                'input[role="searchbox"]',
+                'input.search',
+                'input.Search'
+            ]
+            
+            self.log_helper.log(self.logger, 'info', "Trying multiple selectors for search input...")
+            search_input = None
+            for selector in selectors:
+                try:
+                    self.log_helper.log(self.logger, 'info', f"Trying selector: {selector}")
+                    input_element = self.page.locator(selector)
+                    is_visible = input_element.is_visible()
+                    self.log_helper.log(self.logger, 'info', f"Selector {selector} visible: {is_visible}")
+                    
+                    if is_visible:
+                        search_input = input_element
+                        self.log_helper.log(self.logger, 'info', f"Found visible search input with selector: {selector}")
+                        break
+                except Exception as e:
+                    self.log_helper.log(self.logger, 'info', f"Error checking selector {selector}: {str(e)}")
+                    continue
+            
+            if not search_input:
+                self.log_helper.log(self.logger, 'error', "No search input found with any selector")
+                # Log all input elements on the page for debugging
+                self.log_helper.log(self.logger, 'info', "Listing all input elements on the page:")
+                all_inputs = self.page.locator('input').all()
+                for idx, input_elem in enumerate(all_inputs):
+                    try:
+                        placeholder = input_elem.get_attribute('placeholder')
+                        input_type = input_elem.get_attribute('type')
+                        input_class = input_elem.get_attribute('class')
+                        input_role = input_elem.get_attribute('role')
+                        input_aria_label = input_elem.get_attribute('aria-label')
+                        self.log_helper.log(self.logger, 'info', f"Input {idx}: type={input_type}, placeholder={placeholder}, class={input_class}, role={input_role}, aria-label={input_aria_label}")
+                    except Exception as e:
+                        self.log_helper.log(self.logger, 'info', f"Could not get attributes for input {idx}: {str(e)}")
+                return False
+            
+            # Click the input first to ensure it's focused
+            self.log_helper.log(self.logger, 'info', "Clicking search input...")
+            try:
+                search_input.click()
+                self.log_helper.log(self.logger, 'info', "Successfully clicked search input")
+            except Exception as e:
+                self.log_helper.log(self.logger, 'error', f"Failed to click search input: {str(e)}")
+                return False
+            
+            self.page.wait_for_timeout(1000)
+            
+            # Clear any existing text
+            self.log_helper.log(self.logger, 'info', "Clearing existing text...")
+            try:
+                search_input.fill("")
+                self.log_helper.log(self.logger, 'info', "Successfully cleared search input")
+            except Exception as e:
+                self.log_helper.log(self.logger, 'error', f"Failed to clear search input: {str(e)}")
+                return False
+            
+            self.page.wait_for_timeout(500)
+            
+            # Fill the input with the search term
+            self.log_helper.log(self.logger, 'info', f"Filling search input with: {search_term}")
+            try:
+                search_input.fill(search_term)
+                self.log_helper.log(self.logger, 'info', "Successfully filled search input")
+            except Exception as e:
+                self.log_helper.log(self.logger, 'error', f"Failed to fill search input: {str(e)}")
+                return False
+            
+            self.page.wait_for_timeout(500)
+            
+            # Press Enter
+            self.log_helper.log(self.logger, 'info', "Pressing Enter...")
+            try:
+                search_input.press("Enter")
+                self.log_helper.log(self.logger, 'info', "Successfully pressed Enter")
+            except Exception as e:
+                self.log_helper.log(self.logger, 'error', f"Failed to press Enter: {str(e)}")
+                return False
+            
+            # Wait for the search to complete
+            self.page.wait_for_timeout(2000)
+            
+            self.log_helper.log(self.logger, 'info', "Search completed successfully")
+            return True
+            
+        except Exception as e:
+            self.log_helper.log(self.logger, 'error', f"Error entering search term: {str(e)}")
+            return False
+        finally:
+            self.log_helper.dedent()
+
+
+    def dashboard_search(self, search_term: str) -> bool:
+        """Search for accounts from the dashboard."""
+        self.log_helper.indent()
+        try:
+            self.log_helper.log(self.logger, 'info', "Navigating to dashboard for search")
+            self.navigate_to_dashboard()
+            
+            # Use enter_search_term to perform the search
+            if not self.enter_search_term(search_term):
+                self.log_helper.log(self.logger, 'error', "Failed to enter search term")
+                self.log_helper.dedent()
+                return False
+            
+            # Wait for results to load
+            self.page.wait_for_timeout(2000)
+            
+            self.log_helper.dedent()
+            return True
+        except Exception as e:
+            self.log_helper.log(self.logger, 'error', f"Dashboard search failed: {str(e)}")
+            self.log_helper.dedent()
+            return False
+
+    def dashboard_search_account(self, search_term: str, view_name: str = "All Clients") -> List[str]:
+        """Search for accounts matching the search term.
+        
+        Args:
+            search_term: The term to search for
+            view_name: The name of the list view to use (default: "All Clients")
+            
+        Returns:
+            List[str]: List of unique account names found
+        """
+        self.log_helper.indent()
+        self.log_helper.start_timing()
+        
+        try:
+            self.log_helper.log(self.logger, 'info', f"Searching in view: {view_name}")
+            
+            # Navigate to dashboard and perform search
+            if not self.dashboard_search(search_term):
+                self.log_helper.log(self.logger, 'error', "Failed to perform dashboard search")
+                return []
+            
+            # Wait for search results to load
+            self.page.wait_for_timeout(2000)
+            
+            # Define selectors
+            container_selectors = [
+                "div.DESKTOP.uiContainerManager",
+                "div.listViewContent.slds-table--header-fixed_container",
+                "div.listViewContent.slds-table_header-fixed_container"
+            ]
+            
+            link_selectors = [
+                "a[title]"
+            ]
+            
+            # Find and process results
+            results = set()
+            
+            for container_selector in container_selectors:
+                try:
+                    # Use first() to handle multiple elements
+                    container = self.page.locator(container_selector).first
+                    if not container.is_visible():
+                        continue
+                        
+                    # Try each link selector within the container
+                    for link_selector in link_selectors:
+                        links = container.locator(link_selector).all()
+                        for link in links:
+                            try:
+                                if not link.is_visible():
+                                    continue
+                                    
+                                name = link.text_content().strip()
+                                if not name:
+                                    continue
+                                
+                                    
+                                # Clean and add the name
+                                cleaned_name = ' '.join(name.split())
+                                if cleaned_name:
+                                    results.add(cleaned_name)
+                                    
+                            except Exception as e:
+                                self.log_helper.log(self.logger, 'debug', f"Error processing link: {str(e)}")
+                                continue
+                    
+                    if results:
+                        self.log_helper.log(self.logger, 'info', f"Found {len(results)} results")
+                        break
+                        
+                except Exception as e:
+                    self.log_helper.log(self.logger, 'debug', f"Container selector {container_selector} failed: {str(e)}")
+                    continue
+            
+            if not results:
+                self.log_helper.log(self.logger, 'warning', "No results found")
+                return []
+            
+            # Convert set to list while preserving order
+            unique_results = list(results)
+            self.log_helper.log(self.logger, 'info', f"Found {len(unique_results)} unique results")
+            return unique_results
+            
+        except Exception as e:
+            self.log_helper.log(self.logger, 'error', f"Error searching for accounts: {str(e)}")
+            return []
+        finally:
+            self.log_helper.log(self.logger, 'info', f"Search completed in {self.log_helper.end_timing():.2f} seconds")
+            self.log_helper.dedent()
+
 
     def search_account(self, search_term: str, view_name: str = "All Clients") -> List[str]:
         """
@@ -436,6 +710,16 @@ class AccountManager(BasePage):
                 self.page.wait_for_timeout(1000)  # Wait for search to complete
                 self.log_helper.log(self.logger, 'info', "Waited for search to complete")
                 
+                # Click the refresh button
+                refresh_button = self.page.locator('button[name="refreshButton"]').first
+                if refresh_button:
+                    self.log_helper.log(self.logger, 'info', "Found refresh button")
+                    refresh_button.click()
+                    self.log_helper.log(self.logger, 'info', "Clicked refresh button")
+                    self.page.wait_for_timeout(1000)  # Wait for refresh to complete
+                else:
+                    self.log_helper.log(self.logger, 'warning', "Refresh button not found")
+                
                 # Wait for the status bar to be visible
                 status_bar = self.page.locator('span.countSortedByFilteredBy[role="status"]').first
                 if status_bar:
@@ -535,16 +819,8 @@ class AccountManager(BasePage):
             self.log_helper.dedent()
             return []
 
-    def account_exists(self, account_name: str, view_name: str = "All Accounts") -> bool:
-        """Check if an account exists with the exact name.
-        
-        Args:
-            account_name: The name of the account to check
-            view_name: The name of the list view to use (default: "All Accounts")
-            
-        Returns:
-            bool: True if the account exists, False otherwise
-        """
+    def account_exists(self, account_name: str, view_name: str = "All Clients") -> bool:
+        """Check if an account exists with the exact name."""
         self.log_helper.log(self.logger, 'info', f"Checking if account exists: {account_name} in view: {view_name}")
         
         self.log_helper.indent()
@@ -557,7 +833,7 @@ class AccountManager(BasePage):
             
             # Wait for the search input to be visible
             self.log_helper.log(self.logger, 'info', "Waiting for search input...")
-            search_input = self.page.wait_for_selector('input[placeholder="Search this list..."]', timeout=20000)
+            search_input = self.page.wait_for_selector(Selectors.get_selector('ACCOUNT', 'search_view_input'), timeout=20000)
             if not search_input:
                 self.log_helper.log(self.logger, 'error', "Search input not found")
                 self._take_screenshot("search-input-not-found")
@@ -962,7 +1238,7 @@ class AccountManager(BasePage):
             self._take_screenshot("account-creation-error")
             sys.exit(1)
             
-    def _get_status_message(self) -> Optional[str]:
+    def deprecated_get_status_message(self) -> Optional[str]:
         """Get the status message from the page."""
         try:
             status_element = self.page.locator('span.countSortedByFilteredBy, span.slds-text-body_small, div.slds-text-body_small, span[class*="count"]').first
@@ -972,7 +1248,7 @@ class AccountManager(BasePage):
             pass
         return None
         
-    def _extract_account_id(self, url: str) -> Optional[str]:
+    def deprecated_extract_account_id(self, url: str) -> Optional[str]:
         """Extract the account ID from the URL."""
         match = re.search(r'/Account/([^/]+)/view', url)
         return match.group(1) if match else None
@@ -1110,7 +1386,7 @@ class AccountManager(BasePage):
         Navigate to the Files related list for the given account_id.
         Returns either an integer or a string (e.g. "50+") representing the number of files.
         """
-        self.log_helper.log(self.logger, 'info', f"****navigate_to_files_and_get_number_of_account_files")
+        self.log_helper.log(self.logger, 'info', f"****navigate_to_account_files_and_get_number_of_files scroll_to_bottom_of_account_files={scroll_to_bottom_of_account_files}")
         self.log_helper.log(self.logger, 'info', f"****Attempting to navigate to Files...")
         self.log_helper.log(self.logger, 'info', f"Current URL: {self.page.url}")
         
@@ -1425,44 +1701,184 @@ class AccountManager(BasePage):
         self.log_helper.dedent()
         return num_files > 0
     
-    
-    def deprecated_account_has_files(self, account_id: str) -> bool:
+    def get_account_information(self, account_id: str) -> dict:
         """
-        Check if the account has files.
+        Get all available information for an account.
+        
+        Args:
+            account_id: The Salesforce account ID
+            
+        Returns:
+            dict: Dictionary containing account information
         """
-        account_url = f"{SALESFORCE_URL}/lightning/r/{account_id}/view"
-        self.log_helper.log(self.logger, 'info', f"Navigating to account view page: {account_url}")
-        self.page.goto(account_url)
-        # self.page.wait_for_load_state('networkidle', timeout=30000)
+        self.log_helper.log(self.logger, 'info', f"Getting information for account {account_id}")
         self.log_helper.indent()
+        
         try:
-            # Find all matching <a> elements
-            files_links = self.page.locator('a.slds-card__header-link.baseCard__header-title-container')
-            found = False
-            for i in range(files_links.count()):
-                a = files_links.nth(i)
-                href = a.get_attribute('href')
-                outer_html = a.evaluate('el => el.outerHTML')
-                if href and 'AttachedContentDocuments' in href:
-                    # This is the Files card
-                    files_number_span = a.locator('span').nth(1)
-                    files_number_text = files_number_span.text_content(timeout=1000)
-                    files_number_match = re.search(r'\((\d+\+?)\)', files_number_text)
-                    if files_number_match:
-                        files_number_str = files_number_match.group(1)
-                        files_number = int(files_number_str.rstrip('+'))
-                    else:
-                        files_number = 0
-                    self.log_helper.log(self.logger, 'info', f"Account {account_id} Files count: {files_number}")
-                    found = True
-                    self.log_helper.dedent()
-                    return files_number > 0
-            if not found:
-                self.log_helper.log(self.logger, 'error', f"Files card not found for account {account_id}")
-                sys.exit(1)
+            # Ensure we're on the account view page
+            if not self.ensure_account_view_page(account_id):
+                self.log_helper.log(self.logger, 'error', "Failed to ensure account view page")
+                self.log_helper.dedent()
+                return {}
+            
+            # Wait for the page to be fully loaded
+            self.log_helper.log(self.logger, 'info', "Waiting for page to be fully loaded")
+            self.page.wait_for_load_state('networkidle', timeout=10000)
+            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
+            
+            # Get account details from the page
+            account_info = {}
+            
+            
+            # Get additional account details with Lightning component selectors
+            self.log_helper.log(self.logger, 'info', "Attempting to get additional account details")
+            try:
+                # Try both Lightning and classic selectors
+                detail_selectors = [
+                    'lightning-formatted-text',
+                    'span[data-aura-class="forceOutputText"]',
+                    'div.slds-form-element'
+                ]
+                
+                for selector in detail_selectors:
+                    try:
+                        elements = self.page.query_selector_all(selector)
+                        for element in elements:
+                            try:
+                                # Try to get label from various attributes
+                                label = (
+                                    element.get_attribute('data-field-name') or
+                                    element.get_attribute('data-aura-rendered-by') or
+                                    element.get_attribute('title')
+                                )
+                                
+                                if label:
+                                    value = element.inner_text().strip()
+                                    if value:
+                                        account_info[label.lower().replace(' ', '_')] = value
+                                        self.log_helper.log(self.logger, 'info', f"Found {label}: {value}")
+                            except Exception as e:
+                                self.log_helper.log(self.logger, 'debug', f"Error processing element: {str(e)}")
+                                continue
+                    except Exception as e:
+                        self.log_helper.log(self.logger, 'debug', f"Failed to get details with selector {selector}: {str(e)}")
+                        continue
+            except Exception as e:
+                self.log_helper.log(self.logger, 'warn', f"Error getting additional account details: {str(e)}")
+            
+            # Extract secondary fields (header details)
+            try:
+                secondary_fields = self.page.query_selector('div.secondaryFields, [class*="secondaryFields"]')
+                if secondary_fields:
+                    detail_items = secondary_fields.query_selector_all('records-highlights-details-item')
+                    for item in detail_items:
+                        label_elem = item.query_selector('p.slds-text-title')
+                        value_elem = item.query_selector('p.fieldComponent')
+                        if label_elem and value_elem:
+                            label = label_elem.inner_text().strip()
+                            value = value_elem.inner_text().strip()
+                            if label and value:
+                                account_info[label.lower().replace(' ', '_')] = value
+                                self.log_helper.log(self.logger, 'info', f"Found {label}: {value}")
+            except Exception as e:
+                self.log_helper.log(self.logger, 'warn', f"Error extracting secondary fields: {str(e)}")
+
+            # Extract general information from records-record-layout-item blocks
+            try:
+                layout_items = self.page.query_selector_all('records-record-layout-item')
+                for item in layout_items:
+                    label_elem = item.query_selector('.test-id__field-label')
+                    value_elem = item.query_selector('.test-id__field-value')
+                    if label_elem and value_elem:
+                        label = label_elem.inner_text().strip()
+                        value = value_elem.inner_text().strip()
+                        if label and value:
+                            account_info[label.lower().replace(' ', '_')] = value
+                            self.log_helper.log(self.logger, 'info', f"Found {label}: {value}")
+            except Exception as e:
+                self.log_helper.log(self.logger, 'warn', f"Error extracting general info fields: {str(e)}")
+
+            self.log_helper.log(self.logger, 'info', f"Successfully retrieved account information: {account_info}")
+            self.log_helper.dedent()
+            return account_info
+            
         except Exception as e:
-            self.log_helper.log(self.logger, 'error', f"Could not extract files count for account {account_id}: {e}")
-            sys.exit(1)
+            self.log_helper.log(self.logger, 'error', f"Error getting account information: {str(e)}")
+            self.log_helper.dedent()
+            return {}
+
+    def get_account_relationships(self, account_id: str) -> list[dict]:
+        """
+        Get all relationship accounts for a given Salesforce account ID.
+        Returns a list of dictionaries with keys: name, role, type.
+        """
+        try:
+            # Ensure we're on the account view page
+            if not self.verify_account_page_url()[0]:
+                self.logger.error(f"Not on account view page for ID: {account_id}")
+                return []
+
+            # Wait for the page to load
+            self.page.wait_for_load_state('networkidle', timeout=10000)
+            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
+
+            # Click the Relationships tab
+            tab_selectors = [
+                "a[title='Relationships']",
+                "a[data-label='Relationships']",
+                "//a[contains(@class, 'tabHeader') and contains(text(), 'Relationships')]",
+                "//a[contains(@class, 'tabHeader') and @title='Relationships']"
+            ]
+            tab_found = False
+            for selector in tab_selectors:
+                try:
+                    tab = self.page.locator(f"xpath={selector}") if selector.startswith("//") else self.page.locator(selector)
+                    if tab.count() > 0:
+                        tab.click()
+                        tab_found = True
+                        self.logger.info("Clicked on Relationships tab")
+                        break
+                except Exception as e:
+                    self.logger.warn(f"Failed to find/click tab with selector {selector}: {str(e)}")
+                    continue
+            if not tab_found:
+                self.logger.error("Could not find Relationships tab")
+                return []
+
+            # Wait for at least one relationship block to appear
+            try:
+                self.page.wait_for_selector('div.FinServRelationshipEntityBlock', timeout=10000)
+            except Exception as e:
+                self.logger.error(f"No relationship blocks found: {str(e)}")
+                return []
+
+            relationship_blocks = self.page.query_selector_all('div.FinServRelationshipEntityBlock')
+            relationships = []
+            for block in relationship_blocks:
+                # Name
+                name_elem = block.query_selector('a.outputLookupLink')
+                name = name_elem.inner_text().strip() if name_elem else None
+                # Role
+                role_elem = block.query_selector('span[title], .slds-text-heading--label-normal span')
+                role = role_elem.inner_text().strip() if role_elem else None
+                # Type (from icon or context)
+                type_elem = block.query_selector('lightning-icon')
+                type_ = "Contact"
+                if type_elem:
+                    icon_name = type_elem.get_attribute('icon-name')
+                    if icon_name:
+                        type_ = icon_name.split(':')[-1].capitalize()
+                relationships.append({
+                    'name': name,
+                    'role': role,
+                    'type': type_,
+                })
+                self.logger.info(f"Found relationship: name={name}, role={role}, type={type_}")
+            self.logger.info(f"Successfully retrieved {len(relationships)} relationships")
+            return relationships
+        except Exception as e:
+            self.logger.error(f"Error getting account relationships: {str(e)}")
+            return []
 
     def delete_account(self, full_name: str, view_name: str = "Recent") -> bool:
         """
@@ -1733,7 +2149,7 @@ class AccountManager(BasePage):
         }
         
         try:
-            self.logger.info(f"***fuzzy_search_account: {folder_name}") 
+            self.logger.info(f"***search_account: {folder_name}") 
             # Extract name parts
             # name_parts = extract_name_parts(folder_name)
             last_name = dropbox_account_name_parts.get('last_name', '')
@@ -1805,6 +2221,8 @@ class AccountManager(BasePage):
                                 matches.append(match)
                                 self.logger.info(f"Found exact match: {match} (matches expected match: {expected_match})")
                         
+                    # Sort matches to prioritize "Household" entries
+                    matches.sort(key=lambda x: '0' if 'household' in x.lower() else '1')
                 
                 if matches:
                     result['status'] = 'match'
@@ -1835,8 +2253,8 @@ class AccountManager(BasePage):
                     'search': 0  # No timing info from search_by_last_name
                 }
                 
-                self.logger.info(f"  Timing for fuzzy_search_account for folder: {folder_name}: {result['timing']['total']:.2f} seconds")
-                # self.logger.info(f"Returning from fuzzy_search_account: {result}")
+                self.logger.info(f"  Timing for search_account for folder: {folder_name}: {result['timing']['total']:.2f} seconds")
+                # self.logger.info(f"Returning from search_account: {result}")
                 return result
             else:
                 result['folder_name'] = folder_name
@@ -1854,7 +2272,7 @@ class AccountManager(BasePage):
                 return result
             
         except Exception as e:
-            self.logger.error(f"Error in fuzzy_search_account: {str(e)}")
+            self.logger.error(f"Error in search_account: {str(e)}")
             result['status'] = 'error'
             result['error'] = str(e)
             return result
@@ -1873,8 +2291,14 @@ class AccountManager(BasePage):
         self.log_helper.indent()
         try:
             self.log_helper.log(self.logger, 'info', f"INFO: ***search_by_last_name: searching for last name: {last_name}")
-            # Search for the last name
-            matching_accounts = self.search_account(last_name, view_name=view_name)
+            # Search for the last name using dashboard search first
+            matching_accounts = self.dashboard_search_account(last_name, view_name=view_name)
+            
+            # If no matches found with dashboard search, try regular search
+            if not matching_accounts:
+                self.log_helper.log(self.logger, 'info', "No matches found with dashboard search, trying regular search...")
+                matching_accounts = self.search_account(last_name, view_name=view_name)
+            
             self.log_helper.log(self.logger, 'info', f"Found {len(matching_accounts)} matching accounts:")
             for account in matching_accounts:
                 self.log_helper.log(self.logger, 'info', f"  - {account}")
@@ -1885,12 +2309,12 @@ class AccountManager(BasePage):
             self.log_helper.dedent()
             return []
 
-    def search_by_full_name(self, full_name: str) -> List[str]:
+    def deprecated_search_by_full_name(self, full_name: str) -> List[str]:
         self.log_helper.indent()
         try:
             self.log_helper.log(self.logger, 'info', f"INFO: search_by_full_name ***searching for full name: {full_name}")
             # Search for the full name
-            matching_accounts = self.search_account(full_name)
+            matching_accounts = self.dashboard_search_account(full_name)
             # Get matching accounts
             # matching_accounts = self.get_account_names()
             self.log_helper.dedent()
@@ -1906,45 +2330,18 @@ class AccountManager(BasePage):
         Returns:
             bool: True if refresh was successful, False otherwise
         """
-        self.log_helper.indent()
         try:
-            self.log_helper.log(self.logger, 'info', "Refreshing page...")
-            
-            # Store current URL for verification
-            current_url = self.page.url
-            self.log_helper.log(self.logger, 'info', f"Current URL before refresh: {current_url}")
-            
-            # Refresh the page
+            self.logger.info("Refreshing page")
             self.page.reload()
-            
             # Wait for network to be idle
-            # self.page.wait_for_load_state('networkidle', timeout=10000)
-            # self.log_helper.log(self.logger, 'info', "Network is idle after refresh")
-            
+            self.page.wait_for_load_state('networkidle', timeout=20000)
             # Wait for DOM content to be loaded
-            # self.page.wait_for_load_state('domcontentloaded', timeout=10000)
-            self.log_helper.log(self.logger, 'info', "DOM content loaded after refresh")
-            
-            # Verify we're still on the same page
-            new_url = self.page.url
-            if new_url != current_url:
-                self.log_helper.log(self.logger, 'warning', f"URL changed after refresh. Old: {current_url}, New: {new_url}")
-            
-            # Wait for any loading spinners to disappear
-            try:
-                self.page.wait_for_selector('.slds-spinner_container', state='hidden', timeout=5000)
-                self.log_helper.log(self.logger, 'info', "Loading spinner disappeared")
-            except Exception as e:
-                self.log_helper.log(self.logger, 'info', f"No loading spinner found or already disappeared: {str(e)}")
-            
-            self.log_helper.log(self.logger, 'info', "Page refresh completed successfully")
-            self.log_helper.dedent()
+            self.page.wait_for_load_state('domcontentloaded', timeout=20000)
+            self.logger.info("Successfully refreshed page")
             return True
-            
         except Exception as e:
-            self.log_helper.log(self.logger, 'error', f"Error refreshing page: {str(e)}")
+            self.logger.error(f"Error refreshing page: {str(e)}")
             self._take_screenshot("page-refresh-error")
-            self.log_helper.dedent()
             return False
     
     def get_match_info(self, result):
@@ -2074,6 +2471,14 @@ class AccountManager(BasePage):
         self.log_helper.log(self.logger, 'info', f"Current URL: {self.page.url}")
         
         try:
+            # First verify we're on a valid account page
+            is_valid, account_id = self.verify_account_page_url()
+            if not is_valid or not account_id:
+                self.log_helper.log(self.logger, 'warning', "Not on a valid account page")
+                # Try to navigate back to the account page
+                self.navigate_back_to_account_page()
+        
+            
             # Try the most specific selector first: span[title="Files"]
             try:
                 self.log_helper.log(self.logger, 'info', "Trying span[title='Files'] selector...")
@@ -2128,3 +2533,19 @@ class AccountManager(BasePage):
             self.page.screenshot(path="files-tab-error.png")
             self.log_helper.log(self.logger, 'info', "Error screenshot saved as files-tab-error.png")
             return -1
+
+    def navigate_to_dashboard(self) -> bool:
+        """Navigate to the Salesforce dashboard page."""
+        self.log_helper.indent()
+        dashboard_url = f"{SALESFORCE_URL}/lightning/n/command__Dashboard"
+        try:
+            self.log_helper.log(self.logger, 'info', f"Navigating to dashboard: {dashboard_url}")
+            self.page.goto(dashboard_url, timeout=30000)
+            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
+            self.log_helper.log(self.logger, 'info', "Successfully navigated to dashboard")
+            self.log_helper.dedent()
+            return True
+        except Exception as e:
+            self.log_helper.log(self.logger, 'error', f"Failed to navigate to dashboard: {str(e)}")
+            self.log_helper.dedent()
+            return False

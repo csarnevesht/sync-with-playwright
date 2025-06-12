@@ -105,7 +105,7 @@ class OperationLogger:
         """Get all processed accounts."""
         return self.operations.get("accounts", [])
     
-    def get_account_by_name(self, account_name: str) -> Optional[Dict]:
+    def deprecated_get_account_by_name(self, account_name: str) -> Optional[Dict]:
         """Get account details by name."""
         for account in self.operations["accounts"]:
             if account["account_name"] == account_name:
