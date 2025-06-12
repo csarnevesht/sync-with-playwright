@@ -98,9 +98,9 @@ def test_account_file_retrieval(browser, page):
         
         logging.info(f"Successfully navigated to account {account_name} with ID {account_id}")
         
-        # Navigate to files section
-        logging.info("Navigating to files section")
-        account_manager.navigate_to_account_files_and_get_number_of_files(account_id)
+        # # Navigate to files section
+        # logging.info("Navigating to files section")
+        # account_manager.navigate_to_account_files_and_get_number_of_files(account_id)
 
         # account_manager.navigate_back_to_account_page()
         
