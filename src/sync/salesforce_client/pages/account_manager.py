@@ -1610,7 +1610,7 @@ class AccountManager(BasePage):
                         self.log_helper.log(self.logger, 'debug', f"***Account id: {account_id} found")
                        
                     except Exception as e:
-                        self.log_helper.log(self.logger, 'warning', f"Error getting text content for row: {str(e)}")
+                        # self.log_helper.log(self.logger, 'warning', f"Error getting text content for row: {str(e)}")
                         continue
                 except Exception as e:
                     self.log_helper.log(self.logger, 'warning', f"Error processing account row: {str(e)}")
