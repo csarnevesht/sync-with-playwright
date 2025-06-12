@@ -710,6 +710,9 @@ def run_command(args):
                                 logger.info('step: Process Salesforce Account Relationships')
                                 report_logger.info("\n=== SALESFORCE ACCOUNT RELATIONSHIPS ===")
                                 
+                                # Keep track of processed relationships to avoid duplicates
+                                processed_relationships = set()
+                                
                                 for match in salesforce_matches:
                                     logger.info(f"Processing relationships for account: {match}")
                                     report_logger.info(f"\nProcessing relationships for account: {match}")
@@ -742,12 +745,20 @@ def run_command(args):
                                                 if relationships:
                                                     report_logger.info(f"\nFound {len(relationships)} relationship accounts:")
                                                     for rel in relationships:
+                                                        # Create a unique key for this relationship
+                                                        rel_key = (rel['name'], rel['role'], rel['type'])
+                                                        
+                                                        # Skip if we've already processed this relationship
+                                                        if rel_key in processed_relationships:
+                                                            logger.info(f"Skipping already processed relationship: {rel['name']}")
+                                                            report_logger.info(f"Skipping already processed relationship: {rel['name']}")
+                                                            continue
+                                                        
                                                         report_logger.info(f"\nRelationship Account:")
                                                         report_logger.info(f"  Name: {rel['name']}")
                                                         report_logger.info(f"  Type: {rel['type']}")
                                                         report_logger.info(f"  Role: {rel['role']}")
-                                                        # Get account information for each relationship
-                                                        # CAROLINA HERE
+                                                        
                                                         # Check if account exists and store result
                                                         report_logger.info(f"Checking if account exists: {rel['name']} in view: {view_name}")
                                                         account_exists = account_manager.account_exists(rel['name'], view_name=view_name)
@@ -760,6 +771,8 @@ def run_command(args):
                                                                 if rel_is_valid and rel_account_id:
                                                                     rel_info = account_manager.get_account_information(rel_account_id)
                                                                     rel['account_info'] = rel_info
+                                                                    # Mark this relationship as processed
+                                                                    processed_relationships.add(rel_key)
                                                                     # Navigate back to original account
                                                                     account_manager.navigate_back_to_account_page()
                                                     # Store relationships in salesforce_account_search_result, avoiding duplicates
