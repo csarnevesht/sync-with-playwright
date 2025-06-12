@@ -141,11 +141,11 @@ class AccountManager(BasePage):
             self.logger.setLevel(logging.DEBUG)
     
 
-    def navigate_to_accounts_list_page(self, view_name: str = "All Accounts") -> bool:
+    def navigate_to_accounts_list_page(self, view_name: str = "All Clients") -> bool:
         """Navigate to the Accounts page with a specific list view.
         
         Args:
-            view_name: Name of the list view to use (default: "All Accounts")
+            view_name: Name of the list view to use (default: "All Clients")
             
         Returns:
             bool: True if navigation was successful, False otherwise
@@ -435,12 +435,12 @@ class AccountManager(BasePage):
             self.log_helper.dedent()
             return False
 
-    def dashboard_search_account(self, search_term: str, view_name: str = "All Accounts") -> List[str]:
+    def dashboard_search_account(self, search_term: str, view_name: str = "All Clients") -> List[str]:
         """Search for accounts matching the search term.
         
         Args:
             search_term: The term to search for
-            view_name: The name of the list view to use (default: "All Accounts")
+            view_name: The name of the list view to use (default: "All Clients")
             
         Returns:
             List[str]: List of unique account names found
@@ -810,7 +810,7 @@ class AccountManager(BasePage):
             self.log_helper.dedent()
             return []
 
-    def account_exists(self, account_name: str, view_name: str = "All Accounts") -> bool:
+    def account_exists(self, account_name: str, view_name: str = "All Clients") -> bool:
         """Check if an account exists with the exact name."""
         self.log_helper.log(self.logger, 'info', f"Checking if account exists: {account_name} in view: {view_name}")
         
@@ -1466,7 +1466,7 @@ class AccountManager(BasePage):
             return self.account_has_files(account['id'])
         return condition
 
-    def _get_accounts_base(self, view_name: str = "All Accounts") -> List[Dict[str, str]]:
+    def _get_accounts_base(self, view_name: str = "All Clients") -> List[Dict[str, str]]:
         """
         Get all accounts from the current list view.
         
@@ -1619,7 +1619,7 @@ class AccountManager(BasePage):
         self,
         max_number: int = 10,
         condition: Callable[[Dict[str, str]], bool] = None,
-        view_name: str = "All Accounts"
+        view_name: str = "All Clients"
     ) -> List[Dict[str, str]]:
         """
         Keep iterating through all accounts until max_number accounts that match a condition.
@@ -2198,7 +2198,7 @@ class AccountManager(BasePage):
             return False
 
 
-    def salesforce_search_account(self, folder_name: str, view_name: str = "All Accounts", dropbox_account_name_parts: dict = None) -> Dict[str, Any]:
+    def salesforce_search_account(self, folder_name: str, view_name: str = "All Clients", dropbox_account_name_parts: dict = None) -> Dict[str, Any]:
         """Perform a fuzzy search based on a folder name."""
         start_time = time.time()
         result = {
@@ -2348,7 +2348,7 @@ class AccountManager(BasePage):
             result['error'] = str(e)
             return result
 
-    def search_by_last_name(self, last_name: str, view_name: str = "All Accounts") -> List[str]:
+    def search_by_last_name(self, last_name: str, view_name: str = "All Clients") -> List[str]:
         """
         Search for accounts by last name.
         
@@ -2362,8 +2362,14 @@ class AccountManager(BasePage):
         self.log_helper.indent()
         try:
             self.log_helper.log(self.logger, 'info', f"INFO: ***search_by_last_name: searching for last name: {last_name}")
-            # Search for the last name
+            # Search for the last name using dashboard search first
             matching_accounts = self.dashboard_search_account(last_name, view_name=view_name)
+            
+            # If no matches found with dashboard search, try regular search
+            if not matching_accounts:
+                self.log_helper.log(self.logger, 'info', "No matches found with dashboard search, trying regular search...")
+                matching_accounts = self.search_account(last_name, view_name=view_name)
+            
             self.log_helper.log(self.logger, 'info', f"Found {len(matching_accounts)} matching accounts:")
             for account in matching_accounts:
                 self.log_helper.log(self.logger, 'info', f"  - {account}")

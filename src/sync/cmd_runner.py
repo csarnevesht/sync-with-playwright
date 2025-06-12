@@ -87,7 +87,7 @@ results = {
 Each value is a dictionary (the Salesforce search result) with at least:
 - 'matches': list of Salesforce account names matched
 - 'match_info': dict with at least 'match_status' (e.g., 'Match Found', 'No Match')
-- 'view': Salesforce view name (e.g., 'All Accounts', 'All Accounts')
+- 'view': Salesforce view name (e.g., 'All Clients', 'All Clients')
 - 'status': status string for the search
 - 'search_info': dict with Dropbox account info, including 'account_data' (fields like name, first_name, last_name, etc.)
 - (other keys may be present depending on the run options)
@@ -714,12 +714,16 @@ def run_command(args):
                                     logger.info(f"Processing relationships for account: {match}")
                                     report_logger.info(f"\nProcessing relationships for account: {match}")
                                     
-                                    # Check if account exists in All Accounts view, then All Clients if not found
+                                    # Check if account exists in appropriate view based on name
                                     found_view = None
-                                    if account_manager.account_exists(match, view_name="All Accounts"):
-                                        found_view = "All Accounts"
-                                    elif account_manager.account_exists(match, view_name="All Clients"):
-                                        found_view = "All Clients"
+                                    if match.endswith('Household'):
+                                        if account_manager.account_exists(match, view_name="All Accounts"):
+                                            found_view = "All Accounts"
+                                    else:
+                                        if account_manager.account_exists(match, view_name="All Clients"):
+                                            found_view = "All Clients"
+                                        elif account_manager.account_exists(match, view_name="All Accounts"):
+                                            found_view = "All Accounts"
                                     
                                     if found_view:
                                         logger.info(f"Account found in {found_view} view: {match}")
@@ -751,8 +755,8 @@ def run_command(args):
                                             logger.error(f"Could not navigate to Salesforce account: {match}")
                                             report_logger.info(f"Could not navigate to Salesforce account: {match}")
                                     else:
-                                        logger.error(f"Account not found in All Accounts or All Clients view: {match}")
-                                        report_logger.info(f"Account not found in All Accounts or All Clients view: {match}")
+                                        logger.error(f"Account not found in All Clients or All Clients view: {match}")
+                                        report_logger.info(f"Account not found in All Clients or All Clients view: {match}")
 
                             if args.salesforce_accounts or args.dropbox_account_info or args.dropbox_accounts:
                                 # Add to summary results
