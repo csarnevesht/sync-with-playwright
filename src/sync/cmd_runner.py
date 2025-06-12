@@ -714,8 +714,15 @@ def run_command(args):
                                     logger.info(f"Processing relationships for account: {match}")
                                     report_logger.info(f"\nProcessing relationships for account: {match}")
                                     
-                                    # Check if account exists in All Accounts view
+                                    # Check if account exists in All Accounts view, then All Clients if not found
+                                    found_view = None
                                     if account_manager.account_exists(match, view_name="All Accounts"):
+                                        found_view = "All Accounts"
+                                    elif account_manager.account_exists(match, view_name="All Clients"):
+                                        found_view = "All Clients"
+                                    
+                                    if found_view:
+                                        logger.info(f"Account found in {found_view} view: {match}")
                                         # Click on the account
                                         if account_manager.click_account_name(match):
                                             # Get account ID
@@ -726,7 +733,6 @@ def run_command(args):
                                                 report_logger.info(f"\nAccount Information:")
                                                 for key, value in account_info.items():
                                                     report_logger.info(f"  {key}: {value}")
-                                                
                                                 # Get relationships
                                                 relationships = account_manager.get_account_relationships(account_id)
                                                 if relationships:
@@ -736,6 +742,8 @@ def run_command(args):
                                                         report_logger.info(f"  Name: {rel['name']}")
                                                         report_logger.info(f"  Type: {rel['type']}")
                                                         report_logger.info(f"  Role: {rel['role']}")
+                                                else:
+                                                    report_logger.info("\nNo relationship accounts found")
                                             else:
                                                 logger.error(f"Could not verify account page or get account ID for: {match}")
                                                 report_logger.info(f"Could not verify account page or get account ID for: {match}")
@@ -743,8 +751,8 @@ def run_command(args):
                                             logger.error(f"Could not navigate to Salesforce account: {match}")
                                             report_logger.info(f"Could not navigate to Salesforce account: {match}")
                                     else:
-                                        logger.error(f"Account not found in All Accounts view: {match}")
-                                        report_logger.info(f"Account not found in All Accounts view: {match}")
+                                        logger.error(f"Account not found in All Accounts or All Clients view: {match}")
+                                        report_logger.info(f"Account not found in All Accounts or All Clients view: {match}")
 
                             if args.salesforce_accounts or args.dropbox_account_info or args.dropbox_accounts:
                                 # Add to summary results
