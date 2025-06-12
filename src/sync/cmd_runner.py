@@ -736,11 +736,6 @@ def run_command(args):
                                                         report_logger.info(f"  Name: {rel['name']}")
                                                         report_logger.info(f"  Type: {rel['type']}")
                                                         report_logger.info(f"  Role: {rel['role']}")
-                                                        report_logger.info(f"  Account Info:")
-                                                        for key, value in rel['account_info'].items():
-                                                            report_logger.info(f"    {key}: {value}")
-                                                else:
-                                                    report_logger.info("\nNo relationship accounts found")
                                             else:
                                                 logger.error(f"Could not verify account page or get account ID for: {match}")
                                                 report_logger.info(f"Could not verify account page or get account ID for: {match}")
