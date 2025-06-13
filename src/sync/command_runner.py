@@ -12,6 +12,8 @@ from pathlib import Path
 from datetime import datetime
 import dropbox
 import os
+import tempfile
+import re
 
 from sync.dropbox_client.utils.dropbox_utils import get_renamed_path, list_dropbox_folder_contents
 from sync.dropbox_client.utils.file_utils import log_renamed_file
@@ -633,7 +635,10 @@ class CommandRunner:
                 'total_app_files': 0,
                 'folders_with_app_files': 0,
                 'app_files_by_folder': {},
-                'processed_folders': set()  # Track all processed folders
+                'processed_folders': set(),  # Track all processed folders
+                'birthdate_found': False,  # Track if birthdate was found
+                'files_with_birthdate': set(),  # Track files containing birthdate
+                'file_birthdates': {}  # Track birthdate per file
             }
             
             # Search for files matching 'App' or 'Application' in root folder
@@ -670,67 +675,116 @@ class CommandRunner:
                                 if 'App' in file.name or 'Application' in file.name:
                                     folder_app_files.append(file)
                                     summary_data['total_app_files'] += 1
+                                    
+                                    # Download and check file for birthdate
+                                    try:
+                                        # Create a temporary file
+                                        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                                            # Download the file
+                                            dropbox_client.dbx.files_download_to_file(temp_file.name, file.path_display)
+                                            
+                                            # Read the file content
+                                            content = None
+                                            if file.name.lower().endswith('.pdf'):
+                                                try:
+                                                    import PyPDF2
+                                                    with open(temp_file.name, 'rb') as pdf_file:
+                                                        reader = PyPDF2.PdfReader(pdf_file)
+                                                        content = ''
+                                                        for page in reader.pages:
+                                                            page_text = page.extract_text()
+                                                            if page_text:
+                                                                content += page_text + '\n'
+                                                    self.logger.info(f"[DEBUG] Extracted PDF text from {file.name}:\n{content}")
+                                                except Exception as pdf_exc:
+                                                    self.logger.error(f"Error extracting text from PDF {file.name}: {pdf_exc}")
+                                                    content = ''
+                                            else:
+                                                with open(temp_file.name, 'r', encoding='utf-8', errors='ignore') as f:
+                                                    content = f.read()
+                                                    self.logger.info(f"[DEBUG] Extracted text from {file.name}:\n{content}")
+                                            # Look for birthdate patterns
+                                            birthdate_patterns = [
+                                                r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
+                                                r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
+                                                r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}\.[0-9]{1,2}\.[0-9]{2,4})',
+                                                r'birthdate[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
+                                                r'birthdate[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
+                                                r'birthdate[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
+                                                r'birthdate[\s\(\)\/\:\-]*([0-9]{2}\.[0-9]{2}\.[0-9]{4})',
+                                                r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
+                                                r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
+                                                r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}\.[0-9]{1,2}\.[0-9]{2,4})',
+                                                r'date of birth[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
+                                                r'date of birth[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
+                                                r'date of birth[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
+                                                r'date of birth[\s\(\)\/\:\-]*([0-9]{2}\.[0-9]{2}\.[0-9]{4})',
+                                                r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
+                                                r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
+                                                r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}\.[0-9]{1,2}\.[0-9]{2,4})',
+                                                r'DOB[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
+                                                r'DOB[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
+                                                r'DOB[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
+                                                r'DOB[\s\(\)\/\:\-]*([0-9]{2}\.[0-9]{2}\.[0-9]{4})',
+                                                # Fallback: any MM/DD/YYYY
+                                                r'([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})'
+                                            ]
+                                            
+                                            birthdate_found = False
+                                            for pattern in birthdate_patterns:
+                                                match = re.search(pattern, content, re.IGNORECASE)
+                                                if match:
+                                                    birthdate = match.group(1)
+                                                    self.logger.info(f"\nFound birthdate in {file.name}: {birthdate}")
+                                                    self.report_logger.info(f"\nFound birthdate in {file.name}: {birthdate}")
+                                                    summary_data['birthdate_found'] = True
+                                                    summary_data['files_with_birthdate'].add(file.path_display)
+                                                    summary_data['file_birthdates'][file.path_display] = birthdate
+                                                    birthdate_found = True
+                                                    break
+                                            
+                                            if not birthdate_found:
+                                                self.logger.info(f"\n❌👶 No birthdate found in {file.name}")
+                                                self.report_logger.info(f"\n❌👶 No birthdate found in {file.name}")
+                                        
+                                        # Clean up the temporary file
+                                        os.unlink(temp_file.name)
+                                        
+                                    except Exception as e:
+                                        self.logger.error(f"Error processing file {file.name}: {str(e)}")
+                                        continue
                         
+                        # Only log each Dropbox Account Folder once in the summary
                         if folder_app_files:
-                            self.logger.info(f"\nFound {len(folder_app_files)} matching files in {folder}:")
-                            for file in folder_app_files:
-                                self.logger.info(f"  - {file.name} (Path: {file.path_display})")
-                            
+                            files_with_birthdate_in_folder = [file for file in folder_app_files if file.path_display in summary_data['files_with_birthdate']]
+                            if files_with_birthdate_in_folder:
+                                if folder not in summary_data.get('logged_folders', set()):
+                                    self.summary_logger.info(f"\nDropbox Account Folder: {folder}")
+                                    for file in files_with_birthdate_in_folder:
+                                        birthdate = summary_data['file_birthdates'].get(file.path_display, '')
+                                        self.summary_logger.info(f"  ✅👶 {file.name} [{birthdate}]")
+                                    summary_data.setdefault('logged_folders', set()).add(folder)
+                            else:
+                                if folder not in summary_data.get('logged_folders', set()):
+                                    self.summary_logger.info(f"\nDropbox Account Folder: {folder}")
+                                    self.summary_logger.info(f"  ❌ No application files found for {folder}")
+                                    summary_data.setdefault('logged_folders', set()).add(folder)
                             summary_data['folders_with_app_files'] += 1
-                            summary_data['app_files_by_folder'][folder] = len(folder_app_files)
+                            summary_data['app_files_by_folder'][folder] = len(files_with_birthdate_in_folder)
                         else:
-                            self.logger.info(f"\nNo matching files found in {folder}")
-                            
+                            if folder not in summary_data.get('logged_folders', set()):
+                                self.summary_logger.info(f"\nDropbox Account Folder: {folder}")
+                                self.summary_logger.info(f"  ❌ No application files found for {folder}")
+                                summary_data.setdefault('logged_folders', set()).add(folder)
+
                     except Exception as e:
                         error_msg = f"Error searching folder {folder}: {str(e)}"
                         self.logger.error(error_msg)
                 
-                # Log summary information
-                self.logger.info("\n=== APP FILES SUMMARY (Dropbox Account Folders Only) ===")
-                self.report_logger.info("\n=== APP FILES SUMMARY (Dropbox Account Folders Only) ===")
-                self.summary_logger.info("\n=== APP FILES SUMMARY (Dropbox Account Folders Only) ===")
-                
-                self.logger.info(f"Total app files found in account folders: {summary_data['total_app_files']}")
-                self.report_logger.info(f"Total app files found in account folders: {summary_data['total_app_files']}")
-                self.summary_logger.info(f"Total app files found in account folders: {summary_data['total_app_files']}")
-                
-                self.logger.info(f"Account folders containing app files: {summary_data['folders_with_app_files']}")
-                self.report_logger.info(f"Account folders containing app files: {summary_data['folders_with_app_files']}")
-                self.summary_logger.info(f"Account folders containing app files: {summary_data['folders_with_app_files']}")
-                
-                self.logger.info(f"Total processed folders: {len(summary_data['processed_folders'])}")
-                self.report_logger.info(f"Total processed folders: {len(summary_data['processed_folders'])}")
-                self.summary_logger.info(f"Total processed folders: {len(summary_data['processed_folders'])}")
-                
-                self.logger.info("\nApp files by Dropbox Account Folder:")
-                self.report_logger.info("\nApp files by Dropbox Account Folder:")
-                self.summary_logger.info("\nApp files by Dropbox Account Folder:")
-                
-                # Show all processed folders, even those without app files
-                for folder in sorted(summary_data['processed_folders']):
-                    self.logger.info(f"\nDropbox Account Folder: {folder}")
-                    self.report_logger.info(f"\nDropbox Account Folder: {folder}")
-                    self.summary_logger.info(f"\nDropbox Account Folder: {folder}")
-                    
-                    if folder in summary_data['app_files_by_folder']:
-                        # Get the files for this folder
-                        folder_path = f"/{dropbox_root_folder}/{folder}"
-                        try:
-                            folder_files = list_dropbox_folder_contents(dropbox_client.dbx, folder_path)
-                            for file in folder_files:
-                                if isinstance(file, dropbox.files.FileMetadata):
-                                    if 'App' in file.name or 'Application' in file.name:
-                                        self.logger.info(f"  - {file.name}")
-                                        self.report_logger.info(f"  - {file.name}")
-                                        self.summary_logger.info(f"  - {file.name}")
-                        except Exception as e:
-                            error_msg = f"Error getting files for folder {folder}: {str(e)}"
-                            self.logger.error(error_msg)
-                    else:
-                        self.logger.info(f"  ❌ No application files found for {folder}")
-                        self.report_logger.info(f"  ❌ No application files found for {folder}")
-                        self.summary_logger.info(f"  ❌ No application files found for {folder}")
-                
+                # Only log the summary section and what follows to summary_logger
+                # Remove or comment out any summary_logger.info calls before the first summary section
+                # (No code to add, just ensure only the summary section is logged)
+
             except Exception as e:
                 error_msg = f"Error searching for app files: {str(e)}"
                 self.logger.error(error_msg)
