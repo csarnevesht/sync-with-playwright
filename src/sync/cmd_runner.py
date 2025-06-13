@@ -358,16 +358,16 @@ def initialize_dropbox_client(args):
         dbx = DropboxClient(token, debug_mode=True)
         dbx.args = args  # Pass args to the client
         
-        # Test connection
+        # Test connection with automatic token refresh
         try:
-            account = dbx.dbx.users_get_current_account()
+            account = dbx._make_request(dbx.dbx.users_get_current_account)
             logger.info(f"Successfully connected to Dropbox as: {account.name.display_name}")
             logger.info(f"Account ID: {account.account_id}")
             logger.info(f"Email: {account.email}")
             return dbx
         except ApiError as e:
             if e.error.is_expired_access_token():
-                logger.error("Dropbox access token has expired")
+                logger.error("Dropbox access token has expired and refresh failed")
                 logger.error("Please generate a new token and update your environment")
             else:
                 logger.error(f"Failed to connect to Dropbox: {str(e)}")
