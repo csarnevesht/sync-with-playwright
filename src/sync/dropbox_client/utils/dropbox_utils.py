@@ -28,6 +28,7 @@ from .date_utils import has_date_prefix, get_folder_creation_date
 from .path_utils import clean_dropbox_folder_name
 from .file_utils import log_renamed_file
 from src.config import DROPBOX_FOLDER, ACCOUNT_INFO_PATTERN, DRIVERS_LICENSE_PATTERN, DROPBOX_HOLIDAY_FOLDER, DROPBOX_SALESFORCE_FOLDER, DROPBOX_HOLIDAY_FILE
+from .auth import DropboxAuth
 
 # Configure logging
 # Get the logger for this module
@@ -69,8 +70,9 @@ def construct_dropbox_path(account_folder: str, root_folder: str) -> Optional[st
 
 class DropboxClient:
     def __init__(self, token: str, debug_mode: bool = False):
-        self.token = token
         self.debug_mode = debug_mode
+        self.auth = DropboxAuth()
+        self.token = token
         self.dbx = dropbox.Dropbox(token)
         
         # Get the root folder from environment
@@ -127,11 +129,13 @@ class DropboxClient:
     def _handle_token_expiration(self):
         """Handle token expiration by refreshing the token."""
         try:
-            new_token = refresh_access_token()
-            self.token = new_token
-            self.dbx = dropbox.Dropbox(new_token)
-            logger.info("Successfully refreshed token and reinitialized client")
-            return True
+            new_token = self.auth.refresh_access_token()
+            if new_token:
+                self.token = new_token
+                self.dbx = dropbox.Dropbox(new_token)
+                logger.info("Successfully refreshed token and reinitialized client")
+                return True
+            return False
         except Exception as e:
             logger.error(f"Failed to refresh token: {str(e)}")
             return False
@@ -150,7 +154,7 @@ class DropboxClient:
         """
         try:
             return func(*args, **kwargs)
-        except ApiError as e:
+        except dropbox.exceptions.ApiError as e:
             if e.error.is_expired_access_token():
                 logger.info("Access token expired, attempting to refresh...")
                 if self._handle_token_expiration():
