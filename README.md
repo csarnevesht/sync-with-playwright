@@ -19,6 +19,39 @@ This project includes a Chrome extension and a Python script to automatically in
    - Pillow
    - PyPDF2
 
+## Dropbox Authentication
+
+To use the Dropbox integration, you need to set up authentication:
+
+1. Create a Dropbox app at https://www.dropbox.com/developers/apps
+   - Choose "Scoped access"
+   - Select "Full Dropbox" access type
+   - Name your app and create it
+
+2. Get your app credentials:
+   - Copy the "App key" and "App secret" from your app's settings
+   - Create a `.env` file in the project root if it doesn't exist
+   - Add these lines to your `.env` file:
+     ```
+     DROPBOX_APP_KEY=your_app_key
+     DROPBOX_APP_SECRET=your_app_secret
+     ```
+
+3. Get your access tokens:
+   ```bash
+   PYTHONPATH=src python -m sync.dropbox_client.get_tokens
+   ```
+   - Follow the prompts to authorize the app
+   - The script will save your tokens to the `.env` file
+
+4. Verify your `.env` file now contains:
+   ```
+   DROPBOX_APP_KEY=your_app_key
+   DROPBOX_APP_SECRET=your_app_secret
+   DROPBOX_TOKEN=your_access_token
+   DROPBOX_REFRESH_TOKEN=your_refresh_token
+   ```
+
 ## Installation
 
 1. Clone this repository:
