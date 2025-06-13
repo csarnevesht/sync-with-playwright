@@ -492,6 +492,9 @@ class AccountManager(BasePage):
                                 if not name:
                                     continue
                                 
+                                # Skip results that have 'Show Actions'
+                                if 'Show Actions' in name:
+                                    continue
                                     
                                 # Clean and add the name
                                 cleaned_name = ' '.join(name.split())
