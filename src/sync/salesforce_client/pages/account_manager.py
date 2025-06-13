@@ -2151,9 +2151,9 @@ class AccountManager(BasePage):
         try:
             self.logger.info(f"***search_account: {folder_name}") 
             # Extract name parts
-            # name_parts = extract_name_parts(folder_name)
             last_name = dropbox_account_name_parts.get('last_name', '')
-            # full_name = dropbox_account_name_parts.get('full_name', '')
+            full_name = dropbox_account_name_parts.get('full_name', '')
+            first_name = dropbox_account_name_parts.get('first_name', '')
             
             # Add normalized and swapped names to result
             result['normalized_names'] = dropbox_account_name_parts.get('normalized_names', [])
@@ -2161,13 +2161,43 @@ class AccountManager(BasePage):
             result['expected_salesforce_matches'] = dropbox_account_name_parts.get('expected_salesforce_matches', [])
             
             self.logger.info(f"\nExtracted name parts for '{folder_name}':")
-            self.logger.info(f"    First name: {dropbox_account_name_parts.get('first_name', '')}")
+            self.logger.info(f"    First name: {first_name}")
             self.logger.info(f"    Last name: {last_name}")
+            self.logger.info(f"    Full name: {full_name}")
             self.logger.info(f"    Normalized names: {result['normalized_names']}")
             self.logger.info(f"    Swapped names: {result['swapped_names']}")
             self.logger.info(f"    Expected matches: {result['expected_salesforce_matches']}")
-            
-            # Search by last name first
+
+            # Check if the full name consists of a simple first name and last name
+            if first_name and last_name and not dropbox_account_name_parts.get('middle_name') and not dropbox_account_name_parts.get('additional_info'):
+                self.logger.info(f"\nFull name consists of simple first name and last name, searching by full name: {full_name}")
+                search_result = self.search_by_full_name(full_name)
+                self.logger.info(f"Search results for full name '{full_name}':")
+                self.logger.info(f"    Found {len(search_result)} matches")
+                for match in search_result:
+                    self.logger.info(f"    - {match}")
+                
+                # Store the search attempt
+                search_attempt = {
+                    'type': 'Full Name',
+                    'query': full_name,
+                    'view': view_name
+                }
+                result['search_attempts'].append(search_attempt)
+
+                if search_result:
+                    result['status'] = 'match'
+                    result['matches'] = search_result
+                    result['view'] = view_name
+                    match_info = self.get_match_info(result)
+                    result['match_info'] = match_info
+                    result['timing'] = {
+                        'total': time.time() - start_time,
+                        'search': 0
+                    }
+                    return result
+
+            # If no match found with full name search or if full name is not simple, try last name search
             self.logger.info(f"\nSearching in view: {view_name}")
             search_result = self.search_by_last_name(last_name, view_name=view_name)
             self.logger.info(f"Type of search_result: {type(search_result)}")
@@ -2181,7 +2211,6 @@ class AccountManager(BasePage):
             search_attempt = {
                 'type': 'Last Name',
                 'query': last_name,
-                'matching_accounts': search_result,
                 'view': view_name
             }
             result['search_attempts'].append(search_attempt)
@@ -2191,10 +2220,12 @@ class AccountManager(BasePage):
             # Update matches if found
             if search_result:
                 # Check for exact matches first
+                self.logger.info(f"Check for exact matches first")
                 matches = []
                 for match in search_result:
                     match_lower = match.lower()
                     # Check normalized names
+                    self.logger.info(f"Check normalized names")
                     for normalized in result['normalized_names']:
                         normalized_lower = normalized.lower()
                         if match_lower in normalized_lower or normalized_lower in match_lower:
@@ -2203,6 +2234,7 @@ class AccountManager(BasePage):
                                 self.logger.info(f"Found exact match: {match} (matches normalized name: {normalized})")
                     
                     # Check swapped names
+                    self.logger.info(f"Check swapped names")
                     for swapped in result['swapped_names']:
                         swapped_lower = swapped.lower()
                         if match_lower in swapped_lower or swapped_lower in match_lower:
@@ -2210,7 +2242,7 @@ class AccountManager(BasePage):
                                 matches.append(match)
                                 self.logger.info(f"Found exact match: {match} (matches swapped name: {swapped})")
 
-                    logging.info(f"***result['expected_salesforce_matches']: {result['expected_salesforce_matches']}")
+                    # Check expected matches
                     expected_salesforce_matches_exists = result['expected_salesforce_matches'] != []
                     expected_match_found = False
                     for expected_match in result['expected_salesforce_matches']:
@@ -2254,7 +2286,6 @@ class AccountManager(BasePage):
                 }
                 
                 self.logger.info(f"  Timing for search_account for folder: {folder_name}: {result['timing']['total']:.2f} seconds")
-                # self.logger.info(f"Returning from search_account: {result}")
                 return result
             else:
                 result['folder_name'] = folder_name
@@ -2309,7 +2340,7 @@ class AccountManager(BasePage):
             self.log_helper.dedent()
             return []
 
-    def deprecated_search_by_full_name(self, full_name: str) -> List[str]:
+    def search_by_full_name(self, full_name: str) -> List[str]:
         self.log_helper.indent()
         try:
             self.log_helper.log(self.logger, 'info', f"INFO: search_by_full_name ***searching for full name: {full_name}")
