@@ -29,6 +29,7 @@ class CommandRunner:
         self.args = args
         self.logger = logging.getLogger(__name__)
         self.report_logger = logging.getLogger('report')
+        self.summary_logger = logging.getLogger('summary')
         
         # Initialize context and data storage
         self._context: Dict[str, Any] = {}
@@ -598,39 +599,45 @@ class CommandRunner:
             # Get Dropbox account info
             account_info = dropbox_client.dbx.users_get_current_account()
             
-            # Log application information
+            # Log application information to main logger only
             self.logger.info("Dropbox Application Information:")
-            self.report_logger.info("\nDropbox Application Information:")
-            
-            # Dropbox Information
             self.logger.info("\nDropbox Information:")
-            self.report_logger.info("\nDropbox Information:")
             self.logger.info(f"Account ID: {account_info.account_id}")
-            self.report_logger.info(f"Account ID: {account_info.account_id}")
             self.logger.info(f"Email: {account_info.email}")
-            self.report_logger.info(f"Email: {account_info.email}")
             self.logger.info(f"Name: {account_info.name.display_name}")
-            self.report_logger.info(f"Name: {account_info.name.display_name}")
             
-            # Folder Configuration
+            # Log folder configuration to main logger only
             self.logger.info("\nFolder Configuration:")
-            self.report_logger.info("\nFolder Configuration:")
             self.logger.info(f"Root Folder: {dropbox_root_folder}")
-            self.report_logger.info(f"Root Folder: {dropbox_root_folder}")
             self.logger.info(f"Salesforce Folder: {dropbox_salesforce_folder}")
-            self.report_logger.info(f"Salesforce Folder: {dropbox_salesforce_folder}")
             
             # Get account folders
-            # account_folders = dropbox_client.get_dropbox_account_names()
-            # self.logger.info("\nAvailable Account Folders:")
-            # self.report_logger.info("\nAvailable Account Folders:")
-            # for folder in account_folders:
-            #     self.logger.info(f"  - {folder}")
-            #     self.report_logger.info(f"  - {folder}")
+            account_folders = []
+            if self.args.dropbox_account_name:
+                # If a specific account is specified, use only that
+                account_folders = [self.args.dropbox_account_name]
+            elif self.args.dropbox_accounts_file:
+                # If accounts file is specified, read from it
+                from sync.dropbox_client.utils.file_utils import read_account_folders
+                account_folders = read_account_folders(self.args.dropbox_accounts_file)
+            else:
+                # Otherwise, get all account folders
+                account_folders = dropbox_client.get_dropbox_account_names()
             
-            # Search for files matching 'App' or 'Application'
+            self.logger.info("\nAvailable Account Folders:")
+            for folder in account_folders:
+                self.logger.info(f"  - {folder}")
+            
+            # Initialize summary data
+            summary_data = {
+                'total_app_files': 0,
+                'folders_with_app_files': 0,
+                'app_files_by_folder': {},
+                'processed_folders': set()  # Track all processed folders
+            }
+            
+            # Search for files matching 'App' or 'Application' in root folder
             self.logger.info("\nSearching for files matching 'App' or 'Application':")
-            self.report_logger.info("\nSearching for files matching 'App' or 'Application':")
             
             try:
                 # List all files in the root folder
@@ -644,25 +651,93 @@ class CommandRunner:
                             app_files.append(file)
                 
                 if app_files:
-                    self.logger.info(f"Found {len(app_files)} matching files:")
-                    self.report_logger.info(f"Found {len(app_files)} matching files:")
-                    for file in app_files:
-                        self.logger.info(f"  - {file.name} (Path: {file.path_display})")
-                        self.report_logger.info(f"  - {file.name} (Path: {file.path_display})")
+                    self.logger.info(f"Found {len(app_files)} matching files in root folder (excluded from summary)")
                 else:
-                    self.logger.info("No files found matching 'App' or 'Application'")
-                    self.report_logger.info("No files found matching 'App' or 'Application'")
+                    self.logger.info("No files found matching 'App' or 'Application' in root folder")
+                
+                # Search in each account folder
+                for folder in account_folders:
+                    folder_path = f"/{dropbox_root_folder}/{folder}"
+                    try:
+                        folder_files = list_dropbox_folder_contents(dropbox_client.dbx, folder_path)
+                        folder_app_files = []
+                        
+                        # Add folder to processed folders set
+                        summary_data['processed_folders'].add(folder)
+                        
+                        for file in folder_files:
+                            if isinstance(file, dropbox.files.FileMetadata):
+                                if 'App' in file.name or 'Application' in file.name:
+                                    folder_app_files.append(file)
+                                    summary_data['total_app_files'] += 1
+                        
+                        if folder_app_files:
+                            self.logger.info(f"\nFound {len(folder_app_files)} matching files in {folder}:")
+                            for file in folder_app_files:
+                                self.logger.info(f"  - {file.name} (Path: {file.path_display})")
+                            
+                            summary_data['folders_with_app_files'] += 1
+                            summary_data['app_files_by_folder'][folder] = len(folder_app_files)
+                        else:
+                            self.logger.info(f"\nNo matching files found in {folder}")
+                            
+                    except Exception as e:
+                        error_msg = f"Error searching folder {folder}: {str(e)}"
+                        self.logger.error(error_msg)
+                
+                # Log summary information
+                self.logger.info("\n=== APP FILES SUMMARY (Dropbox Account Folders Only) ===")
+                self.report_logger.info("\n=== APP FILES SUMMARY (Dropbox Account Folders Only) ===")
+                self.summary_logger.info("\n=== APP FILES SUMMARY (Dropbox Account Folders Only) ===")
+                
+                self.logger.info(f"Total app files found in account folders: {summary_data['total_app_files']}")
+                self.report_logger.info(f"Total app files found in account folders: {summary_data['total_app_files']}")
+                self.summary_logger.info(f"Total app files found in account folders: {summary_data['total_app_files']}")
+                
+                self.logger.info(f"Account folders containing app files: {summary_data['folders_with_app_files']}")
+                self.report_logger.info(f"Account folders containing app files: {summary_data['folders_with_app_files']}")
+                self.summary_logger.info(f"Account folders containing app files: {summary_data['folders_with_app_files']}")
+                
+                self.logger.info(f"Total processed folders: {len(summary_data['processed_folders'])}")
+                self.report_logger.info(f"Total processed folders: {len(summary_data['processed_folders'])}")
+                self.summary_logger.info(f"Total processed folders: {len(summary_data['processed_folders'])}")
+                
+                self.logger.info("\nApp files by Dropbox Account Folder:")
+                self.report_logger.info("\nApp files by Dropbox Account Folder:")
+                self.summary_logger.info("\nApp files by Dropbox Account Folder:")
+                
+                # Show all processed folders, even those without app files
+                for folder in sorted(summary_data['processed_folders']):
+                    self.logger.info(f"\nDropbox Account Folder: {folder}")
+                    self.report_logger.info(f"\nDropbox Account Folder: {folder}")
+                    self.summary_logger.info(f"\nDropbox Account Folder: {folder}")
                     
+                    if folder in summary_data['app_files_by_folder']:
+                        # Get the files for this folder
+                        folder_path = f"/{dropbox_root_folder}/{folder}"
+                        try:
+                            folder_files = list_dropbox_folder_contents(dropbox_client.dbx, folder_path)
+                            for file in folder_files:
+                                if isinstance(file, dropbox.files.FileMetadata):
+                                    if 'App' in file.name or 'Application' in file.name:
+                                        self.logger.info(f"  - {file.name}")
+                                        self.report_logger.info(f"  - {file.name}")
+                                        self.summary_logger.info(f"  - {file.name}")
+                        except Exception as e:
+                            error_msg = f"Error getting files for folder {folder}: {str(e)}"
+                            self.logger.error(error_msg)
+                    else:
+                        self.logger.info(f"  ❌ No application files found for {folder}")
+                        self.report_logger.info(f"  ❌ No application files found for {folder}")
+                        self.summary_logger.info(f"  ❌ No application files found for {folder}")
+                
             except Exception as e:
                 error_msg = f"Error searching for app files: {str(e)}"
                 self.logger.error(error_msg)
-                self.report_logger.error(f"\n{error_msg}")
             
             self.logger.info("\nSuccessfully completed get-dropbox-account-app-info operation")
-            self.report_logger.info("\nSuccessfully completed get-dropbox-account-app-info operation")
             
         except Exception as e:
             error_msg = f"Error in get-dropbox-account-app-info operation: {str(e)}"
             self.logger.error(error_msg)
-            self.report_logger.error(f"\n{error_msg}")
             raise 
