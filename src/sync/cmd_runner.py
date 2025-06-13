@@ -704,6 +704,7 @@ def run_command(args):
                             salesforce_account_name = salesforce_matches[0] if salesforce_matches else '--'
                             salesforce_match = salesforce_account_search_result['match_info']['match_status'] if 'match_info' in salesforce_account_search_result else 'No match found'
                             salesforce_view = salesforce_account_search_result.get('view', '--')
+                            logger.info(f"after salesforce_search_account salesforce_matches: {salesforce_matches}")
 
                             # Process salesforce account info and relationships if flag is set
                             if args.salesforce_account_info and salesforce_matches:
