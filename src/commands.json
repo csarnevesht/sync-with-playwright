@@ -60,6 +60,10 @@
     "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --commands='prefix-dropbox-account-files,delete-salesforce-account-files,upload-salesforce-account-files' --dropbox-account-name='Montesino, Maria'"
   },
   {
+    "description": "get Dropbox and Salesforce account information for Dennis Matalon",
+    "command": "python -m sync.cmd_runner --salesforce-accounts --dropbox-account-info --dropbox-accounts --salesforce-account-info --dropbox-account-name='Matalon, Dennis'"
+  },
+  {
     "description": "ping dropbox and salesforce",
     "command": "python -m sync.cmd_ping"
   },
