@@ -918,11 +918,11 @@ def run_command(args):
                                             raise Exception(f"Could not navigate to Salesforce account: {account_to_check}")
 
                         if command_runner:  
-                            command_runner.set_data('dropbox_account_folder_name', dropbox_account_folder_name)
-                            command_runner.set_data('dropbox_account_file_names', dropbox_account_file_names)
-                            command_runner.set_data('salesforce_account_file_names', salesforce_account_file_names)
-                            command_runner.set_data('salesforce_matches', salesforce_matches)
-                            command_runner.set_data('result', salesforce_account_search_result)
+                            command_runner.set_data('dropbox_account_folder_name', dropbox_account_folder_name if args.dropbox_account_files else ''    )
+                            command_runner.set_data('dropbox_account_file_names', dropbox_account_file_names if args.dropbox_account_files else [])
+                            command_runner.set_data('salesforce_account_file_names', salesforce_account_file_names if args.salesforce_account_files else [])
+                            command_runner.set_data('salesforce_matches', salesforce_matches if args.salesforce_accounts else [])
+                            command_runner.set_data('result', salesforce_account_search_result if args.salesforce_accounts else {})
                             command_runner.execute_commands()
                         
                         # Compare files if both Dropbox and Salesforce files are available
