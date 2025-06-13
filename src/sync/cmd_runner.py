@@ -99,6 +99,7 @@ import argparse
 import time
 import re
 import pandas as pd
+import shutil
 
 from sync import salesforce_client
 from sync.utils.name_utils import extract_name_parts
@@ -173,12 +174,47 @@ def format_args_for_logging(args):
     
     return " ".join(formatted_args)
 
+def clean_old_log_folders(max_folders=2):
+    """Keep only the most recent log folders.
+    
+    Args:
+        max_folders: Maximum number of log folders to keep (default: 2)
+    """
+    log_dir = Path('logs')
+    if not log_dir.exists():
+        return
+        
+    # Get all log folders and sort by creation time (newest first)
+    log_folders = []
+    for folder in log_dir.iterdir():
+        if folder.is_dir():
+            try:
+                # Try to parse the folder name as a timestamp
+                datetime.strptime(folder.name, '%Y-%m-%d_%H-%M-%S')
+                log_folders.append(folder)
+            except ValueError:
+                # Skip folders that don't match the timestamp format
+                continue
+    
+    # Sort folders by name (which is timestamp) in descending order
+    log_folders.sort(reverse=True)
+    
+    # Remove old folders, keeping max_folders - 1 since we'll create a new one
+    for folder in log_folders[max_folders - 1:]:
+        try:
+            shutil.rmtree(folder)
+        except Exception as e:
+            print(f"Error removing old log folder {folder}: {e}")
+
 def setup_logging(args):
     """Configure logging to write to both file and console with colored output.
     
     Args:
         args: The parsed command line arguments
     """
+    # Clean up old log folders before creating a new one
+    clean_old_log_folders()
+    
     # Create logs directory with date and time-based subfolder
     timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     log_dir = Path('logs') / timestamp
