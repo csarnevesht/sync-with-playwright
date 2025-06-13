@@ -204,7 +204,8 @@ class CommandRunner:
             'upload-salesforce-account-files': self._upload_salesforce_account_files,
             'download-salesforce-account-file': self._download_salesforce_account_file,
             'delete-salesforce-account-files': self._delete_salesforce_account_files,
-            'force-delete-salesforce-account-files': self._force_delete_salesforce_account_files
+            'force-delete-salesforce-account-files': self._force_delete_salesforce_account_files,
+            'get-app-info': self._get_app_info
         }
         
         if command not in command_map:
@@ -581,4 +582,57 @@ class CommandRunner:
         """Force delete all files from Salesforce account without confirmation prompt."""
         self.logger.info("Starting force-delete-salesforce-account-files operation")
         self.report_logger.info("\n=== FORCE DELETING SALESFORCE ACCOUNT FILES ===")
-        self._delete_salesforce_account_files(force=True) 
+        self._delete_salesforce_account_files(force=True)
+
+    def _get_app_info(self) -> None:
+        """Get information about the application and its configuration."""
+        self.logger.info("Starting get-app-info operation")
+        self.report_logger.info("\n=== GETTING APPLICATION INFORMATION ===")
+        
+        try:
+            # Get required context
+            dropbox_client = self.get_context('dropbox_client')
+            dropbox_root_folder = self.get_context('dropbox_root_folder')
+            dropbox_salesforce_folder = dropbox_client.get_dropbox_salesforce_folder()
+            
+            # Get Dropbox account info
+            account_info = dropbox_client.dbx.users_get_current_account()
+            
+            # Log application information
+            self.logger.info("Application Information:")
+            self.report_logger.info("\nApplication Information:")
+            
+            # Dropbox Information
+            self.logger.info("\nDropbox Information:")
+            self.report_logger.info("\nDropbox Information:")
+            self.logger.info(f"Account ID: {account_info.account_id}")
+            self.report_logger.info(f"Account ID: {account_info.account_id}")
+            self.logger.info(f"Email: {account_info.email}")
+            self.report_logger.info(f"Email: {account_info.email}")
+            self.logger.info(f"Name: {account_info.name.display_name}")
+            self.report_logger.info(f"Name: {account_info.name.display_name}")
+            
+            # Folder Configuration
+            self.logger.info("\nFolder Configuration:")
+            self.report_logger.info("\nFolder Configuration:")
+            self.logger.info(f"Root Folder: {dropbox_root_folder}")
+            self.report_logger.info(f"Root Folder: {dropbox_root_folder}")
+            self.logger.info(f"Salesforce Folder: {dropbox_salesforce_folder}")
+            self.report_logger.info(f"Salesforce Folder: {dropbox_salesforce_folder}")
+            
+            # Get account folders
+            account_folders = dropbox_client.get_dropbox_account_names()
+            self.logger.info("\nAvailable Account Folders:")
+            self.report_logger.info("\nAvailable Account Folders:")
+            for folder in account_folders:
+                self.logger.info(f"  - {folder}")
+                self.report_logger.info(f"  - {folder}")
+            
+            self.logger.info("\nSuccessfully completed get-app-info operation")
+            self.report_logger.info("\nSuccessfully completed get-app-info operation")
+            
+        except Exception as e:
+            error_msg = f"Error in get-app-info operation: {str(e)}"
+            self.logger.error(error_msg)
+            self.report_logger.error(f"\n{error_msg}")
+            raise 
