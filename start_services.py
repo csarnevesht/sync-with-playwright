@@ -58,11 +58,9 @@ def stop_existing_containers():
 def start_supabase():
     """Start the Supabase services."""
     print("Starting Supabase services...")
+
     run_command([
-        "docker", "compose", 
-        "-p", "sync-with-playwright", 
-        "-f", "docker-compose.yml", 
-        "up", "-d"
+        "docker", "compose", "-p", "sync-with-playwright", "-f", "supabase/docker/docker-compose.yml", "up", "-d"
     ])
     # Wait for networks to be created
     time.sleep(5)
@@ -73,7 +71,7 @@ def check_supabase_health():
     try:
         # Check if Kong is responding
         kong_check = subprocess.run(
-            ["curl", "-f", "http://localhost:18000/rest/v1/"],
+            ["curl", "-f", "http://localhost:8000/rest/v1/"],
             capture_output=True,
             timeout=10
         )
