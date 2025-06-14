@@ -44,11 +44,14 @@ This project includes a Chrome extension and a Python script to automatically in
    ```
 
 4. Configure environment variables:
-   Add these to your `.env` file:
+   Create a `.env` file in the project root with these required variables:
    ```
-   SUPABASE_URL=http://localhost:54321
-   SUPABASE_KEY=your-anon-key
+   # Supabase Configuration
+   SUPABASE_URL=http://localhost:8000
+   SUPABASE_SERVICE_KEY=your-service-role-key
    ```
+   
+   The `SUPABASE_SERVICE_KEY` can be found in your Supabase project settings under Project Settings > API > Project API keys > service_role key.
 
 5. The database schema will be automatically created when you first run the application.
 
