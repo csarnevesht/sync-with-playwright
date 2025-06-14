@@ -680,7 +680,7 @@ class CommandRunner:
                                     birthdate_found = True
                                     break
                             if not birthdate_found:
-                                self.logger.info(f"\n❌👶 No birthdate found in {file.name}")
+                                self.logger.info(f"\n❌🎂 No birthdate found in {file.name}")
                             os.unlink(temp_file.name)
                     except Exception as e:
                         self.logger.error(f"Error processing file {file.name}: {str(e)}")
@@ -696,7 +696,7 @@ class CommandRunner:
             if files_with_birthdate_in_folder:
                 for file in files_with_birthdate_in_folder:
                     birthdate = summary_data['file_birthdates'].get(file.path_display, '')
-                    self.summary_logger.info(f"  ✅👶 {file.name} [{birthdate}]")
+                    self.summary_logger.info(f"  ✅🎂 {file.name} [{birthdate}]")
             else:
                 self.summary_logger.info(f"  ❌ No application files found for {folder}")
 
