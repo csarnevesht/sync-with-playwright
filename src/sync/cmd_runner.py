@@ -242,7 +242,7 @@ def setup_logging(args):
     
     # Create file handler for summary log
     summary_handler = logging.FileHandler(summary_file)
-    summary_handler.setFormatter(report_formatter)
+    # summary_handler.setFormatter(report_formatter)
     
     # Create file handler for red log
     red_handler = logging.FileHandler(red_file)
@@ -672,14 +672,14 @@ def run_command(args):
                 max_attempts = 3
                 current_attempt = 1
                 success = False
+
                 
                 while current_attempt <= max_attempts and not success:
                     try:
                         logger.info(f"Attempt {current_attempt} of {max_attempts} for folder: {dropbox_account_folder_name}")
                         report_logger.info(f"Attempt {current_attempt} of {max_attempts} for folder: {dropbox_account_folder_name}")
                         
-                        if command_runner:
-                            command_runner.set_data('dropbox_account_name', dropbox_account_folder_name)
+                        logger.info(f"CAROLINA dropbox_account_name, {dropbox_account_folder_name}")
                         
                         logger.info('step: Extract name parts')
                         # Always extract name parts
@@ -703,15 +703,6 @@ def run_command(args):
                             dropbox_account_search_result = dropbox_client.dropbox_search_account(dropbox_account_folder_name, dropbox_account_name_parts, excel_file)
                             logger.info(f'dropbox_account_search_result: {dropbox_account_search_result}')
                             logger.info(f"Successfully retrieved info for Dropbox account: {dropbox_account_folder_name}")
-
-                            # # Add to summary results
-                            # summary_results.append({
-                            #     'dropbox_name': dropbox_account_folder_name,
-                            #     'dropbox_account_search_result': dropbox_account_search_result,
-                            #     'dropbox_account_file_names': dropbox_account_file_names,
-                            #     'salesforce_account_file_names': salesforce_account_file_names,
-                            #     'file_comparison': file_comparison
-                            # })
 
                             # Update FlatFile with account info if found
                             if dropbox_account_search_result.get('account_data'):
@@ -744,7 +735,6 @@ def run_command(args):
 
                             if command_runner:
                                 command_runner.set_data('dropbox_account_file_names', dropbox_account_file_names)
-                                command_runner.set_data('dropbox_account_folder_name', dropbox_account_folder_name)
                         
                         if args.salesforce_accounts and account_manager:
                             logger.info('step: Salesforce Search Account')
@@ -870,9 +860,7 @@ def run_command(args):
                                     'dropbox_account_file_names': dropbox_account_file_names,
                                     'salesforce_account_file_names': salesforce_account_file_names,
                                     'file_comparison': file_comparison
-                                })
-                                logger.info(f"CAROLINA summary_results: {summary_results}")
-                                
+                                })                                
 
                                 if args.salesforce_accounts or args.dropbox_account_info:
 
@@ -954,7 +942,7 @@ def run_command(args):
                                             raise Exception(f"Could not navigate to Salesforce account: {account_to_check}")
 
                         if command_runner:  
-                            command_runner.set_data('dropbox_account_folder_name', dropbox_account_folder_name if args.dropbox_account_files else ''    )
+                            command_runner.set_data('dropbox_account_folder_name', dropbox_account_folder_name)
                             command_runner.set_data('dropbox_account_file_names', dropbox_account_file_names if args.dropbox_account_files else [])
                             command_runner.set_data('salesforce_account_file_names', salesforce_account_file_names if args.salesforce_account_files else [])
                             command_runner.set_data('salesforce_matches', salesforce_matches if args.salesforce_accounts else [])
