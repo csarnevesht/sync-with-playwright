@@ -88,7 +88,7 @@ class CommandRunner:
             value: The data value
         """
         self._data[key] = value
-        self.logger.debug(f"Set data '{key}'")
+        self.logger.debug(f"Set data {key}: {value}")
     
     def get_data(self, key: str) -> Any:
         """Get a data value.
@@ -597,198 +597,109 @@ class CommandRunner:
             dropbox_client = self.get_context('dropbox_client')
             dropbox_root_folder = self.get_context('dropbox_root_folder')
             dropbox_salesforce_folder = dropbox_client.get_dropbox_salesforce_folder()
-            
-            # Get Dropbox account info
-            account_info = dropbox_client.dbx.users_get_current_account()
-            
-            # Log application information to main logger only
-            self.logger.info("Dropbox Application Information:")
-            self.logger.info("\nDropbox Information:")
-            self.logger.info(f"Account ID: {account_info.account_id}")
-            self.logger.info(f"Email: {account_info.email}")
-            self.logger.info(f"Name: {account_info.name.display_name}")
-            
-            # Log folder configuration to main logger only
-            self.logger.info("\nFolder Configuration:")
-            self.logger.info(f"Root Folder: {dropbox_root_folder}")
-            self.logger.info(f"Salesforce Folder: {dropbox_salesforce_folder}")
-            
-            # Get account folders
-            account_folders = []
-            if self.args.dropbox_account_name:
-                # If a specific account is specified, use only that
-                account_folders = [self.args.dropbox_account_name]
-            elif self.args.dropbox_accounts_file:
-                # If accounts file is specified, read from it
-                from sync.dropbox_client.utils.file_utils import read_account_folders
-                account_folders = read_account_folders(self.args.dropbox_accounts_file)
-            else:
-                # Otherwise, get all account folders
-                account_folders = dropbox_client.get_dropbox_account_names()
-            
-            self.logger.info("\nAvailable Account Folders:")
-            for folder in account_folders:
-                self.logger.info(f"  - {folder}")
-            
-            # Initialize summary data
-            summary_data = {
-                'total_app_files': 0,
-                'folders_with_app_files': 0,
-                'app_files_by_folder': {},
-                'processed_folders': set(),  # Track all processed folders
-                'birthdate_found': False,  # Track if birthdate was found
-                'files_with_birthdate': set(),  # Track files containing birthdate
-                'file_birthdates': {}  # Track birthdate per file
-            }
-            
-            # Search for files matching 'App' or 'Application' in root folder
-            self.logger.info("\nSearching for files matching 'App' or 'Application':")
-            
+            dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
+            logging.info(f"CAROLINA dropbox_account_folder_name: {dropbox_account_folder_name}")
+
+            # Use dropbox_account_folder_name directly
+            folder = dropbox_account_folder_name
+            folder_path = f"/{dropbox_root_folder}/{folder}"
             try:
-                # List all files in the root folder
-                files = list_dropbox_folder_contents(dropbox_client.dbx, f"/{dropbox_root_folder}")
-                
-                # Filter files matching 'App' or 'Application'
-                app_files = []
-                for file in files:
+                folder_files = list_dropbox_folder_contents(dropbox_client.dbx, folder_path)
+                folder_app_files = []
+                summary_data = {
+                    'total_app_files': 0,
+                    'processed_folders': set(),
+                    'birthdate_found': False,
+                    'files_with_birthdate': set(),
+                    'file_birthdates': {},
+                    'all_folder_app_files': {}
+                }
+                summary_data['processed_folders'].add(folder)
+                for file in folder_files:
                     if isinstance(file, dropbox.files.FileMetadata):
                         if 'App' in file.name or 'Application' in file.name:
-                            app_files.append(file)
-                
-                if app_files:
-                    self.logger.info(f"Found {len(app_files)} matching files in root folder (excluded from summary)")
-                else:
-                    self.logger.info("No files found matching 'App' or 'Application' in root folder")
-                
-                # Search in each account folder
-                for folder in account_folders:
-                    folder_path = f"/{dropbox_root_folder}/{folder}"
+                            folder_app_files.append(file)
+                            summary_data['total_app_files'] += 1
+                summary_data['all_folder_app_files'][folder] = folder_app_files
+                for file in folder_app_files:
                     try:
-                        folder_files = list_dropbox_folder_contents(dropbox_client.dbx, folder_path)
-                        folder_app_files = []
-                        
-                        # Add folder to processed folders set
-                        summary_data['processed_folders'].add(folder)
-                        
-                        for file in folder_files:
-                            if isinstance(file, dropbox.files.FileMetadata):
-                                if 'App' in file.name or 'Application' in file.name:
-                                    folder_app_files.append(file)
-                                    summary_data['total_app_files'] += 1
-                                    
-                                    # Download and check file for birthdate
-                                    try:
-                                        # Create a temporary file
-                                        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-                                            # Download the file
-                                            dropbox_client.dbx.files_download_to_file(temp_file.name, file.path_display)
-                                            
-                                            # Read the file content
-                                            content = None
-                                            if file.name.lower().endswith('.pdf'):
-                                                try:
-                                                    import PyPDF2
-                                                    with open(temp_file.name, 'rb') as pdf_file:
-                                                        reader = PyPDF2.PdfReader(pdf_file)
-                                                        content = ''
-                                                        for page in reader.pages:
-                                                            page_text = page.extract_text()
-                                                            if page_text:
-                                                                content += page_text + '\n'
-                                                    self.logger.info(f"[DEBUG] Extracted PDF text from {file.name}:\n{content}")
-                                                except Exception as pdf_exc:
-                                                    self.logger.error(f"Error extracting text from PDF {file.name}: {pdf_exc}")
-                                                    content = ''
-                                            else:
-                                                with open(temp_file.name, 'r', encoding='utf-8', errors='ignore') as f:
-                                                    content = f.read()
-                                                    self.logger.info(f"[DEBUG] Extracted text from {file.name}:\n{content}")
-                                            # Look for birthdate patterns
-                                            birthdate_patterns = [
-                                                r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
-                                                r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
-                                                r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}\.[0-9]{1,2}\.[0-9]{2,4})',
-                                                r'birthdate[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
-                                                r'birthdate[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
-                                                r'birthdate[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
-                                                r'birthdate[\s\(\)\/\:\-]*([0-9]{2}\.[0-9]{2}\.[0-9]{4})',
-                                                r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
-                                                r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
-                                                r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}\.[0-9]{1,2}\.[0-9]{2,4})',
-                                                r'date of birth[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
-                                                r'date of birth[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
-                                                r'date of birth[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
-                                                r'date of birth[\s\(\)\/\:\-]*([0-9]{2}\.[0-9]{2}\.[0-9]{4})',
-                                                r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
-                                                r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
-                                                r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}\.[0-9]{1,2}\.[0-9]{2,4})',
-                                                r'DOB[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
-                                                r'DOB[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
-                                                r'DOB[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
-                                                r'DOB[\s\(\)\/\:\-]*([0-9]{2}\.[0-9]{2}\.[0-9]{4})',
-                                                # Fallback: any MM/DD/YYYY
-                                                r'([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})'
-                                            ]
-                                            
-                                            birthdate_found = False
-                                            for pattern in birthdate_patterns:
-                                                match = re.search(pattern, content, re.IGNORECASE)
-                                                if match:
-                                                    birthdate = match.group(1)
-                                                    self.logger.info(f"\nFound birthdate in {file.name}: {birthdate}")
-                                                    self.report_logger.info(f"\nFound birthdate in {file.name}: {birthdate}")
-                                                    summary_data['birthdate_found'] = True
-                                                    summary_data['files_with_birthdate'].add(file.path_display)
-                                                    summary_data['file_birthdates'][file.path_display] = birthdate
-                                                    birthdate_found = True
-                                                    break
-                                            
-                                            if not birthdate_found:
-                                                self.logger.info(f"\n❌👶 No birthdate found in {file.name}")
-                                                self.report_logger.info(f"\n❌👶 No birthdate found in {file.name}")
-                                        
-                                        # Clean up the temporary file
-                                        os.unlink(temp_file.name)
-                                        
-                                    except Exception as e:
-                                        self.logger.error(f"Error processing file {file.name}: {str(e)}")
-                                        continue
-                        
-                        # Only log each Dropbox Account Folder once in the summary
-                        if folder_app_files:
-                            files_with_birthdate_in_folder = [file for file in folder_app_files if file.path_display in summary_data['files_with_birthdate']]
-                            if files_with_birthdate_in_folder:
-                                if folder not in summary_data.get('logged_folders', set()):
-                                    self.summary_logger.info(f"\nDropbox Account Folder: {folder}")
-                                    for file in files_with_birthdate_in_folder:
-                                        birthdate = summary_data['file_birthdates'].get(file.path_display, '')
-                                        self.summary_logger.info(f"  ✅👶 {file.name} [{birthdate}]")
-                                    summary_data.setdefault('logged_folders', set()).add(folder)
+                        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                            dropbox_client.dbx.files_download_to_file(temp_file.name, file.path_display)
+                            content = None
+                            if file.name.lower().endswith('.pdf'):
+                                try:
+                                    import PyPDF2
+                                    with open(temp_file.name, 'rb') as pdf_file:
+                                        reader = PyPDF2.PdfReader(pdf_file)
+                                        content = ''
+                                        for page in reader.pages:
+                                            page_text = page.extract_text()
+                                            if page_text:
+                                                content += page_text + '\n'
+                                    self.logger.info(f"[DEBUG] Extracted PDF text from {file.name}:\n{content}")
+                                except Exception as pdf_exc:
+                                    self.logger.error(f"Error extracting text from PDF {file.name}: {pdf_exc}")
+                                    content = ''
                             else:
-                                if folder not in summary_data.get('logged_folders', set()):
-                                    self.summary_logger.info(f"\nDropbox Account Folder: {folder}")
-                                    self.summary_logger.info(f"  ❌ No application files found for {folder}")
-                                    summary_data.setdefault('logged_folders', set()).add(folder)
-                            summary_data['folders_with_app_files'] += 1
-                            summary_data['app_files_by_folder'][folder] = len(files_with_birthdate_in_folder)
-                        else:
-                            if folder not in summary_data.get('logged_folders', set()):
-                                self.summary_logger.info(f"\nDropbox Account Folder: {folder}")
-                                self.summary_logger.info(f"  ❌ No application files found for {folder}")
-                                summary_data.setdefault('logged_folders', set()).add(folder)
-
+                                with open(temp_file.name, 'r', encoding='utf-8', errors='ignore') as f:
+                                    content = f.read()
+                                    self.logger.info(f"[DEBUG] Extracted text from {file.name}:\n{content}")
+                            birthdate_patterns = [
+                                r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
+                                r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
+                                r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{2,4})',
+                                r'birthdate[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
+                                r'birthdate[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
+                                r'birthdate[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
+                                r'birthdate[\s\(\)\/\:\-]*([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})',
+                                r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
+                                r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
+                                r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{2,4})',
+                                r'date of birth[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
+                                r'date of birth[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
+                                r'date of birth[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
+                                r'date of birth[\s\(\)\/\:\-]*([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})',
+                                r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
+                                r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
+                                r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{2,4})',
+                                r'DOB[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
+                                r'DOB[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
+                                r'DOB[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
+                                r'DOB[\s\(\)\/\:\-]*([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})',
+                                r'([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})'
+                            ]
+                            birthdate_found = False
+                            for pattern in birthdate_patterns:
+                                match = re.search(pattern, content, re.IGNORECASE)
+                                if match:
+                                    birthdate = match.group(1)
+                                    self.logger.info(f"\nFound birthdate in {file.name}: {birthdate}")
+                                    summary_data['birthdate_found'] = True
+                                    summary_data['files_with_birthdate'].add(file.path_display)
+                                    summary_data['file_birthdates'][file.path_display] = birthdate
+                                    birthdate_found = True
+                                    break
+                            if not birthdate_found:
+                                self.logger.info(f"\n❌👶 No birthdate found in {file.name}")
+                            os.unlink(temp_file.name)
                     except Exception as e:
-                        error_msg = f"Error searching folder {folder}: {str(e)}"
-                        self.logger.error(error_msg)
-                
-                # Only log the summary section and what follows to summary_logger
-                # Remove or comment out any summary_logger.info calls before the first summary section
-                # (No code to add, just ensure only the summary section is logged)
-
+                        self.logger.error(f"Error processing file {file.name}: {str(e)}")
+                        continue
             except Exception as e:
-                error_msg = f"Error searching for app files: {str(e)}"
+                error_msg = f"Error searching folder {folder}: {str(e)}"
                 self.logger.error(error_msg)
-            
+
+            # Log the summary for just this folder
+            folder_app_files = summary_data['all_folder_app_files'].get(folder, [])
+            files_with_birthdate_in_folder = [file for file in folder_app_files if file.path_display in summary_data['files_with_birthdate']]
+            self.summary_logger.info(f"\nDropbox Account Folder: {folder}")
+            if files_with_birthdate_in_folder:
+                for file in files_with_birthdate_in_folder:
+                    birthdate = summary_data['file_birthdates'].get(file.path_display, '')
+                    self.summary_logger.info(f"  ✅👶 {file.name} [{birthdate}]")
+            else:
+                self.summary_logger.info(f"  ❌ No application files found for {folder}")
+
             self.logger.info("\nSuccessfully completed get-dropbox-account-app-info operation")
             
         except Exception as e:
