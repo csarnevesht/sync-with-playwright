@@ -57,15 +57,43 @@ def stop_existing_containers():
         "down"
     ])
 
-def start_supabase():
-    """Start the Supabase services."""
-    print("Starting Supabase services...")
+def wait_for_container_health(container_name, timeout=30):
+    """Wait for a container to be healthy."""
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        result = subprocess.run(
+            ["docker", "inspect", "-f", "{{.State.Health.Status}}", container_name],
+            capture_output=True,
+            text=True
+        )
+        if result.stdout.strip() == "healthy":
+            return True
+        time.sleep(1)
+    return False
 
+def start_supabase():
+    """Start Supabase services."""
+    # First, ensure vector is running and healthy
+    print("Starting vector service first...")
     run_command([
-        "docker", "compose", "-p", "sync-with-playwright", "-f", "supabase/docker/docker-compose.yml", "up", "-d"
+        "docker", "compose", "-p", "sync-with-playwright",
+        "-f", "supabase/docker/docker-compose.yml", "up", "-d", "vector"
     ])
-    # Wait for networks to be created
-    time.sleep(5)
+    
+    # Wait for vector to be healthy
+    print("Waiting for vector to be healthy...")
+    if not wait_for_container_health("supabase-vector"):
+        print("Vector failed to become healthy in time")
+        return False
+    
+    # Now start the rest of the services
+    print("Starting remaining Supabase services...")
+    run_command([
+        "docker", "compose", "-p", "sync-with-playwright",
+        "-f", "supabase/docker/docker-compose.yml", "up", "-d"
+    ])
+    
+    return True
 
 def check_supabase_health():
     """Check if Supabase services are healthy."""
@@ -90,7 +118,7 @@ def check_supabase_health():
 def wait_for_supabase():
     """Wait for Supabase services to be ready."""
     print("Waiting for Supabase services to be ready...")
-    max_attempts = 30
+    max_attempts = 10
     attempt = 0
     
     while attempt < max_attempts:
@@ -155,9 +183,7 @@ def main():
      # Disable logflare sinks before starting services
     disable_logflare_sinks(os.path.join("supabase", "docker", "volumes", "logs", "vector.yml"))
     prepare_supabase_env()
-    start_supabase()
-    
-    if wait_for_supabase():
+    if start_supabase():
         print("All services started successfully!")
     else:
         print("Services started but health check failed. Please check the logs.")
