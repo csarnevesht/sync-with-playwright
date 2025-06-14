@@ -2,6 +2,13 @@ import os
 from typing import Optional, List
 from supabase import create_client, Client as SupabaseBaseClient
 from .schema import Application, DropboxAccount, HouseholdMember
+from dotenv import load_dotenv
+import logging
+import jwt
+import time
+import collections.abc
+
+logger = logging.getLogger(__name__)
 
 class SupabaseClient:
     """
@@ -17,12 +24,28 @@ class SupabaseClient:
         return cls._instance
 
     def _setup(self):
-        """Initialize Supabase client"""
-        url = os.getenv('SUPABASE_URL')
-        key = os.getenv('SUPABASE_KEY')
-        if not url or not key:
-            raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set in environment variables")
-        self._client = create_client(url, key)
+        """Set up the Supabase client with the correct credentials"""
+        # Load environment variables from supabase/docker/.env
+        env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'supabase', 'docker', '.env')
+        load_dotenv(env_path)
+
+        # Get the Supabase URL
+        supabase_url = os.getenv('SUPABASE_URL', 'http://localhost:8000')
+        logger.debug(f"Using Supabase URL: {supabase_url}")
+
+        # Get the Supabase service role key from the .env file
+        service_role_key = os.getenv('SUPABASE_SERVICE_KEY')
+        if not service_role_key:
+            raise ValueError("SUPABASE_SERVICE_KEY not set in .env file!")
+        logger.debug(f"Using Supabase service role key: {service_role_key}")
+
+        # Create the Supabase client with the service role key
+        self._client = create_client(supabase_url, service_role_key)
+
+    @property
+    def client(self) -> SupabaseBaseClient:
+        """Get the Supabase client instance"""
+        return self._client
 
     def store_application(self, application: Application) -> None:
         """Store an application in the database"""
@@ -40,13 +63,26 @@ class SupabaseClient:
         data = member.model_dump()
         self._client.table('household_members').insert(data).execute()
 
+    def _serialize_dates(self, obj):
+        if isinstance(obj, dict):
+            return {k: self._serialize_dates(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self._serialize_dates(i) for i in obj]
+        elif hasattr(obj, 'isoformat'):
+            return obj.isoformat()
+        else:
+            return obj
+
     def store_dropbox_account(self, account: DropboxAccount) -> None:
         """Store a Dropbox account and its related data"""
         if not self._client:
             raise RuntimeError("Supabase client not initialized")
         
         # Store the account
-        account_data = account.model_dump(exclude={'applications', 'household_members'})
+        account_data = account.model_dump(exclude={'applications', 'household_members', 'household_head'})
+        if account.household_head:
+            account_data['household_head_id'] = None
+        account_data = self._serialize_dates(account_data)
         self._client.table('dropbox_accounts').insert(account_data).execute()
         
         # Store applications
