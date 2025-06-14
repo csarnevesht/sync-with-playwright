@@ -53,4 +53,4 @@ special_cases.txt
 .DS_Store
 logs saved/** 
 volumes/** 
-supabase
+supabase/** 
