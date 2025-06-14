@@ -1038,13 +1038,14 @@ def run_command(args):
                 
                 report_logger.info("=" * 50)
 
-            
-            # Print final summary
-            report_logger.info("\n=== SUMMARY ===")
-            summary_logger.info("\n=== SUMMARY ===")
-            
-            # Add icon legend
-            legend = """
+
+            if summary_results:
+                # Print final summary
+                report_logger.info("\n=== SUMMARY ===")
+                summary_logger.info("\n=== SUMMARY ===")
+                
+                # Add icon legend
+                legend = """
 Icon Legend:
 📁 - Dropbox Folder
 🪪 - Driver's License Found
@@ -1062,105 +1063,105 @@ Additional Account Information:
 🎂 - Birthdate
 👶 - Age
 """
-            report_logger.info(legend)
-            summary_logger.info(legend)
-            report_logger.info("\n" + "="*50 + "\n")
-            summary_logger.info("\n" + "="*50 + "\n")
-            
-            for result_dict in summary_results:
-                build_and_log_summary_line(result_dict, report_logger, summary_logger, red_logger, args)
+                report_logger.info(legend)
+                summary_logger.info(legend)
+                report_logger.info("\n" + "="*50 + "\n")
+                summary_logger.info("\n" + "="*50 + "\n")
+                
+                for result_dict in summary_results:
+                    build_and_log_summary_line(result_dict, report_logger, summary_logger, red_logger, args)
 
-                # Show file summary if available
-                if args.dropbox_account_files and args.salesforce_account_files:
-                    file_summary = "\nFile Migration Status:"
-                    report_logger.info(file_summary)
-                    summary_logger.info(file_summary)
+                    # Show file summary if available
+                    if args.dropbox_account_files and args.salesforce_account_files:
+                        file_summary = "\nFile Migration Status:"
+                        report_logger.info(file_summary)
+                        summary_logger.info(file_summary)
+                        
+                        file_comparison = result_dict.get('file_comparison')
+                        if file_comparison:
+                            matched = file_comparison.get('matched_files', 0)
+                            total = file_comparison.get('total_files', 0)
+                            status_line = f"   {matched}/{total} files matched"
+                            report_logger.info(status_line)
+                            summary_logger.info(status_line)
+                            
+                            missing_files = file_comparison.get('missing_files', [])
+                            extra_files = file_comparison.get('extra_files', [])
+                            if missing_files:
+                                missing_msg = "   Missing files in Salesforce:"
+                                report_logger.info(missing_msg)
+                                summary_logger.info(missing_msg)
+                                for f in missing_files:
+                                    file_line = f"      - {f}"
+                                    report_logger.info(file_line)
+                                    summary_logger.info(file_line)
+                            if extra_files:
+                                extra_msg = "   Extra files in Salesforce:"
+                                report_logger.info(extra_msg)
+                                summary_logger.info(extra_msg)
+                                for f in extra_files:
+                                    file_line = f"      - {f}"
+                                    report_logger.info(file_line)
+                                    summary_logger.info(file_line)
+                        else:
+                            no_files_msg = "   No files to compare"
+                            report_logger.info(no_files_msg)
+                            summary_logger.info(no_files_msg)
+                
+                # Print match statistics
+                stats_header = "\n=== MATCH STATISTICS ==="
+                report_logger.info(stats_header)
+                summary_logger.info(stats_header)
+                
+                if(args.dropbox_account_info):
+                    # Update Dropbox match statistics
+                    total_dl_matches = 0
+                    total_dl_no_matches = 0
+                    for result_dict in summary_results:
+                        dropbox_result = result_dict.get('dropbox_account_search_result', {})
+                        if dropbox_result:
+                            match_info = dropbox_result.get('search_info', {}).get('match_info', {})
+                            if match_info.get('match_status', '').lower() == 'match found':
+                                total_dropbox_matches += 1
+                            else:
+                                total_dropbox_no_matches += 1
+                            
+                            # Check for driver's license
+                            drivers_license_info = dropbox_result.get('drivers_license_info', {})
+                            if drivers_license_info.get('status') == 'found':
+                                total_dl_matches += 1
+                            else:
+                                total_dl_no_matches += 1
                     
-                    file_comparison = result_dict.get('file_comparison')
-                    if file_comparison:
-                        matched = file_comparison.get('matched_files', 0)
-                        total = file_comparison.get('total_files', 0)
-                        status_line = f"   {matched}/{total} files matched"
-                        report_logger.info(status_line)
-                        summary_logger.info(status_line)
-                        
-                        missing_files = file_comparison.get('missing_files', [])
-                        extra_files = file_comparison.get('extra_files', [])
-                        if missing_files:
-                            missing_msg = "   Missing files in Salesforce:"
-                            report_logger.info(missing_msg)
-                            summary_logger.info(missing_msg)
-                            for f in missing_files:
-                                file_line = f"      - {f}"
-                                report_logger.info(file_line)
-                                summary_logger.info(file_line)
-                        if extra_files:
-                            extra_msg = "   Extra files in Salesforce:"
-                            report_logger.info(extra_msg)
-                            summary_logger.info(extra_msg)
-                            for f in extra_files:
-                                file_line = f"      - {f}"
-                                report_logger.info(file_line)
-                                summary_logger.info(file_line)
-                    else:
-                        no_files_msg = "   No files to compare"
-                        report_logger.info(no_files_msg)
-                        summary_logger.info(no_files_msg)
-            
-            # Print match statistics
-            stats_header = "\n=== MATCH STATISTICS ==="
-            report_logger.info(stats_header)
-            summary_logger.info(stats_header)
-            
-            if(args.dropbox_account_info):
-                # Update Dropbox match statistics
-                total_dl_matches = 0
-                total_dl_no_matches = 0
-                for result_dict in summary_results:
-                    dropbox_result = result_dict.get('dropbox_account_search_result', {})
-                    if dropbox_result:
-                        match_info = dropbox_result.get('search_info', {}).get('match_info', {})
-                        if match_info.get('match_status', '').lower() == 'match found':
-                            total_dropbox_matches += 1
-                        else:
-                            total_dropbox_no_matches += 1
-                        
-                        # Check for driver's license
-                        drivers_license_info = dropbox_result.get('drivers_license_info', {})
-                        if drivers_license_info.get('status') == 'found':
-                            total_dl_matches += 1
-                        else:
-                            total_dl_no_matches += 1
+                    stats_lines = [
+                        f"Total Dropbox Matches Found: {total_dropbox_matches}",
+                        f"Total Dropbox No Matches: {total_dropbox_no_matches}",
+                        f"Total Driver's License Matches Found: {total_dl_matches}",
+                        f"Total Driver's License No Matches: {total_dl_no_matches}"
+                    ]
+                    for line in stats_lines:
+                        report_logger.info(line)
+                        summary_logger.info(line)
                 
-                stats_lines = [
-                    f"Total Dropbox Matches Found: {total_dropbox_matches}",
-                    f"Total Dropbox No Matches: {total_dropbox_no_matches}",
-                    f"Total Driver's License Matches Found: {total_dl_matches}",
-                    f"Total Driver's License No Matches: {total_dl_no_matches}"
-                ]
-                for line in stats_lines:
-                    report_logger.info(line)
-                    summary_logger.info(line)
-            
-            if(args.salesforce_accounts):
-                # Update Salesforce match statistics
-                for result_dict in summary_results:
-                    salesforce_result = result_dict.get('salesforce_account_search_result', {})
-                    if salesforce_result:
-                        match_info = salesforce_result.get('match_info', {})
-                        if match_info.get('match_status', '').lower() == 'match found':
-                            total_salesforce_matches += 1
-                        else:
-                            total_salesforce_no_matches += 1
+                if(args.salesforce_accounts):
+                    # Update Salesforce match statistics
+                    for result_dict in summary_results:
+                        salesforce_result = result_dict.get('salesforce_account_search_result', {})
+                        if salesforce_result:
+                            match_info = salesforce_result.get('match_info', {})
+                            if match_info.get('match_status', '').lower() == 'match found':
+                                total_salesforce_matches += 1
+                            else:
+                                total_salesforce_no_matches += 1
+                    
+                    stats_lines = [
+                        f"Total Salesforce Matches Found: {total_salesforce_matches}",
+                        f"Total Salesforce No Matches: {total_salesforce_no_matches}"
+                    ]
+                    for line in stats_lines:
+                        report_logger.info(line)
+                        summary_logger.info(line)
                 
-                stats_lines = [
-                    f"Total Salesforce Matches Found: {total_salesforce_matches}",
-                    f"Total Salesforce No Matches: {total_salesforce_no_matches}"
-                ]
-                for line in stats_lines:
-                    report_logger.info(line)
-                    summary_logger.info(line)
-            
             total_accounts_line = f"Total Accounts Processed: {len(summary_results)}"
             report_logger.info(total_accounts_line)
             summary_logger.info(total_accounts_line)
