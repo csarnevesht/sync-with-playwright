@@ -605,178 +605,179 @@ class CommandRunner:
             folder_path = f"/{dropbox_root_folder}/{folder}"
             try:
                 folder_files = list_dropbox_folder_contents(dropbox_client.dbx, folder_path)
-                folder_app_files = []
-                summary_data = {
-                    'total_app_files': 0,
-                    'processed_folders': set(),
-                    'birthdate_found': False,
-                    'files_with_birthdate': set(),
-                    'file_birthdates': {},
-                    'file_sexes': {},  # Track sex/gender per file
-                    'all_folder_app_files': {}
-                }
-                summary_data['processed_folders'].add(folder)
-                for file in folder_files:
-                    if isinstance(file, dropbox.files.FileMetadata):
-                        if 'App' in file.name or 'Application' in file.name:
-                            folder_app_files.append(file)
-                            summary_data['total_app_files'] += 1
-                summary_data['all_folder_app_files'][folder] = folder_app_files
-                for file in folder_app_files:
-                    try:
-                        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-                            dropbox_client.dbx.files_download_to_file(temp_file.name, file.path_display)
-                            content = None
+            except Exception as e:
+                self.logger.error(f"Error searching folder {folder}: {str(e)}")
+                # Optionally, log and skip this folder
+                return
+            folder_app_files = []
+            summary_data = {
+                'total_app_files': 0,
+                'processed_folders': set(),
+                'birthdate_found': False,
+                'files_with_birthdate': set(),
+                'file_birthdates': {},
+                'file_sexes': {},  # Track sex/gender per file
+                'all_folder_app_files': {}
+            }
+            summary_data['processed_folders'].add(folder)
+            for file in folder_files:
+                if isinstance(file, dropbox.files.FileMetadata):
+                    if 'App' in file.name or 'Application' in file.name:
+                        folder_app_files.append(file)
+                        summary_data['total_app_files'] += 1
+            summary_data['all_folder_app_files'][folder] = folder_app_files
+            for file in folder_app_files:
+                try:
+                    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                        dropbox_client.dbx.files_download_to_file(temp_file.name, file.path_display)
+                        content = None
+                        if file.name.lower().endswith('.pdf'):
+                            try:
+                                import PyPDF2
+                                with open(temp_file.name, 'rb') as pdf_file:
+                                    reader = PyPDF2.PdfReader(pdf_file)
+                                    content = ''
+                                    for page in reader.pages:
+                                        page_text = page.extract_text()
+                                        if page_text:
+                                            content += page_text + '\n'
+                                # self.logger.info(f"[DEBUG] Extracted PDF text from {file.name}:\n{content}")
+                            except Exception as pdf_exc:
+                                self.logger.error(f"Error extracting text from PDF {file.name}: {pdf_exc}")
+                                content = ''
+                        else:
+                            with open(temp_file.name, 'r', encoding='utf-8', errors='ignore') as f:
+                                content = f.read()
+                                # self.logger.info(f"[DEBUG] Extracted text from {file.name}:\n{content}")
+                        birthdate_patterns = [
+                            r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
+                            r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
+                            r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{2,4})',
+                            r'birthdate[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
+                            r'birthdate[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
+                            r'birthdate[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
+                            r'birthdate[\s\(\)\/\:\-]*([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})',
+                            r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
+                            r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
+                            r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{2,4})',
+                            r'date of birth[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
+                            r'date of birth[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
+                            r'date of birth[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
+                            r'date of birth[\s\(\)\/\:\-]*([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})',
+                            r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
+                            r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
+                            r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{2,4})',
+                            r'DOB[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
+                            r'DOB[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
+                            r'DOB[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
+                            r'DOB[\s\(\)\/\:\-]*([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})',
+                            r'([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})'
+                        ]
+                        # Log the first 2000 characters of the content for deeper debugging
+                        self.logger.info(f"\n[DEBUG] First 2000 chars of {file.name}: {content[:2000]}")
+                        # After finding birthdate, log the next 100 characters
+                        birthdate_found = False
+                        sex_found = None
+                        birthdate_index = -1
+                        for pattern in birthdate_patterns:
+                            match = re.search(pattern, content, re.IGNORECASE)
+                            if match:
+                                birthdate = match.group(1)
+                                self.logger.info(f"\nFound birthdate in {file.name}: {birthdate}")
+                                summary_data['birthdate_found'] = True
+                                summary_data['files_with_birthdate'].add(file.path_display)
+                                summary_data['file_birthdates'][file.path_display] = birthdate
+                                birthdate_found = True
+                                birthdate_index = match.start(1)
+                                # Log the next 100 characters after the birthdate
+                                self.logger.info(f"[DEBUG] 100 chars after birthdate: {content[birthdate_index:birthdate_index+100]}")
+                                break
+                        # Enhanced: robustly match checked/unchecked boxes for Male/Female
+                        sex_patterns = [
+                            r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Female',
+                            r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Male',
+                            r'Female[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)',
+                            r'Male[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)',
+                            r'\[\s\]]*Male[\s\]]*\[\s*\]',
+                            r'\[\s\]]*Female[\s\]]*\[\s*\]',
+                            r'Sex[\s\:\-]*([MF])',
+                            r'Gender[\s\:\-]*([MF])',
+                            r'Sex[\s\:\-]*(Male|Female)',
+                            r'Gender[\s\:\-]*(Male|Female)',
+                            r'(?:Sex|Gender)[\s\:\-]*([MF])',
+                            r'(?:Sex|Gender)[\s\:\-]*(Male|Female)',
+                            r'(?:Sex|Gender)[\s\:\-]*([MF])[\s]*',
+                            r'(?:Sex|Gender)[\s\:\-]*(Male|Female)[\s]*',
+                            r'(?:Sex|Gender)[\s\:\-]*([MF])[\s]*$',
+                            r'(?:Sex|Gender)[\s\:\-]*(Male|Female)[\s]*$'
+                        ]
+                        for sex_pattern in sex_patterns:
+                            sex_match = re.search(sex_pattern, content, re.IGNORECASE)
+                            if sex_match:
+                                # For box patterns, set explicitly
+                                if re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Male', sex_match.group(0), re.IGNORECASE) or re.search(r'Male[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
+                                    sex_found = 'M'
+                                elif re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Female', sex_match.group(0), re.IGNORECASE) or re.search(r'Female[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
+                                    sex_found = 'F'
+                                else:
+                                    # Handle Male/Female text
+                                    if sex_match.lastindex and sex_match.group(1):
+                                        if sex_match.group(1).upper().startswith('M'):
+                                            sex_found = 'M'
+                                        elif sex_match.group(1).upper().startswith('F'):
+                                            sex_found = 'F'
+                                        else:
+                                            sex_found = sex_match.group(1)
+                                summary_data['file_sexes'][file.path_display] = sex_found
+                                break
+                        if not birthdate_found:
+                            self.logger.info(f"\n❌🎂 No birthdate found in {file.name}")
+                        # If sex not found, try OCR fallback
+                        if not sex_found:
+                            self.logger.info(f"[DEBUG] Entering OCR fallback for {file.name}")
                             if file.name.lower().endswith('.pdf'):
                                 try:
-                                    import PyPDF2
-                                    with open(temp_file.name, 'rb') as pdf_file:
-                                        reader = PyPDF2.PdfReader(pdf_file)
-                                        content = ''
-                                        for page in reader.pages:
-                                            page_text = page.extract_text()
-                                            if page_text:
-                                                content += page_text + '\n'
-                                    # self.logger.info(f"[DEBUG] Extracted PDF text from {file.name}:\n{content}")
-                                except Exception as pdf_exc:
-                                    self.logger.error(f"Error extracting text from PDF {file.name}: {pdf_exc}")
-                                    content = ''
-                            else:
-                                with open(temp_file.name, 'r', encoding='utf-8', errors='ignore') as f:
-                                    content = f.read()
-                                    # self.logger.info(f"[DEBUG] Extracted text from {file.name}:\n{content}")
-                            birthdate_patterns = [
-                                r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
-                                r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
-                                r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{2,4})',
-                                r'birthdate[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
-                                r'birthdate[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
-                                r'birthdate[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
-                                r'birthdate[\s\(\)\/\:\-]*([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})',
-                                r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
-                                r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
-                                r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{2,4})',
-                                r'date of birth[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
-                                r'date of birth[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
-                                r'date of birth[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
-                                r'date of birth[\s\(\)\/\:\-]*([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})',
-                                r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
-                                r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
-                                r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{2,4})',
-                                r'DOB[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
-                                r'DOB[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
-                                r'DOB[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
-                                r'DOB[\s\(\)\/\:\-]*([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})',
-                                r'([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})'
-                            ]
-                            # Log the first 2000 characters of the content for deeper debugging
-                            self.logger.info(f"\n[DEBUG] First 2000 chars of {file.name}: {content[:2000]}")
-                            # After finding birthdate, log the next 100 characters
-                            birthdate_found = False
-                            sex_found = None
-                            birthdate_index = -1
-                            for pattern in birthdate_patterns:
-                                match = re.search(pattern, content, re.IGNORECASE)
-                                if match:
-                                    birthdate = match.group(1)
-                                    self.logger.info(f"\nFound birthdate in {file.name}: {birthdate}")
-                                    summary_data['birthdate_found'] = True
-                                    summary_data['files_with_birthdate'].add(file.path_display)
-                                    summary_data['file_birthdates'][file.path_display] = birthdate
-                                    birthdate_found = True
-                                    birthdate_index = match.start(1)
-                                    # Log the next 100 characters after the birthdate
-                                    self.logger.info(f"[DEBUG] 100 chars after birthdate: {content[birthdate_index:birthdate_index+100]}")
-                                    break
-                            # Enhanced: robustly match checked/unchecked boxes for Male/Female
-                            sex_patterns = [
-                                r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Female',
-                                r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Male',
-                                r'Female[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)',
-                                r'Male[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)',
-                                r'\[\s\]]*Male[\s\]]*\[\s*\]',
-                                r'\[\s\]]*Female[\s\]]*\[\s*\]',
-                                r'Sex[\s\:\-]*([MF])',
-                                r'Gender[\s\:\-]*([MF])',
-                                r'Sex[\s\:\-]*(Male|Female)',
-                                r'Gender[\s\:\-]*(Male|Female)',
-                                r'(?:Sex|Gender)[\s\:\-]*([MF])',
-                                r'(?:Sex|Gender)[\s\:\-]*(Male|Female)',
-                                r'(?:Sex|Gender)[\s\:\-]*([MF])[\s]*',
-                                r'(?:Sex|Gender)[\s\:\-]*(Male|Female)[\s]*',
-                                r'(?:Sex|Gender)[\s\:\-]*([MF])[\s]*$',
-                                r'(?:Sex|Gender)[\s\:\-]*(Male|Female)[\s]*$'
-                            ]
-                            for sex_pattern in sex_patterns:
-                                sex_match = re.search(sex_pattern, content, re.IGNORECASE)
-                                if sex_match:
-                                    # For box patterns, set explicitly
-                                    if re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Male', sex_match.group(0), re.IGNORECASE) or re.search(r'Male[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
-                                        sex_found = 'M'
-                                    elif re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Female', sex_match.group(0), re.IGNORECASE) or re.search(r'Female[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
-                                        sex_found = 'F'
-                                    else:
-                                        # Handle Male/Female text
-                                        if sex_match.lastindex and sex_match.group(1):
-                                            if sex_match.group(1).upper().startswith('M'):
+                                    import pytesseract
+                                    from pdf2image import convert_from_path
+                                    from PIL import Image
+                                    ocr_text = ''
+                                    images = convert_from_path(temp_file.name)
+                                    for img in images:
+                                        ocr_text += pytesseract.image_to_string(img) + '\n'
+                                    self.logger.info(f"[DEBUG] Tesseract OCR output for {file.name}:\n{ocr_text[:2000]}")
+                                    found_ocr_sex = False
+                                    for sex_pattern in sex_patterns:
+                                        sex_match = re.search(sex_pattern, ocr_text, re.IGNORECASE)
+                                        if sex_match:
+                                            found_ocr_sex = True
+                                            if re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Male', sex_match.group(0), re.IGNORECASE) or re.search(r'Male[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
                                                 sex_found = 'M'
-                                            elif sex_match.group(1).upper().startswith('F'):
+                                            elif re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Female', sex_match.group(0), re.IGNORECASE) or re.search(r'Female[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
                                                 sex_found = 'F'
                                             else:
-                                                sex_found = sex_match.group(1)
-                                    summary_data['file_sexes'][file.path_display] = sex_found
-                                    break
-                            if not birthdate_found:
-                                self.logger.info(f"\n❌🎂 No birthdate found in {file.name}")
-                            # If sex not found, try OCR fallback
-                            if not sex_found:
-                                self.logger.info(f"[DEBUG] Entering OCR fallback for {file.name}")
-                                if file.name.lower().endswith('.pdf'):
-                                    try:
-                                        import pytesseract
-                                        from pdf2image import convert_from_path
-                                        from PIL import Image
-                                        ocr_text = ''
-                                        images = convert_from_path(temp_file.name)
-                                        for img in images:
-                                            ocr_text += pytesseract.image_to_string(img) + '\n'
-                                        self.logger.info(f"[DEBUG] Tesseract OCR output for {file.name}:\n{ocr_text[:2000]}")
-                                        found_ocr_sex = False
-                                        for sex_pattern in sex_patterns:
-                                            sex_match = re.search(sex_pattern, ocr_text, re.IGNORECASE)
-                                            if sex_match:
-                                                found_ocr_sex = True
-                                                if re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Male', sex_match.group(0), re.IGNORECASE) or re.search(r'Male[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
-                                                    sex_found = 'M'
-                                                elif re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Female', sex_match.group(0), re.IGNORECASE) or re.search(r'Female[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
-                                                    sex_found = 'F'
-                                                else:
-                                                    if sex_match.lastindex and sex_match.group(1):
-                                                        if sex_match.group(1).upper().startswith('M'):
-                                                            sex_found = 'M'
-                                                        elif sex_match.group(1).upper().startswith('F'):
-                                                            sex_found = 'F'
-                                                        else:
-                                                            sex_found = sex_match.group(1)
-                                                summary_data['file_sexes'][file.path_display] = sex_found
-                                                self.logger.info(f"[DEBUG] Sex found by OCR for {file.name}: {sex_found}")
-                                                break
-                                        if not found_ocr_sex:
-                                            self.logger.info(f"[DEBUG] No sex/gender found by OCR for {file.name}")
-                                    except Exception as ocr_exc:
-                                        self.logger.error(f"[DEBUG] OCR extraction failed for {file.name}: {ocr_exc}")
-                                self.logger.info(f"[DEBUG] Exiting OCR fallback for {file.name}")
-                    except Exception as e:
-                        self.logger.error(f"Error processing file {file.name}: {str(e)}")
-                        continue
-                    finally:
-                        try:
-                            os.unlink(temp_file.name)
-                        except Exception as del_exc:
-                            self.logger.error(f"[DEBUG] Could not delete temp file {temp_file.name}: {del_exc}")
-            except Exception as e:
-                error_msg = f"Error searching folder {folder}: {str(e)}"
-                self.logger.error(error_msg)
+                                                if sex_match.lastindex and sex_match.group(1):
+                                                    if sex_match.group(1).upper().startswith('M'):
+                                                        sex_found = 'M'
+                                                    elif sex_match.group(1).upper().startswith('F'):
+                                                        sex_found = 'F'
+                                                    else:
+                                                        sex_found = sex_match.group(1)
+                                            summary_data['file_sexes'][file.path_display] = sex_found
+                                            self.logger.info(f"[DEBUG] Sex found by OCR for {file.name}: {sex_found}")
+                                            break
+                                    if not found_ocr_sex:
+                                        self.logger.info(f"[DEBUG] No sex/gender found by OCR for {file.name}")
+                                except Exception as ocr_exc:
+                                    self.logger.error(f"[DEBUG] OCR extraction failed for {file.name}: {ocr_exc}")
+                            self.logger.info(f"[DEBUG] Exiting OCR fallback for {file.name}")
+                except Exception as e:
+                    self.logger.error(f"Error processing file {file.name}: {str(e)}")
+                    continue
+                finally:
+                    try:
+                        os.unlink(temp_file.name)
+                    except Exception as del_exc:
+                        self.logger.error(f"[DEBUG] Could not delete temp file {temp_file.name}: {del_exc}")
 
             # Log the summary for just this folder
             folder_app_files = summary_data['all_folder_app_files'].get(folder, [])
