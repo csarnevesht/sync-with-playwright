@@ -13,6 +13,8 @@ import time
 import argparse
 import platform
 import sys
+import re
+import yaml
 
 def run_command(cmd, cwd=None):
     """Run a shell command and print it."""
@@ -101,16 +103,57 @@ def wait_for_supabase():
     print("Timed out waiting for Supabase services to be ready.")
     return False
 
+def disable_logflare_sinks(vector_yml_path):
+    """Remove all logflare_* sinks from the YAML vector.yml file, add a dummy file sink if needed, and print what was removed and the result."""
+    with open(vector_yml_path, 'r') as f:
+        data = yaml.safe_load(f)
+
+    sinks = data.get('sinks', {})
+    removed = []
+    new_sinks = {}
+    for key, value in sinks.items():
+        if key.startswith('logflare_'):
+            removed.append(key)
+        else:
+            new_sinks[key] = value
+    if removed:
+        print('Removed logflare sinks:', removed)
+    else:
+        print('No logflare sinks found to remove.')
+    # If no sinks remain, add a dummy file sink with encoding and a valid input
+    if not new_sinks:
+        print('No sinks remain, adding a dummy file sink.')
+        new_sinks = {
+            'file_sink': {
+                'type': 'file',
+                'inputs': ['project_logs'],
+                'path': '/tmp/vector-dummy.log',
+                'encoding': {'codec': 'text'}
+            }
+        }
+    # Force the dummy sink to have the correct input
+    if 'file_sink' in new_sinks:
+        new_sinks['file_sink']['inputs'] = ['project_logs']
+        print(f"file_sink inputs before write: {new_sinks['file_sink']['inputs']}")
+    data['sinks'] = new_sinks
+    with open(vector_yml_path, 'w') as f:
+        yaml.dump(data, f, default_flow_style=False)
+    print('\nResulting sinks section:')
+    print(yaml.dump({'sinks': new_sinks}, default_flow_style=False))
+
 def main():
     """Main function to start the services."""
     parser = argparse.ArgumentParser(description="Start Supabase services for sync-with-playwright")
     parser.add_argument("--force", action="store_true", help="Force stop existing containers before starting")
     args = parser.parse_args()
 
+
     if args.force:
         stop_existing_containers()
     
     clone_supabase_repo()
+     # Disable logflare sinks before starting services
+    disable_logflare_sinks(os.path.join("supabase", "docker", "volumes", "logs", "vector.yml"))
     prepare_supabase_env()
     start_supabase()
     
