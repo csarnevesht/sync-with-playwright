@@ -169,24 +169,36 @@ def disable_logflare_sinks(vector_yml_path):
     print('\nResulting sinks section:')
     print(yaml.dump({'sinks': new_sinks}, default_flow_style=False))
 
+def start_services(force=False):
+    """Start all Supabase services.
+    
+    Args:
+        force (bool): If True, force stop existing containers before starting.
+    
+    Returns:
+        bool: True if services started successfully, False otherwise.
+    """
+    if force:
+        stop_existing_containers()
+    
+    clone_supabase_repo()
+    # Disable logflare sinks before starting services
+    disable_logflare_sinks(os.path.join("supabase", "docker", "volumes", "logs", "vector.yml"))
+    prepare_supabase_env()
+    if start_supabase():
+        print("All services started successfully!")
+        return True
+    else:
+        print("Services started but health check failed. Please check the logs.")
+        return False
+
 def main():
     """Main function to start the services."""
     parser = argparse.ArgumentParser(description="Start Supabase services for sync-with-playwright")
     parser.add_argument("--force", action="store_true", help="Force stop existing containers before starting")
     args = parser.parse_args()
 
-
-    if args.force:
-        stop_existing_containers()
-    
-    clone_supabase_repo()
-     # Disable logflare sinks before starting services
-    disable_logflare_sinks(os.path.join("supabase", "docker", "volumes", "logs", "vector.yml"))
-    prepare_supabase_env()
-    if start_supabase():
-        print("All services started successfully!")
-    else:
-        print("Services started but health check failed. Please check the logs.")
+    if not start_services(args.force):
         sys.exit(1)
 
 if __name__ == "__main__":

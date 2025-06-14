@@ -2,6 +2,12 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+import os
+
+# Add the project root to Python path to import start_services
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.append(str(project_root))
+from start_services import start_services
 
 def check_docker_running() -> bool:
     """Check if Docker daemon is running"""
@@ -14,10 +20,10 @@ def check_docker_running() -> bool:
 def check_supabase_running() -> bool:
     """Check if our Supabase instance is running"""
     try:
-        result = subprocess.run(['docker', 'ps', '--filter', 'name=sync-'], capture_output=True, text=True, check=True)
+        result = subprocess.run(['docker', 'ps', '--filter', 'name=supabase-'], capture_output=True, text=True, check=True)
         print("\nChecking Supabase containers:")
         print(result.stdout)
-        return 'sync-kong' in result.stdout
+        return 'supabase-kong' in result.stdout
     except subprocess.CalledProcessError as e:
         print(f"Error checking Supabase containers: {e}")
         return False
@@ -51,7 +57,7 @@ def start_docker():
         return False
 
 def start_supabase():
-    """Start Supabase services"""
+    """Start Supabase services using start_services.py"""
     print("\nSupabase is not running. Would you like to start it?")
     choice = input("Start Supabase? (y/n): ").lower()
     
@@ -61,11 +67,11 @@ def start_supabase():
     
     print("\nStarting Supabase...")
     try:
-        # Get the project root directory
-        project_root = Path(__file__).parent.parent.parent.parent
+        # Change to project root directory
+        os.chdir(project_root)
         
-        # Run docker-compose up
-        subprocess.run(['docker-compose', 'up', '-d'], cwd=project_root, check=True)
+        # Use start_services.py to start Supabase
+        start_services()
         
         # Wait for Supabase to start
         print("Waiting for Supabase to start...")
@@ -79,7 +85,7 @@ def start_supabase():
         
         print("Timed out waiting for Supabase to start.")
         return False
-    except subprocess.CalledProcessError as e:
+    except Exception as e:
         print(f"Error starting Supabase: {e}")
         return False
 
