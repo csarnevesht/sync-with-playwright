@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 logger.debug(f"Current working directory: {os.getcwd()}")
 
 # Default Supabase credentials for local development
-DEFAULT_URL = "http://localhost:18000"
+DEFAULT_URL = "http://localhost:8000"
 DEFAULT_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
 
 def get_user_input(prompt: str, default: str = None) -> str:
