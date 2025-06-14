@@ -51,4 +51,5 @@ output.log*
 temp_downloads/**
 special_cases.txt
 .DS_Store
-logs saved/2025-06-12_20-32-52-household-relationships-2/red.txt
+logs saved/** 
+volumes/** 

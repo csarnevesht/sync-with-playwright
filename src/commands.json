@@ -70,5 +70,9 @@
   {
     "description": "start browser with salesforce and dropbox",
     "command": "python -m cmd_start"
+  },
+  {
+    "description": "Parse log file and store DOB and gender information in Supabase",
+    "command": "python -m sync.commands.log_parser_summary_dob_and_gender"
   }
 ]

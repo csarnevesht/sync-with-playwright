@@ -1,5 +1,5 @@
 """
-Sync package for Dropbox and Salesforce integration.
+Sync package for handling synchronization operations
 """
 
 __version__ = "0.1.0" 
