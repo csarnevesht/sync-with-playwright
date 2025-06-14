@@ -100,6 +100,8 @@ import time
 import re
 import pandas as pd
 import shutil
+import subprocess
+from dotenv import load_dotenv
 
 from sync import salesforce_client
 from sync.utils.name_utils import extract_name_parts
@@ -174,6 +176,38 @@ def format_args_for_logging(args):
     
     return " ".join(formatted_args)
 
+def get_preserved_logs_file():
+    """Get the path to the file that stores preserved log folders."""
+    return Path('logs') / '.preserved_logs'
+
+def add_preserved_log(log_folder: str):
+    """Add a log folder to the list of preserved logs."""
+    preserved_file = get_preserved_logs_file()
+    preserved_logs = set()
+    
+    # Load existing preserved logs
+    if preserved_file.exists():
+        with open(preserved_file, 'r') as f:
+            preserved_logs = set(line.strip() for line in f if line.strip())
+    
+    # Add new log folder
+    preserved_logs.add(log_folder)
+    
+    # Save updated list
+    preserved_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(preserved_file, 'w') as f:
+        for log in sorted(preserved_logs):
+            f.write(f"{log}\n")
+
+def get_preserved_logs():
+    """Get the set of preserved log folders."""
+    preserved_file = get_preserved_logs_file()
+    if not preserved_file.exists():
+        return set()
+    
+    with open(preserved_file, 'r') as f:
+        return set(line.strip() for line in f if line.strip())
+
 def clean_old_log_folders(max_folders=2):
     """Keep only the most recent log folders.
     
@@ -199,12 +233,20 @@ def clean_old_log_folders(max_folders=2):
     # Sort folders by name (which is timestamp) in descending order
     log_folders.sort(reverse=True)
     
+    # Get preserved logs
+    preserved_logs = get_preserved_logs()
+    
     # Remove old folders, keeping max_folders - 1 since we'll create a new one
-    for folder in log_folders[max_folders - 1:]:
-        try:
-            shutil.rmtree(folder)
-        except Exception as e:
-            print(f"Error removing old log folder {folder}: {e}")
+    # Skip preserved logs in the count
+    preserved_count = sum(1 for folder in log_folders if folder.name in preserved_logs)
+    folders_to_keep = max_folders - preserved_count
+    
+    for folder in log_folders[folders_to_keep:]:
+        if folder.name not in preserved_logs:
+            try:
+                shutil.rmtree(folder)
+            except Exception as e:
+                print(f"Error removing old log folder {folder}: {e}")
 
 def setup_logging(args):
     """Configure logging to write to both file and console with colored output.
@@ -219,6 +261,10 @@ def setup_logging(args):
     timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     log_dir = Path('logs') / timestamp
     log_dir.mkdir(parents=True, exist_ok=True)
+    
+    # If --keep-log flag is set, add this log to preserved logs
+    if args.keep_log:
+        add_preserved_log(timestamp)
     
     # Create log files directly in the timestamped folder
     log_file = log_dir / 'analyzer.log'
@@ -364,6 +410,10 @@ def parse_args():
                       help='Process driver\'s license information',
                       action='store_true')
     
+    # New arguments
+    parser.add_argument('--debug', action='store_true', help='Enable debug logging')
+    parser.add_argument('--keep-log', action='store_true', help='Keep this log folder and prevent it from being cleaned up')
+    
     return parser.parse_args()
 
 def initialize_dropbox_client(args):
@@ -376,42 +426,53 @@ def initialize_dropbox_client(args):
     Returns:
         DropboxClient: Initialized client or None if initialization fails
     """
-    try:
-        # Get access token with detailed logging
-        logger.info("Attempting to get Dropbox access token...")
-        token = get_access_token()
-        
-        if not token:
-            logger.error("Failed to get Dropbox access token: No token found")
-            return None
-            
-        # Log token details (first 10 chars for security)
-        token_preview = token[:10] + "..." if len(token) > 10 else token
-        logger.info(f"Successfully retrieved Dropbox token (starts with: {token_preview})")
-        
-        # Initialize client with debug mode
-        logger.info("Initializing Dropbox client...")
-        dbx = DropboxClient(token, debug_mode=True)
-        dbx.args = args  # Pass args to the client
-        
-        # Test connection with automatic token refresh
+    tried_refresh = False
+    while True:
         try:
-            account = dbx._make_request(dbx.dbx.users_get_current_account)
-            logger.info(f"Successfully connected to Dropbox as: {account.name.display_name}")
-            logger.info(f"Account ID: {account.account_id}")
-            logger.info(f"Email: {account.email}")
-            return dbx
-        except ApiError as e:
-            if e.error.is_expired_access_token():
-                logger.error("Dropbox access token has expired and refresh failed")
-                logger.error("Please generate a new token and update your environment")
-            else:
-                logger.error(f"Failed to connect to Dropbox: {str(e)}")
+            logger.info("Attempting to get Dropbox access token...")
+            token = get_access_token()
+            if not token:
+                logger.error("Failed to get Dropbox access token: No token found")
+                return None
+            token_preview = token[:10] + "..." if len(token) > 10 else token
+            logger.info(f"Successfully retrieved Dropbox token (starts with: {token_preview})")
+            logger.info("Initializing Dropbox client...")
+            dbx = DropboxClient(token, debug_mode=True)
+            dbx.args = args
+            try:
+                account = dbx._make_request(dbx.dbx.users_get_current_account)
+                logger.info(f"Successfully connected to Dropbox as: {account.name.display_name}")
+                logger.info(f"Account ID: {account.account_id}")
+                logger.info(f"Email: {account.email}")
+                return dbx
+            except ApiError as e:
+                if e.error.is_expired_access_token() or 'expired_access_token' in str(e):
+                    logger.error("Dropbox access token has expired and refresh failed (ApiError)")
+                    if not tried_refresh:
+                        logger.info("Attempting to refresh token by running get_tokens.py...")
+                        subprocess.run([sys.executable, "src/sync/dropbox_client/get_tokens.py"])
+                        load_dotenv()
+                        tried_refresh = True
+                        logger.info("Token refresh completed. Please verify the .env file and press Enter to continue...")
+                        input()
+                        continue
+                    else:
+                        logger.error("Token refresh already attempted. Please generate a new token and update your environment.")
+                else:
+                    logger.error(f"Failed to connect to Dropbox: {str(e)}")
+                return None
+        except Exception as e:
+            if 'expired_access_token' in str(e) and not tried_refresh:
+                logger.error("Dropbox access token has expired and refresh failed (Exception)")
+                logger.info("Attempting to refresh token by running get_tokens.py...")
+                subprocess.run([sys.executable, "src/sync/dropbox_client/get_tokens.py"])
+                load_dotenv()
+                tried_refresh = True
+                logger.info("Token refresh completed. Please verify the .env file and press Enter to continue...")
+                input()
+                continue
+            logger.error(f"Unexpected error initializing Dropbox client: {str(e)}")
             return None
-            
-    except Exception as e:
-        logger.error(f"Unexpected error initializing Dropbox client: {str(e)}")
-        return None
     
     
       
@@ -1206,19 +1267,19 @@ def build_and_log_summary_line(result, report_logger, summary_logger, red_logger
     dropbox_info.setdefault('match', '--')
     
     # Format the summary line
-    summary_line = format_summary_line(result.get('dropbox_name', '--'), salesforce_info, dropbox_info, args)
+    summary = format_summary_line(result.get('dropbox_name', '--'), salesforce_info, dropbox_info, args)
     
     # Log the summary line to both report and summary logs
-    report_logger.info(summary_line)
-    summary_logger.info(summary_line)
+    report_logger.info(summary)
+    summary_logger.info(summary)
     
     # Check for red items and log them to red.log
-    if '🔴' in summary_line or '🟥' in summary_line:
+    if '🔴' in summary or '🟥' in summary:
         red_logger.info(f"Red item found for account: {result.get('dropbox_name', '--')}")
-        red_logger.info(summary_line)
+        red_logger.info(summary)
         red_logger.info("=" * 50)
     
-    return summary_line
+    return summary
 
 def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox_info: dict, args=None):
     """

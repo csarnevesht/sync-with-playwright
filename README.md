@@ -6,10 +6,12 @@ This project includes a Chrome extension and a Python script to automatically in
 
 1. Python 3.7 or higher
 2. Google Chrome browser
-3. Required system dependencies:
+3. Docker (for Supabase)
+4. Required system dependencies:
    - poppler (for PDF processing)
    - tesseract (for OCR)
-4. Required Python packages:
+   - PostgreSQL client libraries (for Supabase)
+5. Required Python packages:
    - websocket-client
    - psutil
    - python-dotenv
@@ -18,6 +20,45 @@ This project includes a Chrome extension and a Python script to automatically in
    - pytesseract
    - Pillow
    - PyPDF2
+   - supabase
+   - pydantic
+   - python-dateutil
+   - psycopg2-binary
+
+## Supabase Setup
+
+1. Install Docker if you haven't already:
+   - macOS: `brew install docker`
+   - Ubuntu/Debian: `sudo apt-get install docker.io`
+   - Windows: Download from https://www.docker.com/products/docker-desktop
+
+2. Start Docker:
+   - macOS: Open Docker Desktop
+   - Linux: `sudo systemctl start docker`
+   - Windows: Start Docker Desktop
+
+3. The project includes a `docker-compose.yml` file for Supabase. To start Supabase:
+   ```bash
+   docker-compose up -d
+   ```
+
+4. Configure environment variables:
+   Add these to your `.env` file:
+   ```
+   SUPABASE_URL=http://localhost:54321
+   SUPABASE_KEY=your-anon-key
+   ```
+
+5. The database schema will be automatically created when you first run the application.
+
+6. Verify Supabase is running:
+   ```bash
+   # Check if Supabase container is running
+   docker ps | grep supabase
+   
+   # Check Supabase logs if needed
+   docker-compose logs supabase
+   ```
 
 ## Dropbox Authentication
 
@@ -64,19 +105,20 @@ cd <repository-directory>
 
 For macOS:
 ```bash
-brew install poppler tesseract
+brew install poppler tesseract postgresql
 ```
 
 For Ubuntu/Debian:
 ```bash
 sudo apt-get update
-sudo apt-get install -y poppler-utils tesseract-ocr
+sudo apt-get install -y poppler-utils tesseract-ocr postgresql postgresql-contrib
 ```
 
 For Windows:
 - Download and install poppler from: https://github.com/oschwartz10612/poppler-windows/releases/
 - Download and install tesseract from: https://github.com/UB-Mannheim/tesseract/wiki
-- Add both to your system PATH
+- Download and install PostgreSQL from: https://www.postgresql.org/download/windows/
+- Add all to your system PATH
 
 3. Install required Python packages:
 ```bash
