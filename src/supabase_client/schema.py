@@ -8,7 +8,7 @@ class Application(BaseModel):
     file_name: str
     first_name: str
     last_name: str
-    birthdate: date
+    birthdate: Optional[date] = None
     gender: str
     address: str
 
@@ -48,7 +48,7 @@ def create_schema() -> str:
         file_name VARCHAR(255) NOT NULL,
         first_name VARCHAR(100) NOT NULL,
         last_name VARCHAR(100) NOT NULL,
-        birthdate DATE NOT NULL,
+        birthdate DATE,
         gender VARCHAR(50) NOT NULL,
         address TEXT NOT NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
