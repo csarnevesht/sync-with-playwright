@@ -26,6 +26,25 @@ def prepare_supabase_env():
     print("Copying .env in root to .env in supabase/docker...")
     shutil.copyfile(env_example_path, env_path)
 
+def clone_supabase_repo():
+    """Clone the Supabase repository using sparse checkout if not already present."""
+    if not os.path.exists("supabase"):
+        print("Cloning the Supabase repository...")
+        run_command([
+            "git", "clone", "--filter=blob:none", "--no-checkout",
+            "https://github.com/supabase/supabase.git"
+        ])
+        os.chdir("supabase")
+        run_command(["git", "sparse-checkout", "init", "--cone"])
+        run_command(["git", "sparse-checkout", "set", "docker"])
+        run_command(["git", "checkout", "master"])
+        os.chdir("..")
+    else:
+        print("Supabase repository already exists, updating...")
+        os.chdir("supabase")
+        run_command(["git", "pull"])
+        os.chdir("..")
+
 def stop_existing_containers():
     """Stop and remove existing containers for our project ('sync-with-playwright')."""
     print("Stopping and removing existing containers for the project 'sync-with-playwright'...")
@@ -93,6 +112,7 @@ def main():
     if args.force:
         stop_existing_containers()
     
+    clone_supabase_repo()
     prepare_supabase_env()
     start_supabase()
     
