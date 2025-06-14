@@ -24,6 +24,7 @@ This project includes a Chrome extension and a Python script to automatically in
    - pydantic
    - python-dateutil
    - psycopg2-binary
+   - pyyaml
 
 ## Supabase Setup
 
@@ -58,6 +59,67 @@ This project includes a Chrome extension and a Python script to automatically in
    
    # Check Supabase logs if needed
    docker-compose logs supabase
+   ```
+
+## Starting Services with start_services.py
+
+The project includes a `start_services.py` script that automates the setup and management of Supabase services. This script:
+
+1. Clones/updates the Supabase repository
+2. Configures the environment
+3. Manages Docker containers
+4. Handles health checks
+
+### Usage
+
+1. Basic usage:
+   ```bash
+   python start_services.py
+   ```
+
+2. Force restart all services:
+   ```bash
+   python start_services.py --force
+   ```
+
+### Features
+
+- Automatically clones/updates the Supabase repository
+- Configures environment variables
+- Starts services in the correct order
+- Performs health checks
+- Handles container cleanup
+- Disables Logflare sinks and adds a dummy file sink
+- Waits for services to be healthy before proceeding
+
+### Troubleshooting
+
+If you encounter issues:
+
+1. Check Docker is running:
+   ```bash
+   docker info
+   ```
+
+2. Check container status:
+   ```bash
+   docker ps
+   ```
+
+3. View container logs:
+   ```bash
+   docker logs supabase-vector
+   docker logs supabase-kong
+   ```
+
+4. Force restart all services:
+   ```bash
+   python start_services.py --force
+   ```
+
+5. Check the vector.yml configuration:
+   ```bash
+   cat supabase/docker/volumes/logs/vector.yml
    ```
 
 ## Dropbox Authentication
