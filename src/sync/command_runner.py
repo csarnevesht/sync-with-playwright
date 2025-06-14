@@ -636,14 +636,14 @@ class CommandRunner:
                                             page_text = page.extract_text()
                                             if page_text:
                                                 content += page_text + '\n'
-                                    self.logger.info(f"[DEBUG] Extracted PDF text from {file.name}:\n{content}")
+                                    # self.logger.info(f"[DEBUG] Extracted PDF text from {file.name}:\n{content}")
                                 except Exception as pdf_exc:
                                     self.logger.error(f"Error extracting text from PDF {file.name}: {pdf_exc}")
                                     content = ''
                             else:
                                 with open(temp_file.name, 'r', encoding='utf-8', errors='ignore') as f:
                                     content = f.read()
-                                    self.logger.info(f"[DEBUG] Extracted text from {file.name}:\n{content}")
+                                    # self.logger.info(f"[DEBUG] Extracted text from {file.name}:\n{content}")
                             birthdate_patterns = [
                                 r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
                                 r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
