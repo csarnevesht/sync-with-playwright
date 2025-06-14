@@ -54,3 +54,4 @@ special_cases.txt
 logs saved/** 
 volumes/** 
 supabase/** supabase/
+.env.backup
