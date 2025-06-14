@@ -33,6 +33,7 @@ class DropboxAuth:
         """
         auth_flow = dropbox.DropboxOAuth2FlowNoRedirect(
             self.app_key,
+            self.app_secret,
             token_access_type='offline'
         )
         
@@ -64,6 +65,7 @@ class DropboxAuth:
         try:
             auth_flow = dropbox.DropboxOAuth2FlowNoRedirect(
                 self.app_key,
+                self.app_secret,
                 token_access_type='offline'
             )
             

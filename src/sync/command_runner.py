@@ -612,6 +612,7 @@ class CommandRunner:
                     'birthdate_found': False,
                     'files_with_birthdate': set(),
                     'file_birthdates': {},
+                    'file_sexes': {},  # Track sex/gender per file
                     'all_folder_app_files': {}
                 }
                 summary_data['processed_folders'].add(folder)
@@ -669,6 +670,7 @@ class CommandRunner:
                                 r'([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})'
                             ]
                             birthdate_found = False
+                            sex_found = None
                             for pattern in birthdate_patterns:
                                 match = re.search(pattern, content, re.IGNORECASE)
                                 if match:
@@ -678,6 +680,31 @@ class CommandRunner:
                                     summary_data['files_with_birthdate'].add(file.path_display)
                                     summary_data['file_birthdates'][file.path_display] = birthdate
                                     birthdate_found = True
+                                    break
+                            # Extract sex/gender
+                            sex_patterns = [
+                                r'(?:☒|\[X\]|X)[\s]*Male',
+                                r'(?:☒|\[X\]|X)[\s]*Female',
+                                r'(?:☑|\[V\]|V)[\s]*Male',
+                                r'(?:☑|\[V\]|V)[\s]*Female',
+                                r'Male[\s]*(?:☒|\[X\]|X)',
+                                r'Female[\s]*(?:☒|\[X\]|X)',
+                                r'Sex[\s\:\-]*([MF])',
+                                r'Gender[\s\:\-]*([MF])',
+                                r'Sex[\s\:\-]*(Male|Female)',
+                                r'Gender[\s\:\-]*(Male|Female)'
+                            ]
+                            for sex_pattern in sex_patterns:
+                                sex_match = re.search(sex_pattern, content, re.IGNORECASE)
+                                if sex_match:
+                                    # For box patterns, set explicitly
+                                    if re.search(r'(?:☒|\[X\]|X)[\s]*Male', sex_match.group(0), re.IGNORECASE) or re.search(r'Male[\s]*(?:☒|\[X\]|X)', sex_match.group(0), re.IGNORECASE):
+                                        sex_found = 'M'
+                                    elif re.search(r'(?:☒|\[X\]|X)[\s]*Female', sex_match.group(0), re.IGNORECASE) or re.search(r'Female[\s]*(?:☒|\[X\]|X)', sex_match.group(0), re.IGNORECASE):
+                                        sex_found = 'F'
+                                    else:
+                                        sex_found = sex_match.group(1)
+                                    summary_data['file_sexes'][file.path_display] = sex_found
                                     break
                             if not birthdate_found:
                                 self.logger.info(f"\n❌🎂 No birthdate found in {file.name}")
@@ -696,7 +723,18 @@ class CommandRunner:
             if files_with_birthdate_in_folder:
                 for file in files_with_birthdate_in_folder:
                     birthdate = summary_data['file_birthdates'].get(file.path_display, '')
-                    self.summary_logger.info(f"  ✅🎂 {file.name} [{birthdate}]")
+                    sex = summary_data['file_sexes'].get(file.path_display, '')
+                    if sex:
+                        if sex.upper().startswith('F'):
+                            sex_icon = '👩'
+                        elif sex.upper().startswith('M'):
+                            sex_icon = '👨'
+                        else:
+                            sex_icon = ''
+                        sex_str = f", ☑️ {sex_icon} {sex}"
+                    else:
+                        sex_str = ", ❌ F/M"
+                    self.summary_logger.info(f"  ✅🎂 {file.name} [{birthdate}{sex_str}]")
             else:
                 self.summary_logger.info(f"  ❌ No application files found for {folder}")
 
