@@ -27,25 +27,3 @@ services:
       - 127.0.0.1:5433:5432
     
 
-  kong:
-    image: kong:2.8.1
-    restart: unless-stopped
-    ports:
-      - "8000:8000"
-      - "8443:8443"
-    volumes:
-      - ./kong.yml:/home/kong/temp.yml:ro,z
-    environment:
-      KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
-      KONG_DNS_ORDER: LAST,A,CNAME
-      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
-      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
-      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
-      SUPABASE_ANON_KEY: ${SUPABASE_KEY}
-      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
-      DASHBOARD_USERNAME: admin
-      DASHBOARD_PASSWORD: admin
-    entrypoint: bash -c 'eval "echo \"$$(cat ~/temp.yml)\"" > ~/kong.yml && /docker-entrypoint.sh kong docker-start'
-    depends_on:
-      - postgres
