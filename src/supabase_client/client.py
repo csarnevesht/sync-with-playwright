@@ -51,16 +51,16 @@ class SupabaseClient:
         """Store an application in the database"""
         if not self._client:
             raise RuntimeError("Supabase client not initialized")
-        
         data = application.model_dump()
+        data = self._serialize_dates(data)
         self._client.table('applications').insert(data).execute()
 
     def store_household_member(self, member: HouseholdMember) -> None:
         """Store a household member in the database"""
         if not self._client:
             raise RuntimeError("Supabase client not initialized")
-        
         data = member.model_dump()
+        data = self._serialize_dates(data)
         self._client.table('household_members').insert(data).execute()
 
     def _serialize_dates(self, obj):
