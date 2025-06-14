@@ -29,6 +29,28 @@ logger.debug(f"Current working directory: {os.getcwd()}")
 DEFAULT_URL = "http://localhost:8000"
 DEFAULT_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
 
+# Path to store the last used log file
+LAST_LOG_FILE_PATH = os.path.join(os.path.dirname(__file__), '.last_log_file.json')
+
+def get_last_log_file() -> Optional[str]:
+    """Get the last used log file path from storage"""
+    try:
+        if os.path.exists(LAST_LOG_FILE_PATH):
+            with open(LAST_LOG_FILE_PATH, 'r') as f:
+                data = json.load(f)
+                return data.get('last_log_file')
+    except Exception as e:
+        logger.warning(f"Error reading last log file: {e}")
+    return None
+
+def save_last_log_file(log_file_path: str) -> None:
+    """Save the last used log file path to storage"""
+    try:
+        with open(LAST_LOG_FILE_PATH, 'w') as f:
+            json.dump({'last_log_file': log_file_path}, f)
+    except Exception as e:
+        logger.warning(f"Error saving last log file: {e}")
+
 def get_user_input(prompt: str, default: str = None) -> str:
     """
     Get user input with an optional default value
@@ -63,13 +85,19 @@ def get_log_file_path(cli_log_file: str = None) -> str:
     if cli_log_file:
         logger.debug(f"Checking log file path: {cli_log_file}")
         if os.path.exists(cli_log_file):
+            save_last_log_file(cli_log_file)
             return cli_log_file
         logger.error(f"File not found at {cli_log_file}")
         sys.exit(1)
+
+    # Get the last used log file path
+    last_log_file = get_last_log_file()
+    
     while True:
-        log_file_path = get_user_input("Enter the path to the log file")
+        log_file_path = get_user_input("Enter the path to the log file", last_log_file)
         logger.debug(f"Checking log file path: {log_file_path}")
         if os.path.exists(log_file_path):
+            save_last_log_file(log_file_path)
             return log_file_path
         logger.error(f"File not found at {log_file_path}")
         retry = get_user_input("Would you like to try again? (y/n)", "y").lower()
