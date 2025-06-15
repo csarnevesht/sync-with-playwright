@@ -285,8 +285,12 @@ class AppFileExtractor:
     def _extract_name_with_ocr(self, content: str, file: FileMetadata) -> Optional[Dict[str, str]]:
         """Extract name information from file content using OCR."""
         try:
-            # Convert PDF to images
-            images = convert_from_path(content)
+            # Convert PDF to images with higher DPI and larger size for better text recognition
+            images = convert_from_path(
+                content,
+                dpi=600,  # Increased DPI for better quality
+                size=(2000, None)  # Wider width to capture longer lines
+            )
             ocr_lines = []
             for image in images:
                 text = pytesseract.image_to_string(image)
