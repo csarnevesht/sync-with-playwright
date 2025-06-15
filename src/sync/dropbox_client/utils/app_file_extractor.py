@@ -159,80 +159,90 @@ class AppFileExtractor:
         found_name = False
         name_info = {}
 
-        # Try to find name using various patterns
+        # If we have name_parts, use them to validate extracted names
+        if self.name_parts:
+            expected_first_name = self.name_parts.get('first_name', '').lower()
+            expected_last_name = self.name_parts.get('last_name', '').lower()
+            logger.info(f"Using name parts for validation - First: {expected_first_name}, Last: {expected_last_name}")
+
+        # Look for OWNER and JOINT OWNER sections
+        owner_section = False
+        joint_owner_section = False
+        current_section = None
+
         for i, line in enumerate(lines):
-            if re.match(r'Name\s*:', line):
-                name_info = self._extract_name_from_line(line, lines, i)
-                if name_info:
-                    found_name = True
-                    break
+            line = line.strip()
+            
+            # Check for section headers
+            if 'OWNER' in line and 'JOINT' not in line:
+                owner_section = True
+                joint_owner_section = False
+                current_section = 'owner'
+                logger.info("Found OWNER section")
+                continue
+            elif 'JOINT OWNER' in line:
+                owner_section = False
+                joint_owner_section = True
+                current_section = 'joint_owner'
+                logger.info("Found JOINT OWNER section")
+                continue
+
+            # Look for name markers within sections
+            if (owner_section or joint_owner_section) and 'Name:' in line:
+                # Look at next line for the actual name
+                if i + 1 < len(lines):
+                    name_line = lines[i + 1].strip()
+                    logger.info(f"Found name line in {current_section} section: {name_line}")
+                    
+                    # Extract name parts
+                    name_parts = name_line.split()
+                    if len(name_parts) >= 2:
+                        first_name = name_parts[0]
+                        last_name = name_parts[-1]
+                        middle_initial = name_parts[1] if len(name_parts) > 2 and len(name_parts[1]) == 1 else None
+                        
+                        # Validate against name_parts if available
+                        if self.name_parts:
+                            extracted_first = first_name.lower()
+                            extracted_last = last_name.lower()
+                            if (extracted_first == expected_first_name or 
+                                extracted_last == expected_last_name):
+                                logger.info(f"Found matching name in {current_section} section: {first_name} {last_name}")
+                                name_info = {
+                                    'first_name': first_name,
+                                    'last_name': last_name
+                                }
+                                if middle_initial:
+                                    name_info['middle_initial'] = middle_initial
+                                found_name = True
+                                break
+                        else:
+                            name_info = {
+                                'first_name': first_name,
+                                'last_name': last_name
+                            }
+                            if middle_initial:
+                                name_info['middle_initial'] = middle_initial
+                            found_name = True
+                            break
 
         # If name not found and OCR is available, try OCR
         if not found_name and OCR_AVAILABLE:
             name_info = self._extract_name_with_ocr(content, None)
+            if name_info and self.name_parts:
+                # Validate OCR result against name_parts
+                extracted_first = name_info['first_name'].lower()
+                extracted_last = name_info['last_name'].lower()
+                if (extracted_first == expected_first_name or 
+                    extracted_last == expected_last_name):
+                    logger.info(f"Found matching name via OCR: {name_info['first_name']} {name_info['last_name']}")
+                    found_name = True
+
+        if not found_name:
+            logger.info("No matching name found in document")
+            return None
 
         return name_info
-
-    def _extract_name_from_line(self, line: str, lines: List[str], line_index: int) -> Optional[Dict[str, str]]:
-        """Extract name from a line and its surrounding context."""
-        # Try to extract name directly from the current line
-        name_match = re.search(r'Name\s*:\s*(.+)', line, re.IGNORECASE)
-        if name_match:
-            name = name_match.group(1).strip()
-            name_parts = re.split(r'\s+', name)
-            if len(name_parts) >= 2:
-                return {
-                    'first_name': name_parts[0],
-                    'last_name': name_parts[-1]
-                }
-
-        # Look at next few lines for name
-        for offset in range(1, 10):
-            idx = line_index + offset
-            if idx < len(lines):
-                candidate = lines[idx].strip()
-                if self._is_valid_name_candidate(candidate):
-                    name_parts = re.split(r'\s+', candidate)
-                    return {
-                        'first_name': name_parts[0],
-                        'last_name': name_parts[-1]
-                    }
-
-        return None
-
-    def _is_valid_name_candidate(self, text: str) -> bool:
-        """Check if a text line is likely to contain a valid name."""
-        if not text:
-            return False
-
-        # Skip if contains common non-name patterns
-        non_name_patterns = [
-            r'\d',  # Contains numbers
-            r'[()]',  # Contains parentheses
-            r'[#@]',  # Contains special characters
-            r'box',  # Contains "box"
-            r'address',  # Contains "address"
-            r'city',  # Contains "city"
-            r'state',  # Contains "state"
-            r'zip',  # Contains "zip"
-        ]
-        if any(re.search(pattern, text.lower()) for pattern in non_name_patterns):
-            return False
-
-        # Check if line looks like a real name
-        words = re.split(r'\s+', text)
-        if len(words) < 2:
-            return False
-
-        # Skip if any word is a label
-        labels = {'first', 'last', 'mi', 'address', 'city', 'state', 'zip', 'mailing', 
-                 'phone', 'number', 'dob', 'date', 'ssn', 'email', 'residence', 'cannot', 
-                 'box', 'different', 'than'}
-        if any(word.lower() in labels for word in words):
-            return False
-
-        # Check if at least one word starts with capital letter
-        return any(word[0].isupper() for word in words)
 
     def _extract_name_with_ocr(self, content: str, file: FileMetadata) -> Optional[Dict[str, str]]:
         """Extract name information from file content using OCR."""
