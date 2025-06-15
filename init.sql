@@ -29,10 +29,14 @@ CREATE TABLE IF NOT EXISTS dropbox_accounts (
 CREATE TABLE IF NOT EXISTS applications (
     id SERIAL PRIMARY KEY,
     dropbox_account_id INTEGER REFERENCES dropbox_accounts(id),
+    file_name VARCHAR(255) NOT NULL,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
     application_type TEXT NOT NULL,
     status TEXT NOT NULL,
-    date_of_birth DATE,
+    birthdate DATE,
     gender gender_type,
+    address TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
