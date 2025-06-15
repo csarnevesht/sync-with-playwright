@@ -92,7 +92,7 @@ def parse_log_file(file_path: str, logger, report_logger) -> Dict[str, Dict]:
     """
     Parse the log file and extract information about applications and their DOB/gender.
     """
-    logger.info(f"\nParsing log file: {file_path}")
+    # logger.info(f"\nParsing log file: {file_path}")
     report_logger.info(f"\nParsing log file: {file_path}")
     
     parsed_data = {}
@@ -113,7 +113,7 @@ def parse_log_file(file_path: str, logger, report_logger) -> Dict[str, Dict]:
                             'applications': [],
                             'no_applications_found': False
                         }
-                    logger.info(f"\nProcessing folder: {current_folder}")
+                    # logger.info(f"\nProcessing folder: {current_folder}")
                     report_logger.info(f"\nProcessing folder: {current_folder}")
                     continue
                 
@@ -121,14 +121,14 @@ def parse_log_file(file_path: str, logger, report_logger) -> Dict[str, Dict]:
                 if line.startswith('❌ No application files found for'):
                     if current_folder:
                         parsed_data[current_folder]['no_applications_found'] = True
-                        logger.info(f"No applications found for {current_folder}")
+                        # logger.info(f"No applications found for {current_folder}")
                         report_logger.info(f"No applications found for {current_folder}")
                     continue
                 
                 # Check if this is an application line
                 if line.startswith('✅🎂'):
                     if not current_folder:
-                        logger.warning(f"Found application line without a folder: {line}")
+                        # logger.warning(f"Found application line without a folder: {line}")
                         report_logger.warning(f"Found application line without a folder: {line}")
                         continue
                     
@@ -140,7 +140,7 @@ def parse_log_file(file_path: str, logger, report_logger) -> Dict[str, Dict]:
                         # Split into file name and DOB/gender
                         parts = line.split('[')
                         if len(parts) != 2:
-                            logger.warning(f"Invalid application line format: {line}")
+                            # logger.warning(f"Invalid application line format: {line}")
                             report_logger.warning(f"Invalid application line format: {line}")
                             continue
                         
@@ -150,7 +150,7 @@ def parse_log_file(file_path: str, logger, report_logger) -> Dict[str, Dict]:
                         # Split DOB and gender
                         dob_gender_parts = dob_gender.split(',')
                         if len(dob_gender_parts) != 2:
-                            logger.warning(f"Invalid DOB/gender format: {dob_gender}")
+                            # logger.warning(f"Invalid DOB/gender format: {dob_gender}")
                             report_logger.warning(f"Invalid DOB/gender format: {dob_gender}")
                             continue
                         
@@ -178,12 +178,12 @@ def parse_log_file(file_path: str, logger, report_logger) -> Dict[str, Dict]:
                                     continue
                             
                             if not dob:
-                                logger.warning(f"Invalid date format: {dob_str}")
+                                # logger.warning(f"Invalid date format: {dob_str}")
                                 report_logger.warning(f"Invalid date format: {dob_str}")
                                 continue
                             
                         except Exception as e:
-                            logger.warning(f"Error parsing date {dob_str}: {str(e)}")
+                            # logger.warning(f"Error parsing date {dob_str}: {str(e)}")
                             report_logger.warning(f"Error parsing date {dob_str}: {str(e)}")
                             continue
                         
@@ -197,7 +197,7 @@ def parse_log_file(file_path: str, logger, report_logger) -> Dict[str, Dict]:
                             gender = 'Unknown'
                         
                         if not gender:
-                            logger.warning(f"Could not determine gender from: {gender_str}")
+                            # logger.warning(f"Could not determine gender from: {gender_str}")
                             report_logger.warning(f"Could not determine gender from: {gender_str}")
                             continue
                         
@@ -208,27 +208,27 @@ def parse_log_file(file_path: str, logger, report_logger) -> Dict[str, Dict]:
                             'gender': gender
                         })
                         
-                        logger.info(f"Parsed application: {file_name}")
-                        logger.info(f"DOB: {dob}")
-                        logger.info(f"Gender: {gender}")
+                        # logger.info(f"Parsed application: {file_name}")
+                        # logger.info(f"DOB: {dob}")
+                        # logger.info(f"Gender: {gender}")
                         report_logger.info(f"Parsed application: {file_name}")
                         report_logger.info(f"DOB: {dob}")
                         report_logger.info(f"Gender: {gender}")
                         
                     except Exception as e:
-                        logger.error(f"Error parsing application line: {line}")
-                        logger.error(f"Error details: {str(e)}")
+                        # logger.error(f"Error parsing application line: {line}")
+                        # logger.error(f"Error details: {str(e)}")
                         report_logger.error(f"Error parsing application line: {line}")
                         report_logger.error(f"Error details: {str(e)}")
                         continue
         
         # Log summary of parsed data
-        logger.info("\nParsing complete. Summary:")
+        # logger.info("\nParsing complete. Summary:")
         report_logger.info("\nParsing complete. Summary:")
         for folder, data in parsed_data.items():
-            logger.info(f"\nFolder: {folder}")
-            logger.info(f"Number of applications: {len(data['applications'])}")
-            logger.info(f"No applications found: {data['no_applications_found']}")
+            # logger.info(f"\nFolder: {folder}")
+            # logger.info(f"Number of applications: {len(data['applications'])}")
+            # logger.info(f"No applications found: {data['no_applications_found']}")
             report_logger.info(f"\nFolder: {folder}")
             report_logger.info(f"Number of applications: {len(data['applications'])}")
             report_logger.info(f"No applications found: {data['no_applications_found']}")
@@ -236,7 +236,7 @@ def parse_log_file(file_path: str, logger, report_logger) -> Dict[str, Dict]:
         return parsed_data
         
     except Exception as e:
-        logger.error(f"Error parsing log file: {str(e)}")
+        # logger.error(f"Error parsing log file: {str(e)}")
         report_logger.error(f"Error parsing log file: {str(e)}")
         raise
 
@@ -251,23 +251,23 @@ def generate_database_summary(supabase: SupabaseClient, logger, report_logger) -
         # Get all dropbox accounts
         accounts_result = supabase.client.table('dropbox_accounts').select('*').execute()
         accounts = accounts_result.data
-        logger.info(f"Found {len(accounts)} dropbox accounts")
+        # logger.info(f"Found {len(accounts)} dropbox accounts")
         report_logger.info(f"Found {len(accounts)} dropbox accounts")
         
         # Debug log first few accounts
         if accounts:
-            logger.info(f"First account: {accounts[0]}")
+            # logger.info(f"First account: {accounts[0]}")
             report_logger.info(f"First account: {accounts[0]}")
         
         # Get all applications
         applications_result = supabase.client.table('applications').select('*').execute()
         applications = applications_result.data
-        logger.info(f"Found {len(applications)} applications")
+        # logger.info(f"Found {len(applications)} applications")
         report_logger.info(f"Found {len(applications)} applications")
         
         # Debug log first few applications
         if applications:
-            logger.info(f"First application: {applications[0]}")
+            # logger.info(f"First application: {applications[0]}")
             report_logger.info(f"First application: {applications[0]}")
         
         # Group applications by dropbox account
@@ -279,13 +279,13 @@ def generate_database_summary(supabase: SupabaseClient, logger, report_logger) -
                     account_applications[account_id] = []
                 account_applications[account_id].append(app)
         
-        logger.info(f"Grouped applications into {len(account_applications)} accounts")
+        # logger.info(f"Grouped applications into {len(account_applications)} accounts")
         report_logger.info(f"Grouped applications into {len(account_applications)} accounts")
         
         # Debug log first few grouped applications
         if account_applications:
             first_account_id = next(iter(account_applications))
-            logger.info(f"First account's applications: {account_applications[first_account_id]}")
+            # logger.info(f"First account's applications: {account_applications[first_account_id]}")
             report_logger.info(f"First account's applications: {account_applications[first_account_id]}")
         
         # Write summary to file
@@ -315,7 +315,7 @@ def generate_database_summary(supabase: SupabaseClient, logger, report_logger) -
                         f.write(f"  ✅🎂 {app['file_name']} [{dob_str}, ☑️ {gender_emoji} {gender_str}]\n")
                 f.write("\n")
         
-        logger.info(f"Summary written to {summary_path}")
+        # logger.info(f"Summary written to {summary_path}")
         report_logger.info(f"Summary written to {summary_path}")
         
     except Exception as e:
@@ -333,7 +333,7 @@ def store_in_supabase(parsed_data: Dict[str, Dict], folder: str, logger, report_
     """
     Store the parsed data in Supabase.
     """
-    logger.info("\nStarting to store data in Supabase...")
+    # logger.info("\nStarting to store data in Supabase...")
     report_logger.info("\nStarting to store data in Supabase...")
     
     try:
@@ -342,14 +342,14 @@ def store_in_supabase(parsed_data: Dict[str, Dict], folder: str, logger, report_
         
         # Process each folder in the parsed data
         for i, (folder_name, folder_data) in enumerate(parsed_data.items(), 1):
-            logger.info(f"\n[{i}/{len(parsed_data)}] storing data for folder: {folder_name}")
+            # logger.info(f"\n[{i}/{len(parsed_data)}] storing data for folder: {folder_name}")
             report_logger.info(f"\n[{i}/{len(parsed_data)}] storing data for folder: {folder_name}")
             
             applications = folder_data['applications']
             no_applications_found = folder_data['no_applications_found']
             
-            logger.info(f"Number of applications: {len(applications)}")
-            logger.info(f"No applications found: {no_applications_found}")
+            report_logger.info(f"Number of applications: {len(applications)}")
+            report_logger.info(f"No applications found: {no_applications_found}")
             
             # Create an account even if no applications are found
             try:
@@ -365,20 +365,20 @@ def store_in_supabase(parsed_data: Dict[str, Dict], folder: str, logger, report_
                 if not account_result.data:
                     raise RuntimeError("Failed to create dropbox account")
                 account_id = account_result.data[0]['id']
-                logger.info(f"Created account with ID: {account_id}")
+                # logger.info(f"Created account with ID: {account_id}")
                 report_logger.info(f"Created account with ID: {account_id}")
                 
                 # If no applications were found, log it and continue to next folder
                 if no_applications_found:
-                    logger.warning(f"No applications found for {folder_name}")
+                    # logger.warning(f"No applications found for {folder_name}")
                     report_logger.warning(f"No applications found for {folder_name}")
                     continue
                 
                 # Process applications if any exist
                 for app in applications:
-                    logger.info(f"\nProcessing application: {app['file_name']}")
-                    logger.info(f"Birthdate: {app['birthdate']}")
-                    logger.info(f"Gender: {app['gender']}")
+                    report_logger.info(f"\nProcessing application: {app['file_name']}")
+                    report_logger.info(f"Birthdate: {app['birthdate']}")
+                    report_logger.info(f"Gender: {app['gender']}")
                     
                     # Convert birthdate to ISO format string
                     birthdate_str = app['birthdate'].isoformat() if app['birthdate'] else None
@@ -398,14 +398,14 @@ def store_in_supabase(parsed_data: Dict[str, Dict], folder: str, logger, report_
                     
                     # Debug log the application data
                     app_data = application.model_dump()
-                    logger.info(f"Application data to be inserted: {app_data}")
+                    report_logger.info(f"Application data to be inserted: {app_data}")
                     
                     # Store application and get the result
                     app_result = supabase.client.table('applications').insert(app_data).execute()
                     if not app_result.data:
                         raise RuntimeError("Failed to create application")
                     application_id = app_result.data[0]['id']
-                    logger.info(f"Created application with ID: {application_id}")
+                    report_logger.info(f"Created application with ID: {application_id}")
                     report_logger.info(f"Created application with ID: {application_id}")
                 
             except Exception as e:
@@ -413,8 +413,8 @@ def store_in_supabase(parsed_data: Dict[str, Dict], folder: str, logger, report_
                 report_logger.error(f"Error processing folder {folder_name}: {str(e)}")
                 continue
         
-        logger.info("\nSuccessfully stored all data in Supabase")
         report_logger.info("\nSuccessfully stored all data in Supabase")
+        # report_logger.info("\nSuccessfully stored all data in Supabase")
         
         # Generate database summary
         generate_database_summary(supabase, logger, report_logger)
@@ -496,14 +496,14 @@ def main() -> None:
     # Confirm with user
     confirm = get_user_input("\nWould you like to proceed with storing this data in Supabase? (y/n)", "y").lower()
     if confirm != 'y':
-        logger.info("Operation cancelled by user")
+        # logger.info("Operation cancelled by user")
         report_logger.info("Operation cancelled by user")
         return
 
-    logger.info("\nStoring data in Supabase...")
+    # logger.info("\nStoring data in Supabase...")
     report_logger.info("\nStoring data in Supabase...")
     store_in_supabase(parsed_data, folder, logger, report_logger)
-    logger.info("Data successfully stored in Supabase!")
+    # logger.info("Data successfully stored in Supabase!")
     report_logger.info("Data successfully stored in Supabase!")
 
 # Setup basic logging for the global scope
