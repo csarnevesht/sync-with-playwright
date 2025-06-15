@@ -3,7 +3,7 @@
     find dropbox account folder in supabase
     get all applications for the dropbox account 
         get the actual application from dropbox
-            get first name, last name, etc and update the database record for the application
+            extract first name, last name, etc from the application file and update the database record for the application
 
 
 
