@@ -4,13 +4,14 @@ import json
 import logging
 import re
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from pathlib import Path
 import argparse
 from dotenv import load_dotenv
 from supabase_client.client import SupabaseClient
 from sync.commands.check_docker import ensure_docker_and_supabase
 from sync.cmd_runner import setup_logging, format_args_for_logging
+from pydantic import BaseModel
 
 # Add src to Python path
 src_path = str(Path(__file__).parent.parent.parent.parent)
@@ -322,6 +323,12 @@ def generate_database_summary(supabase: SupabaseClient, logger, report_logger) -
         report_logger.error(f"Error generating database summary: {str(e)}")
         raise
 
+class DropboxAccount(BaseModel):
+    folder: str
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
+
 def store_in_supabase(parsed_data: Dict[str, Dict], folder: str, logger, report_logger) -> None:
     """
     Store the parsed data in Supabase.
@@ -346,15 +353,12 @@ def store_in_supabase(parsed_data: Dict[str, Dict], folder: str, logger, report_
             
             # Create an account even if no applications are found
             try:
-                # Create account with only required fields and empty applications list
+                # Create account with only required fields
                 account = DropboxAccount(
                     folder=folder_name,
                     first_name=None,
                     middle_name=None,
-                    last_name=None,
-                    household_head=None,
-                    household_members=[],
-                    applications=[]  # Initialize with empty list
+                    last_name=None
                 )
                 # Store account and get the result
                 account_result = supabase.client.table('dropbox_accounts').insert(account.model_dump()).execute()
@@ -376,12 +380,15 @@ def store_in_supabase(parsed_data: Dict[str, Dict], folder: str, logger, report_
                     logger.info(f"Birthdate: {app['birthdate']}")
                     logger.info(f"Gender: {app['gender']}")
                     
+                    # Convert birthdate to ISO format string
+                    birthdate_str = app['birthdate'].isoformat() if app['birthdate'] else None
+                    
                     # Create application with only required fields
                     application = Application(
                         file_name=app['file_name'],
                         first_name=None,
                         last_name=None,
-                        birthdate=app['birthdate'],
+                        birthdate=birthdate_str,  # Use the ISO format string
                         gender=app['gender'],
                         address=None,
                         application_type="Insurance",
