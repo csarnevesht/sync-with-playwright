@@ -1262,6 +1262,27 @@ class DropboxClient:
             if ext == '.pdf':
                 try:
                     text = self._extract_text_from_pdf(image_path)
+                    lines = text.split('\n')
+                    
+                    # Log first 10 lines of content
+                    logger.info("First 10 lines of PDF content:")
+                    for i, line in enumerate(lines[:10]):
+                        logger.info(f"Line {i+1}: '{line}'")
+                    
+                    # Initialize file info dictionary
+                    file_info = {
+                        'name': '',
+                        'address': '',
+                        'application_type': '',
+                        'status': '',
+                        'drivers_license': {},
+                        'drivers_license_info': {
+                            'status': 'not_found',
+                            'reason': None,
+                            'file_path': None,
+                            'extraction_errors': []
+                        }
+                    }
                     if not text.strip():
                         logger.info("Direct text extraction failed, attempting OCR")
                         images = convert_from_path(
@@ -1514,6 +1535,12 @@ class DropboxClient:
                         with open(temp_file.name, 'r', encoding='utf-8', errors='ignore') as f:
                             content = f.read()
                     
+                    # Log first 10 lines of content
+                    logger.info("First 10 lines of PDF content:")
+                    lines = content.splitlines()
+                    for i, line in enumerate(lines[:10]):
+                        logger.info(f"Line {i+1}: '{line}'")
+                    
                     # Initialize file info
                     file_info = {
                         'name': '',
@@ -1538,43 +1565,110 @@ class DropboxClient:
                             logger.debug(f"Header line: '{header}'")
                             logger.debug(f"Data line: '{data}'")
                             
-                            # Heuristic: header should contain 'First' and 'Last', data should not
-                            header_match = re.search(r'First.*Last', header, re.IGNORECASE)
-                            logger.debug(f"Header match result: {header_match is not None}")
-                            if header_match:
-                                logger.debug(f"Matched header pattern: '{header_match.group()}'")
+                            # Try multiple patterns for name extraction
+                            patterns = [
+                                (r'First.*Last', r'First\s+MI\s+Last'),  # Standard format
+                                (r'Name\s*:', r'Name\s*:'),  # Simple name format
+                                (r'Applicant\s*:', r'Applicant\s*:'),  # Applicant format
+                                (r'Insured\s*:', r'Insured\s*:'),  # Insured format
+                                (r'Policyholder\s*:', r'Policyholder\s*:')  # Policyholder format
+                            ]
                             
-                            if header_match and data:
-                                logger.debug("Header matches expected format with 'First' and 'Last'")
-                                parts = data.split()
-                                logger.debug(f"Split data parts: {parts}")
+                            found_match = False
+                            for header_pattern, data_pattern in patterns:
+                                header_match = re.search(header_pattern, header, re.IGNORECASE)
+                                data_match = re.search(data_pattern, data, re.IGNORECASE)
                                 
-                                if len(parts) >= 2:
-                                    file_info['first_name'] = parts[0]
-                                    if len(parts) == 3:
-                                        file_info['mi'] = parts[1]
-                                        file_info['last_name'] = parts[2]
-                                        logger.info(f"Extracted name with middle initial: {file_info['first_name']} {file_info['mi']} {file_info['last_name']}")
+                                logger.debug(f"Trying pattern: {header_pattern}")
+                                logger.debug(f"Header match: {header_match is not None}")
+                                logger.debug(f"Data match: {data_match is not None}")
+                                
+                                if header_match or data_match:
+                                    # Extract name from the line that contains the name
+                                    name_line = data if data_match else header
+                                    logger.debug(f"Extracting name from line: '{name_line}'")
+                                    
+                                    # Try to extract name parts
+                                    name_parts = re.split(r'\s+', name_line.strip())
+                                    logger.debug(f"Split name parts: {name_parts}")
+                                    
+                                    if len(name_parts) >= 2:
+                                        # Handle different name formats
+                                        if len(name_parts) == 3 and len(name_parts[1]) == 1:  # Middle initial
+                                            file_info['first_name'] = name_parts[0]
+                                            file_info['mi'] = name_parts[1]
+                                            file_info['last_name'] = name_parts[2]
+                                            logger.info(f"Extracted name with middle initial: {file_info['first_name']} {file_info['mi']} {file_info['last_name']}")
+                                        else:
+                                            file_info['first_name'] = name_parts[0]
+                                            file_info['last_name'] = name_parts[-1]
+                                            logger.info(f"Extracted name: {file_info['first_name']} {file_info['last_name']}")
+                                        found_name = True
+                                        found_match = True
+                                        break
                                     else:
-                                        file_info['last_name'] = parts[-1]
-                                        logger.info(f"Extracted name: {file_info['first_name']} {file_info['last_name']}")
-                                    found_name = True
-                                else:
-                                    logger.warning(f"Data line has insufficient parts: {parts}")
-                                break
-                            else:
-                                logger.debug(f"Header does not match expected format or data line is empty. Header match: {header_match is not None}, Data empty: {not data}")
-                                logger.debug(f"Looking for alternative name patterns in header: '{header}'")
-                                # Try alternative patterns
-                                alt_patterns = [
-                                    r'Name\s*:',
-                                    r'Applicant\s*:',
-                                    r'Insured\s*:',
-                                    r'Policyholder\s*:'
-                                ]
-                                for pattern in alt_patterns:
-                                    if re.search(pattern, header, re.IGNORECASE):
-                                        logger.debug(f"Found alternative pattern match: {pattern}")
+                                        logger.warning(f"Name line has insufficient parts: {name_parts}")
+
+                            if file_info['name'] == '':
+                                found_name = False
+                                found_match = False
+                            
+                            if not found_match:
+                                logger.debug("No matching name pattern found in header or data")
+                                # Try to extract name directly from the current line
+                                name_match = re.search(r'Name\s*:\s*(.+)', line, re.IGNORECASE)
+                                if name_match:
+                                    name = name_match.group(1).strip()
+                                    logger.debug(f"Found name in current line: '{name}'")
+                                    name_parts = re.split(r'\s+', name)
+                                    if len(name_parts) >= 2:
+                                        file_info['first_name'] = name_parts[0]
+                                        file_info['last_name'] = name_parts[-1]
+                                        logger.info(f"Extracted name from current line: {file_info['first_name']} {file_info['last_name']}")
+                                        found_name = True
+                                # NEW: Scan next 1-3 lines for a real name
+                                for offset in range(1, 10):  # Increased from 3 to 10 lines
+                                    idx = i + offset
+                                    if idx < len(lines):
+                                        candidate = lines[idx].strip()
+                                        logger.debug(f"Scanning for real name, line {idx}: '{candidate}'")
+                                        # Skip empty lines
+                                        if not candidate:
+                                            logger.debug(f"Skipping empty candidate at line {idx}")
+                                            continue
+                                        candidate_parts = re.split(r'\s+', candidate)
+                                        # Skip if not at least two words
+                                        if len(candidate_parts) < 2:
+                                            logger.debug(f"Skipping candidate at line {idx} (not enough words): {candidate_parts}")
+                                            continue
+                                        # Skip if any word is a label
+                                        labels = ['first', 'last', 'mi', 'address', 'city', 'state', 'zip', 'mailing', 'phone', 'number', 'dob', 'date', 'ssn', 'email', 'residence', 'cannot', 'box', 'different', 'than']
+                                        if any(any(lbl == word.lower() for lbl in labels) for word in candidate_parts):
+                                            logger.debug(f"Skipping candidate at line {idx} (contains label): {candidate_parts}")
+                                            continue
+                                        # Skip if line contains common non-name patterns
+                                        non_name_patterns = [
+                                            r'\d',  # Contains numbers
+                                            r'[()]',  # Contains parentheses
+                                            r'[#@]',  # Contains special characters
+                                            r'box',  # Contains "box"
+                                            r'address',  # Contains "address"
+                                            r'city',  # Contains "city"
+                                            r'state',  # Contains "state"
+                                            r'zip',  # Contains "zip"
+                                        ]
+                                        if any(re.search(pattern, candidate.lower()) for pattern in non_name_patterns):
+                                            logger.debug(f"Skipping candidate at line {idx} (matches non-name pattern): {candidate}")
+                                            continue
+                                        # Check if the line looks like a real name (at least one word starts with capital letter)
+                                        if not any(word[0].isupper() for word in candidate_parts):
+                                            logger.debug(f"Skipping candidate at line {idx} (no capitalized words): {candidate_parts}")
+                                            continue
+                                        # Otherwise, accept as name
+                                        file_info['first_name'] = candidate_parts[0]
+                                        file_info['last_name'] = candidate_parts[-1]
+                                        logger.info(f"Extracted probable real name from line {idx}: {file_info['first_name']} {file_info['last_name']}")
+                                        found_name = True
                                         break
                         else:
                             logger.warning(f"Not enough lines after 'Name:' marker at line {i}")
@@ -1582,225 +1676,51 @@ class DropboxClient:
                             if i+1 < len(lines):
                                 logger.debug(f"Next line content: '{lines[i+1]}'")
 
-                # --- Enhanced Mailing Address Extraction ---
-                logger.info("Starting enhanced mailing address extraction")
-                found_mailing = False
-                for i, line in enumerate(lines):
-                    if re.match(r'Mailing Address', line):
-                        if i+2 < len(lines):
-                            header = lines[i+1].strip()
-                            data = lines[i+2].strip()
-                            if re.search(r'City.*State.*Zip', header, re.IGNORECASE) and data:
-                                address_parts = re.split(r'\s{2,}|\t', data)
-                                if len(address_parts) >= 4:
-                                    file_info['mailing_address'] = address_parts[0]
-                                    file_info['mailing_city'] = address_parts[1]
-                                    file_info['mailing_state'] = address_parts[2]
-                                    file_info['mailing_zip'] = address_parts[3]
-                                    found_mailing = True
-                                else:
-                                    parts = data.split()
-                                    if len(parts) >= 4:
-                                        file_info['mailing_address'] = ' '.join(parts[:-3])
-                                        file_info['mailing_city'] = parts[-3]
-                                        file_info['mailing_state'] = parts[-2]
-                                        file_info['mailing_zip'] = parts[-1]
-                                        found_mailing = True
-                                break            
+                if file_info['name'] == '':
+                    found_name = False
+                    found_match = False
 
-# ... existing regex-based extraction for name follows ...
-                    
-                    # Extract name if requested
-                    if 'name' in extract_fields:
-                        name_patterns = [
-                            r'Applicant Name[\s\:\-]*([^\n]+)',
-                            r'Full Name[\s\:\-]*([^\n]+)',
-                            r'Name of Applicant[\s\:\-]*([^\n]+)',
-                            r'Insured Name[\s\:\-]*([^\n]+)',
-                            r'Name of Insured[\s\:\-]*([^\n]+)',
-                            r'Policy Owner[\s\:\-]*([^\n]+)',
-                            r'Name of Policy Owner[\s\:\-]*([^\n]+)',
-                            r'Primary Applicant[\s\:\-]*([^\n]+)',
-                            r'Name of Primary Applicant[\s\:\-]*([^\n]+)',
-                            r'Joint Applicant[\s\:\-]*([^\n]+)',
-                            r'Name of Joint Applicant[\s\:\-]*([^\n]+)'
-                        ]
-                        for pattern in name_patterns:
-                            match = re.search(pattern, content, re.IGNORECASE)
-                            if match:
-                                name = match.group(1).strip()
-                                # Skip if it looks like a form field label
-                                if not any(label in name.lower() for label in ['first', 'last', 'mi', 'middle', 'agent', 'phone', 'split']):
-                                    file_info['name'] = name
+                # --- OCR fallback if name not found ---
+                logger.info(f"found_name: {found_name}")
+                logger.info(f"file.name: {file.name}    name: {file_info['name']}")
+                   
+                if not found_name and file.name.lower().endswith('.pdf') and OCR_AVAILABLE:
+                    logger.info("No name found in extracted text, attempting OCR on PDF image...")
+                    try:
+                        logger.info("Starting OCR fallback for name extraction")
+                        from pdf2image import convert_from_path
+                        import pytesseract
+                        images = convert_from_path(temp_file.name, dpi=600)
+                        ocr_text = ''
+                        for page_num, image in enumerate(images[:2], 1):  # Only first 2 pages for speed
+                            logger.info(f"Running OCR on page {page_num} of {file.name}")
+                            # Preprocess image to enhance text visibility
+                            image = image.convert('L')  # Convert to grayscale
+                            image = image.point(lambda x: 0 if x < 128 else 255, '1')  # Binarize image
+                            page_ocr = pytesseract.image_to_string(image)
+                            logger.info(f"OCR output for page {page_num} (first 10 lines):\n" + '\n'.join(page_ocr.splitlines()[:10]))
+                            ocr_text += page_ocr + '\n'
+                        # Try to extract name from OCR text
+                        ocr_lines = ocr_text.splitlines()
+                        for i, line in enumerate(ocr_lines):
+                            if re.match(r'Name\\s*:', line):
+                                logger.debug(f"[OCR] Found 'Name:' marker at line {i}")
+                                # Try next 1-5 lines for a real name
+                                for offset in range(1, 6):
+                                    idx = i + offset
+                                    if idx < len(ocr_lines):
+                                        candidate = ocr_lines[idx].strip()
+                                        candidate_parts = re.split(r'\\s+', candidate)
+                                        if len(candidate_parts) >= 2 and all(word and word[0].isupper() for word in candidate_parts):
+                                            file_info['first_name'] = candidate_parts[0]
+                                            file_info['last_name'] = candidate_parts[-1]
+                                            logger.info(f"[OCR] Extracted probable real name from line {idx}: \033[94m{file_info['first_name']} {file_info['last_name']}\033[0m")
+                                            found_name = True
+                                            break
+                                if found_name:
                                     break
-                    
-                    # Extract address if requested
-                    if 'address' in extract_fields:
-                        address_patterns = [
-                            r'Residence Address[\s\:\-]*([^\n]+)',
-                            r'Home Address[\s\:\-]*([^\n]+)',
-                            r'Current Address[\s\:\-]*([^\n]+)',
-                            r'Address of Applicant[\s\:\-]*([^\n]+)',
-                            r'Applicant Address[\s\:\-]*([^\n]+)',
-                            r'Insured Address[\s\:\-]*([^\n]+)',
-                            r'Address of Insured[\s\:\-]*([^\n]+)',
-                            r'Policy Owner Address[\s\:\-]*([^\n]+)',
-                            r'Address of Policy Owner[\s\:\-]*([^\n]+)',
-                            r'Primary Applicant Address[\s\:\-]*([^\n]+)',
-                            r'Address of Primary Applicant[\s\:\-]*([^\n]+)',
-                            r'Joint Applicant Address[\s\:\-]*([^\n]+)',
-                            r'Address of Joint Applicant[\s\:\-]*([^\n]+)'
-                        ]
-                        for pattern in address_patterns:
-                            match = re.search(pattern, content, re.IGNORECASE)
-                            if match:
-                                address = match.group(1).strip()
-                                # Skip if it looks like a form field label
-                                if not any(label in address.lower() for label in ['street', 'city', 'state', 'zip', 'po box', 'cannot be']):
-                                    file_info['address'] = address
-                                    break
-                    
-                    # Extract application type if requested
-                    if 'application_type' in extract_fields:
-                        type_patterns = [
-                            r'Application Type[\s\:\-]*([^\n]+)',
-                            r'Type of Application[\s\:\-]*([^\n]+)',
-                            r'Form Type[\s\:\-]*([^\n]+)'
-                        ]
-                        for pattern in type_patterns:
-                            match = re.search(pattern, content, re.IGNORECASE)
-                            if match:
-                                file_info['application_type'] = match.group(1).strip()
-                                break
-                    
-                    # Extract status if requested
-                    if 'status' in extract_fields:
-                        status_patterns = [
-                            r'Status[\s\:\-]*([^\n]+)',
-                            r'Application Status[\s\:\-]*([^\n]+)',
-                            r'Current Status[\s\:\-]*([^\n]+)'
-                        ]
-                        for pattern in status_patterns:
-                            match = re.search(pattern, content, re.IGNORECASE)
-                            if match:
-                                file_info['status'] = match.group(1).strip()
-                                break
-                    
-                    # Store file info
-                    summary_data['file_info'][file.path_display] = file_info
-                    
-                    # Search for birthdate if requested
-                    if 'birthdate' in extract_fields:
-                        birthdate_patterns = [
-                            r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
-                            r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
-                            r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{2,4})',
-                            r'birthdate[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
-                            r'birthdate[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
-                            r'birthdate[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
-                            r'birthdate[\s\(\)\/\:\-]*([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})',
-                            r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
-                            r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
-                            r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{2,4})',
-                            r'date of birth[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
-                            r'date of birth[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
-                            r'date of birth[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
-                            r'date of birth[\s\(\)\/\:\-]*([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})',
-                            r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
-                            r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
-                            r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{2,4})',
-                            r'DOB[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
-                            r'DOB[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
-                            r'DOB[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
-                            r'DOB[\s\(\)\/\:\-]*([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})',
-                            r'([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})'
-                        ]
-                        
-                        birthdate_found = False
-                        for pattern in birthdate_patterns:
-                            match = re.search(pattern, content, re.IGNORECASE)
-                            if match:
-                                birthdate = match.group(1)
-                                summary_data['birthdate_found'] = True
-                                summary_data['files_with_birthdate'].add(file.path_display)
-                                summary_data['file_birthdates'][file.path_display] = birthdate
-                                birthdate_found = True
-                                break
-                    
-                    # Search for gender if requested
-                    if 'gender' in extract_fields:
-                        sex_patterns = [
-                            r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Female',
-                            r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Male',
-                            r'Female[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)',
-                            r'Male[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)',
-                            r'\[\s\]]*Male[\s\]]*\[\s*\]',
-                            r'\[\s\]]*Female[\s\]]*\[\s*\]',
-                            r'Sex[\s\:\-]*([MF])',
-                            r'Gender[\s\:\-]*([MF])',
-                            r'Sex[\s\:\-]*(Male|Female)',
-                            r'Gender[\s\:\-]*(Male|Female)',
-                            r'(?:Sex|Gender)[\s\:\-]*([MF])',
-                            r'(?:Sex|Gender)[\s\:\-]*(Male|Female)',
-                            r'(?:Sex|Gender)[\s\:\-]*([MF])[\s]*',
-                            r'(?:Sex|Gender)[\s\:\-]*(Male|Female)[\s]*',
-                            r'(?:Sex|Gender)[\s\:\-]*([MF])[\s]*$',
-                            r'(?:Sex|Gender)[\s\:\-]*(Male|Female)[\s]*$'
-                        ]
-                        
-                        sex_found = None
-                        for sex_pattern in sex_patterns:
-                            sex_match = re.search(sex_pattern, content, re.IGNORECASE)
-                            if sex_match:
-                                if re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Male', sex_match.group(0), re.IGNORECASE) or \
-                                   re.search(r'Male[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
-                                    sex_found = 'M'
-                                elif re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Female', sex_match.group(0), re.IGNORECASE) or \
-                                     re.search(r'Female[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
-                                    sex_found = 'F'
-                                else:
-                                    if sex_match.lastindex and sex_match.group(1):
-                                        if sex_match.group(1).upper().startswith('M'):
-                                            sex_found = 'M'
-                                        elif sex_match.group(1).upper().startswith('F'):
-                                            sex_found = 'F'
-                                        else:
-                                            sex_found = sex_match.group(1)
-                                summary_data['file_sexes'][file.path_display] = sex_found
-                                break
-                        
-                        # Try OCR if sex not found and file is PDF and OCR is available
-                        if not sex_found and file.name.lower().endswith('.pdf') and OCR_AVAILABLE:
-                            try:
-                                images = convert_from_path(temp_file.name)
-                                ocr_text = ''
-                                for img in images:
-                                    # Enhance image for better OCR
-                                    img = ImageEnhance.Contrast(img).enhance(2.0)
-                                    img = ImageEnhance.Brightness(img).enhance(1.5)
-                                    ocr_text += pytesseract.image_to_string(img) + '\n'
-                                
-                                for sex_pattern in sex_patterns:
-                                    sex_match = re.search(sex_pattern, ocr_text, re.IGNORECASE)
-                                    if sex_match:
-                                        if re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Male', sex_match.group(0), re.IGNORECASE) or \
-                                           re.search(r'Male[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
-                                            sex_found = 'M'
-                                        elif re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Female', sex_match.group(0), re.IGNORECASE) or \
-                                             re.search(r'Female[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
-                                            sex_found = 'F'
-                                        else:
-                                            if sex_match.lastindex and sex_match.group(1):
-                                                if sex_match.group(1).upper().startswith('M'):
-                                                    sex_found = 'M'
-                                                elif sex_match.group(1).upper().startswith('F'):
-                                                    sex_found = 'F'
-                                                else:
-                                                    sex_found = sex_match.group(1)
-                                        summary_data['file_sexes'][file.path_display] = sex_found
-                                        break
-                            except Exception as ocr_exc:
-                                logger.error(f"OCR extraction failed for {file.name}: {ocr_exc}")
+                    except Exception as ocr_exc:
+                        logger.error(f"OCR extraction failed for {file.name}: {ocr_exc}")                
                             
             except Exception as e:
                 logger.error(f"Error processing file {file.name}: {str(e)}")
@@ -2169,6 +2089,98 @@ class DropboxClient:
             logger.warning("No information could be extracted from driver's license (enhanced)")
             logger.debug(f"Raw OCR text: {text}")
         return result
+
+    def _extract_name_from_pdf(self, pdf_path: str) -> Optional[Dict[str, str]]:
+        """Extract name information from a PDF file."""
+        try:
+            text = self._extract_text_from_pdf(pdf_path)
+            lines = text.split('\n')
+            
+            # Log first 20 lines for debugging
+            logger.info("First 20 lines of PDF content:")
+            for i, line in enumerate(lines[:20], 1):
+                logger.info(f"Line {i}: {line}")
+                
+            # Look for name patterns in the first 50 lines
+            for i, line in enumerate(lines[:50]):
+                # Log when we find potential name markers
+                if any(marker in line for marker in ['Name:', 'Applicant:', 'Insured:', 'Policyholder:']):
+                    logger.debug(f"Found potential name marker at line {i}: {line}")
+                    
+                    # Look at next 10 lines for the actual name
+                    for j in range(i+1, min(i+11, len(lines))):
+                        next_line = lines[j].strip()
+                        logger.debug(f"Checking line {j} for name: {next_line}")
+                        
+                        # Skip empty lines or lines with just labels
+                        if not next_line or any(label in next_line.lower() for label in ['address', 'phone', 'email', 'date', 'birth']):
+                            continue
+                            
+                        # Try to extract name parts
+                        parts = next_line.split()
+                        if len(parts) >= 2:
+                            logger.info(f"Found potential name parts: {parts}")
+                            first_name = parts[0]
+                            last_name = parts[-1]
+                            middle_initial = parts[1] if len(parts) > 2 and len(parts[1]) == 1 else None
+                            
+                            if middle_initial:
+                                logger.info(f"Extracted name with middle initial: {first_name} {middle_initial} {last_name}")
+                                return {
+                                    'first_name': first_name,
+                                    'middle_initial': middle_initial,
+                                    'last_name': last_name
+                                }
+                            else:
+                                logger.info(f"Extracted name without middle initial: {first_name} {last_name}")
+                                return {
+                                    'first_name': first_name,
+                                    'last_name': last_name
+                                }
+                                
+            logger.warning("No valid name found in first 50 lines of PDF")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error extracting name from PDF: {str(e)}")
+            return None
+
+    def _extract_name_with_ocr(self, temp_file, file_info, file):
+        """Extract name from PDF using OCR if direct text extraction fails."""
+        logger.info("No name found in extracted text, attempting OCR on PDF image...")
+        try:
+            from pdf2image import convert_from_path
+            import pytesseract
+            images = convert_from_path(temp_file.name, dpi=600)  # Increased DPI for better accuracy
+            ocr_text = ''
+            for page_num, image in enumerate(images[:2], 1):  # Only first 2 pages for speed
+                logger.info(f"Running OCR on page {page_num} of {file.name}")
+                # Preprocess image to enhance text visibility
+                image = image.convert('L')  # Convert to grayscale
+                image = image.point(lambda x: 0 if x < 128 else 255, '1')  # Binarize image
+                page_ocr = pytesseract.image_to_string(image)
+                logger.info(f"OCR output for page {page_num} (first 10 lines):\n" + '\n'.join(page_ocr.splitlines()[:10]))
+                ocr_text += page_ocr + '\n'
+            # Try to extract name from OCR text
+            ocr_lines = ocr_text.splitlines()
+            for i, line in enumerate(ocr_lines):
+                if re.match(r'Name\\s*:', line):
+                    logger.debug(f"[OCR] Found 'Name:' marker at line {i}")
+                    # Try next 1-5 lines for a real name
+                    for offset in range(1, 6):
+                        idx = i + offset
+                        if idx < len(ocr_lines):
+                            candidate = ocr_lines[idx].strip()
+                            candidate_parts = re.split(r'\\s+', candidate)
+                            if len(candidate_parts) >= 2 and all(word and word[0].isupper() for word in candidate_parts):
+                                file_info['first_name'] = candidate_parts[0]
+                                file_info['last_name'] = candidate_parts[-1]
+                                logger.info(f"[OCR] Extracted probable real name from line {idx}: \033[94m{file_info['first_name']} {file_info['last_name']}\033[0m")
+                                return True
+            return False
+        except Exception as ocr_exc:
+            logger.error(f"OCR extraction failed for {file.name}: {ocr_exc}")
+            return False
 
 def update_env_file(env_file, token=None, root_folder=None, directory=None):
     """Update the .env file with new values."""
