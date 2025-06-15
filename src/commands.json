@@ -75,6 +75,14 @@
     "description": "Extract DOB and gender information from Dropbox account application files and store in log file",
     "command": "python -m sync.cmd_runner --commands=extract-dropbox-account-app-files-dob-gender --dropbox-accounts"
   },
+  {
+    "description": "Extract general information from Dropbox account application files and store in log file",
+    "command": "python -m sync.cmd_runner --commands=extract-dropbox-account-app-files-info --dropbox-accounts"
+  },
+  {  
+  "description": "Extract DOB and gender information from Dropbox account application files and store in log file --dropbox-account-name='Amaran Martin & Teresita'",
+    "command": "python -m sync.cmd_runner --commands=extract-dropbox-account-app-files-dob-gender --dropbox-accounts --dropbox-account-name='Amaran Martin & Teresita'"
+  },
   {  
   "description": "Extract DOB and gender information from Dropbox account application files and store in log file --dropbox-account-name='Andrews, Kathleen'",
     "command": "python -m sync.cmd_runner --commands=extract-dropbox-account-app-files-dob-gender --dropbox-accounts --dropbox-account-name='Andrews, Kathleen'"
@@ -86,6 +94,22 @@
   {
     "description": "Store extracted account information in Supabase",
     "command": "python -m sync.cmd_runner --commands=store-in-supabase"
+  },
+  {
+    "description": "Search for account information in Supabase",
+    "command": "python -m sync.cmd_runner --commands=search-supabase --dropbox-accounts"
+  },
+  {
+    "description": "Search for account information in Supabase for a specific account",
+    "command": "python -m sync.cmd_runner --commands=search-supabase --dropbox-accounts --dropbox-account-name='Account Name'"
+  },
+  {
+    "description": "Search for account information in Supabase with specific criteria",
+    "command": "python -m sync.cmd_runner --commands=search-supabase --dropbox-accounts --dropbox-account-name='Account Name' --birthdate='2000-01-01' --gender='Female' --application-type='New Application'"
+  },
+  {
+    "description": "Search for account information in Supabase with specific criteria --dropbox-account-name='Andrews, Kathleen'",
+    "command": "python -m sync.cmd_runner --commands=search-supabase --dropbox-accounts --dropbox-account-name='Andrews, Kathleen'"
   },
   {
     "description": "Parse log file and store DOB and gender information in Supabase",

@@ -405,6 +405,18 @@ def parse_args():
                       help='Get detailed information and relationships for Salesforce accounts',
                       action='store_true')
     
+    # Search Criteria Options
+    parser.add_argument('--birthdate',
+                      help='Search for applications with this birthdate (format: YYYY-MM-DD)',
+                      type=str)
+    parser.add_argument('--gender',
+                      help='Search for applications with this gender (Male/Female)',
+                      type=str,
+                      choices=['Male', 'Female'])
+    parser.add_argument('--application-type',
+                      help='Search for applications with this type',
+                      type=str)
+    
     # Processing Options
     parser.add_argument('--account-batch-size',
                       help='Number of accounts to process in each batch',
@@ -1234,9 +1246,10 @@ Additional Account Information:
                         report_logger.info(line)
                         summary_logger.info(line)
                 
-            total_accounts_line = f"Total Accounts Processed: {len(summary_results)}"
-            report_logger.info(total_accounts_line)
-            summary_logger.info(total_accounts_line)
+            if len(summary_results) > 0:
+                total_accounts_line = f"Total Accounts Processed: {len(summary_results)}"
+                report_logger.info(total_accounts_line)
+                summary_logger.info(total_accounts_line)
 
              
 
