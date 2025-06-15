@@ -76,7 +76,7 @@ def start_supabase():
     print("\nStarting Supabase...")
     try:
         # Log current directory before changing
-        print(f"Current directory before changing: {os.getcwd()}")
+        print(f"fg: {os.getcwd()}")
         print(f"Project root path: {project_root}")
         
         # Change to project root directory
