@@ -208,7 +208,8 @@ class CommandRunner:
             'download-salesforce-account-file': self._download_salesforce_account_file,
             'delete-salesforce-account-files': self._delete_salesforce_account_files,
             'force-delete-salesforce-account-files': self._force_delete_salesforce_account_files,
-            'extract-dropbox-account-app-files-dob-gender': self._extract_dropbox_account_app_files_dob_gender
+            'extract-dropbox-account-app-files-dob-gender': self._extract_dropbox_account_app_files_dob_gender,
+            'store-in-supabase': self._store_in_supabase
         }
         
         if command not in command_map:
@@ -600,7 +601,7 @@ class CommandRunner:
             dropbox_root_folder = self.get_context('dropbox_root_folder')
             dropbox_salesforce_folder = dropbox_client.get_dropbox_salesforce_folder()
             dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
-            logging.info(f"CAROLINA dropbox_account_folder_name: {dropbox_account_folder_name}")
+            logging.info(f"dropbox_account_folder_name: {dropbox_account_folder_name}")
 
             # Use dropbox_account_folder_name directly
             folder = dropbox_account_folder_name
@@ -808,4 +809,92 @@ class CommandRunner:
         except Exception as e:
             error_msg = f"Error in extract-dropbox-account-app-files-dob-gender operation: {str(e)}"
             self.logger.error(error_msg)
+            raise
+
+    def _store_in_supabase(self) -> None:
+        """Store data in Supabase database.
+        This command will store the extracted DOB and gender information in Supabase.
+        """
+        self.logger.info("Starting store-in-supabase operation")
+        self.report_logger.info("\n=== STORING DATA IN SUPABASE ===")
+        
+        # Get required context
+        dropbox_client = self.get_context('dropbox_client')
+        dropbox_salesforce_folder = dropbox_client.get_dropbox_salesforce_folder()
+        dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
+        logging.info(f"dropbox_account_folder_name: {dropbox_account_folder_name}")
+
+        try:
+            # Get or create Supabase client
+            try:
+                supabase_client = self.get_context('supabase_client')
+                self.logger.info("Using existing Supabase client from context")
+            except KeyError:
+                self.logger.info("No Supabase client found in context, creating new instance")
+                from supabase_client import SupabaseClient
+                supabase_client = SupabaseClient()
+                self.set_context('supabase_client', supabase_client)
+            
+            # Get the dropbox account folder from the database
+            self.logger.info(f"Getting dropbox account from database for {dropbox_account_folder_name}")
+            dropbox_account = supabase_client.get_dropbox_account_by_folder(dropbox_account_folder_name)
+            if not dropbox_account:
+                error_msg = f"Dropbox account not found for folder: {dropbox_account_folder_name}"
+                self.logger.error(error_msg)
+                self.report_logger.error(f"\n{error_msg}")
+                return
+
+            # Get the applications for the dropbox account
+            applications = dropbox_account.applications
+            self.logger.info(f"Found {len(applications)} applications for {dropbox_account_folder_name}")
+            self.report_logger.info(f"\nFound {len(applications)} applications for {dropbox_account_folder_name}")
+
+            # Store the applications in Supabase
+            for application in applications:
+                supabase_client.store_application(application)
+            
+            # Get the data to store
+            summary_data = self.get_data('summary_data')
+            if not summary_data:
+                error_msg = "No summary data found to store in Supabase"
+                self.logger.error(error_msg)
+                self.report_logger.error(f"\n{error_msg}")
+                return
+            
+            # Store the data in Supabase
+            for folder, files in summary_data['all_folder_app_files'].items():
+                for file in files:
+                    if file.path_display in summary_data['files_with_birthdate']:
+                        birthdate = summary_data['file_birthdates'].get(file.path_display, '')
+                        sex = summary_data['file_sexes'].get(file.path_display, '')
+                        
+                        # Prepare data for Supabase
+                        data = {
+                            'folder_name': folder,
+                            'file_name': file.name,
+                            'file_path': file.path_display,
+                            'birthdate': birthdate,
+                            'sex': sex,
+                            'created_at': datetime.now().isoformat()
+                        }
+                        
+                        try:
+                            # Update data into Supabase using the client        
+                            result = supabase_client.client.table('account_files').update(data).eq('file_path', file.path_display).execute()
+                            self.logger.info(f"Successfully stored data for {file.name} in Supabase")
+                            self.report_logger.info(f"\nSuccessfully stored data for {file.name} in Supabase")
+                        except Exception as e:
+                            error_msg = f"Error storing data for {file.name} in Supabase: {str(e)}"
+                            self.logger.error(error_msg)
+                            self.report_logger.error(f"\n{error_msg}")
+                            if not self.args.continue_on_error:
+                                raise
+            
+            self.logger.info("Successfully completed store-in-supabase operation")
+            self.report_logger.info("\nSuccessfully completed store-in-supabase operation")
+            
+        except Exception as e:
+            error_msg = f"Error in store-in-supabase operation: {str(e)}"
+            self.logger.error(error_msg)
+            self.report_logger.error(f"\n{error_msg}")
             raise 

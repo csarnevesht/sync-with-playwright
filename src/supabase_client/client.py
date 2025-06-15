@@ -132,10 +132,10 @@ class SupabaseClient:
                 applications.append(Application(**app_result.data[0]))
 
         # Get household members
-        members_result = self._client.table("dropbox_account_household_members").select("household_member_id").eq("dropbox_account_id", account_id).execute()
+        members_result = self._client.table("dropbox_account_household_members").select("id").eq("dropbox_account_id", account_id).execute()
         household_members = []
         for member in members_result.data:
-            member_result = self._client.table("household_members").select("*").eq("id", member["household_member_id"]).execute()
+            member_result = self._client.table("household_members").select("*").eq("id", member["id"]).execute()
             if member_result.data:
                 household_members.append(HouseholdMember(**member_result.data[0]))
 
@@ -144,6 +144,50 @@ class SupabaseClient:
             first_name=account_data["first_name"],
             middle_name=account_data["middle_name"],
             last_name=account_data["last_name"],
+            applications=applications,
+            household_head=household_head,
+            household_members=household_members
+        )
+
+    def get_dropbox_account_by_folder(self, folder_name: str) -> Optional[DropboxAccount]:
+        """Retrieve a dropbox account by folder name"""
+        if not self._client:
+            raise RuntimeError("Supabase client not initialized")
+
+        # Get account
+        result = self._client.table("dropbox_accounts").select("*").eq("folder", folder_name).execute()
+        if not result.data:
+            return None
+
+        account_data = result.data[0]
+
+        # Get household head
+        household_head = None
+        if account_data.get("household_head_id"):
+            head_result = self._client.table("household_members").select("*").eq("id", account_data["household_head_id"]).execute()
+            if head_result.data:
+                household_head = HouseholdMember(**head_result.data[0])
+
+        # Get applications directly from applications table
+        apps_result = self._client.table("applications").select("*").eq("dropbox_account_id", account_data["id"]).execute()
+        applications = []
+        if apps_result.data:
+            for app_data in apps_result.data:
+                applications.append(Application(**app_data))
+
+        # Get household members
+        members_result = self._client.table("household_members").select("id").eq("dropbox_account_id", account_data["id"]).execute()
+        household_members = []
+        for member in members_result.data:
+            member_result = self._client.table("household_members").select("*").eq("id", member["id"]).execute()
+            if member_result.data:
+                household_members.append(HouseholdMember(**member_result.data[0]))
+
+        return DropboxAccount(
+            folder=account_data["folder"],
+            first_name=account_data.get("first_name"),
+            middle_name=account_data.get("middle_name"),
+            last_name=account_data.get("last_name"),
             applications=applications,
             household_head=household_head,
             household_members=household_members
