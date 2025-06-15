@@ -436,6 +436,9 @@ def parse_args():
     # New arguments
     parser.add_argument('--debug', action='store_true', help='Enable debug logging')
     parser.add_argument('--keep-log', action='store_true', help='Keep this log folder and prevent it from being cleaned up')
+    parser.add_argument('--file-filter',
+                      help='Filter files by name pattern (e.g. "*Life*" to only process files containing "Life")',
+                      default=None)
     
     return parser.parse_args()
 

@@ -658,12 +658,23 @@ class CommandRunner:
             dropbox_account_name_parts = self.get_data('dropbox_account_name_parts')
             logging.info(f"dropbox_account_name_parts: {dropbox_account_name_parts}")
 
+            # Get file filter if specified
+            file_filter = self.args.file_filter
+            if file_filter:
+                self.logger.info(f"Using file filter: {file_filter}")
+                self.report_logger.info(f"\nUsing file filter: {file_filter}")
+
             # Construct folder path
             folder_path = f"/{dropbox_root_folder}/{dropbox_account_folder_name}"
             folder_path = folder_path.replace('//', '/')
             
             # Extract all fields except birthdate and gender
-            summary_data = dropbox_client.extract_app_files_info(folder_path, extract_fields={'name', 'address'}, name_parts=dropbox_account_name_parts)
+            summary_data = dropbox_client.extract_app_files_info(
+                folder_path, 
+                extract_fields={'name', 'address'}, 
+                name_parts=dropbox_account_name_parts,
+                file_filter=file_filter
+            )
             
             # Log the summary for this folder
             folder_app_files = summary_data['all_folder_app_files'].get(folder_path, [])
