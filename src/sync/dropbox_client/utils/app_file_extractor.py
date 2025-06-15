@@ -153,11 +153,39 @@ class AppFileExtractor:
             logger.error(f"Error extracting text from {file.name}: {str(e)}")
             return None
 
+    def _validate_name_against_parts(self, first_name: str, last_name: str) -> bool:
+        """Validate extracted name against expected name parts.
+        
+        Args:
+            first_name: Extracted first name
+            last_name: Extracted last name
+            
+        Returns:
+            bool: True if name matches expected parts, False otherwise
+        """
+        if not self.name_parts:
+            return True
+            
+        expected_first_name = self.name_parts.get('first_name', '').lower()
+        expected_last_name = self.name_parts.get('last_name', '').lower()
+        
+        extracted_first = first_name.lower()
+        extracted_last = last_name.lower()
+        
+        # Match if either first or last name matches
+        matches = (extracted_first == expected_first_name or 
+                  extracted_last == expected_last_name)
+                  
+        if matches:
+            logger.info(f"Found matching name: {first_name} {last_name}")
+            
+        return matches
+
     def _extract_name(self, content: str) -> Optional[Dict[str, str]]:
         """Extract name information from file content."""
         lines = content.splitlines()
         found_name = False
-        name_info = {}
+        is_joint_file = 'joint' in content.lower()
 
         # If we have name_parts, use them to validate extracted names
         if self.name_parts:
@@ -169,80 +197,90 @@ class AppFileExtractor:
         owner_section = False
         joint_owner_section = False
         current_section = None
+        owner_name = None
+        joint_owner_name = None
 
         for i, line in enumerate(lines):
             line = line.strip()
             
-            # Check for section headers
-            if 'OWNER' in line and 'JOINT' not in line:
+            # Check for section headers - be more precise
+            if re.search(r'^\s*1\.\s*OWNER\s*\(Owner is the Annuitant unless otherwise noted\)', line, re.IGNORECASE):
                 owner_section = True
                 joint_owner_section = False
                 current_section = 'owner'
                 logger.info("Found OWNER section")
                 continue
-            elif 'JOINT OWNER' in line:
+            elif re.search(r'^\s*2\.\s*JOINT\s+OWNER\s+INFORMATION\s*\(Must be legal spouse', line, re.IGNORECASE):
                 owner_section = False
                 joint_owner_section = True
                 current_section = 'joint_owner'
                 logger.info("Found JOINT OWNER section")
                 continue
 
-            # Look for name markers within sections
-            if (owner_section or joint_owner_section) and 'Name:' in line:
-                # Look at next line for the actual name
-                if i + 1 < len(lines):
-                    name_line = lines[i + 1].strip()
-                    logger.info(f"Found name line in {current_section} section: {name_line}")
-                    
-                    # Extract name parts
-                    name_parts = name_line.split()
-                    if len(name_parts) >= 2:
-                        first_name = name_parts[0]
-                        last_name = name_parts[-1]
-                        middle_initial = name_parts[1] if len(name_parts) > 2 and len(name_parts[1]) == 1 else None
+            # Look for name markers within sections - be more specific
+            if (owner_section or joint_owner_section):
+                # Look for specific name patterns
+                name_patterns = [
+                    r'^\s*Name\s*:\s*First\s+MI\s+Last\s*$',  # "Name: First MI Last"
+                ]
+                
+                if any(re.match(pattern, line, re.IGNORECASE) for pattern in name_patterns):
+                    # Look at next line for the actual name
+                    if i + 1 < len(lines):
+                        name_line = lines[i + 1].strip()
+                        logger.info(f"Found name line in {current_section} section: {name_line}")
                         
-                        # Validate against name_parts if available
-                        if self.name_parts:
-                            extracted_first = first_name.lower()
-                            extracted_last = last_name.lower()
-                            if (extracted_first == expected_first_name or 
-                                extracted_last == expected_last_name):
-                                logger.info(f"Found matching name in {current_section} section: {first_name} {last_name}")
-                                name_info = {
+                        # Skip if the next line looks like a header or label
+                        if any(skip in name_line.lower() for skip in ['address', 'city', 'state', 'zip', 'phone', 'email', 'website']):
+                            continue
+                            
+                        # Extract name parts
+                        name_parts = name_line.split()
+                        if len(name_parts) >= 2:
+                            first_name = name_parts[0]
+                            last_name = name_parts[-1]
+                            middle_initial = name_parts[1] if len(name_parts) > 2 and len(name_parts[1]) == 1 else None
+                            
+                            # Validate name against expected parts
+                            if self._validate_name_against_parts(first_name, last_name):
+                                # Store name based on section
+                                name_dict = {
                                     'first_name': first_name,
                                     'last_name': last_name
                                 }
                                 if middle_initial:
-                                    name_info['middle_initial'] = middle_initial
+                                    name_dict['middle_initial'] = middle_initial
+
+                                if current_section == 'owner':
+                                    owner_name = name_dict
+                                elif current_section == 'joint_owner':
+                                    joint_owner_name = name_dict
+                                    
                                 found_name = True
-                                break
-                        else:
-                            name_info = {
-                                'first_name': first_name,
-                                'last_name': last_name
-                            }
-                            if middle_initial:
-                                name_info['middle_initial'] = middle_initial
-                            found_name = True
-                            break
 
         # If name not found and OCR is available, try OCR
         if not found_name and OCR_AVAILABLE:
-            name_info = self._extract_name_with_ocr(content, None)
-            if name_info and self.name_parts:
-                # Validate OCR result against name_parts
-                extracted_first = name_info['first_name'].lower()
-                extracted_last = name_info['last_name'].lower()
-                if (extracted_first == expected_first_name or 
-                    extracted_last == expected_last_name):
-                    logger.info(f"Found matching name via OCR: {name_info['first_name']} {name_info['last_name']}")
-                    found_name = True
+            ocr_result = self._extract_name_with_ocr(content, None)
+            if ocr_result:
+                # Validate OCR result
+                if self._validate_name_against_parts(ocr_result['first_name'], ocr_result['last_name']):
+                    if not owner_name:
+                        owner_name = ocr_result
+                    elif not joint_owner_name and is_joint_file:
+                        joint_owner_name = ocr_result
 
-        if not found_name:
-            logger.info("No matching name found in document")
-            return None
+        # Return appropriate name info based on what was found
+        if is_joint_file and owner_name and joint_owner_name:
+            return {
+                'owner': owner_name,
+                'joint_owner': joint_owner_name
+            }
+        elif owner_name:
+            return owner_name
+        elif joint_owner_name:
+            return joint_owner_name
 
-        return name_info
+        return None
 
     def _extract_name_with_ocr(self, content: str, file: FileMetadata) -> Optional[Dict[str, str]]:
         """Extract name information from file content using OCR."""
