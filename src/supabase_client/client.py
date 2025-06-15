@@ -25,8 +25,8 @@ class SupabaseClient:
 
     def _setup(self):
         """Set up the Supabase client with the correct credentials"""
-        # Load environment variables from supabase/docker/.env
-        env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'supabase', 'docker', '.env')
+        # Load environment variables from project root .env
+        env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
         load_dotenv(env_path)
 
         # Get the Supabase URL
@@ -39,8 +39,15 @@ class SupabaseClient:
             raise ValueError("SUPABASE_SERVICE_KEY not set in .env file!")
         logger.debug(f"Using Supabase service role key: {service_role_key}")
 
-        # Create the Supabase client with the service role key
-        self._client = create_client(supabase_url, service_role_key)
+        try:
+            # Create the Supabase client with the service role key
+            self._client = create_client(supabase_url, service_role_key)
+            # Test the connection
+            self._client.table('dropbox_accounts').select('count').execute()
+            logger.info("Successfully connected to Supabase")
+        except Exception as e:
+            logger.error(f"Failed to connect to Supabase: {str(e)}")
+            raise
 
     @property
     def client(self) -> SupabaseBaseClient:

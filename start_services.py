@@ -21,6 +21,93 @@ def run_command(cmd, cwd=None):
     print("Running:", " ".join(cmd))
     subprocess.run(cmd, cwd=cwd, check=True)
 
+def get_supabase_keys():
+    """Get both SUPABASE_ANON_KEY and SUPABASE_SERVICE_KEY from the environment or container."""
+    keys = {}
+    
+    # Try to get from container - handle different possible container names
+    container_names = [
+        "sync-with-playwright-kong-1",
+        "supabase-kong",
+        "kong"
+    ]
+    
+    for container_name in container_names:
+        try:
+            result = subprocess.run(
+                ["docker", "exec", container_name, "env"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                # Get service role key
+                service_match = re.search(r'SUPABASE_SERVICE_KEY=([^\n]+)', result.stdout)
+                if service_match:
+                    keys['service'] = service_match.group(1)
+                
+                # Get anon key
+                anon_match = re.search(r'SUPABASE_ANON_KEY=([^\n]+)', result.stdout)
+                if anon_match:
+                    keys['anon'] = anon_match.group(1)
+                
+                if keys:
+                    print(f"\nFound Supabase keys in {container_name} container.")
+                    return keys
+        except Exception:
+            continue
+
+    # Try environment variables as fallback
+    keys['service'] = os.environ.get('SUPABASE_SERVICE_KEY')
+    keys['anon'] = os.environ.get('SUPABASE_ANON_KEY')
+    
+    if not any(keys.values()):
+        print("\nNo Supabase keys found. You can get them in one of these ways:")
+        print("\n1. From the Supabase Dashboard:")
+        print("   a. Go to https://supabase.com/dashboard")
+        print("   b. Select your project")
+        print("   c. Go to Project Settings > API")
+        print("   d. Find 'Project API keys' section")
+        print("   e. Copy both the 'anon' and 'service_role' keys")
+        
+        print("\n2. From your local Supabase setup:")
+        print("   a. Check if the Kong container is running:")
+        print("      docker ps | grep kong")
+        print("   b. Get the keys from the container:")
+        print("      docker exec <kong-container-name> env | grep SUPABASE")
+        
+        print("\n3. Set them in your environment:")
+        print("   export SUPABASE_ANON_KEY=your-anon-key-here")
+        print("   export SUPABASE_SERVICE_KEY=your-service-key-here")
+        print("   # Or add them to your .env file:")
+        print("   echo 'SUPABASE_ANON_KEY=your-anon-key-here' >> .env")
+        print("   echo 'SUPABASE_SERVICE_KEY=your-service-key-here' >> .env")
+        
+        print("\nNote: The service role key has full access to your database.")
+        print("      Keep it secure and never commit it to version control.")
+    
+    return keys
+
+def validate_jwt(token):
+    """Validate a JWT token format."""
+    try:
+        # Split the token into parts
+        parts = token.split('.')
+        if len(parts) != 3:
+            return False, "Invalid JWT format: should have 3 parts"
+        
+        # Check if each part is base64url encoded
+        import base64
+        for part in parts:
+            try:
+                base64.urlsafe_b64decode(part + '=' * (-len(part) % 4))
+            except Exception:
+                return False, f"Invalid base64url encoding in part: {part}"
+        
+        return True, "Valid JWT format"
+    except Exception as e:
+        return False, f"Error validating JWT: {str(e)}"
+
 def prepare_supabase_env():
     """Copy .env to .env in supabase/docker."""
     env_path = os.path.join("supabase", "docker", ".env")
@@ -185,8 +272,53 @@ def start_services(force=False):
     # Disable logflare sinks before starting services
     disable_logflare_sinks(os.path.join("supabase", "docker", "volumes", "logs", "vector.yml"))
     prepare_supabase_env()
+    
     if start_supabase():
-        print("All services started successfully!")
+        print("\nAll services started successfully!")
+        
+        # Get and display service key information
+        keys = get_supabase_keys()
+        
+        if keys.get('service') or keys.get('anon'):
+            print("\nCurrent Supabase key configuration:")
+            
+            if keys.get('service'):
+                is_valid, message = validate_jwt(keys['service'])
+                print("\nService Role Key:")
+                print(f"Key: {keys['service']}")
+                print(f"Status: {'✅ Valid' if is_valid else '❌ Invalid'}")
+                if not is_valid:
+                    print(f"Error: {message}")
+            
+            if keys.get('anon'):
+                is_valid, message = validate_jwt(keys['anon'])
+                print("\nAnon Key:")
+                print(f"Key: {keys['anon']}")
+                print(f"Status: {'✅ Valid' if is_valid else '❌ Invalid'}")
+                if not is_valid:
+                    print(f"Error: {message}")
+            
+            print("\nTo use these keys in your application:")
+            print("1. Add them to your .env file:")
+            if keys.get('anon'):
+                print(f"   SUPABASE_ANON_KEY={keys['anon']}")
+            if keys.get('service'):
+                print(f"   SUPABASE_SERVICE_KEY={keys['service']}")
+            print("2. Or set them in your environment:")
+            if keys.get('anon'):
+                print(f"   export SUPABASE_ANON_KEY={keys['anon']}")
+            if keys.get('service'):
+                print(f"   export SUPABASE_SERVICE_KEY={keys['service']}")
+            
+            print("\nNote: The service role key has full access to your database.")
+            print("      Keep it secure and never commit it to version control.")
+        else:
+            print("\nWARNING: No Supabase keys found!")
+            print("Please set them up as described above.")
+            print("\nAfter setting up the keys, you may need to:")
+            print("1. Restart your application")
+            print("2. Run 'python scripts/setup_env.py' to update your environment")
+        
         return True
     else:
         print("Services started but health check failed. Please check the logs.")

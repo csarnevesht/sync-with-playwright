@@ -55,3 +55,4 @@ logs saved/**
 volumes/** 
 supabase/** supabase/
 .env.backup
+supabase

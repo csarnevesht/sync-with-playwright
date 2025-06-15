@@ -43,15 +43,30 @@ This project includes a Chrome extension and a Python script to automatically in
    docker-compose up -d
    ```
 
-4. Configure environment variables:
-   Create a `.env` file in the project root with these required variables:
-   ```
-   # Supabase Configuration
-   SUPABASE_URL=http://localhost:8000
-   SUPABASE_SERVICE_KEY=your-service-role-key
+4. Set up environment variables:
+   ```bash
+   # Run the setup script to configure environment variables
+   python scripts/setup_env.py
    ```
    
-   The `SUPABASE_SERVICE_KEY` can be found in your Supabase project settings under Project Settings > API > Project API keys > service_role key.
+   This script will:
+   - Create a new `.env` file if it doesn't exist
+   - Update an existing `.env` file with the correct Supabase configuration
+   - Try to get the service key in this order:
+     1. From your environment variables (if set)
+     2. From the running Supabase container (if local)
+     3. Prompt you to get it from the Supabase dashboard
+   - Preserve any existing environment variables not related to Supabase
+   - Verify that all required environment variables are present
+
+   To get the service key manually:
+   1. Go to your Supabase project dashboard
+   2. Navigate to Project Settings > API
+   3. Find the "Project API keys" section
+   4. Copy the "service_role" key
+   5. Set it in your environment: `export SUPABASE_SERVICE_KEY=your-key-here`
+
+   Note: The service role key has full access to your database. Keep it secure and never commit it to version control.
 
 5. The database schema will be automatically created when you first run the application.
 
@@ -62,6 +77,11 @@ This project includes a Chrome extension and a Python script to automatically in
    
    # Check Supabase logs if needed
    docker-compose logs supabase
+   ```
+
+7. If you need to restart Supabase services:
+   ```bash
+   python start_services.py --force
    ```
 
 ## Starting Services with start_services.py
