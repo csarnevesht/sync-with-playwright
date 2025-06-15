@@ -190,7 +190,9 @@ def store_in_supabase(parsed_data: List[Dict[str, Any]], folder: str) -> None:
                     last_name="",
                     birthdate=birthdate,
                     gender=item.get('gender', ''),
-                    address=""
+                    address="",
+                    application_type="Insurance",  # Default type since we're processing insurance applications
+                    status="Pending"  # Default status for new applications
                 )
                 account.applications.append(application)
             

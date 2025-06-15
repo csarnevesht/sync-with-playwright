@@ -11,6 +11,8 @@ class Application(BaseModel):
     birthdate: Optional[date] = None
     gender: str
     address: str
+    application_type: str
+    status: str
 
 class HouseholdMember(BaseModel):
     role: str  # "Head" or "Member"
