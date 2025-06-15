@@ -608,8 +608,8 @@ class CommandRunner:
             folder_path = f"/{dropbox_root_folder}/{dropbox_account_folder_name}"
             folder_path = folder_path.replace('//', '/')
             
-            # Extract information using the DropboxClient method
-            summary_data = dropbox_client.extract_app_files_info(folder_path)
+            # Extract only birthdate and gender information
+            summary_data = dropbox_client.extract_app_files_info(folder_path, extract_fields={'birthdate', 'gender'})
             
             # Log the summary for this folder
             folder_app_files = summary_data['all_folder_app_files'].get(folder_path, [])
@@ -659,8 +659,8 @@ class CommandRunner:
             folder_path = f"/{dropbox_root_folder}/{dropbox_account_folder_name}"
             folder_path = folder_path.replace('//', '/')
             
-            # Extract information using the DropboxClient method
-            summary_data = dropbox_client.extract_app_files_info(folder_path)
+            # Extract all fields except birthdate and gender
+            summary_data = dropbox_client.extract_app_files_info(folder_path, extract_fields={'name', 'address'})
             
             # Log the summary for this folder
             folder_app_files = summary_data['all_folder_app_files'].get(folder_path, [])
