@@ -1521,6 +1521,94 @@ class DropboxClient:
                         'application_type': '',
                         'status': ''
                     }
+
+
+                # Enhanced extraction for multi-line, multi-column forms (Name only)
+                logger.info("Starting enhanced name extraction")
+                lines = content.splitlines()
+                found_name = False
+                for i, line in enumerate(lines):
+                    if re.match(r'Name\s*:', line):
+                        logger.debug(f"Found 'Name:' marker at line {i}")
+                        logger.debug(f"Current line content: '{line}'")
+                        # Look for header and data lines
+                        if i+2 < len(lines):
+                            header = lines[i+1].strip()
+                            data = lines[i+2].strip()
+                            logger.debug(f"Header line: '{header}'")
+                            logger.debug(f"Data line: '{data}'")
+                            
+                            # Heuristic: header should contain 'First' and 'Last', data should not
+                            header_match = re.search(r'First.*Last', header, re.IGNORECASE)
+                            logger.debug(f"Header match result: {header_match is not None}")
+                            if header_match:
+                                logger.debug(f"Matched header pattern: '{header_match.group()}'")
+                            
+                            if header_match and data:
+                                logger.debug("Header matches expected format with 'First' and 'Last'")
+                                parts = data.split()
+                                logger.debug(f"Split data parts: {parts}")
+                                
+                                if len(parts) >= 2:
+                                    file_info['first_name'] = parts[0]
+                                    if len(parts) == 3:
+                                        file_info['mi'] = parts[1]
+                                        file_info['last_name'] = parts[2]
+                                        logger.info(f"Extracted name with middle initial: {file_info['first_name']} {file_info['mi']} {file_info['last_name']}")
+                                    else:
+                                        file_info['last_name'] = parts[-1]
+                                        logger.info(f"Extracted name: {file_info['first_name']} {file_info['last_name']}")
+                                    found_name = True
+                                else:
+                                    logger.warning(f"Data line has insufficient parts: {parts}")
+                                break
+                            else:
+                                logger.debug(f"Header does not match expected format or data line is empty. Header match: {header_match is not None}, Data empty: {not data}")
+                                logger.debug(f"Looking for alternative name patterns in header: '{header}'")
+                                # Try alternative patterns
+                                alt_patterns = [
+                                    r'Name\s*:',
+                                    r'Applicant\s*:',
+                                    r'Insured\s*:',
+                                    r'Policyholder\s*:'
+                                ]
+                                for pattern in alt_patterns:
+                                    if re.search(pattern, header, re.IGNORECASE):
+                                        logger.debug(f"Found alternative pattern match: {pattern}")
+                                        break
+                        else:
+                            logger.warning(f"Not enough lines after 'Name:' marker at line {i}")
+                            logger.debug(f"Available lines after marker: {len(lines) - i - 1}")
+                            if i+1 < len(lines):
+                                logger.debug(f"Next line content: '{lines[i+1]}'")
+
+                # --- Enhanced Mailing Address Extraction ---
+                logger.info("Starting enhanced mailing address extraction")
+                found_mailing = False
+                for i, line in enumerate(lines):
+                    if re.match(r'Mailing Address', line):
+                        if i+2 < len(lines):
+                            header = lines[i+1].strip()
+                            data = lines[i+2].strip()
+                            if re.search(r'City.*State.*Zip', header, re.IGNORECASE) and data:
+                                address_parts = re.split(r'\s{2,}|\t', data)
+                                if len(address_parts) >= 4:
+                                    file_info['mailing_address'] = address_parts[0]
+                                    file_info['mailing_city'] = address_parts[1]
+                                    file_info['mailing_state'] = address_parts[2]
+                                    file_info['mailing_zip'] = address_parts[3]
+                                    found_mailing = True
+                                else:
+                                    parts = data.split()
+                                    if len(parts) >= 4:
+                                        file_info['mailing_address'] = ' '.join(parts[:-3])
+                                        file_info['mailing_city'] = parts[-3]
+                                        file_info['mailing_state'] = parts[-2]
+                                        file_info['mailing_zip'] = parts[-1]
+                                        found_mailing = True
+                                break            
+
+# ... existing regex-based extraction for name follows ...
                     
                     # Extract name if requested
                     if 'name' in extract_fields:
