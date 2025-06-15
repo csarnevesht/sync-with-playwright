@@ -332,6 +332,16 @@ def setup_logging(args, command: str = None):
     red_logger.setLevel(logging.INFO)
     red_logger.addHandler(red_handler)
     
+    # Set logging level for Supabase client and its dependencies to WARNING
+    logging.getLogger('httpx').setLevel(logging.WARNING)
+    logging.getLogger('httpcore').setLevel(logging.WARNING)
+    logging.getLogger('supabase').setLevel(logging.WARNING)
+    
+    # Set specific httpx loggers to WARNING level
+    logging.getLogger('httpx._client').setLevel(logging.WARNING)
+    logging.getLogger('httpx._transports.default').setLevel(logging.WARNING)
+    logging.getLogger('httpx._utils').setLevel(logging.WARNING)
+    
     # Log the command and arguments if provided
     if command:
         root_logger.info(f"Command: {command}")
