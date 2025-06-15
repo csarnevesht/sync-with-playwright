@@ -208,7 +208,7 @@ class CommandRunner:
             'download-salesforce-account-file': self._download_salesforce_account_file,
             'delete-salesforce-account-files': self._delete_salesforce_account_files,
             'force-delete-salesforce-account-files': self._force_delete_salesforce_account_files,
-            'get-dropbox-account-app-info': self._get_dropbox_account_app_info
+            'extract-dropbox-account-app-files-dob-gender': self._extract_dropbox_account_app_files_dob_gender
         }
         
         if command not in command_map:
@@ -587,9 +587,11 @@ class CommandRunner:
         self.report_logger.info("\n=== FORCE DELETING SALESFORCE ACCOUNT FILES ===")
         self._delete_salesforce_account_files(force=True)
 
-    def _get_dropbox_account_app_info(self) -> None:
-        """Get information about the Dropbox application and its configuration."""
-        self.logger.info("Starting get-dropbox-account-app-info operation")
+    def _extract_dropbox_account_app_files_dob_gender(self) -> None:
+        """Get Dropbox Account information from all the application files in each Dropbox account folder.
+           Currently only gets the DOB and gender from the application files.
+        """
+        self.logger.info("Starting extract-dropbox-account-app-files-dob-gender operation")
         self.report_logger.info("\n=== GETTING DROPBOX APPLICATION INFORMATION ===")
         
         try:
@@ -801,9 +803,9 @@ class CommandRunner:
             else:
                 self.summary_logger.info(f"  ❌ No application files found for {folder}")
 
-            self.logger.info("\nSuccessfully completed get-dropbox-account-app-info operation")
+            self.logger.info("\nSuccessfully completed extract-dropbox-account-app-files-dob-gender operation")
             
         except Exception as e:
-            error_msg = f"Error in get-dropbox-account-app-info operation: {str(e)}"
+            error_msg = f"Error in extract-dropbox-account-app-files-dob-gender operation: {str(e)}"
             self.logger.error(error_msg)
             raise 

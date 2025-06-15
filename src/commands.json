@@ -72,6 +72,10 @@
     "command": "python -m cmd_start"
   },
   {
+    "description": "Extract DOB and gender information from Dropbox account application files and store in log file",
+    "command": "python -m sync.cmd_runner --env_file=.env --commands=extract-dropbox-account-app-files-dob-gender --dropbox_accounts"
+  },
+  {
     "description": "Parse log file and store DOB and gender information in Supabase",
     "command": "python -m sync.commands.log_parser_summary_dob_and_gender"
   }
