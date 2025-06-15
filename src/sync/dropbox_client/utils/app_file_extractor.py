@@ -22,11 +22,14 @@ except ImportError:
 class AppFileExtractor:
     def __init__(self, dbx: dropbox.Dropbox):
         self.dbx = dbx
+        self.name_parts = None
 
-    def extract_info(self, folder_path: str, extract_fields: set = None) -> Dict[str, Any]:
+    def extract_info(self, folder_path: str, extract_fields: set = None, name_parts: Dict[str, Any] = None) -> Dict[str, Any]:
         """Extract information from application files in the specified folder."""
         if extract_fields is None:
             extract_fields = {'name', 'address', 'application_type', 'status'}
+        
+        self.name_parts = name_parts
 
         summary_data = {
             'total_app_files': 0,
@@ -212,37 +215,14 @@ class AppFileExtractor:
         return any(word[0].isupper() for word in words)
 
     def _extract_name_with_ocr(self, content: str, file: FileMetadata) -> Optional[Dict[str, str]]:
-        """Extract name using OCR on PDF images."""
+        """Extract name information from file content using OCR."""
         try:
-            logger.info("Starting OCR fallback for name extraction")
-            images = convert_from_path(content, dpi=600)
-            ocr_text = ''
-            
-            for page_num, image in enumerate(images[:2], 1):  # Only first 2 pages for speed
-                logger.info(f"Running OCR on page {page_num} of {file.name}")
-                # Enhanced image preprocessing
-                image = image.convert('L')  # Convert to grayscale
-                import cv2
-                import numpy as np
-                img_array = np.array(image)
-                img_array = cv2.adaptiveThreshold(
-                    img_array, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-                    cv2.THRESH_BINARY, 11, 2
-                )
-                image = Image.fromarray(img_array)
-                configs = [
-                    '--oem 1 --psm 3',
-                    '--oem 1 --psm 4',
-                    '--oem 1 --psm 6',
-                ]
-                for config in configs:
-                    logger.info(f"Trying OCR config: {config}")
-                    page_ocr = pytesseract.image_to_string(image, config=config)
-                    logger.info(f"OCR output with config {config} (first 20 lines):\n" + '\n'.join(page_ocr.splitlines()[:20]))
-                    ocr_text += page_ocr + '\n'
-
-            ocr_lines = ocr_text.splitlines()
-            logger.info("Full OCR text (first 50 lines):\n" + '\n'.join(ocr_lines[:50]))
+            # Convert PDF to images
+            images = convert_from_path(content)
+            ocr_lines = []
+            for image in images:
+                text = pytesseract.image_to_string(image)
+                ocr_lines.extend(text.splitlines())
 
             # 1. Look for 'Full Name' marker and extract the next non-empty line
             for i, line in enumerate(ocr_lines):
@@ -254,20 +234,26 @@ class AppFileExtractor:
                         logger.debug(f"[Full Name] Candidate after marker: '{candidate}'")
                         if candidate and len(candidate.split()) >= 2:
                             name_parts = candidate.split()
-                            if any('amaran' in part.lower() for part in name_parts):
+                            if self.name_parts and any(part.lower() in self.name_parts.get('last_name', '').lower() for part in name_parts):
                                 logger.info(f"[Full Name] Found name after marker: {candidate}")
+                                # Find the index of the part containing the last name
+                                last_name_index = next(i for i, part in enumerate(name_parts) 
+                                                     if part.lower() in self.name_parts.get('last_name', '').lower())
+                                # Use all parts up to and including the last name as the last name
+                                last_name = ' '.join(name_parts[last_name_index:])
+                                first_name = ' '.join(name_parts[:last_name_index])
                                 return {
-                                    'first_name': name_parts[0],
-                                    'last_name': name_parts[-1]
+                                    'first_name': first_name,
+                                    'last_name': last_name
                                 }
 
-            # 2. Fallback: Any line containing 'Amaran' and at least two words
+            # 2. Fallback: Any line containing the last name and at least two words
             for i, line in enumerate(ocr_lines):
-                logger.debug(f"[Amaran Fallback] Checking line {i}: '{line}'")
-                if 'amaran' in line.lower():
+                logger.debug(f"[Last Name Fallback] Checking line {i}: '{line}'")
+                if self.name_parts and self.name_parts.get('last_name', '').lower() in line.lower():
                     words = line.strip().split()
                     if len(words) >= 2:
-                        logger.info(f"[Amaran Fallback] Found line with Amaran: {line}")
+                        logger.info(f"[Last Name Fallback] Found line with last name: {line}")
                         return {
                             'first_name': words[0],
                             'last_name': words[-1]
@@ -291,7 +277,7 @@ class AppFileExtractor:
                         logger.info(f"[Pattern] Found potential name match: '{name}'")
                         name_parts = re.split(r'\s+', name)
                         if len(name_parts) >= 2:
-                            if any('amaran' in part.lower() for part in name_parts):
+                            if self.name_parts and any(part.lower() in self.name_parts.get('last_name', '').lower() for part in name_parts):
                                 logger.info(f"[Pattern] Found name with matching last name: {name}")
                                 return {
                                     'first_name': name_parts[0],
@@ -313,7 +299,7 @@ class AppFileExtractor:
                             len(words[i]) > 1 and len(words[i+1]) > 1):
                             potential_name = f"{words[i]} {words[i+1]}"
                             logger.info(f"[CapWords] Found potential name from capitalized words: '{potential_name}'")
-                            if any('amaran' in word.lower() for word in words):
+                            if self.name_parts and any(word.lower() in self.name_parts.get('last_name', '').lower() for word in words):
                                 logger.info(f"[CapWords] Found name with matching last name: {potential_name}")
                                 return {
                                     'first_name': words[i],
