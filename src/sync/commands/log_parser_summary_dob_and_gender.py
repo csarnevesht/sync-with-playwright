@@ -241,76 +241,43 @@ def parse_log_file(file_path: str, logger, report_logger) -> Dict[str, Dict]:
         report_logger.error(f"Error parsing log file: {str(e)}")
         raise
 
-def generate_database_summary(supabase, logger, report_logger) -> None:
+def generate_database_summary(supabase, logger, report_logger, summary_logger) -> None:
     """
-    Generate a summary of the database contents and write it to summary.log
+    Generate a summary of the database contents and log it using summary_logger
     """
     logger.info("\nGenerating database summary...")
     report_logger.info("\nGenerating database summary...")
-    
+    summary_logger.info("Database Summary\n================\n")
     try:
-        # Get all dropbox accounts
-        accounts_result = supabase.table('dropbox_accounts').select('*').execute()
+        # Get all dropbox accounts with their applications
+        accounts_result = supabase.table('dropbox_accounts').select('*, applications(*)').execute()
         accounts = accounts_result.data
         report_logger.info(f"Found {len(accounts)} dropbox accounts")
+        summary_logger.info(f"Total Dropbox Accounts: {len(accounts)}")
         
         # Debug log first few accounts
         if accounts:
             report_logger.info(f"First account: {accounts[0]}")
         
-        # Get all applications
-        applications_result = supabase.table('applications').select('*').execute()
-        applications = applications_result.data
-        report_logger.info(f"Found {len(applications)} applications")
-        
-        # Debug log first few applications
-        if applications:
-            report_logger.info(f"First application: {applications[0]}")
-        
-        # Group applications by dropbox account
-        account_applications = {}
-        for app in applications:
-            account_id = app.get('dropbox_account_id')
-            if account_id:
-                if account_id not in account_applications:
-                    account_applications[account_id] = []
-                account_applications[account_id].append(app)
-        
-        report_logger.info(f"Grouped applications into {len(account_applications)} accounts")
-        
-        # Debug log first few grouped applications
-        if account_applications:
-            first_account_id = next(iter(account_applications))
-            report_logger.info(f"First account's applications: {account_applications[first_account_id]}")
-        
-        # Write summary to file
-        summary_path = os.path.join(os.path.dirname(__file__), 'summary.log')
-        with open(summary_path, 'w') as f:
-            f.write("Database Summary\n")
-            f.write("================\n\n")
+        # Log summary for each account
+        for account in accounts:
+            folder = account['folder']
+            apps = account.get('applications', [])
             
-            f.write(f"Total Dropbox Accounts: {len(accounts)}\n")
-            f.write(f"Total Applications: {len(applications)}\n\n")
-            
-            for account in accounts:
-                folder = account['folder']
-                account_id = account['id']
-                apps = account_applications.get(account_id, [])
-                
-                f.write(f"Dropbox Account Folder: {folder}\n")
-                if not apps:
-                    f.write(f"  ❌ No application files found for {folder}\n")
-                else:
-                    for app in apps:
-                        # Format date as MM/DD/YYYY
-                        dob_str = app['birthdate'].strftime('%m/%d/%Y') if app.get('birthdate') else 'N/A'
-                        # Get gender emoji
-                        gender_emoji = '👩' if app.get('gender') == 'Female' else '👨' if app.get('gender') == 'Male' else ''
-                        gender_str = app.get('gender', 'Unknown')
-                        f.write(f"  ✅🎂 {app['file_name']} [{dob_str}, ☑️ {gender_emoji} {gender_str}]\n")
-                f.write("\n")
+            summary_logger.info(f"Dropbox Account Folder: {folder}")
+            if not apps:
+                summary_logger.info(f"  ❌ No application files found for {folder}")
+            else:
+                for app in apps:
+                    # Format date as MM/DD/YYYY
+                    dob_str = app['birthdate'].strftime('%m/%d/%Y') if app.get('birthdate') else 'N/A'
+                    # Get gender emoji
+                    gender_emoji = '👩' if app.get('gender') == 'Female' else '👨' if app.get('gender') == 'Male' else ''
+                    gender_str = app.get('gender', 'Unknown')
+                    summary_logger.info(f"  ✅🎂 {app['file_name']} [{dob_str}, ☑️ {gender_emoji} {gender_str}]")
+            summary_logger.info("")
         
-        report_logger.info(f"Summary written to {summary_path}")
+        report_logger.info(f"Summary logged using summary_logger")
         
     except Exception as e:
         logger.error(f"Error generating database summary: {str(e)}")
@@ -324,6 +291,8 @@ class DropboxAccount(BaseModel):
     last_name: Optional[str] = None
     applications: List[Application] = []
     no_applications_found: bool = False
+    household_head: Optional[str] = None
+    household_members: List[str] = []
 
     model_config = {
         'json_encoders': {
@@ -336,55 +305,64 @@ def store_in_supabase(parsed_data: Dict[str, Dict], folder: str, logger, report_
     Store the parsed data in Supabase
     """
     try:
-        # Get Supabase credentials
+        # Create Supabase client
         url, key = get_supabase_credentials()
-        
-        # Initialize Supabase client
         supabase = create_client(url, key)
         
-        # Process each folder in the parsed data
-        for folder_path, data in parsed_data.items():
-            if folder_path != folder:
-                continue
-                
-            logger.info(f"\nProcessing folder: {folder_path}")
-            report_logger.info(f"\nProcessing folder: {folder_path}")
+        # Get the data for the specified folder
+        folder_data = parsed_data.get(folder)
+        if not folder_data:
+            logger.error(f"No data found for folder: {folder}")
+            report_logger.error(f"No data found for folder: {folder}")
+            return
+        
+        # First, create the dropbox account
+        account_data = {
+            'folder': folder,
+            'first_name': None,
+            'middle_name': None,
+            'last_name': None
+        }
+        
+        # Insert the account and get its ID
+        account_result = supabase.table('dropbox_accounts').insert(account_data).execute()
+        if not account_result.data:
+            logger.error(f"Failed to create account for folder: {folder}")
+            report_logger.error(f"Failed to create account for folder: {folder}")
+            return
             
-            # Create DropboxAccount instance
-            account = DropboxAccount(
-                folder=folder_path,
-                no_applications_found=data['no_applications_found']
-            )
-            
-            # Convert applications to Application instances
-            applications = []
-            for app_data in data['applications']:
-                try:
-                    app = Application(
-                        file_name=app_data['file_name'],
-                        birthdate=app_data['birthdate'].date() if app_data['birthdate'] else None,
-                        gender=app_data['gender']
-                    )
-                    applications.append(app)
-                except Exception as e:
-                    logger.error(f"Error creating Application instance: {str(e)}")
-                    report_logger.error(f"Error creating Application instance: {str(e)}")
-                    continue
-            
-            account.applications = applications
-            
-            try:
-                # Store in Supabase
-                result = supabase.table('dropbox_accounts').insert(account.model_dump()).execute()
-                logger.info(f"Successfully stored data for folder: {folder_path}")
-                report_logger.info(f"Successfully stored data for folder: {folder_path}")
-            except Exception as e:
-                logger.error(f"Error storing data for folder {folder_path}: {str(e)}")
-                report_logger.error(f"Error storing data for folder {folder_path}: {str(e)}")
-                
+        account_id = account_result.data[0]['id']
+        
+        # Create applications list with all required fields
+        applications = []
+        for app_data in folder_data['applications']:
+            application = {
+                'dropbox_account_id': account_id,
+                'file_name': app_data['file_name'],
+                'first_name': None,  # Required field, but we don't have this data
+                'last_name': None,   # Required field, but we don't have this data
+                'birthdate': app_data['birthdate'].date() if app_data['birthdate'] else None,
+                'gender': app_data['gender'],
+                'address': "",  # Required field, but we don't have this data
+                'application_type': "Unknown",  # Required field, but we don't have this data
+                'status': "Unknown"  # Required field, but we don't have this data
+            }
+            applications.append(application)
+        
+        # Store applications in Supabase
+        if applications:
+            result = supabase.table('applications').insert(applications).execute()
+            if not result.data:
+                logger.error(f"Failed to store applications for folder: {folder}")
+                report_logger.error(f"Failed to store applications for folder: {folder}")
+                return
+        
+        logger.info(f"Successfully stored data for folder: {folder}")
+        report_logger.info(f"Successfully stored data for folder: {folder}")
+        
     except Exception as e:
-        logger.error(f"Error in store_in_supabase: {str(e)}")
-        report_logger.error(f"Error in store_in_supabase: {str(e)}")
+        logger.error(f"Error storing data in Supabase: {str(e)}")
+        report_logger.error(f"Error storing data in Supabase: {str(e)}")
         raise
 
 def main() -> None:
@@ -471,7 +449,7 @@ def main() -> None:
 
     # Generate and write database summary
     supabase = create_client(url, key)
-    generate_database_summary(supabase, logger, report_logger)
+    generate_database_summary(supabase, logger, report_logger, summary_logger)
 
 # Setup basic logging for the global scope
 logging.basicConfig(level=logging.INFO)
