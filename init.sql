@@ -2,7 +2,7 @@
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'gender_type') THEN
-        DROP TYPE gender_type;
+        DROP TYPE gender_type CASCADE;
     END IF;
 END$$;
 
