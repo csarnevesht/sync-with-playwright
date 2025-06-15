@@ -22,7 +22,7 @@ def run_command(cmd, cwd=None):
     subprocess.run(cmd, cwd=cwd, check=True)
 
 def get_supabase_keys():
-    """Get both SUPABASE_ANON_KEY and SUPABASE_SERVICE_KEY from the environment or container."""
+    """Get both ANON_KEY and SUPABASE_SERVICE_KEY from the environment or container."""
     keys = {}
     
     # Try to get from container - handle different possible container names
@@ -47,7 +47,7 @@ def get_supabase_keys():
                     keys['service'] = service_match.group(1)
                 
                 # Get anon key
-                anon_match = re.search(r'SUPABASE_ANON_KEY=([^\n]+)', result.stdout)
+                anon_match = re.search(r'ANON_KEY=([^\n]+)', result.stdout)
                 if anon_match:
                     keys['anon'] = anon_match.group(1)
                 
@@ -59,7 +59,7 @@ def get_supabase_keys():
 
     # Try environment variables as fallback
     keys['service'] = os.environ.get('SUPABASE_SERVICE_KEY')
-    keys['anon'] = os.environ.get('SUPABASE_ANON_KEY')
+    keys['anon'] = os.environ.get('ANON_KEY')
     
     if not any(keys.values()):
         print("\nNo Supabase keys found. You can get them in one of these ways:")
@@ -77,10 +77,10 @@ def get_supabase_keys():
         print("      docker exec <kong-container-name> env | grep SUPABASE")
         
         print("\n3. Set them in your environment:")
-        print("   export SUPABASE_ANON_KEY=your-anon-key-here")
+        print("   export ANON_KEY=your-anon-key-here")
         print("   export SUPABASE_SERVICE_KEY=your-service-key-here")
         print("   # Or add them to your .env file:")
-        print("   echo 'SUPABASE_ANON_KEY=your-anon-key-here' >> .env")
+        print("   echo 'ANON_KEY=your-anon-key-here' >> .env")
         print("   echo 'SUPABASE_SERVICE_KEY=your-service-key-here' >> .env")
         
         print("\nNote: The service role key has full access to your database.")
@@ -301,12 +301,12 @@ def start_services(force=False):
             print("\nTo use these keys in your application:")
             print("1. Add them to your .env file:")
             if keys.get('anon'):
-                print(f"   SUPABASE_ANON_KEY={keys['anon']}")
+                print(f"   ANON_KEY={keys['anon']}")
             if keys.get('service'):
                 print(f"   SUPABASE_SERVICE_KEY={keys['service']}")
             print("2. Or set them in your environment:")
             if keys.get('anon'):
-                print(f"   export SUPABASE_ANON_KEY={keys['anon']}")
+                print(f"   export ANON_KEY={keys['anon']}")
             if keys.get('service'):
                 print(f"   export SUPABASE_SERVICE_KEY={keys['service']}")
             
