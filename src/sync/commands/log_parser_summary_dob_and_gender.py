@@ -270,7 +270,18 @@ def generate_database_summary(supabase, logger, report_logger, summary_logger) -
             else:
                 for app in apps:
                     # Format date as MM/DD/YYYY
-                    dob_str = app['birthdate'].strftime('%m/%d/%Y') if app.get('birthdate') else 'N/A'
+                    birthdate = app.get('birthdate')
+                    if birthdate:
+                        try:
+                            # Parse ISO format string to datetime
+                            from datetime import datetime
+                            dob = datetime.fromisoformat(birthdate)
+                            dob_str = dob.strftime('%m/%d/%Y')
+                        except (ValueError, TypeError):
+                            dob_str = birthdate  # Use raw string if parsing fails
+                    else:
+                        dob_str = 'N/A'
+                    
                     # Get gender emoji
                     gender_emoji = '👩' if app.get('gender') == 'Female' else '👨' if app.get('gender') == 'Male' else ''
                     gender_str = app.get('gender', 'Unknown')
@@ -300,70 +311,81 @@ class DropboxAccount(BaseModel):
         }
     }
 
-def store_in_supabase(parsed_data: Dict[str, Dict], folder: str, logger, report_logger) -> None:
+def store_in_supabase(parsed_data: Dict[str, Any], folder: str, logger: logging.Logger, report_logger: logging.Logger) -> None:
     """
-    Store the parsed data in Supabase
+    Store the parsed data in Supabase.
+    
+    Args:
+        parsed_data: Dictionary containing parsed data
+        folder: The folder name to store data for
+        logger: Logger for general logging
+        report_logger: Logger for report logging
     """
+    # Get Supabase credentials
+    url, key = get_supabase_credentials()
+    supabase = create_client(url, key)
+    
+    # Get data for this folder
+    folder_data = parsed_data.get(folder)
+    if not folder_data:
+        logger.warning(f"No data found for folder: {folder}")
+        report_logger.info(f"No data found for folder: {folder}")
+        return
+    
+    # Create dropbox account data
+    account_data = {
+        "folder": folder,
+        "first_name": "Unknown",
+        "middle_name": "Unknown",
+        "last_name": "Unknown"
+    }
+    
+    # Insert dropbox account
     try:
-        # Create Supabase client
-        url, key = get_supabase_credentials()
-        supabase = create_client(url, key)
-        
-        # Get the data for the specified folder
-        folder_data = parsed_data.get(folder)
-        if not folder_data:
-            logger.error(f"No data found for folder: {folder}")
-            report_logger.error(f"No data found for folder: {folder}")
-            return
-        
-        # First, create the dropbox account
-        account_data = {
-            'folder': folder,
-            'first_name': None,
-            'middle_name': None,
-            'last_name': None
-        }
-        
-        # Insert the account and get its ID
-        account_result = supabase.table('dropbox_accounts').insert(account_data).execute()
-        if not account_result.data:
-            logger.error(f"Failed to create account for folder: {folder}")
-            report_logger.error(f"Failed to create account for folder: {folder}")
+        result = supabase.table("dropbox_accounts").insert(account_data).execute()
+        if not result.data:
+            logger.error(f"Failed to insert dropbox account for folder: {folder}")
+            report_logger.info(f"Failed to insert dropbox account for folder: {folder}")
             return
             
-        account_id = account_result.data[0]['id']
+        dropbox_account_id = result.data[0]["id"]
+        logger.info(f"Successfully inserted dropbox account for folder: {folder}")
+        report_logger.info(f"Successfully inserted dropbox account for folder: {folder}")
         
-        # Create applications list with all required fields
-        applications = []
-        for app_data in folder_data['applications']:
-            application = {
-                'dropbox_account_id': account_id,
-                'file_name': app_data['file_name'],
-                'first_name': None,  # Required field, but we don't have this data
-                'last_name': None,   # Required field, but we don't have this data
-                'birthdate': app_data['birthdate'].date() if app_data['birthdate'] else None,
-                'gender': app_data['gender'],
-                'address': "",  # Required field, but we don't have this data
-                'application_type': "Unknown",  # Required field, but we don't have this data
-                'status': "Unknown"  # Required field, but we don't have this data
-            }
-            applications.append(application)
-        
-        # Store applications in Supabase
-        if applications:
-            result = supabase.table('applications').insert(applications).execute()
-            if not result.data:
-                logger.error(f"Failed to store applications for folder: {folder}")
-                report_logger.error(f"Failed to store applications for folder: {folder}")
-                return
-        
-        logger.info(f"Successfully stored data for folder: {folder}")
-        report_logger.info(f"Successfully stored data for folder: {folder}")
+        # Insert applications if any
+        if not folder_data["no_applications_found"] and folder_data["applications"]:
+            applications = []
+            for app in folder_data["applications"]:
+                # Convert birthdate to ISO format string if it exists
+                birthdate = app.get("birthdate")
+                if birthdate and hasattr(birthdate, "isoformat"):
+                    birthdate = birthdate.isoformat()
+                
+                application_data = {
+                    "dropbox_account_id": dropbox_account_id,
+                    "file_name": app["file_name"],
+                    "first_name": "Unknown",
+                    "last_name": "Unknown",
+                    "address": "Unknown",
+                    "application_type": "Unknown",
+                    "status": "Unknown",
+                    "birthdate": birthdate,
+                    "gender": app.get("gender")
+                }
+                applications.append(application_data)
+            
+            if applications:
+                result = supabase.table("applications").insert(applications).execute()
+                if result.data:
+                    logger.info(f"Successfully inserted {len(applications)} applications for folder: {folder}")
+                    report_logger.info(f"Successfully inserted {len(applications)} applications for folder: {folder}")
+                else:
+                    logger.error(f"Failed to insert applications for folder: {folder}")
+                    report_logger.info(f"Failed to insert applications for folder: {folder}")
         
     except Exception as e:
         logger.error(f"Error storing data in Supabase: {str(e)}")
-        report_logger.error(f"Error storing data in Supabase: {str(e)}")
-        raise
+        report_logger.info(f"Error storing data in Supabase: {str(e)}")
 
 def main() -> None:
     """
@@ -396,11 +418,6 @@ def main() -> None:
     log_file_path = get_log_file_path(args.log_file)
     logger.info(f"\nUsing log file: {log_file_path}")
     report_logger.info(f"\nUsing log file: {log_file_path}")
-
-    # Use the directory name of the log file as the folder name
-    folder = os.path.dirname(log_file_path)
-    logger.info(f"Using folder name: {folder}")
-    report_logger.info(f"Using folder name: {folder}")
 
     logger.info("\nParsing log file...")
     report_logger.info("\nParsing log file...")
@@ -437,14 +454,13 @@ def main() -> None:
     # Confirm with user
     confirm = get_user_input("\nWould you like to proceed with storing this data in Supabase? (y/n)", "y").lower()
     if confirm != 'y':
-        # logger.info("Operation cancelled by user")
         report_logger.info("Operation cancelled by user")
         return
 
-    # logger.info("\nStoring data in Supabase...")
     report_logger.info("\nStoring data in Supabase...")
-    store_in_supabase(parsed_data, folder, logger, report_logger)
-    # logger.info("Data successfully stored in Supabase!")
+    # Store data for each folder in parsed_data
+    for folder_name, folder_data in parsed_data.items():
+        store_in_supabase(parsed_data, folder_name, logger, report_logger)
     report_logger.info("Data successfully stored in Supabase!")
 
     # Generate and write database summary
