@@ -768,6 +768,9 @@ def run_command(args):
                         logger.info('step: Extract name parts')
                         # Always extract name parts
                         dropbox_account_name_parts = extract_name_parts(dropbox_account_folder_name, log=True)
+
+                        if command_runner:
+                                command_runner.set_data('dropbox_account_name_parts', dropbox_account_name_parts)
                         
                         # Navigate to Salesforce base URL
                         if args.salesforce_accounts and account_manager:    

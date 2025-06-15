@@ -236,7 +236,8 @@ class CommandRunner:
             dropbox_account_info = self.get_data('dropbox_account_info')
             dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
             dropbox_salesforce_folder = dropbox_client.get_dropbox_salesforce_folder()
-            
+        
+
             self.logger.info(f"file_manager: {file_manager}")
             self.logger.info(f"dropbox_client: {dropbox_client}")
             self.logger.info(f"dropbox_account_info: {dropbox_account_info}")
@@ -654,6 +655,8 @@ class CommandRunner:
             dropbox_root_folder = self.get_context('dropbox_root_folder')
             dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
             logging.info(f"dropbox_account_folder_name: {dropbox_account_folder_name}")
+            dropbox_account_name_parts = self.get_data('dropbox_account_name_parts')
+            logging.info(f"dropbox_account_name_parts: {dropbox_account_name_parts}")
 
             # Construct folder path
             folder_path = f"/{dropbox_root_folder}/{dropbox_account_folder_name}"
