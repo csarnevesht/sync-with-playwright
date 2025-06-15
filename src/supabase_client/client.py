@@ -275,4 +275,113 @@ class SupabaseClient:
         except Exception as e:
             logger.error(f"Error generating account summary: {str(e)}")
             summary_lines.append(f"\n❌ Error generating summary: {str(e)}")
+            return "\n".join(summary_lines)
+
+    def generate_search_results_summary(self, folder_name: str, search_criteria: dict = None) -> str:
+        """Display search results for a Dropbox account in a formatted way.
+        
+        Args:
+            folder_name: The name of the Dropbox folder to search
+            search_criteria: Optional dictionary containing search criteria (birthdate, gender, application_type)
+            
+        Returns:
+            str: A formatted string containing the search results
+        """
+        if not self._client:
+            raise RuntimeError("Supabase client not initialized")
+
+        logger.debug("Generating search results summary for folder: %s", folder_name)
+        logger.debug("Search criteria: %s", search_criteria)
+
+        summary_lines = []
+        summary_lines.append(f"\n📁 Dropbox Account Folder: {folder_name}")
+        summary_lines.append("=" * (len(folder_name) + 30))
+
+        try:
+            # Get the account with its applications
+            logger.debug("Querying Supabase for account: %s", folder_name)
+            result = self._client.table('dropbox_accounts').select('*, applications(*)').eq('folder', folder_name).execute()
+            
+            if not result.data:
+                logger.warning("No account found for folder: %s", folder_name)
+                summary_lines.append(f"❌ No account found for folder: {folder_name}")
+                return "\n".join(summary_lines)
+
+            account = result.data[0]
+            apps = account.get('applications', [])
+            logger.debug("Found %d applications for account", len(apps))
+            
+            # Filter applications based on search criteria if provided
+            if search_criteria:
+                logger.debug("Filtering applications with criteria: %s", search_criteria)
+                filtered_apps = []
+                for app in apps:
+                    matches = True
+                    if search_criteria.get('birthdate'):
+                        app_dob = app.get('birthdate', '')
+                        logger.debug("Comparing birthdate: %s with %s", app_dob, search_criteria['birthdate'])
+                        if search_criteria['birthdate'] not in str(app_dob):
+                            matches = False
+                    if search_criteria.get('gender'):
+                        app_gender = app.get('gender', '').lower()
+                        search_gender = search_criteria['gender'].lower()
+                        logger.debug("Comparing gender: %s with %s", app_gender, search_gender)
+                        if search_gender != app_gender:
+                            matches = False
+                    if search_criteria.get('application_type'):
+                        app_type = app.get('application_type', '').lower()
+                        search_type = search_criteria['application_type'].lower()
+                        logger.debug("Comparing application type: %s with %s", app_type, search_type)
+                        if search_type != app_type:
+                            matches = False
+                    if matches:
+                        filtered_apps.append(app)
+                apps = filtered_apps
+                logger.debug("After filtering, found %d matching applications", len(apps))
+            
+            # Add applications summary
+            summary_lines.append(f"\n✅ Applications ({len(apps)}):")
+            if not apps:
+                summary_lines.append(f"  ❌ No application files found")
+            else:
+                for app in apps:
+                    # Format date as MM/DD/YYYY
+                    birthdate = app.get('birthdate')
+                    if birthdate:
+                        try:
+                            from datetime import datetime
+                            dob = datetime.fromisoformat(birthdate)
+                            dob_str = dob.strftime('%m/%d/%Y')
+                            logger.debug("Formatted birthdate %s to %s", birthdate, dob_str)
+                        except (ValueError, TypeError) as e:
+                            logger.warning("Error formatting birthdate %s: %s", birthdate, str(e))
+                            dob_str = birthdate
+                    else:
+                        dob_str = 'N/A'
+                    
+                    # Get gender emoji
+                    gender_emoji = '👩' if app.get('gender') == 'Female' else '👨' if app.get('gender') == 'Male' else ''
+                    gender_str = app.get('gender', 'Unknown')
+                    logger.debug("Formatted gender %s with emoji %s", gender_str, gender_emoji)
+                    
+                    summary_lines.append(f"  ✅ {app['file_name']}")
+                    summary_lines.append(f"    🎂 DOB: {dob_str}")
+                    summary_lines.append(f"    ☑️ Gender: {gender_emoji} {gender_str}")
+                    if app.get('address'):
+                        summary_lines.append(f"    📍 Address: {app['address']}")
+                    if app.get('application_type'):
+                        summary_lines.append(f"    📄 Type: {app['application_type']}")
+                    if app.get('status'):
+                        summary_lines.append(f"    📊 Status: {app['status']}")
+
+            return "\n".join(summary_lines)
+
+        except Exception as e:
+            import traceback
+            error_msg = f"Error displaying search results: {str(e)}"
+            stack_trace = traceback.format_exc()
+            logger.error(error_msg)
+            logger.error("Stack trace:\n%s", stack_trace)
+            summary_lines.append(f"\n❌ Error displaying results: {str(e)}")
+            summary_lines.append(f"\nStack trace:\n{stack_trace}")
             return "\n".join(summary_lines) 

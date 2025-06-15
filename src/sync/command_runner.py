@@ -209,7 +209,9 @@ class CommandRunner:
             'delete-salesforce-account-files': self._delete_salesforce_account_files,
             'force-delete-salesforce-account-files': self._force_delete_salesforce_account_files,
             'extract-dropbox-account-app-files-dob-gender': self._extract_dropbox_account_app_files_dob_gender,
-            'store-in-supabase': self._store_in_supabase
+            'extract-dropbox-account-app-files-info': self._extract_dropbox_account_app_files_info,
+            'store-in-supabase': self._store_in_supabase,
+            'search-supabase': self._search_supabase
         }
         
         if command not in command_map:
@@ -639,6 +641,55 @@ class CommandRunner:
             self.logger.error(error_msg)
             raise
 
+    def _extract_dropbox_account_app_files_info(self) -> None:
+        """Get Dropbox Account information from all the application files in each Dropbox account folder.
+           Extracts general information like name, address, application type, and status.
+        """
+        self.logger.info("Starting extract-dropbox-account-app-files-info operation")
+        self.report_logger.info("\n=== GETTING DROPBOX APPLICATION INFORMATION ===")
+        
+        try:
+            # Get required context
+            dropbox_client = self.get_context('dropbox_client')
+            dropbox_root_folder = self.get_context('dropbox_root_folder')
+            dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
+            logging.info(f"dropbox_account_folder_name: {dropbox_account_folder_name}")
+
+            # Construct folder path
+            folder_path = f"/{dropbox_root_folder}/{dropbox_account_folder_name}"
+            folder_path = folder_path.replace('//', '/')
+            
+            # Extract information using the DropboxClient method
+            summary_data = dropbox_client.extract_app_files_info(folder_path)
+            
+            # Log the summary for this folder
+            folder_app_files = summary_data['all_folder_app_files'].get(folder_path, [])
+            
+            self.summary_logger.info(f"\nDropbox Account Folder: {dropbox_account_folder_name}")
+            if folder_app_files:
+                for file in folder_app_files:
+                    self.summary_logger.info(f"  ✅ {file.name}")
+                    # Log any additional information found in the file
+                    if file.path_display in summary_data.get('file_info', {}):
+                        info = summary_data['file_info'][file.path_display]
+                        if info.get('name'):
+                            self.summary_logger.info(f"    👤 Name: {info['name']}")
+                        if info.get('address'):
+                            self.summary_logger.info(f"    📍 Address: {info['address']}")
+                        if info.get('application_type'):
+                            self.summary_logger.info(f"    📄 Type: {info['application_type']}")
+                        if info.get('status'):
+                            self.summary_logger.info(f"    📊 Status: {info['status']}")
+            else:
+                self.summary_logger.info(f"  ❌ No application files found for {dropbox_account_folder_name}")
+
+            self.logger.info("\nSuccessfully completed extract-dropbox-account-app-files-info operation")
+            
+        except Exception as e:
+            error_msg = f"Error in extract-dropbox-account-app-files-info operation: {str(e)}"
+            self.logger.error(error_msg)
+            raise
+
     def _store_in_supabase(self) -> None:
         """Store data in Supabase database.
         This command will store the extracted DOB and gender information in Supabase.
@@ -730,4 +781,63 @@ class CommandRunner:
             error_msg = f"Error in store-in-supabase operation: {str(e)}"
             self.logger.error(error_msg)
             self.report_logger.error(f"\n{error_msg}")
-            raise 
+            raise
+
+    def _search_supabase(self) -> None:
+        """Search for account information in Supabase database.
+        This command will search for account information in Supabase based on various criteria.
+        """
+        self.logger.info("Starting search-supabase operation")
+        self.report_logger.info("\n=== SEARCHING SUPABASE DATABASE ===")
+        
+        try:
+            # Get or create Supabase client
+            try:
+                supabase_client = self.get_context('supabase_client')
+                self.logger.info("Using existing Supabase client from context")
+            except KeyError:
+                self.logger.info("No Supabase client found in context, creating new instance")
+                from supabase_client.client import SupabaseClient
+                supabase_client = SupabaseClient()
+                self.set_context('supabase_client', supabase_client)
+            
+            # Get search criteria from data
+            self.logger.debug("Available data keys: %s", list(self._data.keys()))
+            folder_name = self.get_data('dropbox_account_folder_name')
+            if not folder_name:
+                self.logger.error("No search criteria provided. Please provide a folder name.")
+                return
+            
+            # Get additional search criteria if provided
+            search_criteria = {}
+            try:
+                if self.get_data('birthdate'):
+                    search_criteria['birthdate'] = self.get_data('birthdate')
+            except KeyError:
+                pass
+                
+            try:
+                if self.get_data('gender'):
+                    search_criteria['gender'] = self.get_data('gender')
+            except KeyError:
+                pass
+                
+            try:
+                if self.get_data('application_type'):
+                    search_criteria['application_type'] = self.get_data('application_type')
+            except KeyError:
+                pass
+            
+            # Search in Supabase
+            self.logger.info("Searching for account: %s", folder_name)
+            result = supabase_client.generate_search_results_summary(folder_name, search_criteria)
+            self.report_logger.info(result)
+            
+        except Exception as e:
+            import traceback
+            error_msg = f"Error searching Supabase: {str(e)}"
+            stack_trace = traceback.format_exc()
+            self.logger.error(error_msg)
+            self.logger.error("Stack trace:\n%s", stack_trace)
+            self.report_logger.error(f"\n{error_msg}")
+            self.report_logger.error(f"\nStack trace:\n{stack_trace}") 

@@ -1437,7 +1437,7 @@ class DropboxClient:
             return {}
 
     def extract_app_files_info(self, folder_path: str) -> Dict[str, Any]:
-        """Extract DOB and gender information from application files in a Dropbox folder.
+        """Extract information from application files in a Dropbox folder.
         
         Args:
             folder_path: The path to the Dropbox folder containing application files
@@ -1447,10 +1447,10 @@ class DropboxClient:
             {
                 'total_app_files': int,
                 'processed_folders': set,
-                'birthdate_found': bool,
                 'files_with_birthdate': set,
                 'file_birthdates': dict,
                 'file_sexes': dict,
+                'file_info': dict,
                 'all_folder_app_files': dict
             }
         """
@@ -1461,6 +1461,7 @@ class DropboxClient:
             'files_with_birthdate': set(),
             'file_birthdates': {},
             'file_sexes': {},
+            'file_info': {},
             'all_folder_app_files': {}
         }
         
@@ -1507,7 +1508,66 @@ class DropboxClient:
                         with open(temp_file.name, 'r', encoding='utf-8', errors='ignore') as f:
                             content = f.read()
                     
-                    # Search for birthdate patterns
+                    # Initialize file info
+                    file_info = {
+                        'name': '',
+                        'address': '',
+                        'application_type': '',
+                        'status': ''
+                    }
+                    
+                    # Extract name
+                    name_patterns = [
+                        r'Name[\s\:\-]*([^\n]+)',
+                        r'Applicant[\s\:\-]*([^\n]+)',
+                        r'Full Name[\s\:\-]*([^\n]+)'
+                    ]
+                    for pattern in name_patterns:
+                        match = re.search(pattern, content, re.IGNORECASE)
+                        if match:
+                            file_info['name'] = match.group(1).strip()
+                            break
+                    
+                    # Extract address
+                    address_patterns = [
+                        r'Address[\s\:\-]*([^\n]+)',
+                        r'Residence[\s\:\-]*([^\n]+)',
+                        r'Home Address[\s\:\-]*([^\n]+)'
+                    ]
+                    for pattern in address_patterns:
+                        match = re.search(pattern, content, re.IGNORECASE)
+                        if match:
+                            file_info['address'] = match.group(1).strip()
+                            break
+                    
+                    # Extract application type
+                    type_patterns = [
+                        r'Application Type[\s\:\-]*([^\n]+)',
+                        r'Type of Application[\s\:\-]*([^\n]+)',
+                        r'Form Type[\s\:\-]*([^\n]+)'
+                    ]
+                    for pattern in type_patterns:
+                        match = re.search(pattern, content, re.IGNORECASE)
+                        if match:
+                            file_info['application_type'] = match.group(1).strip()
+                            break
+                    
+                    # Extract status
+                    status_patterns = [
+                        r'Status[\s\:\-]*([^\n]+)',
+                        r'Application Status[\s\:\-]*([^\n]+)',
+                        r'Current Status[\s\:\-]*([^\n]+)'
+                    ]
+                    for pattern in status_patterns:
+                        match = re.search(pattern, content, re.IGNORECASE)
+                        if match:
+                            file_info['status'] = match.group(1).strip()
+                            break
+                    
+                    # Store file info
+                    summary_data['file_info'][file.path_display] = file_info
+                    
+                    # Search for birthdate patterns (existing code)
                     birthdate_patterns = [
                         r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
                         r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
@@ -1545,7 +1605,7 @@ class DropboxClient:
                             birthdate_found = True
                             break
                     
-                    # Search for gender/sex
+                    # Search for gender/sex (existing code)
                     sex_patterns = [
                         r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Female',
                         r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Male',
