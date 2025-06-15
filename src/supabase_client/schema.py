@@ -6,11 +6,11 @@ from pydantic import BaseModel
 
 class Application(BaseModel):
     file_name: str
-    first_name: str
-    last_name: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     birthdate: Optional[date] = None
     gender: str
-    address: str
+    address: Optional[str] = None
     application_type: str
     status: str
 
@@ -28,9 +28,9 @@ class HouseholdMember(BaseModel):
 
 class DropboxAccount(BaseModel):
     folder: str
-    first_name: str
-    middle_name: Optional[str]
-    last_name: str
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
     applications: List[Application]
     household_head: Optional[HouseholdMember]
     household_members: List[HouseholdMember]

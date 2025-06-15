@@ -87,91 +87,239 @@ def get_log_file_path(cli_log_file: str = None) -> str:
         if retry != 'y':
             sys.exit(1)
 
-def parse_log_file(log_file_path: str, report_logger: logging.Logger) -> Dict[str, Dict]:
+def parse_log_file(file_path: str, logger, report_logger) -> Dict[str, Dict]:
     """
-    Parse the log file to extract DOB and gender information.
-    Returns a dictionary with folder names as keys and their data as values.
+    Parse the log file and extract information about applications and their DOB/gender.
     """
+    logger.info(f"\nParsing log file: {file_path}")
+    report_logger.info(f"\nParsing log file: {file_path}")
+    
     parsed_data = {}
     current_folder = None
-    current_applications = []
-    no_applications_found = False
-
+    
     try:
-        with open(log_file_path, 'r') as file:
-            for line in file:
+        with open(file_path, 'r') as f:
+            for line in f:
                 line = line.strip()
+                if not line:
+                    continue
                 
-                # Check for folder entry
+                # Check if this is a folder line
                 if line.startswith('Dropbox Account Folder:'):
-                    # If we have a previous folder, save its data
-                    if current_folder:
-                        parsed_data[current_folder] = {
-                            'applications': current_applications,
-                            'no_applications_found': no_applications_found
-                        }
-                        # Log to report log for every folder
-                        report_logger.info(f"Folder: {current_folder}")
-                        if no_applications_found:
-                            report_logger.info(f"  No applications found")
-                        else:
-                            report_logger.info(f"  Applications: {len(current_applications)}")
-                    
-                    # Start new folder
                     current_folder = line.replace('Dropbox Account Folder:', '').strip()
-                    current_applications = []
-                    no_applications_found = False
-                    logging.info(f"Processing folder: {current_folder}")
+                    if current_folder not in parsed_data:
+                        parsed_data[current_folder] = {
+                            'applications': [],
+                            'no_applications_found': False
+                        }
+                    logger.info(f"\nProcessing folder: {current_folder}")
+                    report_logger.info(f"\nProcessing folder: {current_folder}")
+                    continue
                 
-                # Check for no applications found
-                elif line.startswith('❌ No application files found for'):
-                    no_applications_found = True
-                    logging.warning(f"No applications found for {current_folder}")
+                # Check if this is a "no applications found" line
+                if line.startswith('❌ No application files found for'):
+                    if current_folder:
+                        parsed_data[current_folder]['no_applications_found'] = True
+                        logger.info(f"No applications found for {current_folder}")
+                        report_logger.info(f"No applications found for {current_folder}")
+                    continue
                 
-                # Check for application entry
-                elif line.startswith('Application:'):
-                    file_name = line.replace('Application:', '').strip()
-                    logging.info(f"Found application: {file_name}")
-                    current_applications.append({
-                        'file_name': file_name,
-                        'birthdate': None,
-                        'gender': None
-                    })
-                
-                # Check for birthdate entry
-                elif line.startswith('Birthdate:'):
-                    if current_applications:
-                        birthdate_str = line.replace('Birthdate:', '').strip()
+                # Check if this is an application line
+                if line.startswith('✅🎂'):
+                    if not current_folder:
+                        logger.warning(f"Found application line without a folder: {line}")
+                        report_logger.warning(f"Found application line without a folder: {line}")
+                        continue
+                    
+                    # Extract file name and DOB/gender
+                    try:
+                        # Remove the emoji prefix
+                        line = line.replace('✅🎂', '').strip()
+                        
+                        # Split into file name and DOB/gender
+                        parts = line.split('[')
+                        if len(parts) != 2:
+                            logger.warning(f"Invalid application line format: {line}")
+                            report_logger.warning(f"Invalid application line format: {line}")
+                            continue
+                        
+                        file_name = parts[0].strip()
+                        dob_gender = parts[1].replace(']', '').strip()
+                        
+                        # Split DOB and gender
+                        dob_gender_parts = dob_gender.split(',')
+                        if len(dob_gender_parts) != 2:
+                            logger.warning(f"Invalid DOB/gender format: {dob_gender}")
+                            report_logger.warning(f"Invalid DOB/gender format: {dob_gender}")
+                            continue
+                        
+                        dob_str = dob_gender_parts[0].strip()
+                        gender_str = dob_gender_parts[1].strip()
+                        
+                        # Parse DOB
                         try:
-                            birthdate = datetime.strptime(birthdate_str, '%Y-%m-%d').date()
-                            current_applications[-1]['birthdate'] = birthdate
-                            logging.info(f"Found birthdate: {birthdate}")
-                        except ValueError:
-                            logging.warning(f"Invalid birthdate format: {birthdate_str}")
-                
-                # Check for gender entry
-                elif line.startswith('Gender:'):
-                    if current_applications:
-                        gender = line.replace('Gender:', '').strip()
-                        current_applications[-1]['gender'] = gender
-                        logging.info(f"Found gender: {gender}")
-            
-            # Save the last folder's data
-            if current_folder:
-                parsed_data[current_folder] = {
-                    'applications': current_applications,
-                    'no_applications_found': no_applications_found
-                }
-                # Log to report log for the last folder
-                report_logger.info(f"Folder: {current_folder}")
-                if no_applications_found:
-                    report_logger.info(f"  No applications found")
-                else:
-                    report_logger.info(f"  Applications: {len(current_applications)}")
+                            # Try different date formats
+                            date_formats = [
+                                '%m/%d/%Y',  # MM/DD/YYYY
+                                '%Y-%m-%d',  # YYYY-MM-DD
+                                '%d/%m/%y',  # DD/MM/YY
+                                '%m/%d/%y',  # MM/DD/YY
+                                '%d/%m/%Y',  # DD/MM/YYYY
+                                '%m/%d/%Y'   # M/D/YYYY
+                            ]
+                            
+                            dob = None
+                            for date_format in date_formats:
+                                try:
+                                    dob = datetime.strptime(dob_str, date_format)
+                                    break
+                                except ValueError:
+                                    continue
+                            
+                            if not dob:
+                                logger.warning(f"Invalid date format: {dob_str}")
+                                report_logger.warning(f"Invalid date format: {dob_str}")
+                                continue
+                            
+                        except Exception as e:
+                            logger.warning(f"Error parsing date {dob_str}: {str(e)}")
+                            report_logger.warning(f"Error parsing date {dob_str}: {str(e)}")
+                            continue
+                        
+                        # Extract gender
+                        gender = None
+                        if '☑️ 👩' in gender_str and 'F' in gender_str:
+                            gender = 'Female'
+                        elif '☑️ 👨' in gender_str and 'M' in gender_str:
+                            gender = 'Male'
+                        elif '❌ F/M' in gender_str:
+                            gender = 'Unknown'
+                        
+                        if not gender:
+                            logger.warning(f"Could not determine gender from: {gender_str}")
+                            report_logger.warning(f"Could not determine gender from: {gender_str}")
+                            continue
+                        
+                        # Add to parsed data
+                        parsed_data[current_folder]['applications'].append({
+                            'file_name': file_name,
+                            'birthdate': dob,
+                            'gender': gender
+                        })
+                        
+                        logger.info(f"Parsed application: {file_name}")
+                        logger.info(f"DOB: {dob}")
+                        logger.info(f"Gender: {gender}")
+                        report_logger.info(f"Parsed application: {file_name}")
+                        report_logger.info(f"DOB: {dob}")
+                        report_logger.info(f"Gender: {gender}")
+                        
+                    except Exception as e:
+                        logger.error(f"Error parsing application line: {line}")
+                        logger.error(f"Error details: {str(e)}")
+                        report_logger.error(f"Error parsing application line: {line}")
+                        report_logger.error(f"Error details: {str(e)}")
+                        continue
+        
+        # Log summary of parsed data
+        logger.info("\nParsing complete. Summary:")
+        report_logger.info("\nParsing complete. Summary:")
+        for folder, data in parsed_data.items():
+            logger.info(f"\nFolder: {folder}")
+            logger.info(f"Number of applications: {len(data['applications'])}")
+            logger.info(f"No applications found: {data['no_applications_found']}")
+            report_logger.info(f"\nFolder: {folder}")
+            report_logger.info(f"Number of applications: {len(data['applications'])}")
+            report_logger.info(f"No applications found: {data['no_applications_found']}")
         
         return parsed_data
+        
     except Exception as e:
-        logging.error(f"Error parsing log file: {str(e)}")
+        logger.error(f"Error parsing log file: {str(e)}")
+        report_logger.error(f"Error parsing log file: {str(e)}")
+        raise
+
+def generate_database_summary(supabase: SupabaseClient, logger, report_logger) -> None:
+    """
+    Generate a summary of the database contents and write it to summary.log
+    """
+    logger.info("\nGenerating database summary...")
+    report_logger.info("\nGenerating database summary...")
+    
+    try:
+        # Get all dropbox accounts
+        accounts_result = supabase.client.table('dropbox_accounts').select('*').execute()
+        accounts = accounts_result.data
+        logger.info(f"Found {len(accounts)} dropbox accounts")
+        report_logger.info(f"Found {len(accounts)} dropbox accounts")
+        
+        # Debug log first few accounts
+        if accounts:
+            logger.info(f"First account: {accounts[0]}")
+            report_logger.info(f"First account: {accounts[0]}")
+        
+        # Get all applications
+        applications_result = supabase.client.table('applications').select('*').execute()
+        applications = applications_result.data
+        logger.info(f"Found {len(applications)} applications")
+        report_logger.info(f"Found {len(applications)} applications")
+        
+        # Debug log first few applications
+        if applications:
+            logger.info(f"First application: {applications[0]}")
+            report_logger.info(f"First application: {applications[0]}")
+        
+        # Group applications by dropbox account
+        account_applications = {}
+        for app in applications:
+            account_id = app.get('dropbox_account_id')
+            if account_id:
+                if account_id not in account_applications:
+                    account_applications[account_id] = []
+                account_applications[account_id].append(app)
+        
+        logger.info(f"Grouped applications into {len(account_applications)} accounts")
+        report_logger.info(f"Grouped applications into {len(account_applications)} accounts")
+        
+        # Debug log first few grouped applications
+        if account_applications:
+            first_account_id = next(iter(account_applications))
+            logger.info(f"First account's applications: {account_applications[first_account_id]}")
+            report_logger.info(f"First account's applications: {account_applications[first_account_id]}")
+        
+        # Write summary to file
+        summary_path = os.path.join(os.path.dirname(__file__), 'summary.log')
+        with open(summary_path, 'w') as f:
+            f.write("Database Summary\n")
+            f.write("================\n\n")
+            
+            f.write(f"Total Dropbox Accounts: {len(accounts)}\n")
+            f.write(f"Total Applications: {len(applications)}\n\n")
+            
+            for account in accounts:
+                folder = account['folder']
+                account_id = account['id']
+                apps = account_applications.get(account_id, [])
+                
+                f.write(f"Dropbox Account Folder: {folder}\n")
+                if not apps:
+                    f.write(f"  ❌ No application files found for {folder}\n")
+                else:
+                    for app in apps:
+                        # Format date as MM/DD/YYYY
+                        dob_str = app['birthdate'].strftime('%m/%d/%Y') if app.get('birthdate') else 'N/A'
+                        # Get gender emoji
+                        gender_emoji = '👩' if app.get('gender') == 'Female' else '👨' if app.get('gender') == 'Male' else ''
+                        gender_str = app.get('gender', 'Unknown')
+                        f.write(f"  ✅🎂 {app['file_name']} [{dob_str}, ☑️ {gender_emoji} {gender_str}]\n")
+                f.write("\n")
+        
+        logger.info(f"Summary written to {summary_path}")
+        report_logger.info(f"Summary written to {summary_path}")
+        
+    except Exception as e:
+        logger.error(f"Error generating database summary: {str(e)}")
+        report_logger.error(f"Error generating database summary: {str(e)}")
         raise
 
 def store_in_supabase(parsed_data: Dict[str, Dict], folder: str, logger, report_logger) -> None:
@@ -186,9 +334,9 @@ def store_in_supabase(parsed_data: Dict[str, Dict], folder: str, logger, report_
         supabase = SupabaseClient()
         
         # Process each folder in the parsed data
-        for folder_name, folder_data in parsed_data.items():
-            logger.info(f"\nProcessing folder: {folder_name}")
-            report_logger.info(f"\nProcessing folder: {folder_name}")
+        for i, (folder_name, folder_data) in enumerate(parsed_data.items(), 1):
+            logger.info(f"\n[{i}/{len(parsed_data)}] storing data for folder: {folder_name}")
+            report_logger.info(f"\n[{i}/{len(parsed_data)}] storing data for folder: {folder_name}")
             
             applications = folder_data['applications']
             no_applications_found = folder_data['no_applications_found']
@@ -198,17 +346,21 @@ def store_in_supabase(parsed_data: Dict[str, Dict], folder: str, logger, report_
             
             # Create an account even if no applications are found
             try:
-                # Create account
+                # Create account with only required fields and empty applications list
                 account = DropboxAccount(
                     folder=folder_name,
-                    first_name="",  # These will be populated from the first application
+                    first_name=None,
                     middle_name=None,
-                    last_name="",
-                    applications=[],
+                    last_name=None,
                     household_head=None,
-                    household_members=[]
+                    household_members=[],
+                    applications=[]  # Initialize with empty list
                 )
-                account_id = supabase.store_dropbox_account(account)
+                # Store account and get the result
+                account_result = supabase.client.table('dropbox_accounts').insert(account.model_dump()).execute()
+                if not account_result.data:
+                    raise RuntimeError("Failed to create dropbox account")
+                account_id = account_result.data[0]['id']
                 logger.info(f"Created account with ID: {account_id}")
                 report_logger.info(f"Created account with ID: {account_id}")
                 
@@ -224,18 +376,28 @@ def store_in_supabase(parsed_data: Dict[str, Dict], folder: str, logger, report_
                     logger.info(f"Birthdate: {app['birthdate']}")
                     logger.info(f"Gender: {app['gender']}")
                     
-                    # Create application
+                    # Create application with only required fields
                     application = Application(
-                        account_id=account_id,
                         file_name=app['file_name'],
+                        first_name=None,
+                        last_name=None,
                         birthdate=app['birthdate'],
                         gender=app['gender'],
+                        address=None,
                         application_type="Insurance",
-                        status="Pending"
+                        status="Pending",
+                        dropbox_account_id=account_id  # Set the dropbox_account_id here
                     )
                     
-                    # Store application
-                    application_id = supabase.store_application(application)
+                    # Debug log the application data
+                    app_data = application.model_dump()
+                    logger.info(f"Application data to be inserted: {app_data}")
+                    
+                    # Store application and get the result
+                    app_result = supabase.client.table('applications').insert(app_data).execute()
+                    if not app_result.data:
+                        raise RuntimeError("Failed to create application")
+                    application_id = app_result.data[0]['id']
                     logger.info(f"Created application with ID: {application_id}")
                     report_logger.info(f"Created application with ID: {application_id}")
                 
@@ -246,6 +408,9 @@ def store_in_supabase(parsed_data: Dict[str, Dict], folder: str, logger, report_
         
         logger.info("\nSuccessfully stored all data in Supabase")
         report_logger.info("\nSuccessfully stored all data in Supabase")
+        
+        # Generate database summary
+        generate_database_summary(supabase, logger, report_logger)
         
     except Exception as e:
         logger.error(f"Error storing data in Supabase: {str(e)}")
@@ -272,9 +437,7 @@ def main() -> None:
     ensure_docker_and_supabase()
     
     logger.info("Welcome to the Log Parser for DOB and Gender Information")
-    report_logger.info("Welcome to the Log Parser for DOB and Gender Information")
     logger.info("This tool will parse a log file and store the information in Supabase.")
-    report_logger.info("This tool will parse a log file and store the information in Supabase.")
     logger.info("-" * 80)
     report_logger.info("-" * 80)
 
@@ -293,7 +456,7 @@ def main() -> None:
 
     logger.info("\nParsing log file...")
     report_logger.info("\nParsing log file...")
-    parsed_data = parse_log_file(log_file_path, report_logger)
+    parsed_data = parse_log_file(log_file_path, logger, report_logger)
     
     if not parsed_data:
         logger.warning("No valid data found in log file")

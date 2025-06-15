@@ -55,13 +55,16 @@ class SupabaseClient:
         """Get the Supabase client instance"""
         return self._client
 
-    def store_application(self, application: Application) -> None:
+    def store_application(self, application: Application) -> int:
         """Store an application in the database"""
         if not self._client:
             raise RuntimeError("Supabase client not initialized")
         data = application.model_dump()
         data = self._serialize_dates(data)
-        self._client.table('applications').insert(data).execute()
+        result = self._client.table('applications').insert(data).execute()
+        if not result.data:
+            raise RuntimeError("Failed to create application")
+        return result.data[0]['id']
 
     def store_household_member(self, member: HouseholdMember) -> None:
         """Store a household member in the database"""
