@@ -397,8 +397,8 @@ def main() -> None:
     parser.add_argument('--keep-log', action='store_true', help='Keep this log folder')
     args = parser.parse_args()
 
-    # Format command for logging
-    command = f"python -m sync.commands.log_parser_summary_dob_and_gender {format_args_for_logging(args)}"
+    # Log the command
+    command = f"python -m sync.commands.store_dob_gender_in_supabase {format_args_for_logging(args)}"
 
     # Setup logging
     logger, report_logger, summary_logger, red_logger = setup_logging(args, command)
