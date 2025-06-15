@@ -27,6 +27,7 @@ class SupabaseClient:
         """Set up the Supabase client with the correct credentials"""
         # Load environment variables from project root .env
         env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
+        print(f"Loading environment variables from {env_path}")
         load_dotenv(env_path)
 
         # Get the Supabase URL

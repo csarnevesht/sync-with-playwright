@@ -1,0 +1,4 @@
+# Supabase Configuration
+JWT_SECRET=TRia+vSeaVZf71sXx1ROX1Gsuphvpl+ctBLbU/Ui3Hc=
+SUPABASE_URL=http://localhost:8000
+LOG_LEVEL=DEBUG 
