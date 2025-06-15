@@ -76,8 +76,8 @@
     "command": "python -m sync.cmd_runner --commands=extract-dropbox-account-app-files-dob-gender --dropbox-accounts"
   },
   {
-    "description": "Extract general information from Dropbox account application files and store in log file",
-    "command": "python -m sync.cmd_runner --commands=extract-dropbox-account-app-files-info --dropbox-accounts"
+    "description": "Extract general information from Dropbox account application files and store in log file --dropbox-account-name='Amaran Martin & Teresita'",
+    "command": "python -m sync.cmd_runner --commands=extract-dropbox-account-app-files-info --dropbox-accounts --dropbox-account-name='Amaran Martin & Teresita'"
   },
   {  
   "description": "Extract DOB and gender information from Dropbox account application files and store in log file --dropbox-account-name='Amaran Martin & Teresita'",

@@ -1436,11 +1436,13 @@ class DropboxClient:
             logger.error(f"Error extracting driver's license info: {str(e)}")
             return {}
 
-    def extract_app_files_info(self, folder_path: str) -> Dict[str, Any]:
+    def extract_app_files_info(self, folder_path: str, extract_fields: set = None) -> Dict[str, Any]:
         """Extract information from application files in a Dropbox folder.
         
         Args:
             folder_path: The path to the Dropbox folder containing application files
+            extract_fields: Optional set of fields to extract. If None, extracts all fields.
+                           Valid fields: 'name', 'address', 'application_type', 'status', 'birthdate', 'gender'
             
         Returns:
             Dict containing extracted information with the following structure:
@@ -1454,6 +1456,10 @@ class DropboxClient:
                 'all_folder_app_files': dict
             }
         """
+        # If no fields specified, extract all fields
+        if extract_fields is None:
+            extract_fields = {'name', 'address', 'application_type', 'status', 'birthdate', 'gender'}
+        
         summary_data = {
             'total_app_files': 0,
             'processed_folders': set(),
@@ -1516,168 +1522,197 @@ class DropboxClient:
                         'status': ''
                     }
                     
-                    # Extract name
-                    name_patterns = [
-                        r'Name[\s\:\-]*([^\n]+)',
-                        r'Applicant[\s\:\-]*([^\n]+)',
-                        r'Full Name[\s\:\-]*([^\n]+)'
-                    ]
-                    for pattern in name_patterns:
-                        match = re.search(pattern, content, re.IGNORECASE)
-                        if match:
-                            file_info['name'] = match.group(1).strip()
-                            break
+                    # Extract name if requested
+                    if 'name' in extract_fields:
+                        name_patterns = [
+                            r'Applicant Name[\s\:\-]*([^\n]+)',
+                            r'Full Name[\s\:\-]*([^\n]+)',
+                            r'Name of Applicant[\s\:\-]*([^\n]+)',
+                            r'Insured Name[\s\:\-]*([^\n]+)',
+                            r'Name of Insured[\s\:\-]*([^\n]+)',
+                            r'Policy Owner[\s\:\-]*([^\n]+)',
+                            r'Name of Policy Owner[\s\:\-]*([^\n]+)',
+                            r'Primary Applicant[\s\:\-]*([^\n]+)',
+                            r'Name of Primary Applicant[\s\:\-]*([^\n]+)',
+                            r'Joint Applicant[\s\:\-]*([^\n]+)',
+                            r'Name of Joint Applicant[\s\:\-]*([^\n]+)'
+                        ]
+                        for pattern in name_patterns:
+                            match = re.search(pattern, content, re.IGNORECASE)
+                            if match:
+                                name = match.group(1).strip()
+                                # Skip if it looks like a form field label
+                                if not any(label in name.lower() for label in ['first', 'last', 'mi', 'middle', 'agent', 'phone', 'split']):
+                                    file_info['name'] = name
+                                    break
                     
-                    # Extract address
-                    address_patterns = [
-                        r'Address[\s\:\-]*([^\n]+)',
-                        r'Residence[\s\:\-]*([^\n]+)',
-                        r'Home Address[\s\:\-]*([^\n]+)'
-                    ]
-                    for pattern in address_patterns:
-                        match = re.search(pattern, content, re.IGNORECASE)
-                        if match:
-                            file_info['address'] = match.group(1).strip()
-                            break
+                    # Extract address if requested
+                    if 'address' in extract_fields:
+                        address_patterns = [
+                            r'Residence Address[\s\:\-]*([^\n]+)',
+                            r'Home Address[\s\:\-]*([^\n]+)',
+                            r'Current Address[\s\:\-]*([^\n]+)',
+                            r'Address of Applicant[\s\:\-]*([^\n]+)',
+                            r'Applicant Address[\s\:\-]*([^\n]+)',
+                            r'Insured Address[\s\:\-]*([^\n]+)',
+                            r'Address of Insured[\s\:\-]*([^\n]+)',
+                            r'Policy Owner Address[\s\:\-]*([^\n]+)',
+                            r'Address of Policy Owner[\s\:\-]*([^\n]+)',
+                            r'Primary Applicant Address[\s\:\-]*([^\n]+)',
+                            r'Address of Primary Applicant[\s\:\-]*([^\n]+)',
+                            r'Joint Applicant Address[\s\:\-]*([^\n]+)',
+                            r'Address of Joint Applicant[\s\:\-]*([^\n]+)'
+                        ]
+                        for pattern in address_patterns:
+                            match = re.search(pattern, content, re.IGNORECASE)
+                            if match:
+                                address = match.group(1).strip()
+                                # Skip if it looks like a form field label
+                                if not any(label in address.lower() for label in ['street', 'city', 'state', 'zip', 'po box', 'cannot be']):
+                                    file_info['address'] = address
+                                    break
                     
-                    # Extract application type
-                    type_patterns = [
-                        r'Application Type[\s\:\-]*([^\n]+)',
-                        r'Type of Application[\s\:\-]*([^\n]+)',
-                        r'Form Type[\s\:\-]*([^\n]+)'
-                    ]
-                    for pattern in type_patterns:
-                        match = re.search(pattern, content, re.IGNORECASE)
-                        if match:
-                            file_info['application_type'] = match.group(1).strip()
-                            break
+                    # Extract application type if requested
+                    if 'application_type' in extract_fields:
+                        type_patterns = [
+                            r'Application Type[\s\:\-]*([^\n]+)',
+                            r'Type of Application[\s\:\-]*([^\n]+)',
+                            r'Form Type[\s\:\-]*([^\n]+)'
+                        ]
+                        for pattern in type_patterns:
+                            match = re.search(pattern, content, re.IGNORECASE)
+                            if match:
+                                file_info['application_type'] = match.group(1).strip()
+                                break
                     
-                    # Extract status
-                    status_patterns = [
-                        r'Status[\s\:\-]*([^\n]+)',
-                        r'Application Status[\s\:\-]*([^\n]+)',
-                        r'Current Status[\s\:\-]*([^\n]+)'
-                    ]
-                    for pattern in status_patterns:
-                        match = re.search(pattern, content, re.IGNORECASE)
-                        if match:
-                            file_info['status'] = match.group(1).strip()
-                            break
+                    # Extract status if requested
+                    if 'status' in extract_fields:
+                        status_patterns = [
+                            r'Status[\s\:\-]*([^\n]+)',
+                            r'Application Status[\s\:\-]*([^\n]+)',
+                            r'Current Status[\s\:\-]*([^\n]+)'
+                        ]
+                        for pattern in status_patterns:
+                            match = re.search(pattern, content, re.IGNORECASE)
+                            if match:
+                                file_info['status'] = match.group(1).strip()
+                                break
                     
                     # Store file info
                     summary_data['file_info'][file.path_display] = file_info
                     
-                    # Search for birthdate patterns (existing code)
-                    birthdate_patterns = [
-                        r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
-                        r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
-                        r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{2,4})',
-                        r'birthdate[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
-                        r'birthdate[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
-                        r'birthdate[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
-                        r'birthdate[\s\(\)\/\:\-]*([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})',
-                        r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
-                        r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
-                        r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{2,4})',
-                        r'date of birth[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
-                        r'date of birth[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
-                        r'date of birth[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
-                        r'date of birth[\s\(\)\/\:\-]*([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})',
-                        r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
-                        r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
-                        r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{2,4})',
-                        r'DOB[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
-                        r'DOB[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
-                        r'DOB[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
-                        r'DOB[\s\(\)\/\:\-]*([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})',
-                        r'([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})'
-                    ]
+                    # Search for birthdate if requested
+                    if 'birthdate' in extract_fields:
+                        birthdate_patterns = [
+                            r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
+                            r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
+                            r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{2,4})',
+                            r'birthdate[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
+                            r'birthdate[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
+                            r'birthdate[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
+                            r'birthdate[\s\(\)\/\:\-]*([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})',
+                            r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
+                            r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
+                            r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{2,4})',
+                            r'date of birth[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
+                            r'date of birth[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
+                            r'date of birth[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
+                            r'date of birth[\s\(\)\/\:\-]*([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})',
+                            r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
+                            r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
+                            r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{2,4})',
+                            r'DOB[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
+                            r'DOB[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
+                            r'DOB[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
+                            r'DOB[\s\(\)\/\:\-]*([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})',
+                            r'([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})'
+                        ]
+                        
+                        birthdate_found = False
+                        for pattern in birthdate_patterns:
+                            match = re.search(pattern, content, re.IGNORECASE)
+                            if match:
+                                birthdate = match.group(1)
+                                summary_data['birthdate_found'] = True
+                                summary_data['files_with_birthdate'].add(file.path_display)
+                                summary_data['file_birthdates'][file.path_display] = birthdate
+                                birthdate_found = True
+                                break
                     
-                    # Search for birthdate
-                    birthdate_found = False
-                    for pattern in birthdate_patterns:
-                        match = re.search(pattern, content, re.IGNORECASE)
-                        if match:
-                            birthdate = match.group(1)
-                            summary_data['birthdate_found'] = True
-                            summary_data['files_with_birthdate'].add(file.path_display)
-                            summary_data['file_birthdates'][file.path_display] = birthdate
-                            birthdate_found = True
-                            break
-                    
-                    # Search for gender/sex (existing code)
-                    sex_patterns = [
-                        r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Female',
-                        r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Male',
-                        r'Female[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)',
-                        r'Male[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)',
-                        r'\[\s\]]*Male[\s\]]*\[\s*\]',
-                        r'\[\s\]]*Female[\s\]]*\[\s*\]',
-                        r'Sex[\s\:\-]*([MF])',
-                        r'Gender[\s\:\-]*([MF])',
-                        r'Sex[\s\:\-]*(Male|Female)',
-                        r'Gender[\s\:\-]*(Male|Female)',
-                        r'(?:Sex|Gender)[\s\:\-]*([MF])',
-                        r'(?:Sex|Gender)[\s\:\-]*(Male|Female)',
-                        r'(?:Sex|Gender)[\s\:\-]*([MF])[\s]*',
-                        r'(?:Sex|Gender)[\s\:\-]*(Male|Female)[\s]*',
-                        r'(?:Sex|Gender)[\s\:\-]*([MF])[\s]*$',
-                        r'(?:Sex|Gender)[\s\:\-]*(Male|Female)[\s]*$'
-                    ]
-                    
-                    sex_found = None
-                    for sex_pattern in sex_patterns:
-                        sex_match = re.search(sex_pattern, content, re.IGNORECASE)
-                        if sex_match:
-                            if re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Male', sex_match.group(0), re.IGNORECASE) or \
-                               re.search(r'Male[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
-                                sex_found = 'M'
-                            elif re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Female', sex_match.group(0), re.IGNORECASE) or \
-                                 re.search(r'Female[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
-                                sex_found = 'F'
-                            else:
-                                if sex_match.lastindex and sex_match.group(1):
-                                    if sex_match.group(1).upper().startswith('M'):
-                                        sex_found = 'M'
-                                    elif sex_match.group(1).upper().startswith('F'):
-                                        sex_found = 'F'
-                                    else:
-                                        sex_found = sex_match.group(1)
-                            summary_data['file_sexes'][file.path_display] = sex_found
-                            break
-                    
-                    # Try OCR if sex not found and file is PDF and OCR is available
-                    if not sex_found and file.name.lower().endswith('.pdf') and OCR_AVAILABLE:
-                        try:
-                            images = convert_from_path(temp_file.name)
-                            ocr_text = ''
-                            for img in images:
-                                # Enhance image for better OCR
-                                img = ImageEnhance.Contrast(img).enhance(2.0)
-                                img = ImageEnhance.Brightness(img).enhance(1.5)
-                                ocr_text += pytesseract.image_to_string(img) + '\n'
-                            
-                            for sex_pattern in sex_patterns:
-                                sex_match = re.search(sex_pattern, ocr_text, re.IGNORECASE)
-                                if sex_match:
-                                    if re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Male', sex_match.group(0), re.IGNORECASE) or \
-                                       re.search(r'Male[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
-                                        sex_found = 'M'
-                                    elif re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Female', sex_match.group(0), re.IGNORECASE) or \
-                                         re.search(r'Female[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
-                                        sex_found = 'F'
-                                    else:
-                                        if sex_match.lastindex and sex_match.group(1):
-                                            if sex_match.group(1).upper().startswith('M'):
-                                                sex_found = 'M'
-                                            elif sex_match.group(1).upper().startswith('F'):
-                                                sex_found = 'F'
-                                            else:
-                                                sex_found = sex_match.group(1)
-                                    summary_data['file_sexes'][file.path_display] = sex_found
-                                    break
-                        except Exception as ocr_exc:
-                            logger.error(f"OCR extraction failed for {file.name}: {ocr_exc}")
+                    # Search for gender if requested
+                    if 'gender' in extract_fields:
+                        sex_patterns = [
+                            r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Female',
+                            r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Male',
+                            r'Female[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)',
+                            r'Male[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)',
+                            r'\[\s\]]*Male[\s\]]*\[\s*\]',
+                            r'\[\s\]]*Female[\s\]]*\[\s*\]',
+                            r'Sex[\s\:\-]*([MF])',
+                            r'Gender[\s\:\-]*([MF])',
+                            r'Sex[\s\:\-]*(Male|Female)',
+                            r'Gender[\s\:\-]*(Male|Female)',
+                            r'(?:Sex|Gender)[\s\:\-]*([MF])',
+                            r'(?:Sex|Gender)[\s\:\-]*(Male|Female)',
+                            r'(?:Sex|Gender)[\s\:\-]*([MF])[\s]*',
+                            r'(?:Sex|Gender)[\s\:\-]*(Male|Female)[\s]*',
+                            r'(?:Sex|Gender)[\s\:\-]*([MF])[\s]*$',
+                            r'(?:Sex|Gender)[\s\:\-]*(Male|Female)[\s]*$'
+                        ]
+                        
+                        sex_found = None
+                        for sex_pattern in sex_patterns:
+                            sex_match = re.search(sex_pattern, content, re.IGNORECASE)
+                            if sex_match:
+                                if re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Male', sex_match.group(0), re.IGNORECASE) or \
+                                   re.search(r'Male[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
+                                    sex_found = 'M'
+                                elif re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Female', sex_match.group(0), re.IGNORECASE) or \
+                                     re.search(r'Female[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
+                                    sex_found = 'F'
+                                else:
+                                    if sex_match.lastindex and sex_match.group(1):
+                                        if sex_match.group(1).upper().startswith('M'):
+                                            sex_found = 'M'
+                                        elif sex_match.group(1).upper().startswith('F'):
+                                            sex_found = 'F'
+                                        else:
+                                            sex_found = sex_match.group(1)
+                                summary_data['file_sexes'][file.path_display] = sex_found
+                                break
+                        
+                        # Try OCR if sex not found and file is PDF and OCR is available
+                        if not sex_found and file.name.lower().endswith('.pdf') and OCR_AVAILABLE:
+                            try:
+                                images = convert_from_path(temp_file.name)
+                                ocr_text = ''
+                                for img in images:
+                                    # Enhance image for better OCR
+                                    img = ImageEnhance.Contrast(img).enhance(2.0)
+                                    img = ImageEnhance.Brightness(img).enhance(1.5)
+                                    ocr_text += pytesseract.image_to_string(img) + '\n'
+                                
+                                for sex_pattern in sex_patterns:
+                                    sex_match = re.search(sex_pattern, ocr_text, re.IGNORECASE)
+                                    if sex_match:
+                                        if re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Male', sex_match.group(0), re.IGNORECASE) or \
+                                           re.search(r'Male[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
+                                            sex_found = 'M'
+                                        elif re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Female', sex_match.group(0), re.IGNORECASE) or \
+                                             re.search(r'Female[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
+                                            sex_found = 'F'
+                                        else:
+                                            if sex_match.lastindex and sex_match.group(1):
+                                                if sex_match.group(1).upper().startswith('M'):
+                                                    sex_found = 'M'
+                                                elif sex_match.group(1).upper().startswith('F'):
+                                                    sex_found = 'F'
+                                                else:
+                                                    sex_found = sex_match.group(1)
+                                        summary_data['file_sexes'][file.path_display] = sex_found
+                                        break
+                            except Exception as ocr_exc:
+                                logger.error(f"OCR extraction failed for {file.name}: {ocr_exc}")
                             
             except Exception as e:
                 logger.error(f"Error processing file {file.name}: {str(e)}")
