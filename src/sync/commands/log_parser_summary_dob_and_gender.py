@@ -25,9 +25,6 @@ logger = logging.getLogger(__name__)
 # Log the current working directory
 logger.debug(f"Current working directory: {os.getcwd()}")
 
-# Default Supabase credentials for local development
-DEFAULT_URL = "http://localhost:8000"
-DEFAULT_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
 
 # Path to store the last used log file
 LAST_LOG_FILE_PATH = os.path.join(os.path.dirname(__file__), '.last_log_file.json')
@@ -60,22 +57,15 @@ def get_user_input(prompt: str, default: str = None) -> str:
         return user_input if user_input else default
     return input(f"{prompt}: ").strip()
 
-def get_supabase_credentials() -> tuple[str, str]:
-    """
-    Get Supabase credentials from environment or prompt user
-    """
+def get_supabase_credentials():
+    """Get Supabase credentials from environment variables"""
+    # Load environment variables from .env file
     load_dotenv()
     
-    url = os.getenv("SUPABASE_URL", DEFAULT_URL)
-    key = os.getenv("SUPABASE_KEY", DEFAULT_KEY)
-    
-    if url == DEFAULT_URL and key == DEFAULT_KEY:
-        print("\nUsing default local Supabase credentials:")
-        print(f"URL: {url}")
-        print(f"Key: {key}")
-    else:
-        print("\nUsing Supabase credentials from .env file")
-    
+    url = os.getenv('SUPABASE_URL', 'http://localhost:8000')
+    key = os.getenv('SUPABASE_SERVICE_KEY')
+    if not key:
+        raise ValueError("SUPABASE_SERVICE_KEY environment variable is required")
     return url, key
 
 def get_log_file_path(cli_log_file: str = None) -> str:
