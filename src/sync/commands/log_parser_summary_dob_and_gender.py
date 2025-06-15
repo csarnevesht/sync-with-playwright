@@ -376,36 +376,39 @@ def store_in_supabase(parsed_data: Dict[str, Dict], folder: str, logger, report_
                 
                 # Process applications if any exist
                 for app in applications:
-                    report_logger.info(f"\nProcessing application: {app['file_name']}")
-                    report_logger.info(f"Birthdate: {app['birthdate']}")
-                    report_logger.info(f"Gender: {app['gender']}")
-                    
-                    # Convert birthdate to ISO format string
-                    birthdate_str = app['birthdate'].isoformat() if app['birthdate'] else None
-                    
-                    # Create application with only required fields
+                    logger.info(f"\nProcessing application: {app['file_name']}")
+                    logger.info(f"Birthdate: {app['birthdate']}")
+                    logger.info(f"Gender: {app['gender']}")
+
+                    # Convert birthdate to ISO format string if it's a date object
+                    birthdate = app['birthdate']
+                    if birthdate and hasattr(birthdate, 'isoformat'):
+                        birthdate = birthdate.isoformat()
+
                     application = Application(
                         file_name=app['file_name'],
                         first_name=None,
                         last_name=None,
-                        birthdate=birthdate_str,  # Use the ISO format string
+                        birthdate=birthdate,  # Use the ISO format string
                         gender=app['gender'],
                         address=None,
                         application_type="Insurance",
                         status="Pending",
-                        dropbox_account_id=account_id  # Set the dropbox_account_id here
+                        dropbox_account_id=account_id
                     )
-                    
-                    # Debug log the application data
+
                     app_data = application.model_dump()
-                    report_logger.info(f"Application data to be inserted: {app_data}")
-                    
-                    # Store application and get the result
+                    # Force birthdate to string for Supabase
+                    if app_data['birthdate'] and hasattr(app_data['birthdate'], 'isoformat'):
+                        app_data['birthdate'] = app_data['birthdate'].isoformat()
+
+                    logger.info(f"Application data to be inserted: {app_data}")
+
                     app_result = supabase.client.table('applications').insert(app_data).execute()
                     if not app_result.data:
                         raise RuntimeError("Failed to create application")
                     application_id = app_result.data[0]['id']
-                    report_logger.info(f"Created application with ID: {application_id}")
+                    logger.info(f"Created application with ID: {application_id}")
                     report_logger.info(f"Created application with ID: {application_id}")
                 
             except Exception as e:
