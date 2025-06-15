@@ -9,6 +9,7 @@ from pdf2image import convert_from_path
 import pytesseract
 from PIL import Image
 import os
+import fnmatch
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +25,19 @@ class AppFileExtractor:
         self.dbx = dbx
         self.name_parts = None
 
-    def extract_info(self, folder_path: str, extract_fields: set = None, name_parts: Dict[str, Any] = None) -> Dict[str, Any]:
-        """Extract information from application files in the specified folder."""
+    def extract_info(self, folder_path: str, extract_fields: set = None, name_parts: Dict[str, Any] = None, file_filter: str = None) -> Dict[str, Any]:
+        """Extract information from application files in a Dropbox folder.
+        
+        Args:
+            folder_path: The path to the Dropbox folder containing application files
+            extract_fields: Optional set of fields to extract. If None, extracts all fields.
+                           Valid fields: 'name', 'address', 'application_type', 'status', 'birthdate', 'gender'
+            name_parts: Optional dictionary containing name parts for better name extraction
+            file_filter: Optional pattern to filter files by name (e.g. "*Life*")
+            
+        Returns:
+            Dict containing extracted information
+        """
         if extract_fields is None:
             extract_fields = {'name', 'address', 'application_type', 'status'}
         
@@ -34,9 +46,12 @@ class AppFileExtractor:
         summary_data = {
             'total_app_files': 0,
             'processed_folders': set(),
-            'file_info': {},  # Store per-file information
-            'all_folder_app_files': {},  # Map folder_path to list of FileMetadata
-            'files_with_name': []  # List of file paths with extracted names
+            'files_with_birthdate': set(),
+            'file_birthdates': {},
+            'file_sexes': {},
+            'file_info': {},
+            'all_folder_app_files': {},
+            'files_with_name': []
         }
 
         app_files = []
@@ -49,6 +64,11 @@ class AppFileExtractor:
             # Process each file
             for file in folder_contents:
                 if self._is_application_file(file.name):
+                    # Apply file filter if specified
+                    if file_filter:
+                        if not fnmatch.fnmatch(file.name, file_filter):
+                            continue
+                            
                     summary_data['total_app_files'] += 1
                     app_files.append(file)
                     file_info = self._process_file(file)
