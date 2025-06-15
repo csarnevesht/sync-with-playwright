@@ -1458,13 +1458,15 @@ class DropboxClient:
             logger.error(f"Error extracting driver's license info: {str(e)}")
             return {}
 
-    def extract_app_files_info(self, folder_path: str, extract_fields: set = None) -> Dict[str, Any]:
+    def extract_app_files_info(self, folder_path: str, extract_fields: set = None, name_parts: Dict[str, Any] = None, app_files: List[FileMetadata] = None) -> Dict[str, Any]:
         """Extract information from application files in a Dropbox folder.
         
         Args:
             folder_path: The path to the Dropbox folder containing application files
             extract_fields: Optional set of fields to extract. If None, extracts all fields.
                            Valid fields: 'name', 'address', 'application_type', 'status', 'birthdate', 'gender'
+            name_parts: Optional dictionary containing name parts for better name extraction
+            app_files: Optional list of specific FileMetadata objects to process. If None, processes all app files in the folder.
             
         Returns:
             Dict containing extracted information with the following structure:
@@ -1479,7 +1481,7 @@ class DropboxClient:
             }
         """
         extractor = AppFileExtractor(self.dbx)
-        return extractor.extract_info(folder_path, extract_fields)
+        return extractor.extract_info(folder_path, extract_fields, name_parts, app_files)
 
     def get_dropbox_salesforce_folder(self) -> Optional[str]:
         """Get the configured Dropbox Salesforce folder path."""

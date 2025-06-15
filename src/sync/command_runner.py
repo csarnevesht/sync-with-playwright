@@ -663,7 +663,7 @@ class CommandRunner:
             folder_path = folder_path.replace('//', '/')
             
             # Extract all fields except birthdate and gender
-            summary_data = dropbox_client.extract_app_files_info(folder_path, extract_fields={'name', 'address'})
+            summary_data = dropbox_client.extract_app_files_info(folder_path, extract_fields={'name', 'address'}, name_parts=dropbox_account_name_parts)
             
             # Log the summary for this folder
             folder_app_files = summary_data['all_folder_app_files'].get(folder_path, [])

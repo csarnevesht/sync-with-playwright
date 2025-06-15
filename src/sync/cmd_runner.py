@@ -763,7 +763,7 @@ def run_command(args):
                         logger.info(f"Attempt {current_attempt} of {max_attempts} for folder: {dropbox_account_folder_name}")
                         report_logger.info(f"Attempt {current_attempt} of {max_attempts} for folder: {dropbox_account_folder_name}")
                         
-                        logger.info(f"CAROLINA dropbox_account_name, {dropbox_account_folder_name}")
+                        logger.info(f"dropbox_account_name, {dropbox_account_folder_name}")
                         
                         logger.info('step: Extract name parts')
                         # Always extract name parts
