@@ -8,21 +8,27 @@ from dropbox.files import FileMetadata
 from typing import List, Tuple, Optional, Dict, Any
 from datetime import datetime
 import re
-import pdf2image
-import pytesseract
-from PIL import Image
 import tempfile
-import PyPDF2
 import logging
 import urllib.parse
 from dotenv import load_dotenv
 import pandas as pd
 from sync.salesforce_client.pages.account_manager import LoggingHelper
 import json
-from PIL import ImageEnhance
+from PIL import Image, ImageEnhance
 import numpy as np
 import cv2
 import difflib
+
+# Import OCR-related modules
+try:
+    import pytesseract
+    from pdf2image import convert_from_path
+    import PyPDF2
+    OCR_AVAILABLE = True
+except ImportError:
+    OCR_AVAILABLE = False
+    logging.warning("OCR modules not available. OCR functionality will be disabled.")
 
 from .date_utils import has_date_prefix, get_folder_creation_date
 from .path_utils import clean_dropbox_folder_name
@@ -1086,7 +1092,7 @@ class DropboxClient:
 
             logging.info("Direct text extraction failed, attempting OCR")
             # If direct extraction didn't work, try OCR
-            images = pdf2image.convert_from_path(pdf_path)
+            images = convert_from_path(pdf_path)
             text = ""
             for image in images:
                 text += pytesseract.image_to_string(image)
@@ -1258,7 +1264,7 @@ class DropboxClient:
                     text = self._extract_text_from_pdf(image_path)
                     if not text.strip():
                         logger.info("Direct text extraction failed, attempting OCR")
-                        images = pdf2image.convert_from_path(
+                        images = convert_from_path(
                             image_path,
                             dpi=600,  # Higher DPI for better quality
                             grayscale=True,
@@ -1429,6 +1435,200 @@ class DropboxClient:
         except Exception as e:
             logger.error(f"Error extracting driver's license info: {str(e)}")
             return {}
+
+    def extract_app_files_info(self, folder_path: str) -> Dict[str, Any]:
+        """Extract DOB and gender information from application files in a Dropbox folder.
+        
+        Args:
+            folder_path: The path to the Dropbox folder containing application files
+            
+        Returns:
+            Dict containing extracted information with the following structure:
+            {
+                'total_app_files': int,
+                'processed_folders': set,
+                'birthdate_found': bool,
+                'files_with_birthdate': set,
+                'file_birthdates': dict,
+                'file_sexes': dict,
+                'all_folder_app_files': dict
+            }
+        """
+        summary_data = {
+            'total_app_files': 0,
+            'processed_folders': set(),
+            'birthdate_found': False,
+            'files_with_birthdate': set(),
+            'file_birthdates': {},
+            'file_sexes': {},
+            'all_folder_app_files': {}
+        }
+        
+        try:
+            folder_files = list_dropbox_folder_contents(self.dbx, folder_path)
+        except Exception as e:
+            logger.error(f"Error searching folder {folder_path}: {str(e)}")
+            return summary_data
+            
+        folder_app_files = []
+        summary_data['processed_folders'].add(folder_path)
+        
+        # Find application files
+        for file in folder_files:
+            if isinstance(file, dropbox.files.FileMetadata):
+                if 'App' in file.name or 'Application' in file.name:
+                    folder_app_files.append(file)
+                    summary_data['total_app_files'] += 1
+                    
+        summary_data['all_folder_app_files'][folder_path] = folder_app_files
+        
+        # Process each application file
+        for i, file in enumerate(folder_app_files, 1):
+            logger.info(f"\nProcessing file {i}/{len(folder_app_files)}: {file.name}")
+            try:
+                with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                    self.dbx.files_download_to_file(temp_file.name, file.path_display)
+                    content = None
+                    
+                    # Extract text from PDF or text files
+                    if file.name.lower().endswith('.pdf'):
+                        try:
+                            with open(temp_file.name, 'rb') as pdf_file:
+                                reader = PyPDF2.PdfReader(pdf_file)
+                                content = ''
+                                for page in reader.pages:
+                                    page_text = page.extract_text()
+                                    if page_text:
+                                        content += page_text + '\n'
+                        except Exception as pdf_exc:
+                            logger.error(f"Error extracting text from PDF {file.name}: {pdf_exc}")
+                            content = ''
+                    else:
+                        with open(temp_file.name, 'r', encoding='utf-8', errors='ignore') as f:
+                            content = f.read()
+                    
+                    # Search for birthdate patterns
+                    birthdate_patterns = [
+                        r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
+                        r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
+                        r'birthdate[\s\(\)\/\:\-]*([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{2,4})',
+                        r'birthdate[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
+                        r'birthdate[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
+                        r'birthdate[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
+                        r'birthdate[\s\(\)\/\:\-]*([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})',
+                        r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
+                        r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
+                        r'date of birth[\s\(\)\/\:\-]*([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{2,4})',
+                        r'date of birth[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
+                        r'date of birth[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
+                        r'date of birth[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
+                        r'date of birth[\s\(\)\/\:\-]*([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})',
+                        r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})',
+                        r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}-[0-9]{1,2}-[0-9]{2,4})',
+                        r'DOB[\s\(\)\/\:\-]*([0-9]{1,2}\\.[0-9]{1,2}\\.[0-9]{2,4})',
+                        r'DOB[\s\(\)\/\:\-]*([0-9]{4}-[0-9]{2}-[0-9]{2})',
+                        r'DOB[\s\(\)\/\:\-]*([0-9]{2}/[0-9]{2}/[0-9]{4})',
+                        r'DOB[\s\(\)\/\:\-]*([0-9]{2}-[0-9]{2}-[0-9]{4})',
+                        r'DOB[\s\(\)\/\:\-]*([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})',
+                        r'([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})'
+                    ]
+                    
+                    # Search for birthdate
+                    birthdate_found = False
+                    for pattern in birthdate_patterns:
+                        match = re.search(pattern, content, re.IGNORECASE)
+                        if match:
+                            birthdate = match.group(1)
+                            summary_data['birthdate_found'] = True
+                            summary_data['files_with_birthdate'].add(file.path_display)
+                            summary_data['file_birthdates'][file.path_display] = birthdate
+                            birthdate_found = True
+                            break
+                    
+                    # Search for gender/sex
+                    sex_patterns = [
+                        r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Female',
+                        r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Male',
+                        r'Female[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)',
+                        r'Male[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)',
+                        r'\[\s\]]*Male[\s\]]*\[\s*\]',
+                        r'\[\s\]]*Female[\s\]]*\[\s*\]',
+                        r'Sex[\s\:\-]*([MF])',
+                        r'Gender[\s\:\-]*([MF])',
+                        r'Sex[\s\:\-]*(Male|Female)',
+                        r'Gender[\s\:\-]*(Male|Female)',
+                        r'(?:Sex|Gender)[\s\:\-]*([MF])',
+                        r'(?:Sex|Gender)[\s\:\-]*(Male|Female)',
+                        r'(?:Sex|Gender)[\s\:\-]*([MF])[\s]*',
+                        r'(?:Sex|Gender)[\s\:\-]*(Male|Female)[\s]*',
+                        r'(?:Sex|Gender)[\s\:\-]*([MF])[\s]*$',
+                        r'(?:Sex|Gender)[\s\:\-]*(Male|Female)[\s]*$'
+                    ]
+                    
+                    sex_found = None
+                    for sex_pattern in sex_patterns:
+                        sex_match = re.search(sex_pattern, content, re.IGNORECASE)
+                        if sex_match:
+                            if re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Male', sex_match.group(0), re.IGNORECASE) or \
+                               re.search(r'Male[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
+                                sex_found = 'M'
+                            elif re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Female', sex_match.group(0), re.IGNORECASE) or \
+                                 re.search(r'Female[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
+                                sex_found = 'F'
+                            else:
+                                if sex_match.lastindex and sex_match.group(1):
+                                    if sex_match.group(1).upper().startswith('M'):
+                                        sex_found = 'M'
+                                    elif sex_match.group(1).upper().startswith('F'):
+                                        sex_found = 'F'
+                                    else:
+                                        sex_found = sex_match.group(1)
+                            summary_data['file_sexes'][file.path_display] = sex_found
+                            break
+                    
+                    # Try OCR if sex not found and file is PDF and OCR is available
+                    if not sex_found and file.name.lower().endswith('.pdf') and OCR_AVAILABLE:
+                        try:
+                            images = convert_from_path(temp_file.name)
+                            ocr_text = ''
+                            for img in images:
+                                # Enhance image for better OCR
+                                img = ImageEnhance.Contrast(img).enhance(2.0)
+                                img = ImageEnhance.Brightness(img).enhance(1.5)
+                                ocr_text += pytesseract.image_to_string(img) + '\n'
+                            
+                            for sex_pattern in sex_patterns:
+                                sex_match = re.search(sex_pattern, ocr_text, re.IGNORECASE)
+                                if sex_match:
+                                    if re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Male', sex_match.group(0), re.IGNORECASE) or \
+                                       re.search(r'Male[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
+                                        sex_found = 'M'
+                                    elif re.search(r'(?:\[X\]|X|☒|■|✓|✔|✗|✘)[\s\]]*Female', sex_match.group(0), re.IGNORECASE) or \
+                                         re.search(r'Female[\s\[]*(?:\[X\]|X|☒|■|✓|✔|✗|✘)', sex_match.group(0), re.IGNORECASE):
+                                        sex_found = 'F'
+                                    else:
+                                        if sex_match.lastindex and sex_match.group(1):
+                                            if sex_match.group(1).upper().startswith('M'):
+                                                sex_found = 'M'
+                                            elif sex_match.group(1).upper().startswith('F'):
+                                                sex_found = 'F'
+                                            else:
+                                                sex_found = sex_match.group(1)
+                                    summary_data['file_sexes'][file.path_display] = sex_found
+                                    break
+                        except Exception as ocr_exc:
+                            logger.error(f"OCR extraction failed for {file.name}: {ocr_exc}")
+                            
+            except Exception as e:
+                logger.error(f"Error processing file {file.name}: {str(e)}")
+                continue
+            finally:
+                try:
+                    os.unlink(temp_file.name)
+                except Exception as del_exc:
+                    logger.error(f"Could not delete temp file {temp_file.name}: {del_exc}")
+                    
+        return summary_data
 
     def get_dropbox_salesforce_folder(self) -> Optional[str]:
         """Get the configured Dropbox Salesforce folder path."""
@@ -1697,7 +1897,7 @@ class DropboxClient:
         # --- License Number Extraction ---
         # Fix common OCR errors
         ocr_replacements = {
-            '¢': '0', '|': '1', '§': '5', '©': '0', '®': '0', '“': '1', '”': '1', '‘': '1', '’': '1',
+            '¢': '0', '|': '1', '§': '5', '©': '0', '®': '0', '"': '1', '"': '1', ''': '1', ''': '1',
             'S': '5', 'O': '0', 'I': '1', 'L': '1', 'B': '8', 'G': '6', 'Z': '2', 'Q': '0', 'D': '0', 'T': '7', 'A': '4',
             '(': '0', ')': '0', '{': '0', '}': '0', '[': '0', ']': '0', 'o': '0', 's': '5', 'l': '1', 'i': '1', 'a': '4',
             'b': '6', 'g': '9', 'z': '2', 'q': '0', 'd': '0', 't': '7', 'e': '6', 'E': '6', 'B': '8', 'G': '6', 'Z': '2', 'Q': '0', 'D': '0', 'T': '7', 'A': '4'

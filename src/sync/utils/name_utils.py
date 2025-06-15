@@ -23,13 +23,18 @@ SPECIAL_CASES = {}
 def _load_special_cases() -> Dict[str, str]:
     """
     Load special cases from JSON file
-    Returns a dictionary of special cases
+    Returns a dictionary of special cases where the key is the folder_name
     """
     try:
-        special_cases_file = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'special_cases.txt')
+        special_cases_file = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'accounts', 'special_cases.json')
+        logger.debug(f"[DEBUG] _load_special_cases: loading file from {special_cases_file}")
         with open(special_cases_file, 'r') as f:
             data = json.load(f)
-        return data
+        
+        # Convert array of special cases to dictionary with folder_name as key
+        special_cases_dict = {case['folder_name']: case for case in data.get('special_cases', [])}
+        logger.debug(f"[DEBUG] _load_special_cases: loaded data keys={list(special_cases_dict.keys())}")
+        return special_cases_dict
     except json.JSONDecodeError as e:
         logger.error(f"Error decoding special cases JSON file: {str(e)}")
         return {}
@@ -39,10 +44,13 @@ def _load_special_cases() -> Dict[str, str]:
 
 def _is_special_case(name: str) -> bool:
     """
-    Check if a name is a special case
+    Check if a name is a special case using the more robust _get_special_case_rules function
     """
-    special_cases = _load_special_cases()
-    return name in special_cases
+    logger.debug(f"[DEBUG] _is_special_case: checking name='{name}'")
+    rules = _get_special_case_rules(name)
+    is_special = rules is not None
+    logger.debug(f"[DEBUG] _is_special_case: is_special={is_special}")
+    return is_special
 
 def _get_special_case_rules(name: str) -> Optional[Dict[str, Any]]:
     """Get the rules for a special case name.
@@ -91,32 +99,47 @@ def extract_name_parts(name: str, log: bool = False) -> Tuple[str, Optional[str]
     Extract first, middle, and last name from a full name
     Returns a tuple of (first_name, middle_name, last_name)
     """
-    if log:
-        logger.info(f"INFO: extract_name_parts ***name: {name}")
-        logger.info(f"Processing name: {name}")
-
+    logger.debug(f"[DEBUG] extract_name_parts: starting with name='{name}'")
+    
     # Check for special cases first
     if _is_special_case(name):
+        logger.debug(f"[DEBUG] extract_name_parts: found special case for '{name}'")
         special_cases = _load_special_cases()
-        return special_cases[name]
+        case = special_cases[name]
+        logger.debug(f"[DEBUG] extract_name_parts: using special case data: {case}")
+        result = (case['first_name'], None, case['last_name'])
+        logger.debug(f"[DEBUG] extract_name_parts: returning special case result: {result}")
+        return result
 
     # Split the name into parts
     parts = name.split(',')
+    logger.debug(f"[DEBUG] extract_name_parts: split parts={parts}")
+    
     if len(parts) != 2:
         if log:
             logger.warning(f"Invalid name format: {name}")
+        logger.debug(f"[DEBUG] extract_name_parts: invalid format, returning ({name}, None, '')")
         return name, None, ""
 
     last_name = parts[0].strip()
     first_middle = parts[1].strip()
+    logger.debug(f"[DEBUG] extract_name_parts: last_name='{last_name}', first_middle='{first_middle}'")
 
     # Split first and middle names
     first_middle_parts = first_middle.split()
+    logger.debug(f"[DEBUG] extract_name_parts: first_middle_parts={first_middle_parts}")
+    
     if len(first_middle_parts) == 1:
-        return first_middle_parts[0], None, last_name
+        result = (first_middle_parts[0], None, last_name)
+        logger.debug(f"[DEBUG] extract_name_parts: single first name, returning {result}")
+        return result
     elif len(first_middle_parts) == 2:
-        return first_middle_parts[0], first_middle_parts[1], last_name
+        result = (first_middle_parts[0], first_middle_parts[1], last_name)
+        logger.debug(f"[DEBUG] extract_name_parts: first and middle name, returning {result}")
+        return result
     else:
-        return first_middle_parts[0], " ".join(first_middle_parts[1:]), last_name
+        result = (first_middle_parts[0], " ".join(first_middle_parts[1:]), last_name)
+        logger.debug(f"[DEBUG] extract_name_parts: multiple middle names, returning {result}")
+        return result
 
 
