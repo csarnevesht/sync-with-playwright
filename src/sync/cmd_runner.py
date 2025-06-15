@@ -208,7 +208,7 @@ def get_preserved_logs():
     with open(preserved_file, 'r') as f:
         return set(line.strip() for line in f if line.strip())
 
-def clean_old_log_folders(max_folders=2):
+def clean_old_log_folders(max_folders=1):
     """Keep only the most recent log folders.
     
     Args:
@@ -248,11 +248,12 @@ def clean_old_log_folders(max_folders=2):
             except Exception as e:
                 print(f"Error removing old log folder {folder}: {e}")
 
-def setup_logging(args):
+def setup_logging(args, command: str = None):
     """Configure logging to write to both file and console with colored output.
     
     Args:
         args: The parsed command line arguments
+        command: The command string to log (optional)
     """
     # Clean up old log folders before creating a new one
     clean_old_log_folders()
@@ -331,11 +332,11 @@ def setup_logging(args):
     red_logger.setLevel(logging.INFO)
     red_logger.addHandler(red_handler)
     
-    # Log the command and arguments
-    command = f"python -m sync.cmd_runner {format_args_for_logging(args)}"
-    root_logger.info(f"Command: {command}")
-    report_logger.info(f"Command: {command}")
-    summary_logger.info(f"Command: {command}")
+    # Log the command and arguments if provided
+    if command:
+        root_logger.info(f"Command: {command}")
+        report_logger.info(f"Command: {command}")
+        summary_logger.info(f"Command: {command}")
     
     # Log the log file locations
     root_logger.info(f"Main log file: {log_file}")
@@ -1397,5 +1398,6 @@ def prepare_flatfile_from_template(template_path, logger, report_logger):
 
 if __name__ == "__main__":
     args = parse_args()
-    logger, report_logger, summary_logger, red_logger = setup_logging(args)
+    command = f"python -m sync.cmd_runner {format_args_for_logging(args)}"
+    logger, report_logger, summary_logger, red_logger = setup_logging(args, command)
     run_command(args) 
