@@ -191,4 +191,88 @@ class SupabaseClient:
             applications=applications,
             household_head=household_head,
             household_members=household_members
-        ) 
+        )
+
+    def generate_account_summary(self, folder_name: str) -> str:
+        """Generate a summary for a specific Dropbox account.
+        
+        Args:
+            folder_name: The name of the Dropbox folder to generate a summary for
+            
+        Returns:
+            str: A formatted summary of the account's data
+        """
+        if not self._client:
+            raise RuntimeError("Supabase client not initialized")
+
+        summary_lines = []
+        summary_lines.append(f"\nAccount Summary for: {folder_name}")
+        summary_lines.append("=" * (len(folder_name) + 20))
+
+        try:
+            # Get the account with its applications
+            result = self._client.table('dropbox_accounts').select('*, applications(*)').eq('folder', folder_name).execute()
+            if not result.data:
+                summary_lines.append(f"❌ No account found for folder: {folder_name}")
+                return "\n".join(summary_lines)
+
+            account = result.data[0]
+            apps = account.get('applications', [])
+            
+            # Add account details
+            summary_lines.append(f"\nAccount Details:")
+            summary_lines.append(f"  Name: {account.get('first_name', '')} {account.get('middle_name', '')} {account.get('last_name', '')}".strip())
+            
+            # Add applications summary
+            summary_lines.append(f"\nApplications ({len(apps)}):")
+            if not apps:
+                summary_lines.append(f"  ❌ No application files found")
+            else:
+                for app in apps:
+                    # Format date as MM/DD/YYYY
+                    birthdate = app.get('birthdate')
+                    if birthdate:
+                        try:
+                            from datetime import datetime
+                            dob = datetime.fromisoformat(birthdate)
+                            dob_str = dob.strftime('%m/%d/%Y')
+                        except (ValueError, TypeError):
+                            dob_str = birthdate
+                    else:
+                        dob_str = 'N/A'
+                    
+                    # Get gender emoji
+                    gender_emoji = '👩' if app.get('gender') == 'Female' else '👨' if app.get('gender') == 'Male' else ''
+                    gender_str = app.get('gender', 'Unknown')
+                    summary_lines.append(f"  ✅ {app['file_name']}")
+                    summary_lines.append(f"    🎂 DOB: {dob_str}")
+                    summary_lines.append(f"    ☑️ Gender: {gender_emoji} {gender_str}")
+                    if app.get('address'):
+                        summary_lines.append(f"    📍 Address: {app['address']}")
+
+            # Get household members
+            members_result = self._client.table('household_members').select('*').eq('dropbox_account_id', account['id']).execute()
+            members = members_result.data if members_result.data else []
+            
+            # Add household members summary
+            summary_lines.append(f"\nHousehold Members ({len(members)}):")
+            if not members:
+                summary_lines.append("  ❌ No household members found")
+            else:
+                for member in members:
+                    is_head = "👑 " if member.get('is_household_head') else ""
+                    name = f"{member.get('first_name', '')} {member.get('middle_name', '')} {member.get('last_name', '')}".strip()
+                    dob = member.get('date_of_birth', 'N/A')
+                    if dob and hasattr(dob, 'strftime'):
+                        dob = dob.strftime('%m/%d/%Y')
+                    gender_emoji = '👩' if member.get('gender') == 'Female' else '👨' if member.get('gender') == 'Male' else ''
+                    summary_lines.append(f"  {is_head}{name}")
+                    summary_lines.append(f"    🎂 DOB: {dob}")
+                    summary_lines.append(f"    ☑️ Gender: {gender_emoji} {member.get('gender', 'Unknown')}")
+
+            return "\n".join(summary_lines)
+
+        except Exception as e:
+            logger.error(f"Error generating account summary: {str(e)}")
+            summary_lines.append(f"\n❌ Error generating summary: {str(e)}")
+            return "\n".join(summary_lines) 

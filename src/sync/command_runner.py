@@ -849,6 +849,11 @@ class CommandRunner:
             self.logger.info(f"Found {len(applications)} applications for {dropbox_account_folder_name}")
             self.report_logger.info(f"\nFound {len(applications)} applications for {dropbox_account_folder_name}")
 
+            # Generate the current account summary
+            account_summary = supabase_client.generate_account_summary(dropbox_account_folder_name)
+            self.logger.info(f"Account summary for {dropbox_account_folder_name}:\n{account_summary}")
+            self.report_logger.info(f"\nAccount summary for {dropbox_account_folder_name}:\n{account_summary}")
+
             # Store the applications in Supabase
             for application in applications:
                 supabase_client.store_application(application)
