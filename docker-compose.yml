@@ -25,5 +25,18 @@ services:
       POSTGRES_DB: postgres
     ports:
       - 127.0.0.1:5433:5432
+    volumes:
+    - ./supabase_client/init.sql:/docker-entrypoint-initdb.d/init.sql
     
+  db-init:
+    image: postgres:15
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    command: >
+      bash -c "sleep 5 && psql -h postgres -U postgres -d postgres -f /docker-entrypoint-initdb.d/init.sql"
+    volumes:
+      - ./supabase_client/init.sql:/docker-entrypoint-initdb.d/init.sql  
 
