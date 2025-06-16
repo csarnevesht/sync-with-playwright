@@ -645,6 +645,11 @@ class CommandRunner:
     def _extract_dropbox_account_app_files_info(self) -> None:
         """Get Dropbox Account information from all the application files in each Dropbox account folder.
            Extracts general information like name, address, application type, and status.
+
+           Supports filtering files by name using the --file-filter argument (e.g. --file-filter='*Joint*').
+
+           Example usage:
+               python -m sync.cmd_runner --commands=extract-dropbox-account-app-files-info --dropbox-accounts --file-filter='*Joint*'
         """
         self.logger.info("Starting extract-dropbox-account-app-files-info operation")
         self.report_logger.info("\n=== GETTING DROPBOX APPLICATION INFORMATION ===")
@@ -661,8 +666,8 @@ class CommandRunner:
             # Get file filter if specified
             file_filter = self.args.file_filter
             if file_filter:
-                self.logger.info(f"Using file filter: {file_filter}")
-                self.report_logger.info(f"\nUsing file filter: {file_filter}")
+                self.logger.info(f"Using file filter: {file_filter} (only files matching this pattern will be processed)")
+                self.report_logger.info(f"\nUsing file filter: {file_filter} (only files matching this pattern will be processed)")
 
             # Construct folder path
             folder_path = f"/{dropbox_root_folder}/{dropbox_account_folder_name}"
