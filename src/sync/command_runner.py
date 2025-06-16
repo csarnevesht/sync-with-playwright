@@ -694,14 +694,16 @@ class CommandRunner:
                     # Log any additional information found in the file
                     if file.path_display in summary_data.get('file_info', {}):
                         info = summary_data['file_info'][file.path_display]
-                        if info.get('name'):
-                            self.summary_logger.info(f"    👤 Name: {info['name']}")
-                        if info.get('address'):
-                            self.summary_logger.info(f"    📍 Address: {info['address']}")
-                        if info.get('phone'):
-                            self.summary_logger.info(f"    📞 Phone: {info['phone']}")
-                        if info.get('email'):
-                            self.summary_logger.info(f"    ✉️ Email: {info['email']}")
+                        # Owner information
+                        if info.get('owner_name'):
+                            self.summary_logger.info(f"    👤 Owner: {info['owner_name']}")
+                        if info.get('owner_address'):
+                            self.summary_logger.info(f"    📍 Owner Address: {info['owner_address']}")
+                        if info.get('owner_phone'):
+                            self.summary_logger.info(f"    📞 Owner Phone: {info['owner_phone']}")
+                        if info.get('owner_email'):
+                            self.summary_logger.info(f"    ✉️ Owner Email: {info['owner_email']}")
+                        # Spouse information
                         if info.get('spouse_name'):
                             self.summary_logger.info(f"    👥 Spouse: {info['spouse_name']}")
                         if info.get('spouse_address'):
@@ -710,10 +712,12 @@ class CommandRunner:
                             self.summary_logger.info(f"    📞 Spouse Phone: {info['spouse_phone']}")
                         if info.get('spouse_email'):
                             self.summary_logger.info(f"    ✉️ Spouse Email: {info['spouse_email']}")
+                        # Application information
                         if info.get('application_type'):
                             self.summary_logger.info(f"    📄 Type: {info['application_type']}")
                         if info.get('status'):
                             self.summary_logger.info(f"    📊 Status: {info['status']}")
+                        self.summary_logger.info("")  # Add blank line between files
             else:
                 self.summary_logger.info(f"  ❌ No application files found for {dropbox_account_folder_name}")
 

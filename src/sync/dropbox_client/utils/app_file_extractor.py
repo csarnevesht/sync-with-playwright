@@ -165,49 +165,25 @@ class AppFileExtractor:
             }
             logger.info(f"Initial file info: {json.dumps(file_info, indent=2)}")
 
-            # Merge OCR and Ollama results, preferring Ollama for high confidence matches
-            if ollama_data and 'personalInfo' in ollama_data:
-                personal_info = ollama_data['personalInfo']
-                if 'name' in personal_info:
-                    name_info = personal_info['name']
-                    if name_info['confidence'] >= 0.7:  # Only use high confidence matches
-                        logger.info(f"Using Ollama name with confidence {name_info['confidence']}: {name_info['value']}")
-                        file_info['name'] = name_info['value']
-                        file_info['name_confidence'] = name_info['confidence']
-                    
+            # Add owner (primary applicant) information
+            if ollama_data.get('owner_name'):
+                file_info['owner_name'] = ollama_data['owner_name']
+            if ollama_data.get('owner_address'):
+                file_info['owner_address'] = ollama_data['owner_address']
+            if ollama_data.get('owner_phone'):
+                file_info['owner_phone'] = ollama_data['owner_phone']
+            if ollama_data.get('owner_email'):
+                file_info['owner_email'] = ollama_data['owner_email']
 
-            # Extract address information
-            if ollama_data and 'address' in ollama_data:
-                address_parts = []
-                for field, info in ollama_data['address'].items():
-                    if info['confidence'] >= 0.7:  # Only use high confidence matches
-                        logger.info(f"Using Ollama address part with confidence {info['confidence']}: {info['value']}")
-                        address_parts.append(info['value'])
-                if address_parts:
-                    file_info['address'] = ' '.join(address_parts)
-                    logger.info(f"Final address from Ollama: {file_info['address']}")
-                
-
-            # Extract application information
-            if ollama_data and 'applicationInfo' in ollama_data:
-                for field, info in ollama_data['applicationInfo'].items():
-                    if info['confidence'] >= 0.7:  # Only use high confidence matches
-                        logger.info(f"Using Ollama application info for {field} with confidence {info['confidence']}: {info['value']}")
-                        file_info[field] = info['value']
-
-            # Extract spouse information
-            if ollama_data and 'spouseInfo' in ollama_data:
-                spouse_info = ollama_data['spouseInfo']
-                if spouse_info.get('name', {}).get('confidence', 0) >= 0.7:
-                    logger.info(f"Found spouse information with confidence {spouse_info['name']['confidence']}")
-                    file_info['spouse'] = {
-                        'name': spouse_info['name']['value'],
-                        'dob': spouse_info.get('dob', {}).get('value'),
-                        'ssn': spouse_info.get('ssn', {}).get('value'),
-                        'phone': spouse_info.get('phoneNumber', {}).get('value')
-                    }
-                    logger.info(f"Added spouse information: {json.dumps(file_info['spouse'], indent=2)}")
-
+            # Add spouse information
+            if ollama_data.get('spouse_name'):
+                file_info['spouse_name'] = ollama_data['spouse_name']
+            if ollama_data.get('spouse_address'):
+                file_info['spouse_address'] = ollama_data['spouse_address']
+            if ollama_data.get('spouse_phone'):
+                file_info['spouse_phone'] = ollama_data['spouse_phone']
+            if ollama_data.get('spouse_email'):
+                file_info['spouse_email'] = ollama_data['spouse_email']
 
             # Validate name if we have name parts
             if self.name_parts and 'name' in file_info:
