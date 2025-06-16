@@ -682,7 +682,6 @@ class CommandRunner:
                 name_parts=dropbox_account_name_parts,
                 file_filter=file_filter
             )
-            self.logger.info(f"Summary data: {summary_data}")
 
             # Log the summary for this folder
             folder_app_files = summary_data['all_folder_app_files'].get(folder_path, [])
@@ -719,7 +718,10 @@ class CommandRunner:
                             self.summary_logger.info(f"    📊 Status: {info['status']}")
                         self.summary_logger.info("")  # Add blank line between files
             else:
-                self.summary_logger.info(f"  ❌ No application files found for {dropbox_account_folder_name}")
+                if file_filter:
+                    self.summary_logger.info(f"  ❌ No application files found matching filter '{file_filter}' for {dropbox_account_folder_name}")
+                else:
+                    self.summary_logger.info(f"  ❌ No application files found for {dropbox_account_folder_name}")
 
             self.logger.info("\nSuccessfully completed extract-dropbox-account-app-files-info operation")
             
