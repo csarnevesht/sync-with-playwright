@@ -36,7 +36,7 @@ class AppFileExtractor:
             extract_fields: Optional set of fields to extract. If None, extracts all fields.
                            Valid fields: 'name', 'address', 'application_type', 'status', 'birthdate', 'gender'
             name_parts: Optional dictionary containing name parts for better name extraction
-            file_filter: Optional pattern to filter files by name (e.g. "*Life*")
+            file_filter: Optional pattern to filter files by name (e.g. "*Joint*")
             
         Returns:
             Dict containing extracted information
@@ -66,20 +66,28 @@ class AppFileExtractor:
 
             # Process each file
             for file in folder_contents:
-                if self._is_application_file(file.name):
-                    # Apply file filter if specified
-                    if file_filter:
-                        if not fnmatch.fnmatch(file.name, file_filter):
-                            continue
+                if not isinstance(file, FileMetadata):
+                    continue
+                    
+                # First check if it's an application file
+                if not self._is_application_file(file.name):
+                    continue
+                    
+                # Then apply file filter if specified
+                if file_filter:
+                    if not fnmatch.fnmatch(file.name.lower(), file_filter.lower()):
+                        logger.debug(f"Skipping file {file.name} - does not match filter pattern {file_filter}")
+                        continue
+                    logger.info(f"Processing file {file.name} - matches filter pattern {file_filter}")
                             
-                    summary_data['total_app_files'] += 1
-                    app_files.append(file)
-                    file_info = self._process_file(file)
-                    if file_info:
-                        # Store file info in the summary data
-                        summary_data['file_info'][file.path_display] = file_info
-                        if file_info.get('name'):
-                            summary_data['files_with_name'].append(file.path_display)
+                summary_data['total_app_files'] += 1
+                app_files.append(file)
+                file_info = self._process_file(file)
+                if file_info:
+                    # Store file info in the summary data
+                    summary_data['file_info'][file.path_display] = file_info
+                    if file_info.get('name'):
+                        summary_data['files_with_name'].append(file.path_display)
 
             summary_data['all_folder_app_files'][folder_path] = app_files
             summary_data['processed_folders'].add(folder_path)
@@ -87,6 +95,7 @@ class AppFileExtractor:
             # Log the summary for this folder
             folder_app_files = summary_data['all_folder_app_files'].get(folder_path, [])
             if folder_app_files:
+                logger.info(f"\nFound {len(folder_app_files)} files matching filter '{file_filter}' in {folder_path}:")
                 for file in folder_app_files:
                     logger.info(f"  ✅ {file.name}")
                     # Log any additional information found in the file
@@ -100,17 +109,8 @@ class AppFileExtractor:
                             logger.info(f"    📄 Type: {info['application_type']}")
                         if info.get('status'):
                             logger.info(f"    📊 Status: {info['status']}")
-                        if info.get('spouse'):
-                            spouse = info['spouse']
-                            logger.info(f"    👥 Spouse: {spouse['name']}")
-                            if spouse.get('dob'):
-                                logger.info(f"      📅 DOB: {spouse['dob']}")
-                            if spouse.get('phone'):
-                                logger.info(f"      📞 Phone: {spouse['phone']}")
-                            if spouse.get('ssn'):
-                                logger.info(f"      🔒 SSN: {spouse['ssn']}")
             else:
-                logger.info(f"  ❌ No application files found for {folder_path}")
+                logger.info(f"  ❌ No application files found matching filter '{file_filter}' for {folder_path}")
 
             return summary_data
 

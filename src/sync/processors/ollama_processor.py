@@ -1,30 +1,79 @@
 import json
 import logging
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Tuple
 import requests
 from pathlib import Path
 import PyPDF2
 import io
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import lru_cache
+import hashlib
+from datetime import datetime, timedelta
+import pdfplumber
+import re
 
 logger = logging.getLogger(__name__)
 
 class OllamaProcessor:
-    def __init__(self, base_url: str = "http://localhost:11434", max_retries: int = 5, retry_delay: float = 1.0):
-        self.base_url = base_url
-        self.model = "mistral"
-        self.max_retries = max_retries
-        self.retry_delay = retry_delay
-        logger.info(f"Initializing OllamaProcessor with model: {self.model}")
-        self._check_ollama_server()
+    def __init__(self, model_name: str = "mistral"):
+        """Initialize the Ollama processor."""
+        self.model_name = model_name
+        self.base_url = "http://localhost:11434"
+        self.max_chunk_size = 2000
+        self.max_retries = 5
+        self.retry_delay = 1
+        self.base_timeout = 180
+        self.server_check_timeout = 10
+        self.cache_duration = timedelta(hours=24)  # Cache results for 24 hours
+        
+        # Configure logging for pdfplumber
+        logging.getLogger('pdfplumber').setLevel(logging.WARNING)
+        logging.getLogger('PIL').setLevel(logging.WARNING)  # Also suppress PIL logging
+        
+        # Configure logging for other PDF-related libraries
+        logging.getLogger('pdfminer').setLevel(logging.WARNING)
+        logging.getLogger('pdfminer.pdfparser').setLevel(logging.WARNING)
+        logging.getLogger('pdfminer.pdfdocument').setLevel(logging.WARNING)
+        logging.getLogger('pdfminer.pdfpage').setLevel(logging.WARNING)
+        logging.getLogger('pdfminer.pdfinterp').setLevel(logging.WARNING)
+        logging.getLogger('pdfminer.converter').setLevel(logging.WARNING)
+        logging.getLogger('pdfminer.cmapdb').setLevel(logging.WARNING)
+
         self._check_model_availability()
+        self._initialize_cache()
+
+    def _initialize_cache(self):
+        """Initialize the response cache."""
+        self.response_cache = {}
+        self.cache_timestamps = {}
+
+    def _get_cache_key(self, prompt: str) -> str:
+        """Generate a cache key for a prompt."""
+        return hashlib.md5(prompt.encode()).hexdigest()
+
+    def _get_cached_response(self, prompt: str) -> Optional[str]:
+        """Get a cached response if available and not expired."""
+        cache_key = self._get_cache_key(prompt)
+        if cache_key in self.response_cache:
+            timestamp = self.cache_timestamps.get(cache_key)
+            if timestamp and datetime.now() - timestamp < self.cache_duration:
+                logger.debug("Using cached response")
+                return self.response_cache[cache_key]
+        return None
+
+    def _cache_response(self, prompt: str, response: str):
+        """Cache a response with timestamp."""
+        cache_key = self._get_cache_key(prompt)
+        self.response_cache[cache_key] = response
+        self.cache_timestamps[cache_key] = datetime.now()
 
     def _check_ollama_server(self) -> None:
         """Check if Ollama server is running and accessible."""
         logger.info("Checking Ollama server availability...")
         try:
-            response = requests.get(f"{self.base_url}/api/tags", timeout=5)
+            response = requests.get(f"{self.base_url}/api/tags", timeout=self.server_check_timeout)
             if response.status_code != 200:
                 logger.error(f"Ollama server returned status code {response.status_code}")
                 logger.error("Please ensure Ollama server is running and accessible")
@@ -40,292 +89,454 @@ class OllamaProcessor:
             sys.exit(1)
 
     def _check_model_availability(self) -> None:
-        """Check if the Mistral model is available and pull it if needed."""
-        logger.info("Checking Mistral model availability...")
+        """Check if the model is available and pull it if necessary."""
         try:
+            # Check if Ollama server is running
             response = requests.get(f"{self.base_url}/api/tags")
-            if response.status_code == 200:
-                models = response.json().get('models', [])
-                model_names = [model.get('name') for model in models]
-                logger.debug(f"Available models: {model_names}")
+            if response.status_code != 200:
+                raise Exception("Ollama server is not running")
                 
-                if self.model not in model_names:
-                    logger.info(f"Mistral model not found. Pulling model...")
-                    pull_response = requests.post(
-                        f"{self.base_url}/api/pull",
-                        json={"name": self.model}
-                    )
-                    if pull_response.status_code != 200:
-                        logger.error(f"Failed to pull Mistral model: {pull_response.text}")
-                        logger.error("Please pull the model manually by running: ollama pull mistral")
-                        sys.exit(1)
-                    logger.info("Successfully pulled Mistral model")
-                else:
-                    logger.info("Mistral model is already available")
+            # Check if model is available
+            model_names = [model['name'] for model in response.json()['models']]
+            logger.debug(f"Available models: {model_names}")
+            
+            if self.model_name not in model_names:
+                logger.info(f"Mistral model not found. Pulling model...")
+                pull_response = requests.post(
+                    f"{self.base_url}/api/pull",
+                    json={"name": self.model_name}
+                )
+                if pull_response.status_code != 200:
+                    raise Exception(f"Failed to pull model: {pull_response.text}")
+                logger.info("Model pulled successfully")
+            else:
+                logger.info(f"Model {self.model_name} is available")
+                
         except Exception as e:
             logger.error(f"Error checking model availability: {str(e)}")
-            logger.error("Please ensure the Mistral model is available by running: ollama pull mistral")
-            sys.exit(1)
+            raise
 
-    def _extract_text_from_file(self, file_path: Path) -> Optional[str]:
-        """Extract text from a file, handling both PDF and text files."""
-        logger.info(f"Extracting text from file: {file_path}")
+    def _extract_text_from_file(self, file_path: str) -> str:
+        """Extract text from a PDF file."""
         try:
-            if file_path.suffix.lower() == '.pdf':
-                logger.debug("Processing PDF file")
-                with open(file_path, 'rb') as pdf_file:
-                    reader = PyPDF2.PdfReader(pdf_file)
-                    content = ''
-                    total_pages = len(reader.pages)
-                    logger.debug(f"PDF has {total_pages} pages")
-                    # Limit to first 1 pages
-                    pages_to_process = min(1, total_pages)
-                    logger.info(f"Processing first {pages_to_process} pages out of {total_pages} total pages")
-                    for i, page in enumerate(reader.pages[:pages_to_process], 1):
-                        page_text = page.extract_text()
-                        if page_text:
-                            content += page_text + '\n'
-                        logger.debug(f"Processed page {i}/{pages_to_process}")
-                logger.info(f"Successfully extracted {len(content)} characters from PDF")
-                return content
-            else:
-                logger.debug("Processing text file")
-                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                    content = f.read()
-                logger.info(f"Successfully read {len(content)} characters from text file")
-                return content
+            if not file_path.lower().endswith('.pdf'):
+                logger.warning(f"File is not a PDF: {file_path}")
+                return ""
+                
+            with pdfplumber.open(file_path) as pdf:
+                # Process only the first page
+                try:
+                    page = pdf.pages[0]
+                    text = page.extract_text()
+                    if text:
+                        # Clean up the text
+                        text = re.sub(r'\n+', ' ', text)  # Replace multiple newlines with space
+                        text = re.sub(r'\s+', ' ', text)  # Normalize whitespace
+                        text = text.strip()
+                        return text
+                except Exception as e:
+                    logger.warning(f"Error processing first page: {str(e)}")
+                    return ""
+                
         except Exception as e:
-            logger.error(f"Error extracting text from {file_path}: {str(e)}")
-            return None
+            logger.error(f"Error extracting text from PDF: {str(e)}")
+            return ""
 
-    def _chunk_text(self, text: str, max_chunk_size: int = 500) -> list[str]:
-        """Split text into smaller chunks to avoid truncation."""
-        logger.info(f"Splitting text into chunks (max size: {max_chunk_size} characters)")
-        words = text.split()
+    def _split_text_into_chunks(self, text: str) -> List[str]:
+        """Split text into chunks of maximum size with improved handling."""
+        if not text:
+            return []
+            
+        # Split by paragraphs first
+        paragraphs = text.split('\n\n')
         chunks = []
         current_chunk = []
         current_size = 0
         
-        for word in words:
-            word_size = len(word) + 1  # +1 for space
-            if current_size + word_size > max_chunk_size:
-                chunks.append(' '.join(current_chunk))
-                current_chunk = [word]
-                current_size = word_size
+        for paragraph in paragraphs:
+            paragraph = paragraph.strip()
+            if not paragraph:
+                continue
+                
+            # If a single paragraph is larger than max_chunk_size, split it by sentences
+            if len(paragraph) > self.max_chunk_size:
+                sentences = paragraph.split('. ')
+                for sentence in sentences:
+                    if current_size + len(sentence) > self.max_chunk_size:
+                        if current_chunk:
+                            chunks.append(' '.join(current_chunk))
+                            current_chunk = []
+                            current_size = 0
+                        # If a single sentence is too long, split it by words
+                        if len(sentence) > self.max_chunk_size:
+                            words = sentence.split()
+                            temp_chunk = []
+                            temp_size = 0
+                            for word in words:
+                                if temp_size + len(word) + 1 > self.max_chunk_size:
+                                    if temp_chunk:
+                                        chunks.append(' '.join(temp_chunk))
+                                        temp_chunk = []
+                                        temp_size = 0
+                                temp_chunk.append(word)
+                                temp_size += len(word) + 1
+                            if temp_chunk:
+                                current_chunk.extend(temp_chunk)
+                                current_size += temp_size
+                        else:
+                            current_chunk.append(sentence)
+                            current_size += len(sentence) + 2
+                    else:
+                        current_chunk.append(sentence)
+                        current_size += len(sentence) + 2
             else:
-                current_chunk.append(word)
-                current_size += word_size
-        
+                if current_size + len(paragraph) > self.max_chunk_size:
+                    if current_chunk:
+                        chunks.append(' '.join(current_chunk))
+                        current_chunk = []
+                        current_size = 0
+                current_chunk.append(paragraph)
+                current_size += len(paragraph) + 2
+                
         if current_chunk:
             chunks.append(' '.join(current_chunk))
-        
-        logger.info(f"Split text into {len(chunks)} chunks")
-        logger.debug(f"Chunk sizes: {[len(chunk) for chunk in chunks]}")
+            
+        # Limit the number of chunks to prevent excessive processing
+        if len(chunks) > 10:  # Increased from 5 to 10 to handle more content
+            logger.warning(f"Too many chunks ({len(chunks)}), limiting to first 10")
+            chunks = chunks[:10]
+            
         return chunks
 
-    def _make_ollama_request(self, prompt: str) -> Optional[str]:
-        """
-        Make a request to Ollama API with retries.
-        
-        Args:
-            prompt (str): The prompt to send to Ollama
+    def _process_chunk(self, chunk: str) -> Optional[Dict[str, Any]]:
+        """Process a chunk of text using the Ollama model."""
+        try:
+            # Create prompt for the chunk
+            prompt = self._create_prompt(chunk)
             
-        Returns:
-            Optional[str]: The response text if successful, None otherwise
-        """
-        logger.info(f"Making Ollama request (prompt length: {len(prompt)} characters)")
-        for attempt in range(self.max_retries):
+            # Make request to Ollama
+            response = self._make_ollama_request(prompt)
+            
+            # Parse and validate response
+            result = self._parse_ollama_response(response)
+            if result:
+                return result
+                
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error processing chunk: {str(e)}")
+            return None
+
+    def _process_file(self, file_path: Path) -> Optional[Dict[str, Any]]:
+        """Process a single file and extract information using Ollama with improved parallel processing."""
+        try:
+            logger.info(f"Processing file: {file_path}")
+            
+            # Extract text from file
+            text = self._extract_text_from_file(str(file_path))
+            if not text:
+                return None
+                
+            # Split text into chunks
+            chunks = self._split_text_into_chunks(text)
+            logger.info(f"Split text into {len(chunks)} chunks")
+            logger.debug(f"Chunk sizes: {[len(chunk) for chunk in chunks]}")
+            
+            # Process chunks in parallel using ThreadPoolExecutor
+            all_data = {}
+            max_workers = min(4, len(chunks))  # Limit parallel processing
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # Submit all chunk processing tasks
+                future_to_chunk = {
+                    executor.submit(self._process_chunk, chunk): i 
+                    for i, chunk in enumerate(chunks)
+                }
+                
+                # Process results as they complete
+                for future in as_completed(future_to_chunk):
+                    try:
+                        chunk_data = future.result(timeout=self.base_timeout)
+                        if chunk_data:
+                            all_data = self._merge_chunk_data(all_data, chunk_data)
+                    except TimeoutError:
+                        logger.error(f"Chunk processing timed out after {self.base_timeout} seconds")
+                    except Exception as e:
+                        logger.error(f"Error processing chunk: {str(e)}")
+                        
+            return all_data
+            
+        except Exception as e:
+            logger.error(f"Error processing file: {str(e)}")
+            return None
+
+    def _make_ollama_request(self, prompt: str) -> str:
+        """Make a request to the Ollama API with improved error handling and retry logic."""
+        session = requests.Session()
+        max_retries = 5
+        base_timeout = 180  # 3 minutes base timeout
+        
+        for attempt in range(max_retries):
             try:
-                logger.debug(f"Attempt {attempt + 1}/{self.max_retries}")
-                response = requests.post(
+                current_timeout = base_timeout * (2 ** attempt)  # Exponential backoff
+                
+                # Create a system message to guide the model
+                system_message = """You are a precise information extraction assistant. Your task is to extract ONLY personal information from text. You must:
+1. Extract ONLY information that is EXPLICITLY stated in the text
+2. DO NOT make assumptions or inferences
+3. DO NOT combine or modify information
+4. Use null for any information not explicitly found
+5. Return a complete, valid JSON object
+6. Follow the exact structure provided
+7. Never add explanations or markdown
+8. Never add fields not in the structure
+9. Never include monetary amounts, policy numbers, dates, or status information
+10. If you are not 100% certain about any information, use null
+11. For names, extract ONLY the actual name as written in the text, do not add titles or prefixes
+12. For names, do not combine or modify parts of the name
+13. For names, if you see a full name like 'Martin Amaran', use exactly that, do not add or remove parts"""
+
+                response = session.post(
                     f"{self.base_url}/api/generate",
                     json={
-                        "model": self.model,
-                        "prompt": prompt,
+                        "model": "mistral",
+                        "prompt": f"{system_message}\n\n{prompt}",
                         "stream": False,
                         "options": {
-                            "temperature": 0.1,  # Lower temperature for more consistent results
-                            "num_predict": 1024,  # Increased to ensure complete JSON
-                            "num_ctx": 4096,  # Increased context window
-                            "num_thread": 4,  # Number of CPU threads to use
-                            "repeat_penalty": 1.1,  # Penalty for repeating tokens
-                            "top_k": 40,  # Number of tokens to consider for each prediction
-                            "top_p": 0.9,  # Nucleus sampling parameter
-                            "stop": ["\n\n", "```"],  # Stop at double newline or code block end
+                            "temperature": 0.0,  # Zero temperature for deterministic output
+                            "top_k": 1,  # Only most likely token
+                            "top_p": 0.1,  # Very focused sampling
+                            "repeat_penalty": 1.1,
+                            "num_ctx": 4096,  # Reduced context window
+                            "num_predict": 1024,  # Reduced response length
+                            "stop": ["}"],  # Stop at JSON object completion
                         }
                     },
-                    timeout=60  # Increased timeout for larger responses
+                    timeout=current_timeout
                 )
                 
                 if response.status_code == 200:
                     result = response.json()
-                    response_text = result.get('response', '')
-                    logger.info(f"Successfully got response (length: {len(response_text)} characters)")
-                    logger.debug(f"Raw response content: {response_text[:200]}...")  # Log first 200 chars
-                    
-                    # Try to clean and validate the JSON response
-                    try:
-                        # Find the first '{' and last '}'
-                        start = response_text.find('{')
-                        end = response_text.rfind('}') + 1
-                        if start >= 0 and end > start:
-                            json_str = response_text[start:end]
-                            # Validate JSON by parsing and re-encoding
-                            json_obj = json.loads(json_str)
-                            cleaned_json = json.dumps(json_obj)
-                            logger.debug(f"Successfully cleaned and validated JSON")
-                            return cleaned_json
-                        else:
-                            logger.warning("No valid JSON structure found in response")
-                            logger.debug(f"Raw response: {response_text}")
-                    except json.JSONDecodeError as e:
-                        logger.warning(f"Failed to parse response as JSON: {e}")
-                        logger.debug(f"Raw response: {response_text}")
-                    
-                    return response_text
-                elif response.status_code == 404:
-                    logger.error(f"Model '{self.model}' not found")
-                    logger.error("Please pull the model by running: ollama pull mistral")
-                    return None
+                    if "response" in result:
+                        return result["response"]
+                    else:
+                        logger.warning(f"Unexpected response format: {result}")
+                        continue
                 else:
-                    logger.warning(f"Attempt {attempt + 1}/{self.max_retries} failed with status {response.status_code}")
-                    logger.debug(f"Response content: {response.text}")
-                    
-            except requests.RequestException as e:
-                logger.warning(f"Attempt {attempt + 1}/{self.max_retries} failed with error: {str(e)}")
-                if attempt == self.max_retries - 1:
-                    logger.error("Failed to connect to Ollama server after all retries")
-                    logger.error("Please ensure Ollama server is running at http://localhost:11434")
-                    logger.error("You can start it by running: ollama serve")
-            
-            if attempt < self.max_retries - 1:
-                logger.debug(f"Waiting {self.retry_delay} seconds before next attempt")
-                time.sleep(self.retry_delay)
-        
-        return None
-
-    def _process_file(self, file_path: Path) -> Dict[str, Any]:
-        """
-        Process a file using Ollama's Mistral model to extract structured form data.
-        
-        Args:
-            file_path (Path): Path to the file containing the form data
-            
-        Returns:
-            Dict[str, Any]: Structured form data extracted from the text
-        """
-        logger.info(f"Processing file: {file_path}")
-        try:
-            # Extract text from file
-            content = self._extract_text_from_file(file_path)
-            if not content:
-                logger.error(f"Failed to extract text from {file_path}")
-                return {}
-
-            # Split content into chunks if it's too large
-            chunks = self._chunk_text(content)
-            all_results = []
-
-            for i, chunk in enumerate(chunks, 1):
-                logger.info(f"Processing chunk {i}/{len(chunks)}")
-                # Prepare the prompt for Mistral
-                prompt = f"""You are a form data extraction expert. Extract and structure the following form data into a JSON object.
-                Follow these rules:
-                1. Identify all key fields and their values
-                2. Use null for missing or unclear values
-                3. Clean and normalize the extracted values
-                4. Group related fields into nested objects when appropriate
-                5. Return ONLY valid JSON, no additional text or explanation
-                6. Use consistent field names (camelCase)
-                7. Include confidence scores (0-1) for each extracted field
-                8. Ensure the response is a complete, valid JSON object
-                9. Do not include any text before or after the JSON object
-                10. Always close all JSON objects and arrays
-                11. Use double quotes for all keys and string values
-                12. Do not use trailing commas
-                13. Ensure all numbers are not quoted
-                14. Ensure all boolean values are true/false (not quoted)
-                15. Ensure all null values are not quoted
-                16. Make sure to close all objects with }} and arrays with ]
-                17. Do not leave any unclosed brackets or braces
-                18. Return the complete JSON object in a single response
-                
-                Example output format:
-                {{
-                    "personalInfo": {{
-                        "name": {{
-                            "value": "John Doe",
-                            "confidence": 0.95
-                        }},
-                        "email": {{
-                            "value": "john@example.com",
-                            "confidence": 0.98
-                        }}
-                    }},
-                    "address": {{
-                        "street": {{
-                            "value": "123 Main St",
-                            "confidence": 0.9
-                        }}
-                    }}
-                }}
-                
-                Form content:
-                {chunk}"""
-
-                # Get response from Ollama
-                extracted_text = self._make_ollama_request(prompt)
-                
-                if not extracted_text:
-                    logger.warning(f"No response received for chunk {i}")
+                    logger.warning(f"Request failed with status code {response.status_code}")
                     continue
+                    
+            except requests.exceptions.Timeout:
+                logger.warning(f"Request timed out after {current_timeout} seconds")
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)  # Exponential backoff
+                    continue
+                raise
+            except requests.exceptions.RequestException as e:
+                logger.warning(f"Request failed: {str(e)}")
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+                raise
+            except Exception as e:
+                logger.error(f"Unexpected error: {str(e)}")
+                raise
+                
+        raise Exception("Failed to get valid response after all retries")
 
-                # Parse the JSON response
-                try:
-                    structured_data = json.loads(extracted_text)
-                    logger.info(f"Successfully parsed JSON from chunk {i}")
-                    logger.info(f"Chunk {i} extracted data: {json.dumps(structured_data, indent=2)}")
-                    all_results.append(structured_data)
-                except json.JSONDecodeError as e:
-                    logger.error(f"Failed to parse Ollama response as JSON for chunk {i}: {e}")
-                    logger.debug(f"Raw response: {extracted_text[:200]}...")  # Log first 200 chars
-
-                # Add a small delay between chunks to avoid overwhelming the server
-                if i < len(chunks):
-                    logger.debug("Waiting 1 second before processing next chunk...")
-                    time.sleep(1)
-
-            # Merge all results
-            logger.info(f"Merging results from {len(all_results)} chunks")
-            merged_result = {}
-            for i, result in enumerate(all_results, 1):
-                logger.info(f"Merging chunk {i} result: {json.dumps(result, indent=2)}")
-                self._merge_results(merged_result, result)
-
-            logger.info(f"Successfully processed file: {file_path}")
-            logger.info(f"Final merged result: {json.dumps(merged_result, indent=2)}")
-            return merged_result
-
-        except Exception as e:
-            logger.error(f"Error processing file with Ollama: {str(e)}")
-            return {}
+    def _merge_chunk_data(self, target: Dict[str, Any], source: Dict[str, Any]) -> Dict[str, Any]:
+        """Merge source dictionary into target dictionary, handling nested structures and confidence scores."""
+        if not source:
+            return target
+            
+        for key, value in source.items():
+            if key not in target:
+                # If key doesn't exist in target, add it
+                target[key] = value
+            elif isinstance(value, dict) and isinstance(target[key], dict):
+                # If both are dictionaries, merge them recursively
+                if 'value' in value and 'confidence' in value:
+                    # If it's a value/confidence pair, keep the one with higher confidence
+                    if value['confidence'] > target[key]['confidence']:
+                        target[key] = value
+                else:
+                    # Otherwise merge the dictionaries
+                    self._merge_chunk_data(target[key], value)
+            elif isinstance(value, list) and isinstance(target[key], list):
+                # If both are lists, extend the target list
+                target[key].extend(value)
+            else:
+                # For other types, keep the source value
+                target[key] = value
+                
+        return target
 
     def _merge_results(self, target: Dict[str, Any], source: Dict[str, Any]) -> None:
         """Merge source dictionary into target dictionary, handling nested structures."""
-        logger.debug("Merging results")
         for key, value in source.items():
-            if key in target:
-                if isinstance(value, dict) and isinstance(target[key], dict):
-                    if "value" in value and "confidence" in value:
-                        # If both are value/confidence pairs, keep the one with higher confidence
-                        if value["confidence"] > target[key]["confidence"]:
-                            logger.debug(f"Replacing {key} with higher confidence value: {value['confidence']} > {target[key]['confidence']}")
-                            logger.debug(f"Old value: {json.dumps(target[key], indent=2)}")
-                            logger.debug(f"New value: {json.dumps(value, indent=2)}")
-                            target[key] = value
-                    else:
-                        self._merge_results(target[key], value)
+            if key not in target:
+                target[key] = value
+            elif isinstance(value, dict) and isinstance(target[key], dict):
+                self._merge_results(target[key], value)
+            elif isinstance(value, list) and isinstance(target[key], list):
+                target[key].extend(value)
             else:
-                logger.debug(f"Adding new key: {key}")
-                logger.debug(f"New value: {json.dumps(value, indent=2)}")
-                target[key] = value 
+                target[key] = value
+
+    def _create_prompt(self, text: str) -> str:
+        """Create a prompt for the Ollama model."""
+        return f"""Extract ONLY personal information that is EXPLICITLY stated in the text. Use this exact structure:
+
+{{
+    "primaryApplicant": {{
+        "fullName": "string",  // Full name as written in the text, e.g. "Martin Amaran"
+        "address": {{
+            "street": "string",  // Street address as written
+            "city": "string",    // City name as written
+            "state": "string",   // State abbreviation or name as written
+            "zip": "string"      // ZIP code as written
+        }},
+        "email": "string",      // Email address as written
+        "phone": "string"       // Phone number as written
+    }},
+    "spouse": {{
+        "fullName": "string",  // Spouse's full name as written
+        "address": {{
+            "street": "string",  // Spouse's street address if different
+            "city": "string",    // Spouse's city if different
+            "state": "string",   // Spouse's state if different
+            "zip": "string"      // Spouse's ZIP if different
+        }},
+        "email": "string",      // Spouse's email if provided
+        "phone": "string"       // Spouse's phone if provided
+    }}
+}}
+
+Rules:
+1. Extract ONLY information that is EXPLICITLY stated in the text
+2. DO NOT make assumptions or inferences
+3. DO NOT combine or modify information
+4. Use null for any information not explicitly found
+5. DO NOT include any other information
+6. DO NOT add any fields not in the structure above
+7. If you are not 100% certain about any information, use null
+8. Look for information in the first page only
+9. DO NOT extract information from headers or footers
+10. DO NOT extract information from form fields or checkboxes
+11. For names, extract ONLY the actual name as written in the text
+12. For names, do not add titles, prefixes, or suffixes
+13. For names, do not combine or modify parts of the name
+14. For names, if you see a full name like 'Martin Amaran', use exactly that
+
+Text to process:
+{text}"""
+
+    def _parse_ollama_response(self, response_text: str) -> Optional[Dict[str, Any]]:
+        """Parse the Ollama response into a structured format."""
+        try:
+            # Clean the response text
+            cleaned_text = response_text.strip()
+            
+            # Remove any markdown formatting
+            if cleaned_text.startswith("```json"):
+                cleaned_text = cleaned_text[7:]
+            if cleaned_text.endswith("```"):
+                cleaned_text = cleaned_text[:-3]
+            
+            # Remove any explanatory text before or after the JSON
+            json_start = cleaned_text.find("{")
+            json_end = cleaned_text.rfind("}") + 1
+            if json_start >= 0 and json_end > json_start:
+                cleaned_text = cleaned_text[json_start:json_end]
+            
+            # Check if the JSON is complete
+            if cleaned_text.count("{") != cleaned_text.count("}"):
+                # Try to complete the JSON structure
+                missing_braces = cleaned_text.count("{") - cleaned_text.count("}")
+                cleaned_text = cleaned_text + "}" * missing_braces
+            
+            # Parse the JSON
+            data = json.loads(cleaned_text)
+            
+            # Validate required fields
+            if "primaryApplicant" not in data:
+                logger.warning("Missing required field: primaryApplicant")
+                return None
+                
+            # Validate primary applicant fields
+            required_fields = ["fullName", "address", "email", "phone"]
+            for field in required_fields:
+                if field not in data["primaryApplicant"]:
+                    data["primaryApplicant"][field] = None
+            
+            # Validate address fields
+            if "address" not in data["primaryApplicant"]:
+                data["primaryApplicant"]["address"] = {}
+            
+            address_fields = ["street", "city", "state", "zip"]
+            for field in address_fields:
+                if field not in data["primaryApplicant"]["address"]:
+                    data["primaryApplicant"]["address"][field] = None
+            
+            # Add spouse if missing
+            if "spouse" not in data:
+                data["spouse"] = {
+                    "fullName": None,
+                    "address": {
+                        "street": None,
+                        "city": None,
+                        "state": None,
+                        "zip": None
+                    },
+                    "email": None,
+                    "phone": None
+                }
+            
+            # Normalize field values
+            for person in ["primaryApplicant", "spouse"]:
+                if person in data:
+                    # Normalize name
+                    if "fullName" in data[person]:
+                        name = data[person]["fullName"]
+                        if name:
+                            # Remove extra spaces and normalize case
+                            name = " ".join(name.split())
+                            data[person]["fullName"] = name
+                    
+                    # Normalize address
+                    if "address" in data[person]:
+                        for field in ["street", "city", "state", "zip"]:
+                            if field in data[person]["address"]:
+                                value = data[person]["address"][field]
+                                if value:
+                                    # Clean up address fields
+                                    value = " ".join(value.split())
+                                    if field == "state":
+                                        value = value.upper()
+                                    elif field == "zip":
+                                        value = value.replace("-", "").strip()
+                                    data[person]["address"][field] = value
+                    
+                    # Normalize email
+                    if "email" in data[person]:
+                        email = data[person]["email"]
+                        if email:
+                            email = email.lower().strip()
+                            data[person]["email"] = email
+                    
+                    # Normalize phone
+                    if "phone" in data[person]:
+                        phone = data[person]["phone"]
+                        if phone:
+                            # Remove non-numeric characters except for + at start
+                            phone = re.sub(r'[^\d+]', '', phone)
+                            data[person]["phone"] = phone
+            
+            return data
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing JSON response: {str(e)}")
+            return None
+        except Exception as e:
+            logger.error(f"Error processing response: {str(e)}")
+            return None 
