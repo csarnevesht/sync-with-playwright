@@ -682,7 +682,8 @@ class CommandRunner:
                 name_parts=dropbox_account_name_parts,
                 file_filter=file_filter
             )
-            
+            self.logger.info(f"Summary data: {summary_data}")
+
             # Log the summary for this folder
             folder_app_files = summary_data['all_folder_app_files'].get(folder_path, [])
             
@@ -697,6 +698,18 @@ class CommandRunner:
                             self.summary_logger.info(f"    👤 Name: {info['name']}")
                         if info.get('address'):
                             self.summary_logger.info(f"    📍 Address: {info['address']}")
+                        if info.get('phone'):
+                            self.summary_logger.info(f"    📞 Phone: {info['phone']}")
+                        if info.get('email'):
+                            self.summary_logger.info(f"    ✉️ Email: {info['email']}")
+                        if info.get('spouse_name'):
+                            self.summary_logger.info(f"    👥 Spouse: {info['spouse_name']}")
+                        if info.get('spouse_address'):
+                            self.summary_logger.info(f"    📍 Spouse Address: {info['spouse_address']}")
+                        if info.get('spouse_phone'):
+                            self.summary_logger.info(f"    📞 Spouse Phone: {info['spouse_phone']}")
+                        if info.get('spouse_email'):
+                            self.summary_logger.info(f"    ✉️ Spouse Email: {info['spouse_email']}")
                         if info.get('application_type'):
                             self.summary_logger.info(f"    📄 Type: {info['application_type']}")
                         if info.get('status'):

@@ -14,8 +14,6 @@ from datetime import datetime, timedelta
 import pdfplumber
 import re
 
-logger = logging.getLogger(__name__)
-
 class OllamaProcessor:
     def __init__(self, model_name: str = "mistral"):
         """Initialize the Ollama processor."""
@@ -41,6 +39,7 @@ class OllamaProcessor:
         logging.getLogger('pdfminer.converter').setLevel(logging.WARNING)
         logging.getLogger('pdfminer.cmapdb').setLevel(logging.WARNING)
 
+        self.logger = logging.getLogger(__name__)
         self._check_model_availability()
         self._initialize_cache()
 
@@ -59,7 +58,7 @@ class OllamaProcessor:
         if cache_key in self.response_cache:
             timestamp = self.cache_timestamps.get(cache_key)
             if timestamp and datetime.now() - timestamp < self.cache_duration:
-                logger.debug("Using cached response")
+                self.logger.debug("Using cached response")
                 return self.response_cache[cache_key]
         return None
 
@@ -71,21 +70,21 @@ class OllamaProcessor:
 
     def _check_ollama_server(self) -> None:
         """Check if Ollama server is running and accessible."""
-        logger.info("Checking Ollama server availability...")
+        self.logger.info("Checking Ollama server availability...")
         try:
             response = requests.get(f"{self.base_url}/api/tags", timeout=self.server_check_timeout)
             if response.status_code != 200:
-                logger.error(f"Ollama server returned status code {response.status_code}")
-                logger.error("Please ensure Ollama server is running and accessible")
+                self.logger.error(f"Ollama server returned status code {response.status_code}")
+                self.logger.error("Please ensure Ollama server is running and accessible")
                 sys.exit(1)
-            logger.info("Ollama server is running and accessible")
+            self.logger.info("Ollama server is running and accessible")
         except requests.exceptions.ConnectionError:
-            logger.error("Could not connect to Ollama server")
-            logger.error("Please ensure Ollama server is running at http://localhost:11434")
-            logger.error("You can start it by running: ollama serve")
+            self.logger.error("Could not connect to Ollama server")
+            self.logger.error("Please ensure Ollama server is running at http://localhost:11434")
+            self.logger.error("You can start it by running: ollama serve")
             sys.exit(1)
         except Exception as e:
-            logger.error(f"Error checking Ollama server: {str(e)}")
+            self.logger.error(f"Error checking Ollama server: {str(e)}")
             sys.exit(1)
 
     def _check_model_availability(self) -> None:
@@ -98,29 +97,29 @@ class OllamaProcessor:
                 
             # Check if model is available
             model_names = [model['name'] for model in response.json()['models']]
-            logger.debug(f"Available models: {model_names}")
+            self.logger.debug(f"Available models: {model_names}")
             
             if self.model_name not in model_names:
-                logger.info(f"Mistral model not found. Pulling model...")
+                self.logger.info(f"Mistral model not found. Pulling model...")
                 pull_response = requests.post(
                     f"{self.base_url}/api/pull",
                     json={"name": self.model_name}
                 )
                 if pull_response.status_code != 200:
                     raise Exception(f"Failed to pull model: {pull_response.text}")
-                logger.info("Model pulled successfully")
+                self.logger.info("Model pulled successfully")
             else:
-                logger.info(f"Model {self.model_name} is available")
+                self.logger.info(f"Model {self.model_name} is available")
                 
         except Exception as e:
-            logger.error(f"Error checking model availability: {str(e)}")
+            self.logger.error(f"Error checking model availability: {str(e)}")
             raise
 
     def _extract_text_from_file(self, file_path: str) -> str:
         """Extract text from a PDF file."""
         try:
             if not file_path.lower().endswith('.pdf'):
-                logger.warning(f"File is not a PDF: {file_path}")
+                self.logger.warning(f"File is not a PDF: {file_path}")
                 return ""
                 
             with pdfplumber.open(file_path) as pdf:
@@ -135,11 +134,11 @@ class OllamaProcessor:
                         text = text.strip()
                         return text
                 except Exception as e:
-                    logger.warning(f"Error processing first page: {str(e)}")
+                    self.logger.warning(f"Error processing first page: {str(e)}")
                     return ""
                 
         except Exception as e:
-            logger.error(f"Error extracting text from PDF: {str(e)}")
+            self.logger.error(f"Error extracting text from PDF: {str(e)}")
             return ""
 
     def _split_text_into_chunks(self, text: str) -> List[str]:
@@ -203,7 +202,7 @@ class OllamaProcessor:
             
         # Limit the number of chunks to prevent excessive processing
         if len(chunks) > 10:  # Increased from 5 to 10 to handle more content
-            logger.warning(f"Too many chunks ({len(chunks)}), limiting to first 10")
+            self.logger.warning(f"Too many chunks ({len(chunks)}), limiting to first 10")
             chunks = chunks[:10]
             
         return chunks
@@ -225,13 +224,13 @@ class OllamaProcessor:
             return None
             
         except Exception as e:
-            logger.error(f"Error processing chunk: {str(e)}")
+            self.logger.error(f"Error processing chunk: {str(e)}")
             return None
 
     def _process_file(self, file_path: Path) -> Optional[Dict[str, Any]]:
         """Process a single file and extract information using Ollama with improved parallel processing."""
         try:
-            logger.info(f"Processing file: {file_path}")
+            self.logger.info(f"Processing file: {file_path}")
             
             # Extract text from file
             text = self._extract_text_from_file(str(file_path))
@@ -240,8 +239,8 @@ class OllamaProcessor:
                 
             # Split text into chunks
             chunks = self._split_text_into_chunks(text)
-            logger.info(f"Split text into {len(chunks)} chunks")
-            logger.debug(f"Chunk sizes: {[len(chunk) for chunk in chunks]}")
+            self.logger.info(f"Split text into {len(chunks)} chunks")
+            self.logger.debug(f"Chunk sizes: {[len(chunk) for chunk in chunks]}")
             
             # Process chunks in parallel using ThreadPoolExecutor
             all_data = {}
@@ -260,26 +259,25 @@ class OllamaProcessor:
                         if chunk_data:
                             all_data = self._merge_chunk_data(all_data, chunk_data)
                     except TimeoutError:
-                        logger.error(f"Chunk processing timed out after {self.base_timeout} seconds")
+                        self.logger.error(f"Chunk processing timed out after {self.base_timeout} seconds")
                     except Exception as e:
-                        logger.error(f"Error processing chunk: {str(e)}")
+                        self.logger.error(f"Error processing chunk: {str(e)}")
                         
             return all_data
             
         except Exception as e:
-            logger.error(f"Error processing file: {str(e)}")
+            self.logger.error(f"Error processing file: {str(e)}")
             return None
 
-    def _make_ollama_request(self, prompt: str) -> str:
+    def _make_ollama_request(self, prompt: str, model_override: str = None) -> str:
         """Make a request to the Ollama API with improved error handling and retry logic."""
         session = requests.Session()
         max_retries = 5
         base_timeout = 180  # 3 minutes base timeout
-        
+        model_to_use = model_override if model_override else self.model_name
         for attempt in range(max_retries):
             try:
                 current_timeout = base_timeout * (2 ** attempt)  # Exponential backoff
-                
                 # Create a system message to guide the model
                 system_message = """You are a precise information extraction assistant. Your task is to extract ONLY personal information from text. You must:
 1. Extract ONLY information that is EXPLICITLY stated in the text
@@ -295,11 +293,10 @@ class OllamaProcessor:
 11. For names, extract ONLY the actual name as written in the text, do not add titles or prefixes
 12. For names, do not combine or modify parts of the name
 13. For names, if you see a full name like 'Martin Amaran', use exactly that, do not add or remove parts"""
-
                 response = session.post(
                     f"{self.base_url}/api/generate",
                     json={
-                        "model": "mistral",
+                        "model": model_to_use,
                         "prompt": f"{system_message}\n\n{prompt}",
                         "stream": False,
                         "options": {
@@ -314,34 +311,31 @@ class OllamaProcessor:
                     },
                     timeout=current_timeout
                 )
-                
                 if response.status_code == 200:
                     result = response.json()
                     if "response" in result:
                         return result["response"]
                     else:
-                        logger.warning(f"Unexpected response format: {result}")
+                        self.logger.warning(f"Unexpected response format: {result}")
                         continue
                 else:
-                    logger.warning(f"Request failed with status code {response.status_code}")
+                    self.logger.warning(f"Request failed with status code {response.status_code}")
                     continue
-                    
             except requests.exceptions.Timeout:
-                logger.warning(f"Request timed out after {current_timeout} seconds")
+                self.logger.warning(f"Request timed out after {current_timeout} seconds")
                 if attempt < max_retries - 1:
                     time.sleep(2 ** attempt)  # Exponential backoff
                     continue
                 raise
             except requests.exceptions.RequestException as e:
-                logger.warning(f"Request failed: {str(e)}")
+                self.logger.warning(f"Request failed: {str(e)}")
                 if attempt < max_retries - 1:
                     time.sleep(2 ** attempt)
                     continue
                 raise
             except Exception as e:
-                logger.error(f"Unexpected error: {str(e)}")
+                self.logger.error(f"Unexpected error: {str(e)}")
                 raise
-                
         raise Exception("Failed to get valid response after all retries")
 
     def _merge_chunk_data(self, target: Dict[str, Any], source: Dict[str, Any]) -> Dict[str, Any]:
@@ -384,62 +378,33 @@ class OllamaProcessor:
                 target[key] = value
 
     def _create_prompt(self, text: str) -> str:
-        """Create a prompt for the Ollama model."""
-        return f"""Extract ONLY personal information that is EXPLICITLY stated in the text. Use this exact structure:
+        """Create a prompt for Ollama to extract personal and spouse/joint owner information."""
+        prompt = """You are an expert at extracting structured data from life insurance application forms. Extract the following information as a valid JSON object. If the application is joint, or if there is a spouse, co-applicant, joint owner, secondary applicant, or similar, extract their information as well. If you see any of these labels (case-insensitive): 'Spouse', 'Co-Applicant', 'Joint Applicant', 'Secondary Applicant', 'Additional Applicant', 'JOINT OWNER', 'Joint Owner', treat them as referring to the spouse/joint owner. If you are not 100% certain about any field, return null for that field. If there is no spouse/joint owner information, return null for all spouse fields. Do not infer or guess. Only extract what is explicitly present in the text. Output only valid JSON.
 
-{{
-    "primaryApplicant": {{
-        "fullName": "string",  // Full name as written in the text, e.g. "Martin Amaran"
-        "address": {{
-            "street": "string",  // Street address as written
-            "city": "string",    // City name as written
-            "state": "string",   // State abbreviation or name as written
-            "zip": "string"      // ZIP code as written
-        }},
-        "email": "string",      // Email address as written
-        "phone": "string"       // Phone number as written
-    }},
-    "spouse": {{
-        "fullName": "string",  // Spouse's full name as written, look for "Spouse:", "Co-Applicant:", "JOINT OWNER", or similar labels
-        "address": {{
-            "street": "string",  // Spouse's street address if different from primary applicant
-            "city": "string",    // Spouse's city if different from primary applicant
-            "state": "string",   // Spouse's state if different from primary applicant
-            "zip": "string"      // Spouse's ZIP if different from primary applicant
-        }},
-        "email": "string",      // Spouse's email if provided
-        "phone": "string"       // Spouse's phone if provided
-    }}
-}}
+Fields to extract:
+primaryApplicant: { fullName, address: {street, city, state, zip}, email, phone }
+spouse: { fullName, address: {street, city, state, zip}, email, phone }
 
-Rules:
-1. Extract ONLY information that is EXPLICITLY stated in the text
-2. DO NOT make assumptions or inferences
-3. DO NOT combine or modify information
-4. Use null for any information not explicitly found
-5. DO NOT include any other information
-6. DO NOT add any fields not in the structure above
-7. If you are not 100% certain about any information, use null
-8. Look for information in the first page only
-9. DO NOT extract information from headers or footers
-10. DO NOT extract information from form fields or checkboxes
-11. For names, extract ONLY the actual name as written in the text
-12. For names, do not add titles, prefixes, or suffixes
-13. For names, do not combine or modify parts of the name
-14. For names, if you see a full name like 'Martin Amaran', use exactly that
-15. For spouse information, look for sections labeled with:
-    - "Spouse:"
-    - "Co-Applicant:"
-    - "Joint Applicant:"
-    - "Secondary Applicant:"
-    - "Additional Applicant:"
-    - "JOINT OWNER"
-    - "Joint Owner"
-16. If spouse information is found, extract it even if it's the same as primary applicant
-17. If no spouse information is found, use null for all spouse fields
+Example output for a joint application:
+{
+  "primaryApplicant": {
+    "fullName": "John Smith",
+    "address": {"street": "123 Main St", "city": "Miami", "state": "FL", "zip": "33101"},
+    "email": null,
+    "phone": "(305) 555-1234"
+  },
+  "spouse": {
+    "fullName": "Jane Smith",
+    "address": {"street": "123 Main St", "city": "Miami", "state": "FL", "zip": "33101"},
+    "email": null,
+    "phone": "(305) 555-5678"
+  }
+}
 
-Text to process:
+Text to extract from:
 {text}"""
+        self.logger.info(f"Prompt sent to Ollama:\n{prompt}")
+        return prompt
 
     def _parse_ollama_response(self, response_text: str) -> Optional[Dict[str, Any]]:
         """Parse the Ollama response into a structured format."""
@@ -470,7 +435,7 @@ Text to process:
             
             # Validate required fields
             if "primaryApplicant" not in data:
-                logger.warning("Missing required field: primaryApplicant")
+                self.logger.warning("Missing required field: primaryApplicant")
                 return None
                 
             # Validate primary applicant fields
@@ -545,8 +510,229 @@ Text to process:
             return data
             
         except json.JSONDecodeError as e:
-            logger.error(f"Error parsing JSON response: {str(e)}")
+            self.logger.error(f"Error parsing JSON response: {str(e)}")
             return None
         except Exception as e:
-            logger.error(f"Error processing response: {str(e)}")
-            return None 
+            self.logger.error(f"Error processing response: {str(e)}")
+            return None
+
+    def _extract_spouse_section(self, text: str) -> str:
+        """Extract the spouse/joint owner section from the text."""
+        self.logger.info(f"[DEBUG] Full text for spouse section extraction:\n{text}")
+        # Updated pattern to match '2.JOINT OWNER INFORMATION ...' up to the next section or end
+        match = re.search(r'2\.JOINT OWNER INFORMATION[\s\S]+?(?=\n\d+\.|\nTRUST/|$)', text, re.IGNORECASE)
+        spouse_section = match.group(0) if match else None
+        self.logger.info(f"[DEBUG] Extracted spouse section:\n{spouse_section}")
+        return spouse_section
+
+    def _create_spouse_prompt(self, section: str) -> str:
+        return (
+            "Extract the following fields from the text below. Return only valid JSON. Use null for any missing fields.\n"
+            "Fields: fullName, address (with street, city, state, zip), phone, email.\n\n"
+            f"Text:\n{section}"
+        )
+
+    def _extract_spouse_info_regex(self, section: str) -> dict:
+        """Extract spouse/joint owner info using regex as a fallback."""
+        self.logger.info(f"[REGEX] Spouse section for regex extraction:\n{section}")
+        info = {
+            'fullName': None,
+            'address': {
+                'street': None,
+                'city': None,
+                'state': None,
+                'zip': None
+            },
+            'phone': None,
+            'email': None
+        }
+        # Name
+        name_match = re.search(r'(?:First MI Last|Name:)[^\n\r]*?([A-Z][a-zA-Z]+\s+[A-Z][a-zA-Z]+)', section)
+        self.logger.info(f"[REGEX] Name match: {name_match.group(1) if name_match else None}")
+        if name_match:
+            info['fullName'] = name_match.group(1).strip()
+        # Address
+        addr_match = re.search(r'(?:Address|Mailing Address)[^\n\r]*?([\d]+[^,\n]+),?\s*([A-Za-z ]+),?\s*([A-Z]{2})\s*(\d{5})', section)
+        self.logger.info(f"[REGEX] Address match: {addr_match.groups() if addr_match else None}")
+        if addr_match:
+            info['address']['street'] = addr_match.group(1).strip()
+            info['address']['city'] = addr_match.group(2).strip()
+            info['address']['state'] = addr_match.group(3).strip()
+            info['address']['zip'] = addr_match.group(4).strip()
+        # Phone
+        phone_match = re.search(r'Phone[^\d]*(\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{4})', section)
+        self.logger.info(f"[REGEX] Phone match: {phone_match.group(1) if phone_match else None}")
+        if phone_match:
+            info['phone'] = phone_match.group(1).strip()
+        # Email
+        email_match = re.search(r'Email[^\s:]*[:\s]*([\w\.-]+@[\w\.-]+)', section)
+        self.logger.info(f"[REGEX] Email match: {email_match.group(1) if email_match else None}")
+        if email_match:
+            info['email'] = email_match.group(1).strip()
+        return info
+
+    def _extract_owner_info_regex(self, text: str) -> dict:
+        """Extract owner info using regex as a fallback."""
+        self.logger.info(f"[REGEX] Owner section for regex extraction:\n{text}")
+        info = {
+            'fullName': None,
+            'address': {
+                'street': None,
+                'city': None,
+                'state': None,
+                'zip': None
+            },
+            'phone': None,
+            'email': None
+        }
+        # Name
+        name_match = re.search(r'Name: (?:First MI Last )?([A-Z][a-zA-Z]+\s+[A-Z][a-zA-Z]+)', text)
+        self.logger.info(f"[REGEX] Owner Name match: {name_match.group(1) if name_match else None}")
+        if name_match:
+            info['fullName'] = name_match.group(1).strip()
+        # Address
+        addr_match = re.search(r'Residence Address.*?(\d+[^,\n]+),?\s*([A-Za-z ]+),?\s*([A-Z]{2})\s*(\d{5})', text)
+        self.logger.info(f"[REGEX] Owner Address match: {addr_match.groups() if addr_match else None}")
+        if addr_match:
+            info['address']['street'] = addr_match.group(1).strip()
+            info['address']['city'] = addr_match.group(2).strip()
+            info['address']['state'] = addr_match.group(3).strip()
+            info['address']['zip'] = addr_match.group(4).strip()
+        # Phone
+        phone_match = re.search(r'Phone Number[\D]*(\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{4})', text)
+        self.logger.info(f"[REGEX] Owner Phone match: {phone_match.group(1) if phone_match else None}")
+        if phone_match:
+            info['phone'] = phone_match.group(1).strip()
+        # Email
+        email_match = re.search(r'Email Address[\s:]*([\w\.-]+@[\w\.-]+)', text)
+        self.logger.info(f"[REGEX] Owner Email match: {email_match.group(1) if email_match else None}")
+        if email_match:
+            info['email'] = email_match.group(1).strip()
+        return info
+
+    def process_text(self, text: str) -> Dict[str, Any]:
+        """Process text with Ollama to extract information."""
+        self.logger.info("!!! PROCESS_TEXT CALLED !!!")
+        try:
+            self.logger.info("=== [SPOUSE_SECTION_EXTRACTION_START] ===")
+            spouse_section = self._extract_spouse_section(text)
+            self.logger.info(f"=== [SPOUSE_SECTION] ===\n{spouse_section}")
+            # Split text into chunks if needed
+            chunks = self._split_text_into_chunks(text)
+            self.logger.info(f"Split text into {len(chunks)} chunks")
+            self.logger.debug(f"Chunk sizes: {[len(chunk) for chunk in chunks]}")
+            
+            # Process each chunk
+            all_results = []
+            for chunk in chunks:
+                try:
+                    chunk_result_raw = self._make_ollama_request(self._create_prompt(chunk))
+                    chunk_result = json.loads(chunk_result_raw)
+                except Exception as e:
+                    self.logger.error(f"Failed to parse owner JSON: {e}\nRaw: {chunk_result_raw if 'chunk_result_raw' in locals() else ''}")
+                    chunk_result = {}
+                if chunk_result:
+                    all_results.append(chunk_result)
+
+            # Combine results
+            info = {
+                'application_type': 'Life Insurance',  # Default type
+                'status': 'Processed'  # Default status
+            }
+            # Owner extraction (primary applicant)
+            owner_extracted = False
+            if all_results:
+                combined_result = all_results[0]  # For now, just use the first result
+                self.logger.info(f"Ollama extraction results: {json.dumps(combined_result, indent=2)}")
+                # Add primary applicant information
+                if 'primaryApplicant' in combined_result:
+                    primary = combined_result['primaryApplicant']
+                    if primary.get('fullName'):
+                        info['owner_name'] = primary['fullName']
+                    if primary.get('address'):
+                        addr = primary['address']
+                        address_parts = []
+                        if addr.get('street'): address_parts.append(addr['street'])
+                        if addr.get('city'): address_parts.append(addr['city'])
+                        if addr.get('state'): address_parts.append(addr['state'])
+                        if addr.get('zip'): address_parts.append(addr['zip'])
+                        if address_parts:
+                            info['owner_address'] = ', '.join(address_parts)
+                    if primary.get('phone'):
+                        info['owner_phone'] = primary['phone']
+                    if primary.get('email'):
+                        info['owner_email'] = primary['email']
+                    owner_extracted = True
+            # Regex fallback for owner if not extracted
+            if not owner_extracted:
+                self.logger.info("[REGEX] Running regex-based owner extraction for debugging.")
+                owner_regex = self._extract_owner_info_regex(text)
+                self.logger.info(f"[REGEX] Regex owner extraction result: {json.dumps(owner_regex, indent=2)}")
+                if owner_regex.get('fullName'):
+                    info['owner_name'] = owner_regex['fullName']
+                addr = owner_regex.get('address', {})
+                address_parts = []
+                if addr.get('street'): address_parts.append(addr['street'])
+                if addr.get('city'): address_parts.append(addr['city'])
+                if addr.get('state'): address_parts.append(addr['state'])
+                if addr.get('zip'): address_parts.append(addr['zip'])
+                if address_parts:
+                    info['owner_address'] = ', '.join(address_parts)
+                if owner_regex.get('phone'):
+                    info['owner_phone'] = owner_regex['phone']
+                if owner_regex.get('email'):
+                    info['owner_email'] = owner_regex['email']
+            # --- Spouse/joint owner extraction ---
+            spouse_extracted = False
+            if spouse_section:
+                spouse_prompt = self._create_spouse_prompt(spouse_section)
+                self.logger.info(f"Prompt sent to Ollama for spouse section:\n{spouse_prompt}")
+                spouse_result_raw = self._make_ollama_request(spouse_prompt, model_override='llama3.1:latest')
+                try:
+                    spouse_result = json.loads(spouse_result_raw)
+                except Exception as e:
+                    self.logger.error(f"Failed to parse spouse JSON: {e}\nRaw: {spouse_result_raw}")
+                    spouse_result = {}
+                self.logger.info(f"Ollama spouse extraction result: {json.dumps(spouse_result, indent=2)}")
+                if spouse_result and any([spouse_result.get('fullName'), spouse_result.get('phone'), spouse_result.get('email')]):
+                    if spouse_result.get('fullName'):
+                        info['spouse_name'] = spouse_result['fullName']
+                    if spouse_result.get('address'):
+                        addr = spouse_result['address']
+                        address_parts = []
+                        if addr.get('street'): address_parts.append(addr['street'])
+                        if addr.get('city'): address_parts.append(addr['city'])
+                        if addr.get('state'): address_parts.append(addr['state'])
+                        if addr.get('zip'): address_parts.append(addr['zip'])
+                        if address_parts:
+                            info['spouse_address'] = ', '.join(address_parts)
+                    if spouse_result.get('phone'):
+                        info['spouse_phone'] = spouse_result['phone']
+                    if spouse_result.get('email'):
+                        info['spouse_email'] = spouse_result['email']
+                    spouse_extracted = True
+            # Always run regex extraction for debugging
+            if spouse_section:
+                self.logger.info("[REGEX] Running regex-based spouse extraction for debugging.")
+                regex_spouse = self._extract_spouse_info_regex(spouse_section)
+                self.logger.info(f"[REGEX] Regex spouse extraction result: {json.dumps(regex_spouse, indent=2)}")
+                # Optionally, overwrite model results with regex if regex finds a name
+                if regex_spouse.get('fullName'):
+                    info['spouse_name'] = regex_spouse['fullName']
+                addr = regex_spouse.get('address', {})
+                address_parts = []
+                if addr.get('street'): address_parts.append(addr['street'])
+                if addr.get('city'): address_parts.append(addr['city'])
+                if addr.get('state'): address_parts.append(addr['state'])
+                if addr.get('zip'): address_parts.append(addr['zip'])
+                if address_parts:
+                    info['spouse_address'] = ', '.join(address_parts)
+                if regex_spouse.get('phone'):
+                    info['spouse_phone'] = regex_spouse['phone']
+                if regex_spouse.get('email'):
+                    info['spouse_email'] = regex_spouse['email']
+            self.logger.info(f"Final extracted file info: {json.dumps(info, indent=2)}")
+            return info
+        except Exception as e:
+            self.logger.error(f"Error processing text with Ollama: {e}")
+            return {} 
