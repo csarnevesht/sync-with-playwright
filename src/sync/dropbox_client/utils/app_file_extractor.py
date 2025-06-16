@@ -83,6 +83,35 @@ class AppFileExtractor:
 
             summary_data['all_folder_app_files'][folder_path] = app_files
             summary_data['processed_folders'].add(folder_path)
+
+            # Log the summary for this folder
+            folder_app_files = summary_data['all_folder_app_files'].get(folder_path, [])
+            if folder_app_files:
+                for file in folder_app_files:
+                    logger.info(f"  ✅ {file.name}")
+                    # Log any additional information found in the file
+                    if file.path_display in summary_data.get('file_info', {}):
+                        info = summary_data['file_info'][file.path_display]
+                        if info.get('name'):
+                            logger.info(f"    👤 Name: {info['name']}")
+                        if info.get('address'):
+                            logger.info(f"    📍 Address: {info['address']}")
+                        if info.get('application_type'):
+                            logger.info(f"    📄 Type: {info['application_type']}")
+                        if info.get('status'):
+                            logger.info(f"    📊 Status: {info['status']}")
+                        if info.get('spouse'):
+                            spouse = info['spouse']
+                            logger.info(f"    👥 Spouse: {spouse['name']}")
+                            if spouse.get('dob'):
+                                logger.info(f"      📅 DOB: {spouse['dob']}")
+                            if spouse.get('phone'):
+                                logger.info(f"      📞 Phone: {spouse['phone']}")
+                            if spouse.get('ssn'):
+                                logger.info(f"      🔒 SSN: {spouse['ssn']}")
+            else:
+                logger.info(f"  ❌ No application files found for {folder_path}")
+
             return summary_data
 
         except Exception as e:
