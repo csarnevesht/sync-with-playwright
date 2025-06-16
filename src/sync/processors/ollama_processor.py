@@ -400,12 +400,12 @@ class OllamaProcessor:
         "phone": "string"       // Phone number as written
     }},
     "spouse": {{
-        "fullName": "string",  // Spouse's full name as written
+        "fullName": "string",  // Spouse's full name as written, look for "Spouse:", "Co-Applicant:", "JOINT OWNER", or similar labels
         "address": {{
-            "street": "string",  // Spouse's street address if different
-            "city": "string",    // Spouse's city if different
-            "state": "string",   // Spouse's state if different
-            "zip": "string"      // Spouse's ZIP if different
+            "street": "string",  // Spouse's street address if different from primary applicant
+            "city": "string",    // Spouse's city if different from primary applicant
+            "state": "string",   // Spouse's state if different from primary applicant
+            "zip": "string"      // Spouse's ZIP if different from primary applicant
         }},
         "email": "string",      // Spouse's email if provided
         "phone": "string"       // Spouse's phone if provided
@@ -427,6 +427,16 @@ Rules:
 12. For names, do not add titles, prefixes, or suffixes
 13. For names, do not combine or modify parts of the name
 14. For names, if you see a full name like 'Martin Amaran', use exactly that
+15. For spouse information, look for sections labeled with:
+    - "Spouse:"
+    - "Co-Applicant:"
+    - "Joint Applicant:"
+    - "Secondary Applicant:"
+    - "Additional Applicant:"
+    - "JOINT OWNER"
+    - "Joint Owner"
+16. If spouse information is found, extract it even if it's the same as primary applicant
+17. If no spouse information is found, use null for all spouse fields
 
 Text to process:
 {text}"""
