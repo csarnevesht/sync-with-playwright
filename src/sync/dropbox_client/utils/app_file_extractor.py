@@ -10,6 +10,7 @@ import pytesseract
 from PIL import Image
 import os
 import fnmatch
+import mimetypes
 
 logger = logging.getLogger(__name__)
 
@@ -285,18 +286,63 @@ class AppFileExtractor:
     def _extract_name_with_ocr(self, content: str, file: FileMetadata) -> Optional[Dict[str, str]]:
         """Extract name information from file content using OCR."""
         try:
+            # Check if the file is a valid PDF before attempting OCR
+            mime_type, _ = mimetypes.guess_type(content)
+            logger.info(f"[OCR] File path: {content}, Detected MIME type: {mime_type}")
+            if not (mime_type and mime_type.lower() == 'application/pdf'):
+                logger.error(f"[OCR] File is not a valid PDF: BEGIN CONTENT {content} END CONTENT. Skipping OCR extraction.")
+                return None
+
             # Convert PDF to images with higher DPI and larger size for better text recognition
-            images = convert_from_path(
-                content,
-                dpi=600,  # Increased DPI for better quality
-                size=(2000, None)  # Wider width to capture longer lines
-            )
+            try:
+                images = convert_from_path(
+                    content,
+                    dpi=600,  # Increased DPI for better quality
+                    size=(2000, None)  # Wider width to capture longer lines
+                )
+            except Exception as pdf_exc:
+                logger.error(f"[OCR] Failed to convert PDF to images: {pdf_exc}")
+                return None
+
             ocr_lines = []
             for image in images:
                 text = pytesseract.image_to_string(image)
                 ocr_lines.extend(text.splitlines())
 
-            # 1. Look for 'Full Name' marker and extract the next non-empty line
+            # First strategy: Look for OWNER section, then 'Name: First MI Last' header, then extract the next line(s) as the name
+            for i, line in enumerate(ocr_lines):
+                logger.debug(f"[OWNER] Checking line {i}: '{line}'")
+                if 'OWNER' in line.upper():
+                    # Look for the table header in the next few lines
+                    for j in range(i+1, min(i+6, len(ocr_lines))):
+                        header = ocr_lines[j]
+                        if 'Name:' in header and 'First' in header and 'Last' in header:
+                            # The next line(s) should be the actual name row
+                            if j+1 < len(ocr_lines):
+                                name_row = ocr_lines[j+1].strip()
+                                name_parts = name_row.split()
+                                # If only one word, check the next line for the last name
+                                if len(name_parts) == 1 and (j+2) < len(ocr_lines):
+                                    next_row = ocr_lines[j+2].strip()
+                                    next_parts = next_row.split()
+                                    if len(next_parts) == 1:
+                                        result = {
+                                            'first_name': name_parts[0],
+                                            'last_name': next_parts[0]
+                                        }
+                                        logger.info(f"[OWNER TABLE] Extracted split name: {result}")
+                                        return result
+                                elif len(name_parts) >= 2:
+                                    result = {
+                                        'first_name': name_parts[0],
+                                        'last_name': name_parts[-1]
+                                    }
+                                    if len(name_parts) == 3:
+                                        result['middle_initial'] = name_parts[1]
+                                    logger.info(f"[OWNER TABLE] Extracted name: {result}")
+                                    return result
+
+            # 2. Look for 'Full Name' marker and extract the next non-empty line
             for i, line in enumerate(ocr_lines):
                 logger.debug(f"[Full Name] Checking line {i}: '{line}'")
                 if 'Full Name' in line:
@@ -319,7 +365,7 @@ class AppFileExtractor:
                                     'last_name': last_name
                                 }
 
-            # 2. Fallback: Any line containing the last name and at least two words
+            # 3. Fallback: Any line containing the last name and at least two words
             for i, line in enumerate(ocr_lines):
                 logger.debug(f"[Last Name Fallback] Checking line {i}: '{line}'")
                 if self.name_parts and self.name_parts.get('last_name', '').lower() in line.lower():
@@ -331,7 +377,7 @@ class AppFileExtractor:
                             'last_name': words[-1]
                         }
 
-            # 3. Try previous patterns
+            # 4. Try previous patterns
             name_patterns = [
                 r'Name\s*:\s*([A-Z][a-z]+\s+[A-Z][a-z]+)',
                 r'Applicant\s*:\s*([A-Z][a-z]+\s+[A-Z][a-z]+)',
@@ -362,7 +408,7 @@ class AppFileExtractor:
                                     'last_name': name_parts[-1]
                                 }
 
-            # 4. Fallback: two consecutive capitalized words
+            # 5. Fallback: two consecutive capitalized words
             for line in ocr_lines:
                 words = re.split(r'\s+', line.strip())
                 if len(words) >= 2:
@@ -380,7 +426,8 @@ class AppFileExtractor:
 
             return None
         except Exception as e:
-            logger.error(f"Error during OCR name extraction: {str(e)}")
+            import traceback
+            logger.error(f"Error during OCR name extraction: {str(e)}\n{traceback.format_exc()}")
             return None
 
     def _determine_application_type(self, filename: str) -> str:

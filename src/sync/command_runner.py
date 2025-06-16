@@ -14,6 +14,7 @@ import dropbox
 import os
 import tempfile
 import re
+import fnmatch
 
 from sync.dropbox_client.utils.dropbox_utils import get_renamed_path, list_dropbox_folder_contents
 from sync.dropbox_client.utils.file_utils import log_renamed_file
@@ -211,7 +212,8 @@ class CommandRunner:
             'extract-dropbox-account-app-files-dob-gender': self._extract_dropbox_account_app_files_dob_gender,
             'extract-dropbox-account-app-files-info': self._extract_dropbox_account_app_files_info,
             'store-in-supabase': self._store_in_supabase,
-            'search-supabase': self._search_supabase
+            'search-supabase': self._search_supabase,
+            'list-dropbox-account-app-files': self._list_dropbox_account_app_files
         }
         
         if command not in command_map:
@@ -860,3 +862,61 @@ class CommandRunner:
             self.logger.error("Stack trace:\n%s", stack_trace)
             self.report_logger.error(f"\n{error_msg}")
             self.report_logger.error(f"\nStack trace:\n{stack_trace}") 
+
+    def _list_dropbox_account_app_files(self) -> None:
+        """List all application files in the Dropbox account folder.
+        This command will list all files that appear to be application files in the specified Dropbox account folder.
+        """
+        self.logger.info("Starting list-dropbox-account-app-files operation")
+        self.report_logger.info("\n=== LISTING DROPBOX ACCOUNT APPLICATION FILES ===")
+        
+        try:
+            # Get required context
+            dropbox_client = self.get_context('dropbox_client')
+            dropbox_root_folder = self.get_context('dropbox_root_folder')
+            dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
+            logging.info(f"dropbox_account_folder_name: {dropbox_account_folder_name}")
+
+            # Get file filter if specified
+            file_filter = self.args.file_filter
+            if file_filter:
+                self.logger.info(f"Using file filter: {file_filter} (only files matching this pattern will be listed)")
+                self.report_logger.info(f"\nUsing file filter: {file_filter} (only files matching this pattern will be listed)")
+
+            # Construct folder path
+            folder_path = f"/{dropbox_root_folder}/{dropbox_account_folder_name}"
+            folder_path = folder_path.replace('//', '/')
+            
+            # List all files in the folder
+            files = list_dropbox_folder_contents(dropbox_client.dbx, folder_path)
+            
+            # Filter for application files
+            app_files = []
+            for file in files:
+                if isinstance(file, dropbox.files.FileMetadata):
+                    # Check if file matches filter if specified
+                    if file_filter and not fnmatch.fnmatch(file.name.lower(), file_filter.lower()):
+                        continue
+                    
+                    # Check if file appears to be an application file
+                    if any(keyword in file.name.lower() for keyword in ['application', 'app', 'form', 'registration']):
+                        app_files.append(file)
+            
+            # Log the results
+            self.summary_logger.info(f"\nDropbox Account Folder: {dropbox_account_folder_name}")
+            if app_files:
+                self.summary_logger.info(f"Found {len(app_files)} application files:")
+                for file in app_files:
+                    self.summary_logger.info(f"  📄 {file.name}")
+                    # Log file metadata
+                    self.summary_logger.info(f"    📅 Modified: {file.server_modified}")
+                    self.summary_logger.info(f"    📦 Size: {file.size:,} bytes")
+            else:
+                self.summary_logger.info(f"  ❌ No application files found for {dropbox_account_folder_name}")
+
+            self.logger.info("\nSuccessfully completed list-dropbox-account-app-files operation")
+            
+        except Exception as e:
+            error_msg = f"Error in list-dropbox-account-app-files operation: {str(e)}"
+            self.logger.error(error_msg)
+            raise 
