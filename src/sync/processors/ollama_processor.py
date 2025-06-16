@@ -11,7 +11,7 @@ import sys
 logger = logging.getLogger(__name__)
 
 class OllamaProcessor:
-    def __init__(self, base_url: str = "http://localhost:11434", max_retries: int = 3, retry_delay: float = 1.0):
+    def __init__(self, base_url: str = "http://localhost:11434", max_retries: int = 5, retry_delay: float = 1.0):
         self.base_url = base_url
         self.model = "mistral"
         self.max_retries = max_retries
