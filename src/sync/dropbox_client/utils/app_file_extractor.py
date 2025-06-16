@@ -107,6 +107,7 @@ class AppFileExtractor:
                 temp_path = temp_file.name
                 self.dbx.files_download_to_file(temp_path, file.path_display)
 
+            # Initialize processors
             from sync.processors.ollama_processor import OllamaProcessor
             ollama_processor = OllamaProcessor()
             
@@ -118,6 +119,9 @@ class AppFileExtractor:
             # Clean up temp file
             os.unlink(temp_path)
 
+            if not ollama_data:
+                logger.warning("No data extracted from Ollama")
+                return None
 
             # Format the extracted data
             file_info = {
@@ -155,7 +159,20 @@ class AppFileExtractor:
                     if info['confidence'] >= 0.7:  # Only use high confidence matches
                         logger.info(f"Using Ollama application info for {field} with confidence {info['confidence']}: {info['value']}")
                         file_info[field] = info['value']
-        
+
+            # Extract spouse information
+            if ollama_data and 'spouseInfo' in ollama_data:
+                spouse_info = ollama_data['spouseInfo']
+                if spouse_info.get('name', {}).get('confidence', 0) >= 0.7:
+                    logger.info(f"Found spouse information with confidence {spouse_info['name']['confidence']}")
+                    file_info['spouse'] = {
+                        'name': spouse_info['name']['value'],
+                        'dob': spouse_info.get('dob', {}).get('value'),
+                        'ssn': spouse_info.get('ssn', {}).get('value'),
+                        'phone': spouse_info.get('phoneNumber', {}).get('value')
+                    }
+                    logger.info(f"Added spouse information: {json.dumps(file_info['spouse'], indent=2)}")
+
 
             # Validate name if we have name parts
             if self.name_parts and 'name' in file_info:
