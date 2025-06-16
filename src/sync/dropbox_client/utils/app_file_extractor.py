@@ -114,7 +114,10 @@ class AppFileExtractor:
                         if info.get('status'):
                             logger.info(f"    📊 Status: {info['status']}")
             else:
-                logger.info(f"  ❌ No application files found matching filter '{file_filter}' for {folder_path}")
+                if file_filter:
+                    logger.info(f"  ❌ No application files found matching filter '{file_filter}' for {folder_path}")
+                else:
+                    logger.info(f"  ❌ No application files found for {folder_path}")
 
             return summary_data
 
