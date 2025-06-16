@@ -118,9 +118,6 @@ class AppFileExtractor:
             # Clean up temp file
             os.unlink(temp_path)
 
-            if not ocr_data and not ollama_data:
-                logger.warning("No data extracted from either OCR or Ollama")
-                return None
 
             # Format the extracted data
             file_info = {
@@ -138,10 +135,7 @@ class AppFileExtractor:
                         logger.info(f"Using Ollama name with confidence {name_info['confidence']}: {name_info['value']}")
                         file_info['name'] = name_info['value']
                         file_info['name_confidence'] = name_info['confidence']
-                    elif 'name' in ocr_data:  # Fall back to OCR if Ollama confidence is low
-                        logger.info(f"Falling back to OCR name: {ocr_data['name']}")
-                        file_info['name'] = ocr_data['name']
-                        file_info['name_confidence'] = 0.5  # OCR confidence is lower
+                    
 
             # Extract address information
             if ollama_data and 'address' in ollama_data:
@@ -153,9 +147,7 @@ class AppFileExtractor:
                 if address_parts:
                     file_info['address'] = ' '.join(address_parts)
                     logger.info(f"Final address from Ollama: {file_info['address']}")
-                elif 'address' in ocr_data:  # Fall back to OCR if Ollama confidence is low
-                    logger.info(f"Falling back to OCR address: {ocr_data['address']}")
-                    file_info['address'] = ocr_data['address']
+                
 
             # Extract application information
             if ollama_data and 'applicationInfo' in ollama_data:
@@ -163,12 +155,7 @@ class AppFileExtractor:
                     if info['confidence'] >= 0.7:  # Only use high confidence matches
                         logger.info(f"Using Ollama application info for {field} with confidence {info['confidence']}: {info['value']}")
                         file_info[field] = info['value']
-
-            # Add any additional fields from OCR that weren't found by Ollama
-            for field in ['date_of_birth', 'phone', 'email']:
-                if field in ocr_data and field not in file_info:
-                    logger.info(f"Adding OCR field {field}: {ocr_data[field]}")
-                    file_info[field] = ocr_data[field]
+        
 
             # Validate name if we have name parts
             if self.name_parts and 'name' in file_info:
