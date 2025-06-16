@@ -114,5 +114,17 @@
   {
     "description": "Parse log file and store DOB and gender information in Supabase",
     "command": "python -m sync.commands.store_dob_gender_in_supabase --log_file=accounts/accounts-dob-gender.log"
+  },
+  {
+    "description": "List all application files in a Dropbox account folder",
+    "command": "python -m sync.cmd_runner --commands=list-dropbox-account-app-files --dropbox-accounts"
+  },
+  {
+    "description": "List all application files in a Dropbox account folder with file filter",
+    "command": "python -m sync.cmd_runner --commands=list-dropbox-account-app-files --dropbox-accounts --file-filter='*Joint*'"
+  },
+  {
+    "description": "List all application files in a specific Dropbox account folder",
+    "command": "python -m sync.cmd_runner --commands=list-dropbox-account-app-files --dropbox-accounts --dropbox-account-name='Account Name'"
   }
 ]
