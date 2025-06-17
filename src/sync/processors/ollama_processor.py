@@ -935,16 +935,16 @@ class OllamaProcessor:
             all_results = []
             
             try:
-                self.logger.info(f"CAROLINA calling make_ollama_request")
+                self.logger.info(f"calling make_ollama_request")
                 result_raw = self._make_ollama_request(self._create_prompt(text))
-                self.logger.info(f"CAROLINA result raw: {result_raw}")
+                self.logger.info(f"result raw: {result_raw}")
                 self.logger.info(f"Type of result_raw: {type(result_raw)}")
                 if isinstance(result_raw, str):
                     chunk_result = json.loads(result_raw)
                 elif isinstance(result_raw, dict):
                     result = result_raw
                 else:
-                    self.logger.error(f"Unexpected type for chunk_result_raw: {type(result_raw)}")
+                    self.logger.error(f"Unexpected type for result_raw: {type(result_raw)}")
                     result = {}
             except Exception as e:
                 self.logger.error(f"Failed to parse owner JSON: {e}\nRaw: {result_raw if 'result_raw' in locals() else ''}")
