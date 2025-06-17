@@ -78,7 +78,6 @@ Text to analyze:
 
 YOUR RESPONSE MUST BE A SINGLE JSON OBJECT WITH NO ADDITIONAL TEXT OR FORMATTING. DO NOT INCLUDE ANY EXPLANATORY TEXT, MARKDOWN, OR CODE BLOCKS. JUST THE JSON OBJECT. If a field is not found, use null."""
 
-        self.logger.info(f"_create_extraction_prompt: Final prompt: {text}")
         self.logger.info(f"_create_extraction_prompt: owner_type: {owner_type}")
         self.logger.info(f"_create_extraction_prompt: processor_type: {processor_type}")
         self.logger.info(f"_create_extraction_prompt: main_prompt: {main_prompt}")
@@ -87,7 +86,6 @@ YOUR RESPONSE MUST BE A SINGLE JSON OBJECT WITH NO ADDITIONAL TEXT OR FORMATTING
 
         self.logger.info("\n=== [PROMPT GENERATED] ===")
         self.logger.info(f"_create_extraction_prompt: Prompt length: {len(final_prompt)} characters")
-        self.logger.info(f"_create_extraction_prompt: Final Prompt: {final_prompt}")
         
         return final_prompt
 

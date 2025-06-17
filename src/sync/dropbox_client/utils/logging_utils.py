@@ -61,10 +61,12 @@ def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None)
             log.info(f"    📞 Joint Owner Phone: {joint_owner_data['phoneNumber']}")
         if joint_owner_data.get('emailAddress'):
             log.info(f"    📧 Joint Owner Email: {joint_owner_data['emailAddress']}")
-
-    # Application information
-    if info.get('application_type'):
-        log.info(f"    📄 Type: {info['application_type']}")
-    if info.get('status'):
-        log.info(f"    📋 Status: {info['status']}")
+            
+    data_info_not_empty = owner_data.get('firstName') and owner_data.get('lastName') and owner_data.get('dateOfBirth') and owner_data.get('gender') and owner_data.get('mailingAddressStreet') and owner_data.get('mailingAddressCity') and owner_data.get('mailingAddressState') and owner_data.get('mailingAddressZip') and owner_data.get('phoneNumber') and owner_data.get('emailAddress')
+    joint_owner_data_info_not_empty = joint_owner_data.get('firstName') and joint_owner_data.get('lastName') and joint_owner_data.get('dateOfBirth') and joint_owner_data.get('gender') and joint_owner_data.get('mailingAddressStreet') and joint_owner_data.get('mailingAddressCity') and joint_owner_data.get('mailingAddressState') and joint_owner_data.get('mailingAddressZip') and joint_owner_data.get('phoneNumber') and joint_owner_data.get('emailAddress')
+  
+    
+    if not data_info_not_empty:
+        log.info(f"    ❌ Unable to extract owner or joint owner information")
+    
     log.info("")  # Add blank line between files 

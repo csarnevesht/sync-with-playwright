@@ -170,6 +170,10 @@ class AppFileExtractor:
             
             # Extract text from PDF
             extracted_text = processor._extract_text_from_file(temp_path)
+            if not extracted_text or len(extracted_text.strip()) == 0:
+                logger.warning(f"No text could be extracted from file: {file.name}")
+            
+                
             processor_data = processor.process_text(extracted_text)
             logger.info(f"processor extraction results: {json.dumps(processor_data, indent=2)}")
             
@@ -274,6 +278,8 @@ class AppFileExtractor:
             return 'Annuity'
         elif 'equitrust' in filename_lower:
             return 'EquiTrust Annuity'
+        elif 'security benefit' in filename_lower:
+            return 'Security Benefit'
         else:
             return 'Unknown'
 

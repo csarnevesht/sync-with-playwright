@@ -46,7 +46,7 @@ class LMStudioProcessor(BaseProcessor):
 
         try:
             request_data = self.prompt_creator.create_chat_prompt(prompt, "lm_studio")
-            self._log_curl_command(request_data)
+            # self._log_curl_command(request_data)
 
             response = requests.post(
                 f"{self.base_url}/chat/completions",
