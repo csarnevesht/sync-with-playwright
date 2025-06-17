@@ -1,10 +1,29 @@
 """Utility functions for logging operations."""
 
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+def _check_missing_fields(data: Dict[str, Any], prefix: str = "") -> List[str]:
+    """Check which required fields are missing from the data.
+    
+    Args:
+        data: Dictionary containing the data to check
+        prefix: Optional prefix for field names
+        
+    Returns:
+        List of missing field names
+    """
+    required_fields = [
+        'firstName', 'lastName', 'dateOfBirth', 'gender',
+        'mailingAddressStreet', 'mailingAddressCity',
+        'mailingAddressState', 'mailingAddressZip',
+        'phoneNumber', 'emailAddress'
+    ]
+    
+    return [f"{prefix}{field}" for field in required_fields if not data.get(field)]
 
 def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None) -> None:
     """Log detailed information about a file.
@@ -67,6 +86,24 @@ def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None)
   
     
     if not data_info_not_empty:
-        log.info(f"    ❌ Unable to extract owner or joint owner information")
+        log.info(f"    ❌ Unable to extract complete owner or joint owner information")
+    
+    # Check for missing information
+    missing_info = []
+    
+    if info.get('owner'):
+        missing_owner_fields = _check_missing_fields(info['owner'])
+        if missing_owner_fields:
+            missing_info.append(f"Owner missing: {', '.join(missing_owner_fields)}")
+    
+    if info.get('jointOwner'):
+        missing_joint_owner_fields = _check_missing_fields(info['jointOwner'])
+        if missing_joint_owner_fields:
+            missing_info.append(f"Joint owner missing: {', '.join(missing_joint_owner_fields)}")
+    
+    if missing_info:
+        log.warning("    ⚠️ Incomplete information detected:")
+        for msg in missing_info:
+            log.warning(f"    {msg}")
     
     log.info("")  # Add blank line between files 

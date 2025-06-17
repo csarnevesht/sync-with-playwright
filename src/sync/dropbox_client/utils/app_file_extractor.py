@@ -190,7 +190,7 @@ class AppFileExtractor:
                 logger.warning(f"No text could be extracted from file: {file.name}")
             
                 
-            processor_data = processor.process_text(extracted_text)
+            processor_data = processor.process_text(extracted_text, file.name)
             logger.info(f"processor extraction results: {json.dumps(processor_data, indent=2)}")
             
             # Clean up temp file
