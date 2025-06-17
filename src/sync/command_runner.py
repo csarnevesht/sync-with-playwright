@@ -701,9 +701,12 @@ class CommandRunner:
             
             # Log the extracted information
             if summary_data and 'file_info' in summary_data:
+                filter_text = f" matching File Filter: {file_filter}" if file_filter else ""
+                self.summary_logger.info(f"\nDropbox Account Application File Information for Folder{filter_text}: {dropbox_account_folder_name}")
                 for file in files:
                     if file.path_display in summary_data['file_info']:
                         info = summary_data['file_info'][file.path_display]
+                        self.summary_logger.info(f"  ✅ {file.name}")
                         log_dropbox_app_file_info(info, self.summary_logger)
             else:
                 if file_filter:
