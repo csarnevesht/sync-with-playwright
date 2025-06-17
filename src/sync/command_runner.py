@@ -16,6 +16,7 @@ import os
 import tempfile
 import re
 import fnmatch
+import time
 
 from sync.dropbox_client.utils.dropbox_utils import get_renamed_path, list_dropbox_folder_contents
 from sync.dropbox_client.utils.file_utils import log_renamed_file
@@ -661,6 +662,7 @@ class CommandRunner:
 
     def _extract_dropbox_account_app_files_info(self, dropbox_account_folder_name: str, file_filter: Optional[str] = None) -> None:
         """Extract information from application files in the specified Dropbox account folder."""
+        start_time = time.time()
         self.logger.info("\n=== GETTING DROPBOX APPLICATION INFORMATION ===")
         self.logger.info(f"dropbox_account_folder_name: {dropbox_account_folder_name}")
         self.logger.info(f"dropbox_account_name_parts: {self._data.get('dropbox_account_name_parts')}")
@@ -681,9 +683,12 @@ class CommandRunner:
             folder_path = folder_path.replace('//', '/')
             
             # Get list of files in the folder
+            list_start = time.time()
             from sync.dropbox_client.utils.dropbox_utils import list_dropbox_folder_contents
             files = list_dropbox_folder_contents(dropbox_client.dbx, folder_path)
             files = [f for f in files if isinstance(f, dropbox.files.FileMetadata)]
+            list_time = time.time() - list_start
+            self.logger.info(f"Time to list files: {list_time:.2f} seconds")
             
             # Filter files if file_filter is provided
             if file_filter:
@@ -693,11 +698,14 @@ class CommandRunner:
                     self.logger.info(f"  ✅ {file.name}")
             
             # Extract all fields except birthdate and gender
+            extract_start = time.time()
             summary_data = dropbox_client.extract_app_files_info(
                 folder_path, 
                 extract_fields={'name', 'address'}, 
                 file_filter=file_filter
             )
+            extract_time = time.time() - extract_start
+            self.logger.info(f"Time to extract information: {extract_time:.2f} seconds")
             
             # Log the extracted information
             if summary_data and 'file_info' in summary_data:
@@ -713,6 +721,19 @@ class CommandRunner:
                     self.summary_logger.info(f"  ❌ No application files found matching filter '{file_filter}' for {dropbox_account_folder_name}")
                 else:
                     self.summary_logger.info(f"  ❌ No application files found for {dropbox_account_folder_name}")
+            
+            # Log timing information
+            total_time = time.time() - start_time
+            self.logger.info("\n=== TIMING INFORMATION ===")
+            self.logger.info(f"Total processing time: {total_time:.2f} seconds")
+            self.logger.info(f"Time to list files: {list_time:.2f} seconds")
+            self.logger.info(f"Time to extract information: {extract_time:.2f} seconds")
+            
+            # Log detailed timing information from the extractor if available
+            if summary_data and 'timing_info' in summary_data:
+                self.logger.info("\nDetailed timing information from extractor:")
+                for operation, duration in summary_data['timing_info']['operations'].items():
+                    self.logger.info(f"{operation}: {duration:.2f} seconds")
             
             self.logger.info("\nSuccessfully completed extract-dropbox-account-app-files-info operation")
             

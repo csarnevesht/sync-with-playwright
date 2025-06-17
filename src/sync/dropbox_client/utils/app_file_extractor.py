@@ -14,6 +14,8 @@ import mimetypes
 from pathlib import Path
 import json
 from .logging_utils import log_dropbox_app_file_info
+import time
+from datetime import datetime
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -36,6 +38,7 @@ class AppFileExtractor:
     def __init__(self, dbx: dropbox.Dropbox):
         self.dbx = dbx
         self.name_parts = None
+        self.timing_info = {}
 
     def _log_dropbox_app_file_info(self, info: Dict[str, Any], logger_instance: Any = None) -> None:
         """Log detailed information about a file.
@@ -59,6 +62,12 @@ class AppFileExtractor:
         Returns:
             Dict containing extracted information
         """
+        start_time = time.time()
+        self.timing_info = {
+            'start_time': datetime.now().isoformat(),
+            'operations': {}
+        }
+
         if extract_fields is None:
             extract_fields = {'name', 'address', 'application_type', 'status'}
         
@@ -119,10 +128,17 @@ class AppFileExtractor:
                 'file_sexes': summary_data['file_sexes'],
                 'file_info': summary_data['file_info'],
                 'all_folder_app_files': summary_data['all_folder_app_files'],
-                'files_with_name': summary_data['files_with_name']
+                'files_with_name': summary_data['files_with_name'],
+                'timing_info': self.timing_info
             }
 
-            logger.info(f"summary_data: {summary_data}")
+            # Log timing information
+            total_time = time.time() - start_time
+            self.timing_info['total_time'] = total_time
+            logger.info(f"\nTiming Information:")
+            logger.info(f"Total processing time: {total_time:.2f} seconds")
+            for operation, duration in self.timing_info['operations'].items():
+                logger.info(f"{operation}: {duration:.2f} seconds")
 
             # Log the summary for this folder
             folder_app_files = summary_data['all_folder_app_files'].get(folder_path, [])
