@@ -715,9 +715,15 @@ class OllamaProcessor:
             "6. Do not include any code blocks\n"
             "7. The response must be a single, valid JSON object\n"
             "8. The prefix field is not needed in the response\n"
-            "9. The prefix is always null\n      "
+            "9. The prefix is always null\n"
             "10. Do not include any extra fields in the response\n"
-            "11. All keys in the JSON object must be in camelCase."
+            "11. All keys in the JSON object must be in camelCase\n"
+            "12. Only extract fields listed below — do not add any others.\n"
+            "13. Never fabricate or guess information; only extract what is clearly present in the input text.\n"
+            "14. Ignore placeholder labels like 'First', 'Last', and 'MI' in field labels such as 'Name: First MI Last'. These are not real values and should not be included in the output.\n"
+            "15. Extract only the actual names that appear after these labels.\n"
+            "16. Here is the required JSON structure:\n"
+
         )
 
         try:
