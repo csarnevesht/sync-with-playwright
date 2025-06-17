@@ -58,3 +58,4 @@ supabase/** supabase/
 supabase
 debug_**
 ollama_request_**
+lm_studio_request_**

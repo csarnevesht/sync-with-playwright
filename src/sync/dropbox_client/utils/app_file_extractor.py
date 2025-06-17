@@ -135,7 +135,7 @@ class AppFileExtractor:
             return []
 
     def _process_file(self, file: FileMetadata) -> Optional[Dict[str, Any]]:
-        """Process a single file and extract relevant information using OCR and Ollama's Mistral model."""
+        """Process a single file and extract relevant information using OCR and Qwen model."""
         try:
             logger.info(f"Processing file: {file.name}")
             # Download file to temp location
@@ -143,20 +143,20 @@ class AppFileExtractor:
                 temp_path = temp_file.name
                 self.dbx.files_download_to_file(temp_path, file.path_display)
 
-            # Initialize processors
-            from sync.processors.ollama_processor import OllamaProcessor
-            ollama_processor = OllamaProcessor()
+            # Initialize processor
+            from sync.processors.lm_studio_processor import LMStudioProcessor
+            processor = LMStudioProcessor(model_name="qwen2-vl-7b-instruct")
             
             # Extract text from PDF
-            extracted_text = ollama_processor._extract_text_from_file(temp_path)
-            ollama_data = ollama_processor.process_text(extracted_text)
-            logger.info(f"Ollama extraction results: {json.dumps(ollama_data, indent=2)}")
+            extracted_text = processor._extract_text_from_file(temp_path)
+            processor_data = processor.process_text(extracted_text)
+            logger.info(f"processor extraction results: {json.dumps(processor_data, indent=2)}")
             
             # Clean up temp file
             os.unlink(temp_path)
 
-            if not ollama_data:
-                logger.warning("No data extracted from Ollama")
+            if not processor_data:
+                logger.warning("No data extracted from processor")
                 return None
 
             # Format the extracted data
@@ -167,24 +167,24 @@ class AppFileExtractor:
             logger.info(f"Initial file info: {json.dumps(file_info, indent=2)}")
 
             # Add owner (primary applicant) information
-            if ollama_data.get('owner_name'):
-                file_info['owner_name'] = ollama_data['owner_name']
-            if ollama_data.get('owner_address'):
-                file_info['owner_address'] = ollama_data['owner_address']
-            if ollama_data.get('owner_phone'):
-                file_info['owner_phone'] = ollama_data['owner_phone']
-            if ollama_data.get('owner_email'):
-                file_info['owner_email'] = ollama_data['owner_email']
+            if processor_data.get('owner_name'):
+                file_info['owner_name'] = processor_data['owner_name']
+            if processor_data.get('owner_address'):
+                file_info['owner_address'] = processor_data['owner_address']
+            if processor_data.get('owner_phone'):
+                file_info['owner_phone'] = processor_data['owner_phone']
+            if processor_data.get('owner_email'):
+                file_info['owner_email'] = processor_data['owner_email']
 
             # Add jointOwner information
-            if ollama_data.get('jointOwner_name'):
-                file_info['jointOwner_name'] = ollama_data['jointOwner_name']
-            if ollama_data.get('jointOwner_address'):
-                file_info['jointOwner_address'] = ollama_data['jointOwner_address']
-            if ollama_data.get('jointOwner_phone'):
-                file_info['jointOwner_phone'] = ollama_data['jointOwner_phone']
-            if ollama_data.get('jointOwner_email'):
-                file_info['jointOwner_email'] = ollama_data['jointOwner_email']
+            if processor_data.get('jointOwner_name'):
+                file_info['jointOwner_name'] = processor_data['jointOwner_name']
+            if processor_data.get('jointOwner_address'):
+                file_info['jointOwner_address'] = processor_data['jointOwner_address']
+            if processor_data.get('jointOwner_phone'):
+                file_info['jointOwner_phone'] = processor_data['jointOwner_phone']
+            if processor_data.get('jointOwner_email'):
+                file_info['jointOwner_email'] = processor_data['jointOwner_email']
 
             # Validate name if we have name parts
             if self.name_parts and 'name' in file_info:
