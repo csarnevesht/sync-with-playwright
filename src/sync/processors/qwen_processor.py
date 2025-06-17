@@ -15,15 +15,19 @@ import re
 import os
 import glob
 import torch
-from transformers import AutoTokenizer, AutoModelForVision2Seq
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig, AutoModelForVision2Seq
+from transformers import Qwen2VLConfig, Qwen2VLForCausalLM, Qwen2VLProcessor
 from PIL import Image
 import base64
 from io import BytesIO
+from .prompt_creator import PromptCreator
+import numpy as np
+from .base_processor import BaseProcessor, SetEncoder
 
-class QwenProcessor:
-    def __init__(self, model_name: str = "Qwen/Qwen2-VL-7B-Instruct"):
+class QwenProcessor(BaseProcessor):
+    def __init__(self, model_name: str = "Qwen/Qwen2-VL", base_url: str = None):
         """Initialize the Qwen processor."""
-        self.model_name = model_name
+        super().__init__(model_name, base_url)
         self.max_chunk_size = 2000
         self.max_retries = 5
         self.retry_delay = 1
@@ -54,20 +58,31 @@ class QwenProcessor:
         self._initialize_cache()
         self._initialize_model()
 
-    def _initialize_model(self):
+    def _initialize_model(self) -> None:
         """Initialize the Qwen model and tokenizer."""
         try:
-            self.logger.info("Initializing Qwen model and tokenizer...")
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, trust_remote_code=True)
+            self.logger.info("Initializing Qwen model...")
             self.model = AutoModelForVision2Seq.from_pretrained(
                 self.model_name,
-                device_map="auto",
-                trust_remote_code=True,
-                torch_dtype=torch.float16
+                trust_remote_code=True
             )
-            self.logger.info("Model and tokenizer initialized successfully")
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                self.model_name,
+                trust_remote_code=True
+            )
+            self.logger.info("Successfully initialized Qwen model")
         except Exception as e:
-            self.logger.error(f"Error initializing model: {str(e)}")
+            self.logger.error(f"Failed to initialize Qwen model: {str(e)}")
+            raise
+
+    def _check_server_availability(self) -> None:
+        """Check if the model is available."""
+        try:
+            if not hasattr(self, 'model') or not hasattr(self, 'tokenizer'):
+                raise Exception("Model or tokenizer not initialized")
+            self.logger.info("Successfully verified Qwen model availability")
+        except Exception as e:
+            self.logger.error(f"Could not verify Qwen model availability: {str(e)}")
             raise
 
     def _initialize_cache(self):
@@ -266,151 +281,90 @@ class QwenProcessor:
             self.logger.error(f"Error formatting prompt: {str(e)}")
             raise
 
-    def _make_model_request(self, prompt: str, max_length: int = 2048) -> Dict:
-        """Make a request to the Qwen model with retries and error handling."""
-        self.logger.info("=== [QWEN REQUEST START] ===")
-        self.logger.info(f"Prompt length: {len(prompt)} characters")
-        
-        max_retries = 3
-        base_delay = 1
-        
-        for attempt in range(max_retries):
-            try:
-                self.logger.info(f"\n=== [ATTEMPT {attempt + 1}/{max_retries}] ===")
-                
-                # Prepare the input
-                inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
-                
-                # Generate response
-                with torch.no_grad():
-                    outputs = self.model.generate(
-                        **inputs,
-                        max_length=max_length,
-                        num_return_sequences=1,
-                        temperature=0.7,
-                        top_p=0.9,
-                        do_sample=True
-                    )
-                
-                # Decode the response
-                response_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-                
-                # Extract JSON from response
-                json_text, error = self._extract_json_from_response(response_text)
-                if error:
-                    raise ValueError(error)
-                
-                # Parse and validate JSON
-                result = json.loads(json_text)
-                if not self._validate_json_structure(result):
-                    raise ValueError("Invalid JSON structure")
-                
-                self.logger.info("=== [QWEN REQUEST SUCCESS] ===")
-                return result
-                
-            except Exception as e:
-                self.logger.error(f"Error on attempt {attempt + 1}: {str(e)}")
-                if attempt < max_retries - 1:
-                    delay = base_delay * (2 ** attempt)
-                    self.logger.info(f"Retrying in {delay} seconds...")
-                    time.sleep(delay)
-                else:
-                    self.logger.error("Max retries reached")
-                    raise
-        
-        self.logger.error("All retry attempts failed")
-        raise Exception("Failed to get valid response from Qwen after all retries")
+    def _make_request(self, prompt: str, temperature: float = 0.0) -> Dict:
+        """Make a request to the Qwen model."""
+        cached_response = self._get_cached_response(prompt)
+        if cached_response:
+            return cached_response
 
-    def _extract_json_from_response(self, response_text: str) -> tuple[Optional[str], Optional[str]]:
-        """Extract and clean JSON from response text."""
         try:
-            # Find the JSON object in the response
-            json_start = response_text.find('{')
-            json_end = response_text.rfind('}') + 1
+            # Prepare inputs
+            inputs = self.tokenizer(prompt, return_tensors="pt")
             
-            if json_start < 0 or json_end <= json_start:
-                return None, "No JSON object found in response"
-            
-            # Extract just the JSON part
-            json_text = response_text[json_start:json_end]
-            
-            # Clean the JSON text
-            json_text = (json_text
-                .replace('```json', '')
-                .replace('```', '')
-                .replace('\n', ' ')
-                .replace('\r', '')
+            # Generate response
+            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=512,
+                temperature=temperature,
+                do_sample=temperature > 0
             )
-            json_text = re.sub(r'\s+', ' ', json_text).strip()
             
-            # Validate basic JSON structure
-            if not json_text.startswith('{') or not json_text.endswith('}'):
-                return None, "Invalid JSON structure: missing braces"
-            
-            return json_text, None
+            # Decode response
+            response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            self._cache_response(prompt, {"response": response})
+            return {"response": response}
             
         except Exception as e:
-            return None, f"Error extracting JSON: {str(e)}"
-
-    def _validate_json_structure(self, json_data: dict) -> bool:
-        """Validate JSON structure and required fields."""
-        try:
-            # Validate it's an object
-            if not isinstance(json_data, dict):
-                return False
-            
-            # Validate required fields
-            required_fields = ["owner"]
-            if not all(field in json_data for field in required_fields):
-                return False
-            
-            # Validate owner fields
-            owner_fields = [
-                "firstName", "middleInitial", "lastName", "SSN",
-                "dateOfBirth", "gender", "mailingAddressCity",
-                "mailingAddressState", "mailingAddressZip",
-                "residentialAddressCity", "residentialAddressState",
-                "residentialAddressZip", "phoneNumber", "emailAddress"
-            ]
-            
-            if not all(field in json_data["owner"] for field in owner_fields):
-                return False
-            
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Error validating JSON structure: {str(e)}")
-            return False
+            self.logger.error(f"Error generating response: {str(e)}")
+            raise
 
     def process_text(self, text: str) -> Dict[str, Any]:
-        """Process text with Qwen to extract information."""
-        self.logger.info("!!! PROCESS_TEXT CALLED !!!")
+        """Process text to extract owner information."""
         try:
-            self.logger.info(f"process_text TEXT: {text[:200]}")
+            # First try regex-based extraction
+            regex_info = self._extract_owner_info_regex(text)
             
-            # Check cache first
-            cached_response = self._get_cached_response(text)
-            if cached_response:
-                return cached_response
+            # If we have complete information from regex, return it
+            if all([
+                regex_info['fullName'],
+                regex_info['address']['street'],
+                regex_info['address']['city'],
+                regex_info['address']['state'],
+                regex_info['address']['zip']
+            ]):
+                self.logger.info("Successfully extracted information using regex")
+                return regex_info
             
-            # Process the text
+            # Otherwise, use the model
+            prompt = self.prompt_creator.create_owner_extraction_prompt(text)
+            response = self._make_request(prompt)
+            
+            if not response or "response" not in response:
+                self.logger.error("No response from model")
+                return regex_info
+            
             try:
-                self.logger.info("Calling make_model_request")
-                result = self._make_model_request(self._create_prompt(text))
-                self.logger.info(f"Result: {result}")
+                # Try to parse the response as JSON
+                model_info = json.loads(response["response"])
                 
-                # Cache the result
-                self._cache_response(text, result)
+                # Merge with regex info, preferring model info
+                merged_info = regex_info.copy()
+                for key, value in model_info.items():
+                    if value:  # Only update if the model provided a value
+                        if key == 'address' and isinstance(value, dict):
+                            merged_info['address'].update(value)
+                        else:
+                            merged_info[key] = value
                 
-                return result
+                return merged_info
                 
-            except Exception as e:
-                self.logger.error(f"Failed to process text: {str(e)}")
-                return {}
+            except json.JSONDecodeError as e:
+                self.logger.error(f"Failed to parse model response as JSON: {str(e)}")
+                return regex_info
                 
         except Exception as e:
-            self.logger.error(f"Error in process_text: {str(e)}")
-            return {}
+            self.logger.error(f"Error processing text: {str(e)}")
+            return {
+                'fullName': None,
+                'address': {
+                    'street': None,
+                    'city': None,
+                    'state': None,
+                    'zip': None
+                },
+                'phone': None,
+                'email': None
+            }
 
     def process_file(self, file_path: Path) -> Optional[Dict[str, Any]]:
         """Process a single file and extract information using Qwen."""
@@ -427,4 +381,64 @@ class QwenProcessor:
                 
         except Exception as e:
             self.logger.error(f"Error processing file: {str(e)}")
-            return None 
+            return None
+
+    def process_image(self, image_path: str) -> Dict[str, Any]:
+        """Process an image using Qwen2-VL model."""
+        try:
+            self.logger.info(f"Processing image: {image_path}")
+            
+            # Load and preprocess image
+            image = Image.open(image_path)
+            image_tensor = np.array(image)
+            
+            # Create prompt using the prompt creator
+            prompt = self.prompt_creator.create_owner_extraction_prompt("")
+            
+            # Prepare inputs
+            inputs = self.processor(
+                text=prompt,
+                images=image_tensor,
+                return_tensors="pt"
+            ).to(self.model.device)
+            
+            # Generate response
+            self.logger.info("Generating response...")
+            with torch.no_grad():
+                outputs = self.model.generate(
+                    **inputs,
+                    max_new_tokens=512,
+                    do_sample=False
+                )
+            
+            # Decode response
+            response_text = self.processor.decode(outputs[0], skip_special_tokens=True)
+            self.logger.info(f"Raw response: {response_text}")
+            
+            # Extract JSON from response
+            try:
+                # Find the first { and last }
+                start_idx = response_text.find('{')
+                end_idx = response_text.rfind('}')
+                
+                if start_idx == -1 or end_idx == -1:
+                    self.logger.error("No JSON object found in response")
+                    return {}
+                
+                json_text = response_text[start_idx:end_idx + 1]
+                result = json.loads(json_text)
+                
+                # Validate required fields
+                if "owner" not in result:
+                    self.logger.error("Missing required field: owner")
+                    return {}
+                
+                return result
+                
+            except json.JSONDecodeError as e:
+                self.logger.error(f"Error parsing JSON response: {str(e)}")
+                return {}
+                
+        except Exception as e:
+            self.logger.error(f"Error processing image: {str(e)}")
+            return {} 
