@@ -13,12 +13,13 @@ class PromptCreator:
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
 
-    def create_owner_extraction_prompt(self, text: str, processor_type: str = "default") -> str:
+    def _create_extraction_prompt(self, text: str, owner_type: str = "owner", processor_type: str = "default") -> str:
         """
         Create a prompt for extracting owner information from text.
         
         Args:
             text (str): The text to analyze
+            owner_type (str): The type of owner to extract ("owner" or "jointOwner")
             processor_type (str): The type of processor ("ollama", "qwen", "lm_studio", or "default")
             
         Returns:
@@ -26,8 +27,9 @@ class PromptCreator:
         """
         self.logger.info("=== [PROMPT CREATION START] ===")
         self.logger.info(f"Text length: {len(text)} characters")
-        self.logger.info(f"Text first 200 chars: {text[:200]}")
+        # self.logger.info(f"Text first 200 chars: {text[:200]}")
         self.logger.info(f"Processor type: {processor_type}")
+        self.logger.info(f"Owner type: {owner_type}")
 
         # Base system message that works for all processors
         system_message = (
@@ -49,56 +51,72 @@ class PromptCreator:
         )
 
         # Base prompt template that works for all processors
-        main_prompt = (
-            "Analyze the following text and extract key information about the owner. "
-            "Return ONLY a JSON object with the following structure, using the specified types (use null if not found):\n"
-            "{{\n"
-            "  \"owner\": {{\n"
-            "    \"firstName\": \"string or null\",\n"
-            "    \"middleInitial\": \"string or null\",\n"
-            "    \"lastName\": \"string or null\",\n"
-            # "    \"SSN\": \"string or null\",\n"
-            "    \"dateOfBirth\": \"string (YYYY-MM-DD) or null\",\n"
-            "    \"gender\": \"string or null\",\n"
-            "    \"mailingAddressStreet\": \"string or null\",\n"
-            "    \"mailingAddressCity\": \"string or null\",\n"
-            "    \"mailingAddressState\": \"string or null\",\n"
-            "    \"mailingAddressZip\": \"string or null\",\n"
-            "    \"residentialAddressStreet\": \"string or null\",\n"
-            "    \"residentialAddressCity\": \"string or null\",\n"
-            "    \"residentialAddressState\": \"string or null\",\n"
-            "    \"residentialAddressZip\": \"string or null\",\n"
-            "    \"phoneNumber\": \"string or null\",\n"
-            "    \"emailAddress\": \"string or null\"\n"
-            "  }}\n"
-            "}}\n\n"
-            "Text to analyze:\n{text}\n\n"
-            "YOUR RESPONSE MUST BE A SINGLE JSON OBJECT WITH NO ADDITIONAL TEXT OR FORMATTING. DO NOT INCLUDE ANY EXPLANATORY TEXT, MARKDOWN, OR CODE BLOCKS. JUST THE JSON OBJECT. If a field is not found, use null."
-        )
+        main_prompt = f"""Analyze the following text and extract key information about the {owner_type}. 
+Return ONLY a JSON object with the following structure, using the specified types (use null if not found):
+{{
+  "{owner_type}": {{
+    "firstName": "string or null",
+    "middleInitial": "string or null",
+    "lastName": "string or null",
+    "dateOfBirth": "string (YYYY-MM-DD) or null",
+    "gender": "string or null",
+    "mailingAddressStreet": "string or null",
+    "mailingAddressCity": "string or null",
+    "mailingAddressState": "string or null",
+    "mailingAddressZip": "string or null",
+    "residentialAddressStreet": "string or null",
+    "residentialAddressCity": "string or null",
+    "residentialAddressState": "string or null",
+    "residentialAddressZip": "string or null",
+    "phoneNumber": "string or null",
+    "emailAddress": "string or null"
+  }}
+}}
 
-        # Processor-specific formatting
-        if processor_type == "ollama":
-            # Ollama-specific formatting
-            formatted_main_prompt = main_prompt.format(text=text)
-            final_prompt = f"{system_message}\n\n{formatted_main_prompt}"
-        elif processor_type == "qwen":
-            # Qwen-specific formatting
-            formatted_main_prompt = main_prompt.format(text=text)
-            final_prompt = f"{system_message}\n\n{formatted_main_prompt}"
-        elif processor_type == "lm_studio":
-            # LM Studio-specific formatting
-            formatted_main_prompt = main_prompt.format(text=text)
-            final_prompt = f"{system_message}\n\n{formatted_main_prompt}"
-        else:
-            # Default formatting
-            formatted_main_prompt = main_prompt.format(text=text)
-            final_prompt = f"{system_message}\n\n{formatted_main_prompt}"
+Text to analyze:
+{text}
+
+YOUR RESPONSE MUST BE A SINGLE JSON OBJECT WITH NO ADDITIONAL TEXT OR FORMATTING. DO NOT INCLUDE ANY EXPLANATORY TEXT, MARKDOWN, OR CODE BLOCKS. JUST THE JSON OBJECT. If a field is not found, use null."""
+
+        self.logger.info(f"_create_extraction_prompt: Final prompt: {text}")
+        self.logger.info(f"_create_extraction_prompt: owner_type: {owner_type}")
+        self.logger.info(f"_create_extraction_prompt: processor_type: {processor_type}")
+        self.logger.info(f"_create_extraction_prompt: main_prompt: {main_prompt}")
+        
+        final_prompt = f"{system_message}\n\n{main_prompt}"
 
         self.logger.info("\n=== [PROMPT GENERATED] ===")
-        self.logger.info(f"Prompt length: {len(final_prompt)} characters")
-        self.logger.info(f"Final Prompt: {final_prompt}")
+        self.logger.info(f"_create_extraction_prompt: Prompt length: {len(final_prompt)} characters")
+        self.logger.info(f"_create_extraction_prompt: Final Prompt: {final_prompt}")
         
         return final_prompt
+
+    def create_owner_extraction_prompt(self, text: str, processor_type: str = "default") -> str:
+        """
+        Create a prompt for extracting primary owner information from text.
+        
+        Args:
+            text (str): The text to analyze
+            processor_type (str): The type of processor ("ollama", "qwen", "lm_studio", or "default")
+            
+        Returns:
+            str: The formatted prompt
+        """
+        self.logger.info(f"create_owner_extraction_prompt: Creating owner extraction prompt")
+        return self._create_extraction_prompt(text, "owner", processor_type)
+
+    def create_joint_owner_extraction_prompt(self, text: str, processor_type: str = "default") -> str:
+        """
+        Create a prompt for extracting joint owner information from text.
+        
+        Args:
+            text (str): The text to analyze
+            processor_type (str): The type of processor ("ollama", "qwen", "lm_studio", or "default")
+            
+        Returns:
+            str: The formatted prompt
+        """
+        return self._create_extraction_prompt(text, "jointOwner", processor_type)
 
     def create_chat_prompt(self, text: str, processor_type: str = "default") -> Dict[str, Any]:
         """
