@@ -526,7 +526,7 @@ class OllamaProcessor:
                             
                         actual_response = response_json["response"]
                         self.logger.info(f"Actual response length: {len(actual_response)} characters")
-                        self.logger.info(f"Actual response first 200 chars: {actual_response[:200]}")
+                        self.logger.info(f"Actual response: {actual_response}")
                         
                         # Save actual response to file for debugging
                         actual_response_file = f"debug_actual_response_{timestamp}.txt"
@@ -659,39 +659,54 @@ class OllamaProcessor:
                 target[key] = value
 
     def _create_prompt(self, text: str) -> str:
-        """Create a prompt for Ollama to extract personal and spouse/joint owner information."""
+        """Create a prompt for Ollama to extract primary applicant and spouse information."""
         self.logger.info("=== [PROMPT CREATION START] ===")
         self.logger.info(f"Text length: {len(text)} characters")
         self.logger.info(f"Text first 200 chars: {text[:200]}")
 
         # Create the main prompt with the text
-        main_prompt = """Analyze the following text and extract key information about the owner. Return ONLY a JSON object with the following structure:
-{{
-  "fullName": "string",
-  "address": {{
-    "street": "string",
-    "city": "string", 
-    "state": "string",
-    "zip": "string"
-  }},
-  "phone": "string",
-  "email": "string"
-}}
-
-Text to analyze:
-{text}
-
-YOUR RESPONSE MUST BE A SINGLE JSON OBJECT WITH NO ADDITIONAL TEXT OR FORMATTING. DO NOT INCLUDE ANY EXPLANATORY TEXT, MARKDOWN, OR CODE BLOCKS. JUST THE JSON OBJECT."""
+        main_prompt = (
+            "Analyze the following text and extract key information about the primary applicant and spouse (if present). Return ONLY a JSON object with the following structure:\n"
+            "{{\n"
+            "  \"primaryApplicant\": {{\n"
+            "    \"fullName\": \"string\",\n"
+            "    \"address\": {{\n"
+            "      \"street\": \"string\",\n"
+            "      \"city\": \"string\",\n"
+            "      \"state\": \"string\",\n"
+            "      \"zip\": \"string\"\n"
+            "    }},\n"
+            "    \"phone\": \"string\",\n"
+            "    \"email\": \"string\"\n"
+            "  }},\n"
+            "  \"spouse\": {{\n"
+            "    \"fullName\": \"string\",\n"
+            "    \"address\": {{\n"
+            "      \"street\": \"string\",\n"
+            "      \"city\": \"string\",\n"
+            "      \"state\": \"string\",\n"
+            "      \"zip\": \"string\"\n"
+            "    }},\n"
+            "    \"phone\": \"string\",\n"
+            "    \"email\": \"string\"\n"
+            "  }}\n"
+            "}}\n\n"
+            "Text to analyze:\n{text}\n\n"
+            "YOUR RESPONSE MUST BE A SINGLE JSON OBJECT WITH NO ADDITIONAL TEXT OR FORMATTING. DO NOT INCLUDE ANY EXPLANATORY TEXT, MARKDOWN, OR CODE BLOCKS. JUST THE JSON OBJECT. If a field is not found, use null. If there is no spouse, set all spouse fields to null."
+        )
 
         # Create the system message
-        system_message = """You are a precise JSON extraction tool. Your task is to extract owner information from text and return it in a specific JSON format.
-IMPORTANT RULES:
-1. Return ONLY the JSON object, no other text
-2. If a field is not found, use null
-3. Do not include any explanatory text
-4. Do not include any markdown formatting
-5. Do not include any code blocks
-6. The response must be a single, valid JSON object"""
+        system_message = (
+            "You are a precise JSON extraction tool. Your task is to extract primary applicant and spouse information from text and return it in a specific JSON format.\n"
+            "IMPORTANT RULES:\n"
+            "1. Return ONLY the JSON object, no other text\n"
+            "2. If a field is not found, use null\n"
+            "3. If there is no spouse, set all spouse fields to null\n"
+            "4. Do not include any explanatory text\n"
+            "5. Do not include any markdown formatting\n"
+            "6. Do not include any code blocks\n"
+            "7. The response must be a single, valid JSON object"
+        )
 
         try:
             # Format the main prompt with the text
