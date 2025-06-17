@@ -92,6 +92,9 @@ class BaseProcessor(ABC):
                 num_pages = min(5, len(pdf.pages))
                 self.logger.info(f"PDF has {len(pdf.pages)} pages, will process first {num_pages} pages")
                 all_text = []
+                total_length = 0
+                max_tokens = 3000  # Reduced to leave more room for the prompt
+                
                 for i in range(num_pages):
                     try:
                         page = pdf.pages[i]
@@ -106,9 +109,23 @@ class BaseProcessor(ABC):
                                 self.logger.info(f"Text extracted with tolerance from page {i+1} length: {len(text)}")
                                 text = self._clean_ocr_text(text)
                                 self.logger.info(f"Cleaned OCR text from page {i+1} length: {len(text)}")
+                        
                         if text:
+                            # Estimate tokens (rough estimate: 1 token ≈ 4 characters)
+                            estimated_tokens = len(text) // 4
+                            if total_length + estimated_tokens > max_tokens:
+                                self.logger.warning(f"Reached token limit after page {i+1}, truncating text")
+                                # Truncate text to fit within remaining tokens
+                                remaining_chars = (max_tokens - total_length) * 4
+                                text = text[:remaining_chars]
+                            
                             all_text.append(text)
-                            self.logger.info(f"Successfully extracted text from page {i+1}")
+                            total_length += estimated_tokens
+                            self.logger.info(f"Successfully extracted text from page {i+1}, total estimated tokens: {total_length}")
+                            
+                            if total_length >= max_tokens:
+                                self.logger.info("Reached maximum token limit, stopping extraction")
+                                break
                         else:
                             self.logger.warning(f"No text could be extracted from page {i+1}")
                     except Exception as e:
@@ -345,7 +362,7 @@ class BaseProcessor(ABC):
     def _process_owner(self, text: str) -> Dict[str, Any]:
         """Process text to extract owner information."""
         try:
-            self.logger.info(f"_process_owner:Processing owner information")
+            self.logger.info(f"_process_owner: Processing owner information")
             # Use the model to extract owner information
             owner_prompt = self.prompt_creator.create_owner_extraction_prompt(text)
             self.logger.info(f"owner_prompt: {owner_prompt}")
@@ -397,6 +414,7 @@ class BaseProcessor(ABC):
             self.logger.info(f"_process_joint_owner: Processing joint owner information")
             # Use the model to extract joint owner information
             joint_owner_prompt = self.prompt_creator.create_joint_owner_extraction_prompt(text)
+            self.logger.info(f"joint_owner_prompt: {joint_owner_prompt}")
             joint_owner_response = self._make_request(joint_owner_prompt)
             self.logger.info(f"joint_owner_response: {joint_owner_response}")
             
