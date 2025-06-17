@@ -80,12 +80,12 @@ YOUR RESPONSE MUST BE A SINGLE JSON OBJECT WITH NO ADDITIONAL TEXT OR FORMATTING
 
         self.logger.info(f"_create_extraction_prompt: owner_type: {owner_type}")
         self.logger.info(f"_create_extraction_prompt: processor_type: {processor_type}")
-        self.logger.info(f"_create_extraction_prompt: main_prompt: {main_prompt}")
         
         final_prompt = f"{system_message}\n\n{main_prompt}"
 
         self.logger.info("\n=== [PROMPT GENERATED] ===")
         self.logger.info(f"_create_extraction_prompt: Prompt length: {len(final_prompt)} characters")
+        self.logger.info(f"_create_extraction_prompt: Final Prompt BEGIN PROMPT: \n{final_prompt}\nEND OF PROMPT")
         
         return final_prompt
 
@@ -114,6 +114,7 @@ YOUR RESPONSE MUST BE A SINGLE JSON OBJECT WITH NO ADDITIONAL TEXT OR FORMATTING
         Returns:
             str: The formatted prompt
         """
+        self.logger.info(f"create_joint_owner_extraction_prompt: Creating joint owner extraction prompt")
         return self._create_extraction_prompt(text, "jointOwner", processor_type)
 
     def create_chat_prompt(self, text: str, processor_type: str = "default") -> Dict[str, Any]:
@@ -127,7 +128,10 @@ YOUR RESPONSE MUST BE A SINGLE JSON OBJECT WITH NO ADDITIONAL TEXT OR FORMATTING
         Returns:
             Dict[str, Any]: The formatted chat prompt
         """
-        prompt = self.create_owner_extraction_prompt(text, processor_type)
+        self.logger.info(f"create_chat_prompt: Creating chat prompt")
+        # CAROLINA HERE 
+        prompt = text
+        # prompt = self.create_owner_extraction_prompt(text, processor_type)
         
         if processor_type == "lm_studio":
             return {
