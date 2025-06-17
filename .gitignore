@@ -56,3 +56,5 @@ volumes/**
 supabase/** supabase/
 .env.backup
 supabase
+debug_**
+ollama_request_**
