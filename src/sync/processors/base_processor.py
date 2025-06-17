@@ -82,6 +82,7 @@ class BaseProcessor(ABC):
     def _extract_text_from_file(self, file_path: str) -> str:
         """Common text extraction from PDF files."""
         try:
+            self.logger.info(f"Starting text extraction from file: {file_path}")
             if not file_path.lower().endswith('.pdf'):
                 self.logger.warning(f"File is not a PDF: {file_path}")
                 return ""
@@ -89,21 +90,36 @@ class BaseProcessor(ABC):
             with pdfplumber.open(file_path) as pdf:
                 # extract text from first 5 pages
                 num_pages = min(5, len(pdf.pages))
+                self.logger.info(f"PDF has {len(pdf.pages)} pages, will process first {num_pages} pages")
                 all_text = []
                 for i in range(num_pages):
                     try:
                         page = pdf.pages[i]
+                        self.logger.info(f"Processing page {i+1}")
                         text = page.extract_text()
+                        self.logger.info(f"Initial text extraction from page {i+1} length: {len(text) if text else 0}")
+                        
                         if not text or len(text.strip()) < 50:
+                            self.logger.info(f"Initial text extraction from page {i+1} yielded minimal text, trying with tolerance")
                             text = page.extract_text(x_tolerance=3, y_tolerance=3)
                             if text:
+                                self.logger.info(f"Text extracted with tolerance from page {i+1} length: {len(text)}")
                                 text = self._clean_ocr_text(text)
+                                self.logger.info(f"Cleaned OCR text from page {i+1} length: {len(text)}")
                         if text:
                             all_text.append(text)
+                            self.logger.info(f"Successfully extracted text from page {i+1}")
+                        else:
+                            self.logger.warning(f"No text could be extracted from page {i+1}")
                     except Exception as e:
                         self.logger.error(f"Error extracting text from page {i+1}: {str(e)}")
                         continue
-                return "\n\n".join(all_text)
+                
+                final_text = "\n\n".join(all_text)
+                self.logger.info(f"Final extracted text length: {len(final_text)}")
+                if not final_text:
+                    self.logger.warning("No text was extracted from any page")
+                return final_text
         except Exception as e:
             self.logger.error(f"Error extracting text from file: {str(e)}")
             return ""
