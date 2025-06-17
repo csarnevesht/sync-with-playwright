@@ -27,13 +27,13 @@ def _load_special_cases() -> Dict[str, str]:
     """
     try:
         special_cases_file = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'accounts', 'special_cases.json')
-        logger.debug(f"[DEBUG] _load_special_cases: loading file from {special_cases_file}")
+        # logger.debug(f"[DEBUG] _load_special_cases: loading file from {special_cases_file}")
         with open(special_cases_file, 'r') as f:
             data = json.load(f)
         
         # Convert array of special cases to dictionary with folder_name as key
         special_cases_dict = {case['folder_name']: case for case in data.get('special_cases', [])}
-        logger.debug(f"[DEBUG] _load_special_cases: loaded data keys={list(special_cases_dict.keys())}")
+        # logger.debug(f"[DEBUG] _load_special_cases: loaded data keys={list(special_cases_dict.keys())}")
         return special_cases_dict
     except json.JSONDecodeError as e:
         logger.error(f"Error decoding special cases JSON file: {str(e)}")
