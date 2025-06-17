@@ -19,6 +19,7 @@ import fnmatch
 
 from sync.dropbox_client.utils.dropbox_utils import get_renamed_path, list_dropbox_folder_contents
 from sync.dropbox_client.utils.file_utils import log_renamed_file
+from sync.dropbox_client.utils.logging_utils import log_dropbox_app_file_info
 from sync.salesforce_client.utils.file_upload import upload_account_file, upload_account_file_with_retries
 
 class CommandRunner:
@@ -212,7 +213,7 @@ class CommandRunner:
             'delete-salesforce-account-files': self._delete_salesforce_account_files,
             'force-delete-salesforce-account-files': self._force_delete_salesforce_account_files,
             'extract-dropbox-account-app-files-dob-gender': self._extract_dropbox_account_app_files_dob_gender,
-            'extract-dropbox-account-app-files-info': self._extract_dropbox_account_app_files_info,
+            'extract-dropbox-account-app-files-info': self._handle_extract_dropbox_account_app_files_info,
             'store-in-supabase': self._store_in_supabase,
             'search-supabase': self._search_supabase,
             'list-dropbox-account-app-files': self._list_dropbox_account_app_files
@@ -646,90 +647,74 @@ class CommandRunner:
             self.logger.error(error_msg)
             raise
 
-    def _extract_dropbox_account_app_files_info(self) -> None:
-        """Get Dropbox Account information from all the application files in each Dropbox account folder.
-           Extracts general information like name, address, application type, and status.
-
-           Supports filtering files by name using the --file-filter argument (e.g. --file-filter='*Joint*').
-
-           Example usage:
-               python -m sync.cmd_runner --commands=extract-dropbox-account-app-files-info --dropbox-accounts --file-filter='*Joint*'
-        """
+    def _handle_extract_dropbox_account_app_files_info(self) -> None:
+        """Handle the extract-dropbox-account-app-files-info command."""
+        self.logger.info("Executing command handler: extract-dropbox-account-app-files-info")
         self.logger.info("Starting extract-dropbox-account-app-files-info operation")
-        self.report_logger.info("\n=== GETTING DROPBOX APPLICATION INFORMATION ===")
+        
+        # Get the folder name and file filter from data and args
+        dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
+        file_filter = self.args.file_filter
+        
+        # Call the implementation method with required arguments
+        self._extract_dropbox_account_app_files_info(dropbox_account_folder_name, file_filter)
+
+    def _extract_dropbox_account_app_files_info(self, dropbox_account_folder_name: str, file_filter: Optional[str] = None) -> None:
+        """Extract information from application files in the specified Dropbox account folder."""
+        self.logger.info("\n=== GETTING DROPBOX APPLICATION INFORMATION ===")
+        self.logger.info(f"dropbox_account_folder_name: {dropbox_account_folder_name}")
+        self.logger.info(f"dropbox_account_name_parts: {self._data.get('dropbox_account_name_parts')}")
+        
+        if file_filter:
+            self.logger.info(f"Using file filter: {file_filter} (only files matching this pattern will be processed)")
+            self.logger.info(f"\nUsing file filter: {file_filter} (only files matching this pattern will be processed)")
         
         try:
-            # Get required context
-            dropbox_client = self.get_context('dropbox_client')
-            dropbox_root_folder = self.get_context('dropbox_root_folder')
-            dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
-            logging.info(f"dropbox_account_folder_name: {dropbox_account_folder_name}")
-            dropbox_account_name_parts = self.get_data('dropbox_account_name_parts')
-            logging.info(f"dropbox_account_name_parts: {dropbox_account_name_parts}")
-
-            # Get file filter if specified
-            file_filter = self.args.file_filter
-            if file_filter:
-                self.logger.info(f"Using file filter: {file_filter} (only files matching this pattern will be processed)")
-                self.report_logger.info(f"\nUsing file filter: {file_filter} (only files matching this pattern will be processed)")
-
+            # Get Dropbox client and folder names from context
+            dropbox_client = self._context.get('dropbox_client')
+            dropbox_root_folder = self._context.get('dropbox_root_folder')
+            if not dropbox_client:
+                raise ValueError("Dropbox client not found in context")
+            
             # Construct folder path
-            folder_path = f"/{dropbox_root_folder}/{dropbox_account_folder_name}"
+            folder_path = f"{dropbox_root_folder}/{dropbox_account_folder_name}"
             folder_path = folder_path.replace('//', '/')
+            
+            # Get list of files in the folder
+            from sync.dropbox_client.utils.dropbox_utils import list_dropbox_folder_contents
+            files = list_dropbox_folder_contents(dropbox_client.dbx, folder_path)
+            files = [f for f in files if isinstance(f, dropbox.files.FileMetadata)]
+            
+            # Filter files if file_filter is provided
+            if file_filter:
+                files = [f for f in files if fnmatch.fnmatch(f.name, file_filter)]
+                self.logger.info(f"\nFound {len(files)} files matching filter '{file_filter}' in {folder_path}:")
+                for file in files:
+                    self.logger.info(f"  ✅ {file.name}")
             
             # Extract all fields except birthdate and gender
             summary_data = dropbox_client.extract_app_files_info(
                 folder_path, 
                 extract_fields={'name', 'address'}, 
-                name_parts=dropbox_account_name_parts,
                 file_filter=file_filter
             )
-
-            # Log the summary for this folder
-            folder_app_files = summary_data['all_folder_app_files'].get(folder_path, [])
             
-            self.summary_logger.info(f"\nDropbox Account Folder: {dropbox_account_folder_name}")
-            if folder_app_files:
-                for file in folder_app_files:
-                    self.summary_logger.info(f"  ✅ {file.name}")
-                    # Log any additional information found in the file
-                    if file.path_display in summary_data.get('file_info', {}):
+            # Log the extracted information
+            if summary_data and 'file_info' in summary_data:
+                for file in files:
+                    if file.path_display in summary_data['file_info']:
                         info = summary_data['file_info'][file.path_display]
-                        # Owner information
-                        if info.get('owner_name'):
-                            self.summary_logger.info(f"    👤 Owner: {info['owner_name']}")
-                        if info.get('owner_address'):
-                            self.summary_logger.info(f"    📍 Owner Address: {info['owner_address']}")
-                        if info.get('owner_phone'):
-                            self.summary_logger.info(f"    📞 Owner Phone: {info['owner_phone']}")
-                        if info.get('owner_email'):
-                            self.summary_logger.info(f"    ✉️ Owner Email: {info['owner_email']}")
-                        # jointOwner information
-                        if info.get('jointOwner_name'):
-                            self.summary_logger.info(f"    👥 jointOwner: {info['jointOwner_name']}")
-                        if info.get('jointOwner_address'):
-                            self.summary_logger.info(f"    📍 jointOwner Address: {info['jointOwner_address']}")
-                        if info.get('jointOwner_phone'):
-                            self.summary_logger.info(f"    📞 jointOwner Phone: {info['jointOwner_phone']}")
-                        if info.get('jointOwner_email'):
-                            self.summary_logger.info(f"    ✉️ jointOwner Email: {info['jointOwner_email']}")
-                        # Application information
-                        if info.get('application_type'):
-                            self.summary_logger.info(f"    📄 Type: {info['application_type']}")
-                        if info.get('status'):
-                            self.summary_logger.info(f"    📊 Status: {info['status']}")
-                        self.summary_logger.info("")  # Add blank line between files
+                        log_dropbox_app_file_info(info, self.summary_logger)
             else:
                 if file_filter:
                     self.summary_logger.info(f"  ❌ No application files found matching filter '{file_filter}' for {dropbox_account_folder_name}")
                 else:
                     self.summary_logger.info(f"  ❌ No application files found for {dropbox_account_folder_name}")
-
+            
             self.logger.info("\nSuccessfully completed extract-dropbox-account-app-files-info operation")
             
         except Exception as e:
-            error_msg = f"Error in extract-dropbox-account-app-files-info operation: {str(e)}"
-            self.logger.error(error_msg)
+            self.logger.error(f"Error extracting app files info: {str(e)}")
             raise
 
     def _store_in_supabase(self) -> None:

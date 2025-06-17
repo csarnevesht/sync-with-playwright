@@ -13,7 +13,9 @@ import fnmatch
 import mimetypes
 from pathlib import Path
 import json
+from .logging_utils import log_dropbox_app_file_info
 
+# Configure logging
 logger = logging.getLogger(__name__)
 
 # Check if OCR is available
@@ -34,6 +36,15 @@ class AppFileExtractor:
     def __init__(self, dbx: dropbox.Dropbox):
         self.dbx = dbx
         self.name_parts = None
+
+    def _log_dropbox_app_file_info(self, info: Dict[str, Any], logger_instance: Any = None) -> None:
+        """Log detailed information about a file.
+        
+        Args:
+            info: Dictionary containing file information
+            logger_instance: Optional logger instance to use (defaults to module logger)
+        """
+        log_dropbox_app_file_info(info, logger_instance)
 
     def extract_info(self, folder_path: str, extract_fields: set = None, name_parts: Dict[str, Any] = None, file_filter: str = None) -> Dict[str, Any]:
         """Extract information from application files in a Dropbox folder.
@@ -122,29 +133,7 @@ class AppFileExtractor:
                     # Log any additional information found in the file
                     if file.path_display in summary_data.get('file_info', {}):
                         info = summary_data['file_info'][file.path_display]
-                        if info.get('firstName') and info.get('lastName'):
-                            logger.info(f"    👤 Name: {info['firstName']} {info['lastName']}")
-                        if info.get('dateOfBirth'):
-                            logger.info(f"    📅 DOB: {info['dateOfBirth']}")
-                        if info.get('gender'):
-                            logger.info(f"    👤 Gender: {info['gender']}")
-                        if info.get('mailingAddressStreet'):
-                            address = f"{info['mailingAddressStreet']}"
-                            if info.get('mailingAddressCity'):
-                                address += f", {info['mailingAddressCity']}"
-                            if info.get('mailingAddressState'):
-                                address += f", {info['mailingAddressState']}"
-                            if info.get('mailingAddressZip'):
-                                address += f" {info['mailingAddressZip']}"
-                            logger.info(f"    📍 Address: {address}")
-                        if info.get('phoneNumber'):
-                            logger.info(f"    📞 Phone: {info['phoneNumber']}")
-                        if info.get('emailAddress'):
-                            logger.info(f"    📧 Email: {info['emailAddress']}")
-                        if info.get('application_type'):
-                            logger.info(f"    📄 Type: {info['application_type']}")
-                        if info.get('status'):
-                            logger.info(f"    📋 Status: {info['status']}")
+                        self._log_dropbox_app_file_info(info)
             else:
                 if file_filter:
                     logger.info(f"  ❌ No application files found matching filter '{file_filter}' for {folder_path}")
@@ -194,14 +183,16 @@ class AppFileExtractor:
             # Format the extracted data
             file_info = {
                 'application_type': self._determine_application_type(file.name),
-                'status': 'Processed'
+                'status': 'Processed',
+                'owner': {},
+                'jointOwner': {}
             }
             logger.info(f"Initial file info: {json.dumps(file_info, indent=2)}")
 
             # Add owner (primary applicant) information
             if processor_data.get('owner'):
                 owner_data = processor_data['owner']
-                file_info.update({
+                file_info['owner'] = {
                     'firstName': owner_data.get('firstName'),
                     'lastName': owner_data.get('lastName'),
                     'dateOfBirth': owner_data.get('dateOfBirth'),
@@ -212,36 +203,32 @@ class AppFileExtractor:
                     'mailingAddressZip': owner_data.get('mailingAddressZip'),
                     'phoneNumber': owner_data.get('phoneNumber'),
                     'emailAddress': owner_data.get('emailAddress')
-                })
+                }
 
             # Add joint owner information if present
             if processor_data.get('jointOwner'):
                 joint_owner_data = processor_data['jointOwner']
-                file_info.update({
-                    'jointOwner_firstName': joint_owner_data.get('firstName'),
-                    'jointOwner_lastName': joint_owner_data.get('lastName'),
-                    'jointOwner_dateOfBirth': joint_owner_data.get('dateOfBirth'),
-                    'jointOwner_gender': joint_owner_data.get('gender'),
-                    'jointOwner_mailingAddressStreet': joint_owner_data.get('mailingAddressStreet'),
-                    'jointOwner_mailingAddressCity': joint_owner_data.get('mailingAddressCity'),
-                    'jointOwner_mailingAddressState': joint_owner_data.get('mailingAddressState'),
-                    'jointOwner_mailingAddressZip': joint_owner_data.get('mailingAddressZip'),
-                    'jointOwner_phoneNumber': joint_owner_data.get('phoneNumber'),
-                    'jointOwner_emailAddress': joint_owner_data.get('emailAddress')
-                })
+                file_info['jointOwner'] = {
+                    'firstName': joint_owner_data.get('firstName'),
+                    'lastName': joint_owner_data.get('lastName'),
+                    'dateOfBirth': joint_owner_data.get('dateOfBirth'),
+                    'gender': joint_owner_data.get('gender'),
+                    'mailingAddressStreet': joint_owner_data.get('mailingAddressStreet'),
+                    'mailingAddressCity': joint_owner_data.get('mailingAddressCity'),
+                    'mailingAddressState': joint_owner_data.get('mailingAddressState'),
+                    'mailingAddressZip': joint_owner_data.get('mailingAddressZip'),
+                    'phoneNumber': joint_owner_data.get('phoneNumber'),
+                    'emailAddress': joint_owner_data.get('emailAddress')
+                }
 
             # Validate name if we have name parts
-            if self.name_parts and 'name' in file_info:
-                name_parts = file_info['name'].split()
-                if len(name_parts) >= 2:
-                    first_name = name_parts[0]
-                    last_name = name_parts[-1]
-                    if not self._validate_name_against_parts(first_name, last_name):
-                        logger.warning(f"Name validation failed for {first_name} {last_name}")
-                        file_info['name'] = None
-                        file_info['name_confidence'] = 0.0
-                    else:
-                        logger.info(f"Name validation passed for {first_name} {last_name}")
+            if self.name_parts and file_info['owner'].get('firstName') and file_info['owner'].get('lastName'):
+                if not self._validate_name_against_parts(file_info['owner']['firstName'], file_info['owner']['lastName']):
+                    logger.warning(f"Name validation failed for {file_info['owner']['firstName']} {file_info['owner']['lastName']}")
+                    file_info['owner']['firstName'] = None
+                    file_info['owner']['lastName'] = None
+                else:
+                    logger.info(f"Name validation passed for {file_info['owner']['firstName']} {file_info['owner']['lastName']}")
 
             logger.info(f"Final extracted file info: {json.dumps(file_info, indent=2)}")
             return file_info
@@ -501,5 +488,54 @@ class AppFileExtractor:
             import traceback
             logger.error(f"Error during OCR name extraction: {str(e)}\n{traceback.format_exc()}")
             return None
+
+    def _extract_dropbox_account_app_files_info(self, account_name: str, file_filter: str = None) -> Dict[str, Any]:
+        """Extract information from application files in a Dropbox account folder."""
+        try:
+            # Get the account folder path
+            account_folder = self._get_account_folder(account_name)
+            if not account_folder:
+                logger.error(f"Account folder not found for {account_name}")
+                return {}
+
+            # Extract information from the account folder
+            app_file_info = self.extract_info(account_folder, file_filter=file_filter)
+            if not app_file_info:
+                logger.error(f"No application files found for {account_name}")
+                return {}
+
+            # Convert sets to lists for JSON serialization
+            app_file_info_summary = {
+                'total_app_files': app_file_info['total_app_files'],
+                'processed_folders': list(app_file_info['processed_folders']),
+                'files_with_birthdate': list(app_file_info['files_with_birthdate']),
+                'file_birthdates': app_file_info['file_birthdates'],
+                'file_sexes': app_file_info['file_sexes'],
+                'file_info': app_file_info['file_info'],
+                'all_folder_app_files': app_file_info['all_folder_app_files'],
+                'files_with_name': app_file_info['files_with_name']
+            }
+
+            # Log the summary
+            logger.info(f"\nSummary for {account_name}:")
+            logger.info(f"Total application files: {app_file_info_summary['total_app_files']}")
+            logger.info(f"Processed folders: {len(app_file_info_summary['processed_folders'])}")
+            logger.info(f"Files with birthdate: {len(app_file_info_summary['files_with_birthdate'])}")
+            logger.info(f"Files with name: {len(app_file_info_summary['files_with_name'])}")
+
+            # Log details for each file
+            for folder_path, files in app_file_info_summary['all_folder_app_files'].items():
+                logger.info(f"\nFolder: {folder_path}")
+                for file in files:
+                    logger.info(f"  ✅ {file.name}")
+                    if file.path_display in app_file_info_summary['file_info']:
+                        info = app_file_info_summary['file_info'][file.path_display]
+                        self._log_dropbox_app_file_info(info)
+
+            return app_file_info_summary
+
+        except Exception as e:
+            logger.error(f"Error extracting app files info: {str(e)}")
+            return {}
 
     
