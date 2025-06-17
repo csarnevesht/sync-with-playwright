@@ -366,7 +366,7 @@ class OllamaProcessor:
                 return None, "Response is not a JSON object"
             
             # Validate required fields
-            required_fields = ["owner", "jointOwner"]
+            required_fields = ["owner"]
             missing_fields = [field for field in required_fields if field not in parsed_json]
             
             if missing_fields:
@@ -639,13 +639,13 @@ class OllamaProcessor:
                 target[key] = value
 
     def _create_prompt(self, text: str) -> str:
-        """Create a prompt for Ollama to extract owner and joint owner information in a specific JSON format (without the 'prefix' field)."""
+        """Create a prompt for Ollama to extract owner information in a specific JSON format."""
         self.logger.info("=== [PROMPT CREATION START] ===")
         self.logger.info(f"Text length: {len(text)} characters")
         self.logger.info(f"Text first 200 chars: {text[:200]}")
 
         main_prompt = (
-            "Analyze the following text and extract key information about the owner and joint owner (if present). "
+            "Analyze the following text and extract key information about the owner. "
             "Return ONLY a JSON object with the following structure, using the specified types (use null if not found):\n"
             "{{\n"
             "  \"owner\": {{\n"
@@ -663,48 +663,28 @@ class OllamaProcessor:
             "    \"residentialAddressZip\": \"string or null\",\n"
             "    \"phoneNumber\": \"string or null\",\n"
             "    \"emailAddress\": \"string or null\"\n"
-            "  }},\n"
-            "  \"jointOwner\": {{\n"
-            "    \"firstName\": \"string or null\",\n"
-            "    \"middleInitial\": \"string or null\",\n"
-            "    \"lastName\": \"string or null\",\n"
-            "    \"SSN\": \"string or null\",\n"
-            "    \"dateOfBirth\": \"string (YYYY-MM-DD) or null\",\n"
-            "    \"gender\": \"string or null\",\n"
-            "    \"mailingAddressCity\": \"string or null\",\n"
-            "    \"mailingAddressState\": \"string or null\",\n"
-            "    \"mailingAddressZip\": \"string or null\",\n"
-            "    \"residentialAddressCity\": \"string or null\",\n"
-            "    \"residentialAddressState\": \"string or null\",\n"
-            "    \"residentialAddressZip\": \"string or null\",\n"
-            "    \"phoneNumber\": \"string or null\",\n"
-            "    \"emailAddress\": \"string or null\"\n"
             "  }}\n"
             "}}\n\n"
             "Text to analyze:\n{text}\n\n"
-            "YOUR RESPONSE MUST BE A SINGLE JSON OBJECT WITH NO ADDITIONAL TEXT OR FORMATTING. DO NOT INCLUDE ANY EXPLANATORY TEXT, MARKDOWN, OR CODE BLOCKS. JUST THE JSON OBJECT. If a field is not found, use null. If there is no joint owner, set all joint owner fields to null."
+            "YOUR RESPONSE MUST BE A SINGLE JSON OBJECT WITH NO ADDITIONAL TEXT OR FORMATTING. DO NOT INCLUDE ANY EXPLANATORY TEXT, MARKDOWN, OR CODE BLOCKS. JUST THE JSON OBJECT. If a field is not found, use null."
         )
 
         system_message = (
-            "You are a precise JSON extraction tool. Your task is to extract owner and joint owner information from text and return it in a specific JSON format.\n"
+            "You are a precise JSON extraction tool. Your task is to extract owner information from text and return it in a specific JSON format.\n"
             "IMPORTANT RULES:\n"
             "1. Return ONLY the JSON object, no other text\n"
             "2. If a field is not found, use null\n"
-            "3. If there is no joint owner, set all joint owner fields to null\n"
-            "4. Do not include any explanatory text\n"
-            "5. Do not include any markdown formatting\n"
-            "6. Do not include any code blocks\n"
-            "7. The response must be a single, valid JSON object\n"
-            "8. The prefix field is not needed in the response\n"
-            "9. The prefix is always null\n"
-            "10. Do not include any extra fields in the response\n"
-            "11. All keys in the JSON object must be in camelCase\n"
-            "12. Only extract fields listed below — do not add any others.\n"
-            "13. Never fabricate or guess information; only extract what is clearly present in the input text.\n"
-            "14. Ignore placeholder labels like 'First', 'Last', and 'MI' in field labels such as 'Name: First MI Last'. These are not real values and should not be included in the output.\n"
-            "15. Extract only the actual names that appear after these labels.\n"
-            "16. Here is the required JSON structure:\n"
-
+            "3. Do not include any explanatory text\n"
+            "4. Do not include any markdown formatting\n"
+            "5. Do not include any code blocks\n"
+            "6. The response must be a single, valid JSON object\n"
+            "7. Do not include any extra fields in the response\n"
+            "8. All keys in the JSON object must be in camelCase\n"
+            "9. Only extract fields listed below — do not add any others.\n"
+            "10. Never fabricate or guess information; only extract what is clearly present in the input text.\n"
+            "11. Ignore placeholder labels like 'First', 'Last', and 'MI' in field labels such as 'Name: First MI Last'. These are not real values and should not be included in the output.\n"
+            "12. Extract only the actual names that appear after these labels.\n"
+            "13. Here is the required JSON structure:\n"
         )
 
         try:
