@@ -704,15 +704,15 @@ class CommandRunner:
                             self.summary_logger.info(f"    📞 Owner Phone: {info['owner_phone']}")
                         if info.get('owner_email'):
                             self.summary_logger.info(f"    ✉️ Owner Email: {info['owner_email']}")
-                        # Spouse information
-                        if info.get('spouse_name'):
-                            self.summary_logger.info(f"    👥 Spouse: {info['spouse_name']}")
-                        if info.get('spouse_address'):
-                            self.summary_logger.info(f"    📍 Spouse Address: {info['spouse_address']}")
-                        if info.get('spouse_phone'):
-                            self.summary_logger.info(f"    📞 Spouse Phone: {info['spouse_phone']}")
-                        if info.get('spouse_email'):
-                            self.summary_logger.info(f"    ✉️ Spouse Email: {info['spouse_email']}")
+                        # jointOwner information
+                        if info.get('jointOwner_name'):
+                            self.summary_logger.info(f"    👥 jointOwner: {info['jointOwner_name']}")
+                        if info.get('jointOwner_address'):
+                            self.summary_logger.info(f"    📍 jointOwner Address: {info['jointOwner_address']}")
+                        if info.get('jointOwner_phone'):
+                            self.summary_logger.info(f"    📞 jointOwner Phone: {info['jointOwner_phone']}")
+                        if info.get('jointOwner_email'):
+                            self.summary_logger.info(f"    ✉️ jointOwner Email: {info['jointOwner_email']}")
                         # Application information
                         if info.get('application_type'):
                             self.summary_logger.info(f"    📄 Type: {info['application_type']}")

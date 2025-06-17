@@ -150,7 +150,7 @@ class AppFileExtractor:
             # Extract text from PDF
             extracted_text = ollama_processor._extract_text_from_file(temp_path)
             # logger.info(f"Extracted text for Ollama: {extracted_text[:500]}")
-            # Process with Ollama using process_text (full spouse logic)
+            # Process with Ollama using process_text (full jointOwner logic)
             ollama_data = ollama_processor.process_text(extracted_text)
             logger.info(f"Ollama extraction results: {json.dumps(ollama_data, indent=2)}")
             
@@ -178,15 +178,15 @@ class AppFileExtractor:
             if ollama_data.get('owner_email'):
                 file_info['owner_email'] = ollama_data['owner_email']
 
-            # Add spouse information
-            if ollama_data.get('spouse_name'):
-                file_info['spouse_name'] = ollama_data['spouse_name']
-            if ollama_data.get('spouse_address'):
-                file_info['spouse_address'] = ollama_data['spouse_address']
-            if ollama_data.get('spouse_phone'):
-                file_info['spouse_phone'] = ollama_data['spouse_phone']
-            if ollama_data.get('spouse_email'):
-                file_info['spouse_email'] = ollama_data['spouse_email']
+            # Add jointOwner information
+            if ollama_data.get('jointOwner_name'):
+                file_info['jointOwner_name'] = ollama_data['jointOwner_name']
+            if ollama_data.get('jointOwner_address'):
+                file_info['jointOwner_address'] = ollama_data['jointOwner_address']
+            if ollama_data.get('jointOwner_phone'):
+                file_info['jointOwner_phone'] = ollama_data['jointOwner_phone']
+            if ollama_data.get('jointOwner_email'):
+                file_info['jointOwner_email'] = ollama_data['jointOwner_email']
 
             # Validate name if we have name parts
             if self.name_parts and 'name' in file_info:
@@ -494,8 +494,8 @@ class AppFileExtractor:
             }
             
             # Add extracted information from Ollama results
-            if 'primaryApplicant' in ollama_results:
-                primary = ollama_results['primaryApplicant']
+            if 'owner' in ollama_results:
+                primary = ollama_results['owner']
                 if primary.get('fullName'):
                     info['name'] = primary['fullName']
                 if primary.get('address'):
