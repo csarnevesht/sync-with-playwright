@@ -27,32 +27,25 @@ class PromptCreator:
         """
         self.logger.info("=== [PROMPT CREATION START] ===")
         self.logger.info(f"Text length: {len(text)} characters")
-        # self.logger.info(f"Text first 200 chars: {text[:200]}")
+        self.logger.info(f"Text first 200 chars: {text[:200]}")
         self.logger.info(f"Processor type: {processor_type}")
         self.logger.info(f"Owner type: {owner_type}")
 
         # Base system message that works for all processors
         system_message = (
-            "You are a precise JSON extraction tool. Your task is to extract owner information from text and return it in a specific JSON format.\n"
-            "IMPORTANT RULES:\n"
-            "1. Return ONLY the JSON object, no other text\n"
-            "2. If a field is not found, use null\n"
-            "3. Do not include any explanatory text\n"
-            "4. Do not include any markdown formatting\n"
-            "5. Do not include any code blocks\n"
-            "6. The response must be a single, valid JSON object\n"
-            "7. Do not include any extra fields in the response\n"
-            "8. All keys in the JSON object must be in camelCase\n"
-            "9. Only extract fields listed below — do not add any others.\n"
-            "10. Never fabricate or guess information; only extract what is clearly present in the input text.\n"
-            "11. Ignore placeholder labels like 'First', 'Last', and 'MI' in field labels such as 'Name: First MI Last'. These are not real values and should not be included in the output.\n"
-            "12. Extract only the actual names that appear after these labels.\n"
-            "13. Here is the required JSON structure:\n"
+            "Extract owner or annuitant information and return ONLY a JSON object.\n"
+            "Rules:\n"
+            "1. Return ONLY the JSON object\n"
+            "2. Use null for missing fields\n"
+            "3. No explanatory text\n"
+            "4. No markdown/code blocks\n"
+            "5. Use camelCase keys\n"
+            "6. Only extract listed fields\n"
+            "7. Never guess information\n"
         )
 
         # Base prompt template that works for all processors
-        main_prompt = f"""Analyze the following text and extract key information about the {owner_type}. 
-Return ONLY a JSON object with the following structure, using the specified types (use null if not found):
+        main_prompt = f"""Extract {owner_type} information into this JSON structure:
 {{
   "{owner_type}": {{
     "firstName": "string or null",
@@ -76,7 +69,7 @@ Return ONLY a JSON object with the following structure, using the specified type
 Text to analyze:
 {text}
 
-YOUR RESPONSE MUST BE A SINGLE JSON OBJECT WITH NO ADDITIONAL TEXT OR FORMATTING. DO NOT INCLUDE ANY EXPLANATORY TEXT, MARKDOWN, OR CODE BLOCKS. JUST THE JSON OBJECT. If a field is not found, use null."""
+Return ONLY the JSON object. Use null for missing fields."""
 
         self.logger.info(f"_create_extraction_prompt: owner_type: {owner_type}")
         self.logger.info(f"_create_extraction_prompt: processor_type: {processor_type}")
