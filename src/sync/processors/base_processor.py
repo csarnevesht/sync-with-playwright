@@ -316,37 +316,35 @@ class BaseProcessor(ABC):
         """Make a request to the model API."""
         pass
 
-    def process_text(self, text: str) -> Dict[str, Any]:
+    def process_text(self, text: str, filename: str = None) -> Dict[str, Any]:
         """Process text to extract both owner and joint owner information."""
         try:
             self.logger.info(f"_process_text: Processing text to extract owner and joint owner information")
             # Extract owner information first
             owner_info = self._process_owner(text)
             
-            # Then extract joint owner information
-            joint_owner_info = self._process_joint_owner(text)
+            # Check if this is a joint application based on filename
+            is_joint_application = filename and 'joint' in filename.lower()
+            self.logger.info(f"File {filename} is {'a joint' if is_joint_application else 'not a joint'} application")
             
-            # Return combined results
-            return {
-                "owner": owner_info,
-                "jointOwner": joint_owner_info
+            # Initialize result with owner info
+            result = {
+                "owner": owner_info
             }
+            
+            # For joint applications, always include both owner and jointOwner
+            if is_joint_application:
+                joint_owner_info = self._process_joint_owner(text)
+                result["jointOwner"] = joint_owner_info
+                return result
+            else:
+                # For non-joint applications, only return owner info
+                return result
                 
         except Exception as e:
             self.logger.error(f"Error processing text: {str(e)}")
             return {
                 "owner": {
-                    'fullName': None,
-                    'address': {
-                        'street': None,
-                        'city': None,
-                        'state': None,
-                        'zip': None
-                    },
-                    'phone': None,
-                    'email': None
-                },
-                "jointOwner": {
                     'fullName': None,
                     'address': {
                         'street': None,
