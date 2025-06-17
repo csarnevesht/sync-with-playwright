@@ -70,61 +70,45 @@ class OllamaProcessor(BaseProcessor):
             raise
 
     def process_text(self, text: str) -> Dict[str, Any]:
-        """Process text to extract owner information."""
+        """Process text to extract both owner and joint owner information."""
         try:
-            # First try regex-based extraction
-            regex_info = self._extract_owner_info_regex(text)
+            # Extract owner information first
+            owner_info = self._process_owner(text)
             
-            # If we have complete information from regex, return it
-            if all([
-                regex_info['fullName'],
-                regex_info['address']['street'],
-                regex_info['address']['city'],
-                regex_info['address']['state'],
-                regex_info['address']['zip']
-            ]):
-                self.logger.info("Successfully extracted information using regex")
-                return regex_info
+            # Then extract joint owner information
+            joint_owner_info = self._process_joint_owner(text)
             
-            # Otherwise, use the model
-            prompt = self.prompt_creator.create_owner_extraction_prompt(text)
-            response = self._make_request(prompt)
-            
-            if not response or "response" not in response:
-                self.logger.error("No response from model")
-                return regex_info
-            
-            try:
-                # Try to parse the response as JSON
-                model_info = json.loads(response["response"])
-                
-                # Merge with regex info, preferring model info
-                merged_info = regex_info.copy()
-                for key, value in model_info.items():
-                    if value:  # Only update if the model provided a value
-                        if key == 'address' and isinstance(value, dict):
-                            merged_info['address'].update(value)
-                        else:
-                            merged_info[key] = value
-                
-                return merged_info
-                
-            except json.JSONDecodeError as e:
-                self.logger.error(f"Failed to parse model response as JSON: {str(e)}")
-                return regex_info
+            # Return combined results
+            return {
+                "owner": owner_info,
+                "jointOwner": joint_owner_info
+            }
                 
         except Exception as e:
             self.logger.error(f"Error processing text: {str(e)}")
             return {
-                'fullName': None,
-                'address': {
-                    'street': None,
-                    'city': None,
-                    'state': None,
-                    'zip': None
+                "owner": {
+                    'fullName': None,
+                    'address': {
+                        'street': None,
+                        'city': None,
+                        'state': None,
+                        'zip': None
+                    },
+                    'phone': None,
+                    'email': None
                 },
-                'phone': None,
-                'email': None
+                "jointOwner": {
+                    'fullName': None,
+                    'address': {
+                        'street': None,
+                        'city': None,
+                        'state': None,
+                        'zip': None
+                    },
+                    'phone': None,
+                    'email': None
+                }
             }
 
     def _extract_text_from_file(self, file_path: str) -> str:
@@ -201,6 +185,59 @@ class OllamaProcessor(BaseProcessor):
             r'Applicant\s*:\s*([A-Z][a-z]+\s+[A-Z][a-z]+)',
             r'Insured\s*:\s*([A-Z][a-z]+\s+[A-Z][a-z]+)',
             r'Policyholder\s*:\s*([A-Z][a-z]+\s+[A-Z][a-z]+)'
+        ]
+        
+        for pattern in name_patterns:
+            match = re.search(pattern, text)
+            if match:
+                info['fullName'] = match.group(1).strip()
+                break
+        
+        # Extract address
+        address_patterns = {
+            'street': r'Address\s*:\s*([^\n]+)',
+            'city': r'City\s*:\s*([^\n]+)',
+            'state': r'State\s*:\s*([A-Z]{2})',
+            'zip': r'Zip\s*:\s*(\d{5}(?:-\d{4})?)'
+        }
+        
+        for field, pattern in address_patterns.items():
+            match = re.search(pattern, text)
+            if match:
+                info['address'][field] = match.group(1).strip()
+        
+        # Extract phone
+        phone_match = re.search(r'Phone\s*:\s*(\d{3}[-.]?\d{3}[-.]?\d{4})', text)
+        if phone_match:
+            info['phone'] = phone_match.group(1)
+        
+        # Extract email
+        email_match = re.search(r'Email\s*:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', text)
+        if email_match:
+            info['email'] = email_match.group(1)
+        
+        return info
+
+    def _extract_joint_owner_info_regex(self, text: str) -> Dict[str, Any]:
+        """Extract joint owner information using regex patterns."""
+        info = {
+            'fullName': None,
+            'address': {
+                'street': None,
+                'city': None,
+                'state': None,
+                'zip': None
+            },
+            'phone': None,
+            'email': None
+        }
+        
+        # Extract name
+        name_patterns = [
+            r'Joint Owner\s*:\s*([A-Z][a-z]+\s+[A-Z][a-z]+)',
+            r'Co-Owner\s*:\s*([A-Z][a-z]+\s+[A-Z][a-z]+)',
+            r'Co-Insured\s*:\s*([A-Z][a-z]+\s+[A-Z][a-z]+)',
+            r'Co-Policyholder\s*:\s*([A-Z][a-z]+\s+[A-Z][a-z]+)'
         ]
         
         for pattern in name_patterns:
@@ -330,6 +367,11 @@ class OllamaProcessor(BaseProcessor):
         # Implementation of _create_owner_extraction_prompt method
         pass
 
+    def _create_joint_owner_extraction_prompt(self, text: str) -> str:
+        """Create a prompt for joint owner extraction."""
+        # Implementation of _create_joint_owner_extraction_prompt method
+        pass
+
     def _check_ollama_server(self) -> None:
         """Check if Ollama server is running and accessible."""
         self.logger.info("Checking Ollama server availability...")
@@ -348,6 +390,16 @@ class OllamaProcessor(BaseProcessor):
         except Exception as e:
             self.logger.error(f"Error checking Ollama server: {str(e)}")
             sys.exit(1)
+
+    def _process_owner(self, text: str) -> Dict[str, Any]:
+        """Process text to extract owner information."""
+        # Implementation of _process_owner method
+        pass
+
+    def _process_joint_owner(self, text: str) -> Dict[str, Any]:
+        """Process text to extract joint owner information."""
+        # Implementation of _process_joint_owner method
+        pass
 
     def process_text(self, text: str) -> Dict[str, Any]:
         """Process text with Ollama to extract information."""

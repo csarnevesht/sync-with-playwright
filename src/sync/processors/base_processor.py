@@ -87,6 +87,7 @@ class BaseProcessor(ABC):
                 return ""
 
             with pdfplumber.open(file_path) as pdf:
+                # extract text from first 5 pages
                 num_pages = min(5, len(pdf.pages))
                 all_text = []
                 for i in range(num_pages):
@@ -114,56 +115,131 @@ class BaseProcessor(ABC):
         return text.strip()
 
     def _extract_owner_info_regex(self, text: str) -> Dict[str, Any]:
-        """Common regex-based owner information extraction."""
-        info = {
-            'fullName': None,
-            'address': {
-                'street': None,
-                'city': None,
-                'state': None,
-                'zip': None
-            },
-            'phone': None,
-            'email': None
-        }
-        
-        # Extract name
-        name_patterns = [
-            r'Name\s*:\s*([A-Z][a-z]+\s+[A-Z][a-z]+)',
-            r'Applicant\s*:\s*([A-Z][a-z]+\s+[A-Z][a-z]+)',
-            r'Insured\s*:\s*([A-Z][a-z]+\s+[A-Z][a-z]+)',
-            r'Policyholder\s*:\s*([A-Z][a-z]+\s+[A-Z][a-z]+)'
-        ]
-        
-        for pattern in name_patterns:
-            match = re.search(pattern, text)
-            if match:
-                info['fullName'] = match.group(1).strip()
-                break
-        
-        # Extract address
-        address_patterns = {
-            'street': r'Address\s*:\s*([^\n]+)',
-            'city': r'City\s*:\s*([^\n]+)',
-            'state': r'State\s*:\s*([A-Z]{2})',
-            'zip': r'Zip\s*:\s*(\d{5}(?:-\d{4})?)'
-        }
-        
-        for field, pattern in address_patterns.items():
-            match = re.search(pattern, text)
-            if match:
-                info['address'][field] = match.group(1).strip()
-        
-        # Extract phone and email
-        phone_match = re.search(r'Phone\s*:\s*(\d{3}[-.]?\d{3}[-.]?\d{4})', text)
-        if phone_match:
-            info['phone'] = phone_match.group(1)
-        
-        email_match = re.search(r'Email\s*:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', text)
-        if email_match:
-            info['email'] = email_match.group(1)
-        
-        return info
+        """Extract owner information using regex patterns."""
+        try:
+            # Patterns for owner information
+            full_name_pattern = r"Name\s*\(First\)\s*\(Middle\)\s*\(Last\)\s*\(Suffix\)\s*(\w+)\s+(\w+)"
+            address_pattern = r"Mailing Address\s*City\s*State\s*Zip\s*([^\n]+)\s+([^\n]+)\s+([A-Z]{2})\s+(\d{5})"
+            phone_pattern = r"Phone Number\s*([\d\-\(\)]+)"
+            email_pattern = r"Email Address\s*([^\n]+)"
+            dob_pattern = r"DOB\s*\(mm/dd/yyyy\)\s*(\d{2}/\d{2}/\d{4})"
+            gender_pattern = r"(\w+)\s*Male\s*Female"
+
+            # Extract information
+            full_name_match = re.search(full_name_pattern, text)
+            address_match = re.search(address_pattern, text)
+            phone_match = re.search(phone_pattern, text)
+            email_match = re.search(email_pattern, text)
+            dob_match = re.search(dob_pattern, text)
+            gender_match = re.search(gender_pattern, text)
+
+            # Parse name parts
+            first_name = full_name_match.group(1) if full_name_match else None
+            last_name = full_name_match.group(2) if full_name_match else None
+
+            # Parse address parts
+            street = address_match.group(1).strip() if address_match else None
+            city = address_match.group(2).strip() if address_match else None
+            state = address_match.group(3) if address_match else None
+            zip_code = address_match.group(4) if address_match else None
+
+            # Parse other fields
+            phone = phone_match.group(1) if phone_match else None
+            email = email_match.group(1).strip() if email_match else None
+            dob = dob_match.group(1) if dob_match else None
+            gender = gender_match.group(1) if gender_match else None
+
+            return {
+                'firstName': first_name,
+                'lastName': last_name,
+                'dateOfBirth': dob,
+                'gender': gender,
+                'mailingAddressStreet': street,
+                'mailingAddressCity': city,
+                'mailingAddressState': state,
+                'mailingAddressZip': zip_code,
+                'phoneNumber': phone,
+                'emailAddress': email
+            }
+        except Exception as e:
+            self.logger.error(f"Error in regex extraction for owner: {str(e)}")
+            return {
+                'firstName': None,
+                'lastName': None,
+                'dateOfBirth': None,
+                'gender': None,
+                'mailingAddressStreet': None,
+                'mailingAddressCity': None,
+                'mailingAddressState': None,
+                'mailingAddressZip': None,
+                'phoneNumber': None,
+                'emailAddress': None
+            }
+
+    def _extract_joint_owner_info_regex(self, text: str) -> Dict[str, Any]:
+        """Extract joint owner information using regex patterns."""
+        try:
+            # Patterns for joint owner information
+            full_name_pattern = r"JOINT OWNER INFORMATION.*?Name\s*\(First\)\s*\(Middle\)\s*\(Last\)\s*\(Suffix\)\s*(\w+)\s+(\w+)\s+(\w+)"
+            address_pattern = r"JOINT OWNER INFORMATION.*?Mailing Address\s*City\s*State\s*Zip\s*([^\n]+)\s+([^\n]+)\s+([A-Z]{2})\s+(\d{5})"
+            phone_pattern = r"JOINT OWNER INFORMATION.*?Phone Number\s*([\d\-\(\)]+)"
+            email_pattern = r"JOINT OWNER INFORMATION.*?Email Address\s*([^\n]+)"
+            dob_pattern = r"JOINT OWNER INFORMATION.*?DOB\s*\(mm/dd/yyyy\)\s*(\d{2}/\d{2}/\d{4})"
+            gender_pattern = r"JOINT OWNER INFORMATION.*?(\w+)\s*Male\s*Female"
+
+            # Extract information
+            full_name_match = re.search(full_name_pattern, text, re.DOTALL)
+            address_match = re.search(address_pattern, text, re.DOTALL)
+            phone_match = re.search(phone_pattern, text, re.DOTALL)
+            email_match = re.search(email_pattern, text, re.DOTALL)
+            dob_match = re.search(dob_pattern, text, re.DOTALL)
+            gender_match = re.search(gender_pattern, text, re.DOTALL)
+
+            # Parse name parts
+            first_name = full_name_match.group(1) if full_name_match else None
+            middle_name = full_name_match.group(2) if full_name_match else None
+            last_name = full_name_match.group(3) if full_name_match else None
+
+            # Parse address parts
+            street = address_match.group(1).strip() if address_match else None
+            city = address_match.group(2).strip() if address_match else None
+            state = address_match.group(3) if address_match else None
+            zip_code = address_match.group(4) if address_match else None
+
+            # Parse other fields
+            phone = phone_match.group(1) if phone_match else None
+            email = email_match.group(1).strip() if email_match else None
+            dob = dob_match.group(1) if dob_match else None
+            gender = gender_match.group(1) if gender_match else None
+
+            return {
+                'firstName': first_name,
+                'middleName': middle_name,
+                'lastName': last_name,
+                'dateOfBirth': dob,
+                'gender': gender,
+                'mailingAddressStreet': street,
+                'mailingAddressCity': city,
+                'mailingAddressState': state,
+                'mailingAddressZip': zip_code,
+                'phoneNumber': phone,
+                'emailAddress': email
+            }
+        except Exception as e:
+            self.logger.error(f"Error in regex extraction for joint owner: {str(e)}")
+            return {
+                'firstName': None,
+                'middleName': None,
+                'lastName': None,
+                'dateOfBirth': None,
+                'gender': None,
+                'mailingAddressStreet': None,
+                'mailingAddressCity': None,
+                'mailingAddressState': None,
+                'mailingAddressZip': None,
+                'phoneNumber': None,
+                'emailAddress': None
+            }
 
     def _save_curl_to_file(self, request_data: Dict, response_data: Optional[Dict] = None) -> None:
         """Common curl command saving."""
@@ -207,7 +283,143 @@ class BaseProcessor(ABC):
         """Make a request to the model API."""
         pass
 
-    @abstractmethod
     def process_text(self, text: str) -> Dict[str, Any]:
-        """Process text to extract information."""
-        pass 
+        """Process text to extract both owner and joint owner information."""
+        try:
+            self.logger.info(f"_process_text: Processing text to extract owner and joint owner information")
+            # Extract owner information first
+            owner_info = self._process_owner(text)
+            
+            # Then extract joint owner information
+            joint_owner_info = self._process_joint_owner(text)
+            
+            # Return combined results
+            return {
+                "owner": owner_info,
+                "jointOwner": joint_owner_info
+            }
+                
+        except Exception as e:
+            self.logger.error(f"Error processing text: {str(e)}")
+            return {
+                "owner": {
+                    'fullName': None,
+                    'address': {
+                        'street': None,
+                        'city': None,
+                        'state': None,
+                        'zip': None
+                    },
+                    'phone': None,
+                    'email': None
+                },
+                "jointOwner": {
+                    'fullName': None,
+                    'address': {
+                        'street': None,
+                        'city': None,
+                        'state': None,
+                        'zip': None
+                    },
+                    'phone': None,
+                    'email': None
+                }
+            }
+
+    def _process_owner(self, text: str) -> Dict[str, Any]:
+        """Process text to extract owner information."""
+        try:
+            self.logger.info(f"_process_owner:Processing owner information")
+            # Use the model to extract owner information
+            owner_prompt = self.prompt_creator.create_owner_extraction_prompt(text)
+            self.logger.info(f"owner_prompt: {owner_prompt}")
+            owner_response = self._make_request(owner_prompt)
+            self.logger.info(f"owner_response: {owner_response}")
+            
+            if not owner_response or "response" not in owner_response:
+                self.logger.error("No response from model for owner")
+                return self._get_default_owner_info()
+            
+            try:
+                owner_model_info = json.loads(owner_response["response"])
+                if not isinstance(owner_model_info, dict):
+                    self.logger.error("Model response is not a dictionary")
+                    return self._get_default_owner_info()
+                
+                if not owner_model_info.get('owner'):
+                    self.logger.error("Model response does not contain owner information")
+                    return self._get_default_owner_info()
+                
+                return owner_model_info['owner']
+                
+            except json.JSONDecodeError as e:
+                self.logger.error(f"Failed to parse owner model response as JSON: {str(e)}")
+                return self._get_default_owner_info()
+                
+        except Exception as e:
+            self.logger.error(f"Error processing owner text: {str(e)}")
+            return self._get_default_owner_info()
+
+    def _get_default_owner_info(self) -> Dict[str, Any]:
+        """Return default owner information structure."""
+        return {
+            'firstName': None,
+            'lastName': None,
+            'dateOfBirth': None,
+            'gender': None,
+            'mailingAddressStreet': None,
+            'mailingAddressCity': None,
+            'mailingAddressState': None,
+            'mailingAddressZip': None,
+            'phoneNumber': None,
+            'emailAddress': None
+        }
+
+    def _process_joint_owner(self, text: str) -> Dict[str, Any]:
+        """Process text to extract joint owner information."""
+        try:
+            self.logger.info(f"_process_joint_owner: Processing joint owner information")
+            # Use the model to extract joint owner information
+            joint_owner_prompt = self.prompt_creator.create_joint_owner_extraction_prompt(text)
+            joint_owner_response = self._make_request(joint_owner_prompt)
+            self.logger.info(f"joint_owner_response: {joint_owner_response}")
+            
+            if not joint_owner_response or "response" not in joint_owner_response:
+                self.logger.error("No response from model for joint owner")
+                return self._get_default_joint_owner_info()
+            
+            try:
+                joint_owner_model_info = json.loads(joint_owner_response["response"])
+                if not isinstance(joint_owner_model_info, dict):
+                    self.logger.error("Model response is not a dictionary")
+                    return self._get_default_joint_owner_info()
+                
+                if not joint_owner_model_info.get('jointOwner'):
+                    self.logger.error("Model response does not contain joint owner information")
+                    return self._get_default_joint_owner_info()
+                
+                return joint_owner_model_info['jointOwner']
+                
+            except json.JSONDecodeError as e:
+                self.logger.error(f"Failed to parse joint owner model response as JSON: {str(e)}")
+                return self._get_default_joint_owner_info()
+                
+        except Exception as e:
+            self.logger.error(f"Error processing joint owner text: {str(e)}")
+            return self._get_default_joint_owner_info()
+
+    def _get_default_joint_owner_info(self) -> Dict[str, Any]:
+        """Return default joint owner information structure."""
+        return {
+            'firstName': None,
+            'middleName': None,
+            'lastName': None,
+            'dateOfBirth': None,
+            'gender': None,
+            'mailingAddressStreet': None,
+            'mailingAddressCity': None,
+            'mailingAddressState': None,
+            'mailingAddressZip': None,
+            'phoneNumber': None,
+            'emailAddress': None
+        } 
