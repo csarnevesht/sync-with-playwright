@@ -15,7 +15,7 @@ def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None)
     """
     log = logger_instance or logger
 
-    log.info(f"info: {info}")
+    # print(f"info: {info}")
     # Owner information
     if info.get('owner'):
         owner_data = info['owner']
