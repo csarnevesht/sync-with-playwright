@@ -6,6 +6,7 @@ between Dropbox and Salesforce, such as renaming files, creating/deleting accoun
 and managing account files.
 """
 
+import glob
 import logging
 from typing import List, Optional, Dict, Any
 from pathlib import Path
@@ -54,6 +55,7 @@ class CommandRunner:
         if args.dropbox_account_name:
             self.logger.info(f"Target Dropbox account: {args.dropbox_account_name}")
             self.report_logger.info(f"Target Dropbox account: {args.dropbox_account_name}")
+
     
     def set_context(self, key: str, value: Any) -> None:
         """Set a context value.

@@ -13,9 +13,11 @@ import hashlib
 from datetime import datetime, timedelta
 import pdfplumber
 import re
+import os
+import glob
 
 class OllamaProcessor:
-    def __init__(self, model_name: str = "mistral"):
+    def __init__(self, model_name: str = "mistral:latest"):
         """Initialize the Ollama processor."""
         self.model_name = model_name
         self.base_url = "http://localhost:11434"
@@ -40,6 +42,12 @@ class OllamaProcessor:
         logging.getLogger('pdfminer.cmapdb').setLevel(logging.WARNING)
 
         self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.DEBUG)
+        if not self.logger.hasHandlers():
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
         self._check_model_availability()
         self._initialize_cache()
 
@@ -319,58 +327,297 @@ class OllamaProcessor:
             self.logger.error(f"Error processing file: {str(e)}")
             return None
 
-    def _make_ollama_request(self, prompt: str, model_override: str = None) -> str:
-        """Make a request to the Ollama API with improved error handling and retry logic."""
-        session = requests.Session()
-        max_retries = 5
-        base_timeout = 180  # 3 minutes base timeout
-        model_to_use = model_override if model_override else self.model_name
+    def _save_curl_to_file(self, data: dict, prefix: str) -> str:
+        """Save data to a JSON file with timestamp."""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{prefix}_{timestamp}.json"
+        try:
+            with open(filename, 'w') as f:
+                json.dump(data, f, indent=2)
+            self.logger.info(f"Saved {prefix} data to {filename}")
+            return filename
+        except Exception as e:
+            self.logger.error(f"Failed to save {prefix} data to file: {str(e)}")
+            return None
+
+    def _extract_json_from_response(self, response_text: str) -> tuple[Optional[str], Optional[str]]:
+        """Extract and clean JSON from response text."""
+        try:
+            # Find the JSON object in the response
+            json_start = response_text.find('{')
+            json_end = response_text.rfind('}') + 1
+            
+            if json_start < 0 or json_end <= json_start:
+                return None, "No JSON object found in response"
+            
+            # Extract just the JSON part
+            json_text = response_text[json_start:json_end]
+            self.logger.info(f"Extracted JSON text: {json_text}")
+            
+            # Clean the JSON text
+            json_text = (json_text
+                .replace('```json', '')
+                .replace('```', '')
+                .replace('\n', ' ')
+                .replace('\r', '')
+            )
+            json_text = re.sub(r'\s+', ' ', json_text).strip()
+            
+            # Validate basic JSON structure
+            if not json_text.startswith('{') or not json_text.endswith('}'):
+                return None, "Invalid JSON structure: missing braces"
+            
+            return json_text, None
+            
+        except Exception as e:
+            return None, f"Error extracting JSON: {str(e)}"
+
+    def _validate_json_structure(self, json_text: str) -> tuple[Optional[dict], Optional[str]]:
+        """Validate JSON structure and required fields."""
+        try:
+            # First try to parse the JSON
+            try:
+                parsed_json = json.loads(json_text)
+            except json.JSONDecodeError as e:
+                return None, f"Invalid JSON format: {str(e)}"
+            
+            # Validate it's an object
+            if not isinstance(parsed_json, dict):
+                return None, "Response is not a JSON object"
+            
+            # Validate required fields
+            required_fields = ["primaryApplicant", "spouse"]
+            missing_fields = [field for field in required_fields if field not in parsed_json]
+            
+            if missing_fields:
+                return None, f"Missing required fields: {', '.join(missing_fields)}"
+            
+            # Validate nested structure
+            for person in ["primaryApplicant", "spouse"]:
+                if not isinstance(parsed_json[person], dict):
+                    return None, f"Invalid structure: {person} must be an object"
+                
+                required_person_fields = ["fullName", "address", "email", "phone"]
+                missing_person_fields = [field for field in required_person_fields if field not in parsed_json[person]]
+                
+                if missing_person_fields:
+                    return None, f"Missing fields in {person}: {', '.join(missing_person_fields)}"
+                
+                if not isinstance(parsed_json[person]["address"], dict):
+                    return None, f"Invalid structure: {person}.address must be an object"
+                
+                required_address_fields = ["street", "city", "state", "zip"]
+                missing_address_fields = [field for field in required_address_fields if field not in parsed_json[person]["address"]]
+                
+                if missing_address_fields:
+                    return None, f"Missing fields in {person}.address: {', '.join(missing_address_fields)}"
+            
+            return parsed_json, None
+            
+        except Exception as e:
+            return None, f"Error validating JSON: {str(e)}"
+
+    def _log_curl_command(self, request_data: Dict[str, Any], response_data: Dict[str, Any]) -> None:
+        """Log the curl command for debugging purposes."""
+        try:
+            # Get the current timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            # Clean up old request files
+            request_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "logs", "requests")
+            if os.path.exists(request_dir):
+                # Remove ollama request files
+                for old_file in glob.glob(os.path.join(request_dir, "ollama_request_*.json")):
+                    try:
+                        os.remove(old_file)
+                        self.logger.debug(f"Deleted old request file: {old_file}")
+                    except Exception as e:
+                        self.logger.warning(f"Failed to delete old request file {old_file}: {str(e)}")
+                
+                # Remove debug files
+                for old_file in glob.glob(os.path.join(request_dir, "debug_*")):
+                    try:
+                        os.remove(old_file)
+                        self.logger.debug(f"Deleted old debug file: {old_file}")
+                    except Exception as e:
+                        self.logger.warning(f"Failed to delete old debug file {old_file}: {str(e)}")
+            
+            # Create the request directory if it doesn't exist
+            os.makedirs(request_dir, exist_ok=True)
+            
+            # Create the request file path
+            request_file = os.path.join(request_dir, f"ollama_request_{timestamp}.json")
+            
+            # Create the curl command without debug prefixes
+            curl_command = f"""curl -X POST http://localhost:11434/api/generate -d '{json.dumps(request_data)}'"""
+            
+            # Save the request data, response data, and curl command
+            with open(request_file, "w") as f:
+                json.dump({
+                    "timestamp": timestamp,
+                    "request": request_data,
+                    "response": response_data,
+                    "curl_command": curl_command
+                }, f, indent=2)
+            
+            self.logger.info(f"Saved request data to: {request_file}")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to log curl command: {str(e)}")
+            # Don't raise the exception - this is just for debugging
+
+    def _make_ollama_request(self, prompt: str, model: str = "mistral:latest", temperature: float = 0.0) -> Dict:
+        """Make a request to Ollama API with retries and error handling."""
+        self.logger.critical("!!! OLLAMA REQUEST ENTRY POINT REACHED !!!")
+        self.logger.info("\n=== [OLLAMA REQUEST START] ===")
+        self.logger.info(f"Model: {model}")
+        self.logger.info(f"Temperature: {temperature}")
+        self.logger.info(f"Prompt length: {len(prompt)} characters")
+        
+        request_data = {
+            "model": model,
+            "prompt": prompt,
+            "temperature": temperature,
+            "stream": False
+        }
+        
+        self._save_curl_to_file(request_data, "ollama_request")
+        # Log the curl command for debugging
+        self._log_curl_command(request_data, {})
+        
+        max_retries = 3
+        base_delay = 1
+        
         for attempt in range(max_retries):
             try:
-                current_timeout = base_timeout * (2 ** attempt)  # Exponential backoff
-                response = session.post(
+                self.logger.info(f"\n=== [ATTEMPT {attempt + 1}/{max_retries}] ===")
+                self.logger.info(f"Timeout: {self.base_timeout} seconds")
+                
+                response = requests.post(
                     f"{self.base_url}/api/generate",
-                    json={
-                        "model": model_to_use,
-                        "prompt": prompt,
-                        "stream": False,
-                        "options": {
-                            "temperature": 0.7,  # More balanced temperature
-                            "top_k": 40,  # Consider more tokens
-                            "top_p": 0.9,  # Less restrictive sampling
-                            "repeat_penalty": 1.1,
-                            "num_ctx": 4096,
-                            "num_predict": 2048,  # Increased response length
-                        }
-                    },
-                    timeout=current_timeout
+                    json=request_data,
+                    timeout=self.base_timeout
                 )
+                
+                self.logger.info(f"API Response Status: {response.status_code}")
+                
                 if response.status_code == 200:
-                    result = response.json()
-                    if "response" in result:
-                        return result["response"]
-                    else:
-                        self.logger.warning(f"Unexpected response format: {result}")
-                        continue
+                    self.logger.info("\n=== [RESPONSE PARSING START] ===")
+                    response_text = response.text
+                    self.logger.info(f"Raw response length: {len(response_text)} characters")
+                    self.logger.info(f"Raw response first 200 chars: {response_text[:200]}")
+                    
+                    # Save raw response to file for debugging
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    debug_file = f"debug_raw_response_{timestamp}.txt"
+                    with open(debug_file, "w") as f:
+                        f.write(response_text)
+                    self.logger.info(f"Saved raw response to {debug_file}")
+                    
+                    # Parse the response JSON
+                    try:
+                        response_json = json.loads(response_text)
+                        self.logger.info("Successfully parsed response JSON")
+                        
+                        # Extract the actual response text from the Ollama response
+                        if "response" not in response_json:
+                            self.logger.error("No 'response' field in Ollama response")
+                            raise ValueError("No 'response' field in Ollama response")
+                            
+                        actual_response = response_json["response"]
+                        self.logger.info(f"Actual response length: {len(actual_response)} characters")
+                        self.logger.info(f"Actual response first 200 chars: {actual_response[:200]}")
+                        
+                        # Save actual response to file for debugging
+                        actual_response_file = f"debug_actual_response_{timestamp}.txt"
+                        with open(actual_response_file, "w") as f:
+                            f.write(actual_response)
+                        self.logger.info(f"Saved actual response to {actual_response_file}")
+                        
+                        # Find the first { and last }
+                        start_idx = actual_response.find('{')
+                        end_idx = actual_response.rfind('}')
+                        
+                        if start_idx == -1 or end_idx == -1:
+                            self.logger.error("No JSON object found in response")
+                            self.logger.error(f"Response text: {actual_response}")
+                            raise ValueError("No JSON object found in response")
+                        
+                        self.logger.info(f"JSON start index: {start_idx}")
+                        self.logger.info(f"JSON end index: {end_idx}")
+                        
+                        json_text = actual_response[start_idx:end_idx + 1]
+                        self.logger.info(f"Extracted JSON length: {len(json_text)} characters")
+                        self.logger.info(f"Extracted JSON first 200 chars: {json_text[:200]}")
+                        
+                        # Save extracted JSON to file for debugging
+                        json_debug_file = f"debug_extracted_json_{timestamp}.json"
+                        with open(json_debug_file, "w") as f:
+                            f.write(json_text)
+                        self.logger.info(f"Saved extracted JSON to {json_debug_file}")
+                        
+                        # Remove any markdown formatting
+                        json_text = json_text.replace('```json', '').replace('```', '')
+                        self.logger.info("Removed markdown formatting")
+                        
+                        try:
+                            # Try to parse the JSON
+                            parsed_json = json.loads(json_text)
+                            self.logger.info("Successfully parsed JSON")
+                            
+                            # Validate the structure
+                            if not isinstance(parsed_json, dict):
+                                self.logger.error(f"Parsed JSON is not a dictionary: {type(parsed_json)}")
+                                raise ValueError("Parsed JSON is not a dictionary")
+                            
+                            required_fields = ["primaryApplicant", "spouse"]
+                            missing_fields = [field for field in required_fields if field not in parsed_json]
+                            
+                            if missing_fields:
+                                self.logger.error(f"Missing required fields: {missing_fields}")
+                                self.logger.error(f"Available fields: {list(parsed_json.keys())}")
+                                raise ValueError(f"Missing required fields: {missing_fields}")
+                            
+                            # Save validated JSON to file for debugging
+                            validated_json_file = f"debug_validated_json_{timestamp}.json"
+                            with open(validated_json_file, "w") as f:
+                                json.dump(parsed_json, f, indent=2)
+                            self.logger.info(f"Saved validated JSON to {validated_json_file}")
+                            
+                            self.logger.info("JSON structure validation passed")
+                            self.logger.info("\n=== [OLLAMA REQUEST SUCCESS] ===")
+                            return parsed_json
+                            
+                        except json.JSONDecodeError as e:
+                            self.logger.error(f"JSON parsing error: {str(e)}")
+                            self.logger.error(f"Problematic JSON text: {json_text}")
+                            # Save the problematic JSON for debugging
+                            error_json_file = f"debug_error_json_{timestamp}.txt"
+                            with open(error_json_file, "w") as f:
+                                f.write(json_text)
+                            self.logger.info(f"Saved problematic JSON to {error_json_file}")
+                            raise
+                            
+                    except json.JSONDecodeError as e:
+                        self.logger.error(f"Error parsing Ollama response JSON: {str(e)}")
+                        raise
+                        
                 else:
-                    self.logger.warning(f"Request failed with status code {response.status_code}")
-                    continue
-            except requests.exceptions.Timeout:
-                self.logger.warning(f"Request timed out after {current_timeout} seconds")
+                    self.logger.error(f"API request failed with status {response.status_code}")
+                    self.logger.error(f"Response text: {response.text}")
+                    
+            except (requests.exceptions.RequestException, ValueError, json.JSONDecodeError) as e:
+                self.logger.error(f"Error on attempt {attempt + 1}: {str(e)}")
                 if attempt < max_retries - 1:
-                    time.sleep(2 ** attempt)  # Exponential backoff
-                    continue
-                raise
-            except requests.exceptions.RequestException as e:
-                self.logger.warning(f"Request failed: {str(e)}")
-                if attempt < max_retries - 1:
-                    time.sleep(2 ** attempt)
-                    continue
-                raise
-            except Exception as e:
-                self.logger.error(f"Unexpected error: {str(e)}")
-                raise
-        raise Exception("Failed to get valid response after all retries")
+                    delay = base_delay * (2 ** attempt)
+                    self.logger.info(f"Retrying in {delay} seconds...")
+                    time.sleep(delay)
+                else:
+                    self.logger.error("Max retries reached")
+                    raise
+        
+        self.logger.error("All retry attempts failed")
+        raise Exception("Failed to get valid response from Ollama after all retries")
 
     def _merge_chunk_data(self, target: Dict[str, Any], source: Dict[str, Any]) -> Dict[str, Any]:
         """Merge source dictionary into target dictionary, handling nested structures and confidence scores."""
@@ -413,76 +660,61 @@ class OllamaProcessor:
 
     def _create_prompt(self, text: str) -> str:
         """Create a prompt for Ollama to extract personal and spouse/joint owner information."""
-        prompt = """You are an expert at extracting structured data from life insurance application forms. Your task is to extract information and return it as a valid JSON object. Follow these rules EXACTLY:
+        self.logger.info("=== [PROMPT CREATION START] ===")
+        self.logger.info(f"Text length: {len(text)} characters")
+        self.logger.info(f"Text first 200 chars: {text[:200]}")
 
-1. Your response MUST be a complete, valid JSON object
-2. Every opening brace { must have a matching closing brace }
-3. Every opening bracket [ must have a matching closing bracket ]
-4. Every field must be followed by a comma except the last field in an object
-5. The entire response must be wrapped in a single JSON object
-6. Do not output partial or incomplete JSON
-7. Make sure all strings are properly quoted with double quotes
-8. Make sure all null values are lowercase 'null' without quotes
-9. Do not add any explanatory text before or after the JSON
-10. Do not use markdown formatting
-11. Do not add any comments or notes
+        # Create the main prompt with the text
+        main_prompt = """Analyze the following text and extract key information about the owner. Return ONLY a JSON object with the following structure:
+{{
+  "fullName": "string",
+  "address": {{
+    "street": "string",
+    "city": "string", 
+    "state": "string",
+    "zip": "string"
+  }},
+  "phone": "string",
+  "email": "string"
+}}
 
+Text to analyze:
+{text}
 
+YOUR RESPONSE MUST BE A SINGLE JSON OBJECT WITH NO ADDITIONAL TEXT OR FORMATTING. DO NOT INCLUDE ANY EXPLANATORY TEXT, MARKDOWN, OR CODE BLOCKS. JUST THE JSON OBJECT."""
 
-If the application is joint, or if there is a spouse, co-applicant, joint owner, secondary applicant, or similar, extract their information as well. If you see any of these labels (case-insensitive): 'Spouse', 'Co-Applicant', 'Joint Applicant', 'Secondary Applicant', 'Additional Applicant', 'JOINT OWNER', 'Joint Owner', treat them as referring to the spouse/joint owner.
+        # Create the system message
+        system_message = """You are a precise JSON extraction tool. Your task is to extract owner information from text and return it in a specific JSON format.
+IMPORTANT RULES:
+1. Return ONLY the JSON object, no other text
+2. If a field is not found, use null
+3. Do not include any explanatory text
+4. Do not include any markdown formatting
+5. Do not include any code blocks
+6. The response must be a single, valid JSON object"""
 
-If you are not 100% certain about any field, return null for that field. If there is no spouse/joint owner information, return null for all spouse fields. Do not infer or guess. Only extract what is explicitly present in the text.
-
-Fields to extract:
-primaryApplicant: { fullName, address: {street, city, state, zip}, email, phone }
-spouse: { fullName, address: {street, city, state, zip}, email, phone }
-
-Example output for a joint application:
-{
-  "primaryApplicant": {
-    "fullName": "John Smith",
-    "address": {
-      "street": "123 Main St",
-      "city": "Miami",
-      "state": "FL",
-      "zip": "33101"
-    },
-    "email": null,
-    "phone": "(305) 555-1234"
-  },
-  "spouse": {
-    "fullName": "Jane Smith",
-    "address": {
-      "street": "123 Main St",
-      "city": "Miami",
-      "state": "FL",
-      "zip": "33101"
-    },
-    "email": null,
-    "phone": "(305) 555-5678"
-  }
-}
-
-Text to extract from:
-{text}"""
-
-        # Add system message to enforce JSON formatting
-        system_message = """You are a JSON formatter. Your task is to ensure that all responses are valid JSON objects with proper formatting. Follow these rules strictly:
-1. Always output complete JSON objects
-2. Use proper nesting and indentation
-3. Include all required closing braces and brackets
-4. Use commas between fields but not after the last field
-5. Use double quotes for all strings
-6. Use lowercase 'null' for null values
-7. Do not output partial or incomplete JSON
-8. Do not add any explanatory text
-9. Do not use markdown formatting
-10. Do not add any comments or notes"""
-
-        # Create the full prompt with system message
-        full_prompt = f"{system_message}\n\n{prompt}"
-        
-        return full_prompt
+        try:
+            # Format the main prompt with the text
+            formatted_main_prompt = main_prompt.format(text=text)
+            
+            # Combine the prompts
+            final_prompt = f"{system_message}\n\n{formatted_main_prompt}"
+            
+            # Log the prompt for debugging
+            self.logger.info("\n=== [PROMPT GENERATED] ===")
+            self.logger.info(f"Prompt length: {len(final_prompt)} characters")
+            self.logger.info(f"Final Prompt: {final_prompt}")
+            
+            return final_prompt
+            
+        except KeyError as e:
+            self.logger.error(f"Error formatting prompt: Missing key in format string - {str(e)}")
+            self.logger.error(f"Text being formatted: {text[:200]}...")
+            raise ValueError(f"Failed to format prompt: Missing key {str(e)}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error formatting prompt: {str(e)}")
+            self.logger.error(f"Text being formatted: {text[:200]}...")
+            raise ValueError(f"Failed to format prompt: {str(e)}")
 
     def _parse_ollama_response(self, response_text: str) -> Optional[Dict[str, Any]]:
         """Parse the Ollama response into a structured format."""
@@ -688,6 +920,7 @@ Text to extract from:
         """Process text with Ollama to extract information."""
         self.logger.info("!!! PROCESS_TEXT CALLED !!!")
         try:
+            self.logger.info(f"process_text TEXT: {text[:200]}")
             self.logger.info("=== [SPOUSE_SECTION_EXTRACTION_START] ===")
             spouse_section = self._extract_spouse_section(text)
             self.logger.info(f"=== [SPOUSE_SECTION] ===\n{spouse_section}")
@@ -700,9 +933,17 @@ Text to extract from:
             all_results = []
             for chunk in chunks:
                 try:
+                    self.logger.info(f"CAROLINA calling make_ollama_request")
                     chunk_result_raw = self._make_ollama_request(self._create_prompt(chunk))
                     self.logger.info(f"CAROLINA Chunk result raw: {chunk_result_raw}")
-                    chunk_result = json.loads(chunk_result_raw)
+                    self.logger.info(f"Type of chunk_result_raw: {type(chunk_result_raw)}")
+                    if isinstance(chunk_result_raw, str):
+                        chunk_result = json.loads(chunk_result_raw)
+                    elif isinstance(chunk_result_raw, dict):
+                        chunk_result = chunk_result_raw
+                    else:
+                        self.logger.error(f"Unexpected type for chunk_result_raw: {type(chunk_result_raw)}")
+                        chunk_result = {}
                 except Exception as e:
                     self.logger.error(f"Failed to parse owner JSON: {e}\nRaw: {chunk_result_raw if 'chunk_result_raw' in locals() else ''}")
                     chunk_result = {}
@@ -763,8 +1004,15 @@ Text to extract from:
                 spouse_prompt = self._create_spouse_prompt(spouse_section)
                 self.logger.info(f"Prompt sent to Ollama for spouse section:\n{spouse_prompt}")
                 spouse_result_raw = self._make_ollama_request(spouse_prompt, model_override='llama3.1:latest')
+                self.logger.info(f"Type of spouse_result_raw: {type(spouse_result_raw)}")
                 try:
-                    spouse_result = json.loads(spouse_result_raw)
+                    if isinstance(spouse_result_raw, str):
+                        spouse_result = json.loads(spouse_result_raw)
+                    elif isinstance(spouse_result_raw, dict):
+                        spouse_result = spouse_result_raw
+                    else:
+                        self.logger.error(f"Unexpected type for spouse_result_raw: {type(spouse_result_raw)}")
+                        spouse_result = {}
                 except Exception as e:
                     self.logger.error(f"Failed to parse spouse JSON: {e}\nRaw: {spouse_result_raw}")
                     spouse_result = {}
@@ -808,6 +1056,7 @@ Text to extract from:
                     info['spouse_email'] = regex_spouse['email']
             self.logger.info(f"Final extracted file info: {json.dumps(info, indent=2)}")
             return info
+            
         except Exception as e:
             self.logger.error(f"Error processing text with Ollama: {e}")
             return {} 
