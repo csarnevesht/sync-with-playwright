@@ -116,7 +116,7 @@ class OllamaProcessor:
             raise
 
     def _extract_text_from_file(self, file_path: str) -> str:
-        """Extract text from a PDF file."""
+        """Extract text from the first page of a PDF file with OCR fallback."""
         try:
             if not file_path.lower().endswith('.pdf'):
                 self.logger.warning(f"File is not a PDF: {file_path}")
@@ -126,13 +126,33 @@ class OllamaProcessor:
                 # Process only the first page
                 try:
                     page = pdf.pages[0]
+                    # Try normal text extraction first
                     text = page.extract_text()
+                    
+                    # If text is too short or empty, try OCR
+                    if not text or len(text.strip()) < 50:  # Arbitrary threshold
+                        self.logger.info("Normal text extraction yielded minimal text, trying OCR...")
+                        # Extract text using OCR
+                        text = page.extract_text(x_tolerance=3, y_tolerance=3)
+                        
+                        if text:
+                            # Clean OCR text
+                            text = self._clean_ocr_text(text)
+                    
                     if text:
-                        # Clean up the text
-                        text = re.sub(r'\n+', ' ', text)  # Replace multiple newlines with space
-                        text = re.sub(r'\s+', ' ', text)  # Normalize whitespace
-                        text = text.strip()
+                        # Replace underscore followed by a letter with space and that letter
+                        text = re.sub(r'_(\w)', r' \1', text)
+                        # Remove all remaining underscores
+                        text = text.replace('_', '')
+                        # Optionally, normalize whitespace
+                        text = re.sub(r'\s+', ' ', text).strip()
+                        # Log the extracted text with colored markers
+                        self.logger.info("\n\033[92m=== BEGIN EXTRACTED TEXT FOR OLLAMA ===\033[0m")
+                        self.logger.info(text)
+                        self.logger.info("\n\033[92m=== END OF EXTRACTED TEXT FOR OLLAMA ===\033[0m")
+                        
                         return text
+                        
                 except Exception as e:
                     self.logger.warning(f"Error processing first page: {str(e)}")
                     return ""
@@ -140,6 +160,45 @@ class OllamaProcessor:
         except Exception as e:
             self.logger.error(f"Error extracting text from PDF: {str(e)}")
             return ""
+
+    def _clean_ocr_text(self, text: str) -> str:
+        """Clean and normalize OCR text."""
+        if not text:
+            return text
+            
+        # Replace common OCR errors
+        replacements = {
+            'l': '1',  # lowercase L to 1
+            'O': '0',  # uppercase O to 0
+            '|': '1',  # vertical bar to 1
+            '[': '(',  # square bracket to parenthesis
+            ']': ')',
+            '}{': '{}',  # Fix reversed braces
+            '}{': '{}',
+            ')(': '()',  # Fix reversed parentheses
+            ')(': '()',
+            ',,': ',',  # Fix double punctuation
+            '..': '.',
+            '  ': ' ',  # Fix double spaces
+        }
+        
+        # Apply replacements
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+            
+        # Fix common OCR spacing issues
+        text = re.sub(r'(\d)\s*-\s*(\d)', r'\1-\2', text)  # Fix phone numbers
+        text = re.sub(r'(\d)\s*/\s*(\d)', r'\1/\2', text)  # Fix dates
+        text = re.sub(r'(\w)\s*:\s*(\w)', r'\1: \2', text)  # Fix colons
+        text = re.sub(r'(\w)\s*,\s*(\w)', r'\1, \2', text)  # Fix commas
+        
+        # Fix extra spaces in names (e.g., "A lb e rt" -> "Albert")
+        text = re.sub(r'([A-Za-z])\s+([A-Za-z])', r'\1\2', text)
+        
+        # Remove any remaining non-printable characters
+        text = ''.join(char for char in text if char.isprintable())
+        
+        return text
 
     def _split_text_into_chunks(self, text: str) -> List[str]:
         """Split text into chunks of maximum size with improved handling."""
@@ -228,7 +287,7 @@ class OllamaProcessor:
             return None
 
     def _process_file(self, file_path: Path) -> Optional[Dict[str, Any]]:
-        """Process a single file and extract information using Ollama with improved parallel processing."""
+        """Process a single file and extract information using Ollama."""
         try:
             self.logger.info(f"Processing file: {file_path}")
             
@@ -237,34 +296,25 @@ class OllamaProcessor:
             if not text:
                 return None
                 
-            # Split text into chunks
-            chunks = self._split_text_into_chunks(text)
-            self.logger.info(f"Split text into {len(chunks)} chunks")
-            self.logger.debug(f"Chunk sizes: {[len(chunk) for chunk in chunks]}")
-            
-            # Process chunks in parallel using ThreadPoolExecutor
-            all_data = {}
-            max_workers = min(4, len(chunks))  # Limit parallel processing
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                # Submit all chunk processing tasks
-                future_to_chunk = {
-                    executor.submit(self._process_chunk, chunk): i 
-                    for i, chunk in enumerate(chunks)
-                }
+            # Process the entire text directly
+            try:
+                # Create prompt for the text
+                prompt = self._create_prompt(text)
                 
-                # Process results as they complete
-                for future in as_completed(future_to_chunk):
-                    try:
-                        chunk_data = future.result(timeout=self.base_timeout)
-                        if chunk_data:
-                            all_data = self._merge_chunk_data(all_data, chunk_data)
-                    except TimeoutError:
-                        self.logger.error(f"Chunk processing timed out after {self.base_timeout} seconds")
-                    except Exception as e:
-                        self.logger.error(f"Error processing chunk: {str(e)}")
-                        
-            return all_data
-            
+                # Make request to Ollama
+                response = self._make_ollama_request(prompt)
+                
+                # Parse and validate response
+                result = self._parse_ollama_response(response)
+                if result:
+                    return result
+                    
+                return None
+                
+            except Exception as e:
+                self.logger.error(f"Error processing text: {str(e)}")
+                return None
+                
         except Exception as e:
             self.logger.error(f"Error processing file: {str(e)}")
             return None
@@ -278,35 +328,19 @@ class OllamaProcessor:
         for attempt in range(max_retries):
             try:
                 current_timeout = base_timeout * (2 ** attempt)  # Exponential backoff
-                # Create a system message to guide the model
-                system_message = """You are a precise information extraction assistant. Your task is to extract ONLY personal information from text. You must:
-1. Extract ONLY information that is EXPLICITLY stated in the text
-2. DO NOT make assumptions or inferences
-3. DO NOT combine or modify information
-4. Use null for any information not explicitly found
-5. Return a complete, valid JSON object
-6. Follow the exact structure provided
-7. Never add explanations or markdown
-8. Never add fields not in the structure
-9. Never include monetary amounts, policy numbers, dates, or status information
-10. If you are not 100% certain about any information, use null
-11. For names, extract ONLY the actual name as written in the text, do not add titles or prefixes
-12. For names, do not combine or modify parts of the name
-13. For names, if you see a full name like 'Martin Amaran', use exactly that, do not add or remove parts"""
                 response = session.post(
                     f"{self.base_url}/api/generate",
                     json={
                         "model": model_to_use,
-                        "prompt": f"{system_message}\n\n{prompt}",
+                        "prompt": prompt,
                         "stream": False,
                         "options": {
-                            "temperature": 0.0,  # Zero temperature for deterministic output
-                            "top_k": 1,  # Only most likely token
-                            "top_p": 0.1,  # Very focused sampling
+                            "temperature": 0.7,  # More balanced temperature
+                            "top_k": 40,  # Consider more tokens
+                            "top_p": 0.9,  # Less restrictive sampling
                             "repeat_penalty": 1.1,
-                            "num_ctx": 4096,  # Reduced context window
-                            "num_predict": 1024,  # Reduced response length
-                            "stop": ["}"],  # Stop at JSON object completion
+                            "num_ctx": 4096,
+                            "num_predict": 2048,  # Increased response length
                         }
                     },
                     timeout=current_timeout
@@ -379,7 +413,25 @@ class OllamaProcessor:
 
     def _create_prompt(self, text: str) -> str:
         """Create a prompt for Ollama to extract personal and spouse/joint owner information."""
-        prompt = """You are an expert at extracting structured data from life insurance application forms. Extract the following information as a valid JSON object. If the application is joint, or if there is a spouse, co-applicant, joint owner, secondary applicant, or similar, extract their information as well. If you see any of these labels (case-insensitive): 'Spouse', 'Co-Applicant', 'Joint Applicant', 'Secondary Applicant', 'Additional Applicant', 'JOINT OWNER', 'Joint Owner', treat them as referring to the spouse/joint owner. If you are not 100% certain about any field, return null for that field. If there is no spouse/joint owner information, return null for all spouse fields. Do not infer or guess. Only extract what is explicitly present in the text. Output only valid JSON.
+        prompt = """You are an expert at extracting structured data from life insurance application forms. Your task is to extract information and return it as a valid JSON object. Follow these rules EXACTLY:
+
+1. Your response MUST be a complete, valid JSON object
+2. Every opening brace { must have a matching closing brace }
+3. Every opening bracket [ must have a matching closing bracket ]
+4. Every field must be followed by a comma except the last field in an object
+5. The entire response must be wrapped in a single JSON object
+6. Do not output partial or incomplete JSON
+7. Make sure all strings are properly quoted with double quotes
+8. Make sure all null values are lowercase 'null' without quotes
+9. Do not add any explanatory text before or after the JSON
+10. Do not use markdown formatting
+11. Do not add any comments or notes
+
+
+
+If the application is joint, or if there is a spouse, co-applicant, joint owner, secondary applicant, or similar, extract their information as well. If you see any of these labels (case-insensitive): 'Spouse', 'Co-Applicant', 'Joint Applicant', 'Secondary Applicant', 'Additional Applicant', 'JOINT OWNER', 'Joint Owner', treat them as referring to the spouse/joint owner.
+
+If you are not 100% certain about any field, return null for that field. If there is no spouse/joint owner information, return null for all spouse fields. Do not infer or guess. Only extract what is explicitly present in the text.
 
 Fields to extract:
 primaryApplicant: { fullName, address: {street, city, state, zip}, email, phone }
@@ -389,13 +441,23 @@ Example output for a joint application:
 {
   "primaryApplicant": {
     "fullName": "John Smith",
-    "address": {"street": "123 Main St", "city": "Miami", "state": "FL", "zip": "33101"},
+    "address": {
+      "street": "123 Main St",
+      "city": "Miami",
+      "state": "FL",
+      "zip": "33101"
+    },
     "email": null,
     "phone": "(305) 555-1234"
   },
   "spouse": {
     "fullName": "Jane Smith",
-    "address": {"street": "123 Main St", "city": "Miami", "state": "FL", "zip": "33101"},
+    "address": {
+      "street": "123 Main St",
+      "city": "Miami",
+      "state": "FL",
+      "zip": "33101"
+    },
     "email": null,
     "phone": "(305) 555-5678"
   }
@@ -403,8 +465,24 @@ Example output for a joint application:
 
 Text to extract from:
 {text}"""
-        self.logger.info(f"Prompt sent to Ollama:\n{prompt}")
-        return prompt
+
+        # Add system message to enforce JSON formatting
+        system_message = """You are a JSON formatter. Your task is to ensure that all responses are valid JSON objects with proper formatting. Follow these rules strictly:
+1. Always output complete JSON objects
+2. Use proper nesting and indentation
+3. Include all required closing braces and brackets
+4. Use commas between fields but not after the last field
+5. Use double quotes for all strings
+6. Use lowercase 'null' for null values
+7. Do not output partial or incomplete JSON
+8. Do not add any explanatory text
+9. Do not use markdown formatting
+10. Do not add any comments or notes"""
+
+        # Create the full prompt with system message
+        full_prompt = f"{system_message}\n\n{prompt}"
+        
+        return full_prompt
 
     def _parse_ollama_response(self, response_text: str) -> Optional[Dict[str, Any]]:
         """Parse the Ollama response into a structured format."""
@@ -412,103 +490,99 @@ Text to extract from:
             # Clean the response text
             cleaned_text = response_text.strip()
             
-            # Remove any markdown formatting
-            if cleaned_text.startswith("```json"):
-                cleaned_text = cleaned_text[7:]
-            if cleaned_text.endswith("```"):
-                cleaned_text = cleaned_text[:-3]
+            # Find the JSON object in the response
+            json_start = cleaned_text.find('{')
+            json_end = cleaned_text.rfind('}') + 1
             
-            # Remove any explanatory text before or after the JSON
-            json_start = cleaned_text.find("{")
-            json_end = cleaned_text.rfind("}") + 1
             if json_start >= 0 and json_end > json_start:
-                cleaned_text = cleaned_text[json_start:json_end]
-            
-            # Check if the JSON is complete
-            if cleaned_text.count("{") != cleaned_text.count("}"):
-                # Try to complete the JSON structure
-                missing_braces = cleaned_text.count("{") - cleaned_text.count("}")
-                cleaned_text = cleaned_text + "}" * missing_braces
-            
-            # Parse the JSON
-            data = json.loads(cleaned_text)
-            
-            # Validate required fields
-            if "primaryApplicant" not in data:
-                self.logger.warning("Missing required field: primaryApplicant")
+                # Extract just the JSON part
+                json_text = cleaned_text[json_start:json_end]
+                
+                # Remove any markdown formatting
+                json_text = json_text.replace('```json', '').replace('```', '')
+                
+                # Parse the JSON
+                data = json.loads(json_text)
+                
+                # Validate required fields
+                if "primaryApplicant" not in data:
+                    self.logger.warning("Missing required field: primaryApplicant")
+                    return None
+                    
+                # Validate primary applicant fields
+                required_fields = ["fullName", "address", "email", "phone"]
+                for field in required_fields:
+                    if field not in data["primaryApplicant"]:
+                        data["primaryApplicant"][field] = None
+                
+                # Validate address fields
+                if "address" not in data["primaryApplicant"]:
+                    data["primaryApplicant"]["address"] = {}
+                
+                address_fields = ["street", "city", "state", "zip"]
+                for field in address_fields:
+                    if field not in data["primaryApplicant"]["address"]:
+                        data["primaryApplicant"]["address"][field] = None
+                
+                # Add spouse if missing
+                if "spouse" not in data:
+                    data["spouse"] = {
+                        "fullName": None,
+                        "address": {
+                            "street": None,
+                            "city": None,
+                            "state": None,
+                            "zip": None
+                        },
+                        "email": None,
+                        "phone": None
+                    }
+                
+                # Normalize field values
+                for person in ["primaryApplicant", "spouse"]:
+                    if person in data:
+                        # Normalize name
+                        if "fullName" in data[person]:
+                            name = data[person]["fullName"]
+                            if name:
+                                # Remove extra spaces and normalize case
+                                name = " ".join(name.split())
+                                data[person]["fullName"] = name
+                        
+                        # Normalize address
+                        if "address" in data[person]:
+                            for field in ["street", "city", "state", "zip"]:
+                                if field in data[person]["address"]:
+                                    value = data[person]["address"][field]
+                                    if value:
+                                        # Clean up address fields
+                                        value = " ".join(value.split())
+                                        if field == "state":
+                                            value = value.upper()
+                                        elif field == "zip":
+                                            value = value.replace("-", "").strip()
+                                        data[person]["address"][field] = value
+                        
+                        # Normalize email
+                        if "email" in data[person]:
+                            email = data[person]["email"]
+                            if email:
+                                email = email.lower().strip()
+                                data[person]["email"] = email
+                        
+                        # Normalize phone
+                        if "phone" in data[person]:
+                            phone = data[person]["phone"]
+                            if phone:
+                                # Remove non-numeric characters except for + at start
+                                phone = re.sub(r'[^\d+]', '', phone)
+                                data[person]["phone"] = phone
+                
+                return data
+            else:
+                self.logger.error("No JSON object found in response")
                 return None
                 
-            # Validate primary applicant fields
-            required_fields = ["fullName", "address", "email", "phone"]
-            for field in required_fields:
-                if field not in data["primaryApplicant"]:
-                    data["primaryApplicant"][field] = None
-            
-            # Validate address fields
-            if "address" not in data["primaryApplicant"]:
-                data["primaryApplicant"]["address"] = {}
-            
-            address_fields = ["street", "city", "state", "zip"]
-            for field in address_fields:
-                if field not in data["primaryApplicant"]["address"]:
-                    data["primaryApplicant"]["address"][field] = None
-            
-            # Add spouse if missing
-            if "spouse" not in data:
-                data["spouse"] = {
-                    "fullName": None,
-                    "address": {
-                        "street": None,
-                        "city": None,
-                        "state": None,
-                        "zip": None
-                    },
-                    "email": None,
-                    "phone": None
-                }
-            
-            # Normalize field values
-            for person in ["primaryApplicant", "spouse"]:
-                if person in data:
-                    # Normalize name
-                    if "fullName" in data[person]:
-                        name = data[person]["fullName"]
-                        if name:
-                            # Remove extra spaces and normalize case
-                            name = " ".join(name.split())
-                            data[person]["fullName"] = name
-                    
-                    # Normalize address
-                    if "address" in data[person]:
-                        for field in ["street", "city", "state", "zip"]:
-                            if field in data[person]["address"]:
-                                value = data[person]["address"][field]
-                                if value:
-                                    # Clean up address fields
-                                    value = " ".join(value.split())
-                                    if field == "state":
-                                        value = value.upper()
-                                    elif field == "zip":
-                                        value = value.replace("-", "").strip()
-                                    data[person]["address"][field] = value
-                    
-                    # Normalize email
-                    if "email" in data[person]:
-                        email = data[person]["email"]
-                        if email:
-                            email = email.lower().strip()
-                            data[person]["email"] = email
-                    
-                    # Normalize phone
-                    if "phone" in data[person]:
-                        phone = data[person]["phone"]
-                        if phone:
-                            # Remove non-numeric characters except for + at start
-                            phone = re.sub(r'[^\d+]', '', phone)
-                            data[person]["phone"] = phone
-            
-            return data
-            
         except json.JSONDecodeError as e:
             self.logger.error(f"Error parsing JSON response: {str(e)}")
             return None
@@ -627,6 +701,7 @@ Text to extract from:
             for chunk in chunks:
                 try:
                     chunk_result_raw = self._make_ollama_request(self._create_prompt(chunk))
+                    self.logger.info(f"CAROLINA Chunk result raw: {chunk_result_raw}")
                     chunk_result = json.loads(chunk_result_raw)
                 except Exception as e:
                     self.logger.error(f"Failed to parse owner JSON: {e}\nRaw: {chunk_result_raw if 'chunk_result_raw' in locals() else ''}")
