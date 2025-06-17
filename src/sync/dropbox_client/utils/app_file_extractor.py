@@ -100,7 +100,7 @@ class AppFileExtractor:
             summary_data['processed_folders'].add(folder_path)
 
             # Convert sets to lists before JSON serialization
-            serializable_summary = {
+            app_file_info_summary = {
                 'total_app_files': summary_data['total_app_files'],
                 'processed_folders': list(summary_data['processed_folders']),
                 'files_with_birthdate': list(summary_data['files_with_birthdate']),
@@ -111,7 +111,7 @@ class AppFileExtractor:
                 'files_with_name': summary_data['files_with_name']
             }
 
-            logger.info(f"summary_data: {json.dumps(serializable_summary, indent=2, cls=SetEncoder)}")
+            logger.info(f"summary_data: {summary_data}")
 
             # Log the summary for this folder
             folder_app_files = summary_data['all_folder_app_files'].get(folder_path, [])
@@ -122,25 +122,36 @@ class AppFileExtractor:
                     # Log any additional information found in the file
                     if file.path_display in summary_data.get('file_info', {}):
                         info = summary_data['file_info'][file.path_display]
-                        if info.get('name'):
-                            logger.info(f"    👤 Name: {info['name']}")
-                        if info.get('address'):
-                            logger.info(f"    📍 Address: {info['address']}")
-                        if info.get('phone'):
-                            logger.info(f"    📞 Phone: {info['phone']}")
-                        if info.get('email'):
-                            logger.info(f"    ✉️ Email: {info['email']}")
+                        if info.get('firstName') and info.get('lastName'):
+                            logger.info(f"    👤 Name: {info['firstName']} {info['lastName']}")
+                        if info.get('dateOfBirth'):
+                            logger.info(f"    📅 DOB: {info['dateOfBirth']}")
+                        if info.get('gender'):
+                            logger.info(f"    👤 Gender: {info['gender']}")
+                        if info.get('mailingAddressStreet'):
+                            address = f"{info['mailingAddressStreet']}"
+                            if info.get('mailingAddressCity'):
+                                address += f", {info['mailingAddressCity']}"
+                            if info.get('mailingAddressState'):
+                                address += f", {info['mailingAddressState']}"
+                            if info.get('mailingAddressZip'):
+                                address += f" {info['mailingAddressZip']}"
+                            logger.info(f"    📍 Address: {address}")
+                        if info.get('phoneNumber'):
+                            logger.info(f"    📞 Phone: {info['phoneNumber']}")
+                        if info.get('emailAddress'):
+                            logger.info(f"    📧 Email: {info['emailAddress']}")
                         if info.get('application_type'):
                             logger.info(f"    📄 Type: {info['application_type']}")
                         if info.get('status'):
-                            logger.info(f"    📊 Status: {info['status']}")
+                            logger.info(f"    📋 Status: {info['status']}")
             else:
                 if file_filter:
                     logger.info(f"  ❌ No application files found matching filter '{file_filter}' for {folder_path}")
                 else:
                     logger.info(f"  ❌ No application files found for {folder_path}")
 
-            return serializable_summary
+            return app_file_info_summary
 
         except Exception as e:
             logger.error(f"Error extracting app files info: {str(e)}")
@@ -188,24 +199,36 @@ class AppFileExtractor:
             logger.info(f"Initial file info: {json.dumps(file_info, indent=2)}")
 
             # Add owner (primary applicant) information
-            if processor_data.get('owner_name'):
-                file_info['owner_name'] = processor_data['owner_name']
-            if processor_data.get('owner_address'):
-                file_info['owner_address'] = processor_data['owner_address']
-            if processor_data.get('owner_phone'):
-                file_info['owner_phone'] = processor_data['owner_phone']
-            if processor_data.get('owner_email'):
-                file_info['owner_email'] = processor_data['owner_email']
+            if processor_data.get('owner'):
+                owner_data = processor_data['owner']
+                file_info.update({
+                    'firstName': owner_data.get('firstName'),
+                    'lastName': owner_data.get('lastName'),
+                    'dateOfBirth': owner_data.get('dateOfBirth'),
+                    'gender': owner_data.get('gender'),
+                    'mailingAddressStreet': owner_data.get('mailingAddressStreet'),
+                    'mailingAddressCity': owner_data.get('mailingAddressCity'),
+                    'mailingAddressState': owner_data.get('mailingAddressState'),
+                    'mailingAddressZip': owner_data.get('mailingAddressZip'),
+                    'phoneNumber': owner_data.get('phoneNumber'),
+                    'emailAddress': owner_data.get('emailAddress')
+                })
 
-            # Add jointOwner information
-            if processor_data.get('jointOwner_name'):
-                file_info['jointOwner_name'] = processor_data['jointOwner_name']
-            if processor_data.get('jointOwner_address'):
-                file_info['jointOwner_address'] = processor_data['jointOwner_address']
-            if processor_data.get('jointOwner_phone'):
-                file_info['jointOwner_phone'] = processor_data['jointOwner_phone']
-            if processor_data.get('jointOwner_email'):
-                file_info['jointOwner_email'] = processor_data['jointOwner_email']
+            # Add joint owner information if present
+            if processor_data.get('jointOwner'):
+                joint_owner_data = processor_data['jointOwner']
+                file_info.update({
+                    'jointOwner_firstName': joint_owner_data.get('firstName'),
+                    'jointOwner_lastName': joint_owner_data.get('lastName'),
+                    'jointOwner_dateOfBirth': joint_owner_data.get('dateOfBirth'),
+                    'jointOwner_gender': joint_owner_data.get('gender'),
+                    'jointOwner_mailingAddressStreet': joint_owner_data.get('mailingAddressStreet'),
+                    'jointOwner_mailingAddressCity': joint_owner_data.get('mailingAddressCity'),
+                    'jointOwner_mailingAddressState': joint_owner_data.get('mailingAddressState'),
+                    'jointOwner_mailingAddressZip': joint_owner_data.get('mailingAddressZip'),
+                    'jointOwner_phoneNumber': joint_owner_data.get('phoneNumber'),
+                    'jointOwner_emailAddress': joint_owner_data.get('emailAddress')
+                })
 
             # Validate name if we have name parts
             if self.name_parts and 'name' in file_info:
