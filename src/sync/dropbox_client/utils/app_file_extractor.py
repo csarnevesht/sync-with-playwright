@@ -23,6 +23,13 @@ try:
 except ImportError:
     OCR_AVAILABLE = False
 
+class SetEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles sets by converting them to lists."""
+    def default(self, obj):
+        if isinstance(obj, set):
+            return list(obj)
+        return super().default(obj)
+
 class AppFileExtractor:
     def __init__(self, dbx: dropbox.Dropbox):
         self.dbx = dbx
@@ -92,6 +99,20 @@ class AppFileExtractor:
             summary_data['all_folder_app_files'][folder_path] = app_files
             summary_data['processed_folders'].add(folder_path)
 
+            # Convert sets to lists before JSON serialization
+            serializable_summary = {
+                'total_app_files': summary_data['total_app_files'],
+                'processed_folders': list(summary_data['processed_folders']),
+                'files_with_birthdate': list(summary_data['files_with_birthdate']),
+                'file_birthdates': summary_data['file_birthdates'],
+                'file_sexes': summary_data['file_sexes'],
+                'file_info': summary_data['file_info'],
+                'all_folder_app_files': summary_data['all_folder_app_files'],
+                'files_with_name': summary_data['files_with_name']
+            }
+
+            logger.info(f"summary_data: {json.dumps(serializable_summary, indent=2, cls=SetEncoder)}")
+
             # Log the summary for this folder
             folder_app_files = summary_data['all_folder_app_files'].get(folder_path, [])
             if folder_app_files:
@@ -119,7 +140,7 @@ class AppFileExtractor:
                 else:
                     logger.info(f"  ❌ No application files found for {folder_path}")
 
-            return summary_data
+            return serializable_summary
 
         except Exception as e:
             logger.error(f"Error extracting app files info: {str(e)}")

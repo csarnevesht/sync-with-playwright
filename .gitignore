@@ -59,3 +59,5 @@ supabase
 debug_**
 ollama_request_**
 lm_studio_request_**
+lmstudioprocessor_request**
+
