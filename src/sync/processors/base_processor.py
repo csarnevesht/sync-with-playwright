@@ -336,24 +336,23 @@ class BaseProcessor(ABC):
             if is_joint_application:
                 joint_owner_info = self._process_joint_owner(text)
                 result["jointOwner"] = joint_owner_info
-                return result
-            else:
-                # For non-joint applications, only return owner info
-                return result
+            
+            return result
                 
         except Exception as e:
             self.logger.error(f"Error processing text: {str(e)}")
             return {
                 "owner": {
-                    'fullName': None,
-                    'address': {
-                        'street': None,
-                        'city': None,
-                        'state': None,
-                        'zip': None
-                    },
-                    'phone': None,
-                    'email': None
+                    'firstName': None,
+                    'lastName': None,
+                    'dateOfBirth': None,
+                    'gender': None,
+                    'mailingAddressStreet': None,
+                    'mailingAddressCity': None,
+                    'mailingAddressState': None,
+                    'mailingAddressZip': None,
+                    'phoneNumber': None,
+                    'emailAddress': None
                 }
             }
 

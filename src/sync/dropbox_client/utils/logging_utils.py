@@ -34,7 +34,6 @@ def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None)
     """
     log = logger_instance or logger
 
-    # print(f"info: {info}")
     # Owner information
     if info.get('owner'):
         owner_data = info['owner']
@@ -81,12 +80,41 @@ def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None)
         if joint_owner_data.get('emailAddress'):
             log.info(f"    📧 Joint Owner Email: {joint_owner_data['emailAddress']}")
             
-    data_info_not_empty = owner_data.get('firstName') and owner_data.get('lastName') and owner_data.get('dateOfBirth') and owner_data.get('gender') and owner_data.get('mailingAddressStreet') and owner_data.get('mailingAddressCity') and owner_data.get('mailingAddressState') and owner_data.get('mailingAddressZip') and owner_data.get('phoneNumber') and owner_data.get('emailAddress')
-    joint_owner_data_info_not_empty = joint_owner_data.get('firstName') and joint_owner_data.get('lastName') and joint_owner_data.get('dateOfBirth') and joint_owner_data.get('gender') and joint_owner_data.get('mailingAddressStreet') and joint_owner_data.get('mailingAddressCity') and joint_owner_data.get('mailingAddressState') and joint_owner_data.get('mailingAddressZip') and joint_owner_data.get('phoneNumber') and joint_owner_data.get('emailAddress')
-  
+    # Check for complete information
+    owner_data = info.get('owner', {})
+    joint_owner_data = info.get('jointOwner', {})
+    
+    data_info_not_empty = (
+        owner_data.get('firstName') and 
+        owner_data.get('lastName') and 
+        owner_data.get('dateOfBirth') and 
+        owner_data.get('gender') and 
+        owner_data.get('mailingAddressStreet') and 
+        owner_data.get('mailingAddressCity') and 
+        owner_data.get('mailingAddressState') and 
+        owner_data.get('mailingAddressZip') and 
+        owner_data.get('phoneNumber') and 
+        owner_data.get('emailAddress')
+    )
+    
+    joint_owner_data_info_not_empty = (
+        joint_owner_data.get('firstName') and 
+        joint_owner_data.get('lastName') and 
+        joint_owner_data.get('dateOfBirth') and 
+        joint_owner_data.get('gender') and 
+        joint_owner_data.get('mailingAddressStreet') and 
+        joint_owner_data.get('mailingAddressCity') and 
+        joint_owner_data.get('mailingAddressState') and 
+        joint_owner_data.get('mailingAddressZip') and 
+        joint_owner_data.get('phoneNumber') and 
+        joint_owner_data.get('emailAddress')
+    )
     
     if not data_info_not_empty:
-        log.info(f"    ❌ Unable to extract complete owner or joint owner information")
+        log.info(f"    ❌ Unable to extract complete owner information")
+    
+    if info.get('jointOwner') and not joint_owner_data_info_not_empty:
+        log.info(f"    ❌ Unable to extract complete joint owner information")
     
     # Check for missing information
     missing_info = []
