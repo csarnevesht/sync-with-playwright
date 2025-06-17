@@ -149,8 +149,6 @@ class AppFileExtractor:
             
             # Extract text from PDF
             extracted_text = ollama_processor._extract_text_from_file(temp_path)
-            # logger.info(f"Extracted text for Ollama: {extracted_text[:500]}")
-            # Process with Ollama using process_text (full jointOwner logic)
             ollama_data = ollama_processor.process_text(extracted_text)
             logger.info(f"Ollama extraction results: {json.dumps(ollama_data, indent=2)}")
             
