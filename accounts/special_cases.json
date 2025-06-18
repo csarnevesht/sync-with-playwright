@@ -462,13 +462,26 @@
             "expected_dropbox_matches": []
         },
         {
-            "folder_name": "Whitfield, Paul  daughter Musibay",
+            "folder_name": "Whitfield, Paul daughter Musibay",
             "last_name": "Whitfield",
             "first_name": "Paul",
-            "additional_info": "daughter Musibay",
-            "expected_salesforce_matches": [],
+            "additional_info": "Karen Werner Whitfield, DCD, FBO Brenda Musibay Beneficiary",
+            "expected_salesforce_matches": [
+                "Karen Werner Whitfield, DCD, FBO Brenda Musibay Beneficiary"
+            ],
             "expected_dropbox_matches": [
                 "Musibay Family"
+            ],
+            "account_info": {
+                "name": "Brenda Musibay",
+                "first_name": "Brenda",
+                "last_name": "Musibay",
+                "gender": "Female",
+                "birthdate": "07/26/1965",
+                "additional_info": "Karen Werner Whitfield, DCD, FBO Brenda Musibay Beneficiary"
+            },
+            "skip_commands": [
+                "extract-dropbox-account-app-files-info"
             ]
         },
         {
