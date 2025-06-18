@@ -38,7 +38,7 @@ class LMStudioProcessor(BaseProcessor):
             self.logger.error("Please ensure the LM Studio server is running at http://localhost:1234")
             raise
 
-    def _truncate_prompt_for_context(self, prompt: str, max_tokens: int = 4000) -> str:
+    def _truncate_prompt_for_context(self, prompt: str, max_tokens: int = 3500) -> str:
         """Truncate prompt to fit within model's context window."""
         # Rough estimate: 1 token ≈ 4 characters
         max_chars = max_tokens * 4
