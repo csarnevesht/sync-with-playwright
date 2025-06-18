@@ -142,4 +142,10 @@ def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None)
         for msg in missing_info:
             log.warning(f"    {msg}")
     
+    # Log notes if present
+    if info.get('notes') and isinstance(info['notes'], list):
+        log.info("    📝 Notes:")
+        for note in info['notes']:
+            log.info(f"      • {note}")
+    
     log.info("")  # Add blank line between files 

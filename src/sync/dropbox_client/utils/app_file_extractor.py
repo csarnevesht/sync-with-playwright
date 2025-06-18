@@ -183,6 +183,7 @@ class AppFileExtractor:
 
             # Check for special case: force TrOCR for handwritten files
             force_trocr = False
+            ocr_attempted = False
             try:
                 with open('accounts/special_cases.json', 'r') as f:
                     special_cases = json.load(f)
@@ -207,11 +208,15 @@ class AppFileExtractor:
             ocr_owner_data = None
             ocr_avg_conf = None
             ocr_method = None
+            special_case_applied = False
+            
             if not extracted_text or len(extracted_text.strip()) == 0:
                 logger.warning(f"No text could be extracted from file: {file.name}")
                 if force_trocr:
                     # Only run TrOCR
                     logger.info(f"[OCR] Running TrOCR only due to special_cases directive.")
+                    special_case_applied = True
+                    ocr_attempted = True
                     from pdf2image import convert_from_path
                     images = convert_from_path(temp_path, dpi=300)
                     images = images[:5]
@@ -238,6 +243,7 @@ class AppFileExtractor:
                 else:
                     # Hybrid: EasyOCR first, fallback to TrOCR if needed
                     logger.info(f"Trying EasyOCR extraction for name fields")
+                    ocr_attempted = True
                     ocr_result = extract_name_with_ocr_with_conf(temp_path, name_parts=self.name_parts, file_name=file.name, logger=logger)
                     if ocr_result:
                         ocr_owner_data = ocr_result.get('owner_data')
@@ -246,6 +252,7 @@ class AppFileExtractor:
                         if ocr_avg_conf is not None:
                             if ocr_avg_conf < 60 or not ocr_owner_data or not ocr_owner_data.get('first_name') or not ocr_owner_data.get('last_name'):
                                 logger.info(f"[OCR] EasyOCR confidence low or no valid name found, trying TrOCR for handwritten text.")
+                                ocr_attempted = True
                                 images = convert_from_path(temp_path, dpi=300)
                                 images = images[:5]
                                 trocr_texts = []
@@ -268,6 +275,7 @@ class AppFileExtractor:
                             ocr_method = 'EasyOCR'
                     else:
                         logger.warning(f"[OCR] No owner data could be extracted from file: {file.name}")
+                        ocr_attempted = True
                         images = convert_from_path(temp_path, dpi=300)
                         images = images[:5]
                         trocr_texts = []
@@ -301,7 +309,8 @@ class AppFileExtractor:
                 'application_type': self._determine_application_type(file.name),
                 'status': 'Processed',
                 'owner': {},
-                'jointOwner': {}
+                'jointOwner': {},
+                'notes': []
             }
             logger.info(f"Initial file info: {json.dumps(file_info, indent=2)}")
 
@@ -335,6 +344,24 @@ class AppFileExtractor:
                     'emailAddress': None,
                     'ocrMethod': ocr_method
                 }
+                
+                # Add note about OCR usage
+                if ocr_method:
+                    file_info['notes'].append(f"Used {ocr_method} for text extraction")
+                    
+                # Add note about handwritten detection
+                if force_trocr:
+                    file_info['notes'].append("Detected as handwritten file (forced TrOCR processing)")
+                    if special_case_applied:
+                        file_info['notes'].append("Special case processing applied (from special_cases.json)")
+                elif ocr_method == 'TrOCR':
+                    file_info['notes'].append("Detected as handwritten file (TrOCR used)")
+                    
+                # Add OCR confidence information if available
+                if ocr_avg_conf is not None:
+                    file_info['notes'].append(f"OCR confidence: {ocr_avg_conf:.1f}%")
+                    if ocr_avg_conf < 60:
+                        file_info['notes'].append("Low OCR confidence detected")
 
             # Add joint owner information if present
             if processor_data and processor_data.get('jointOwner'):
@@ -351,6 +378,9 @@ class AppFileExtractor:
                     'phoneNumber': joint_owner_data.get('phoneNumber'),
                     'emailAddress': joint_owner_data.get('emailAddress')
                 }
+                
+                # Add note about joint owner presence
+                file_info['notes'].append("Joint owner information detected")
 
             # Validate name if we have name parts
             if self.name_parts and file_info['owner'].get('firstName') and file_info['owner'].get('lastName'):
@@ -358,8 +388,41 @@ class AppFileExtractor:
                     logger.warning(f"Name validation failed for {file_info['owner']['firstName']} {file_info['owner']['lastName']}")
                     file_info['owner']['firstName'] = None
                     file_info['owner']['lastName'] = None
+                    file_info['notes'].append("Name validation failed against expected name parts")
                 else:
                     logger.info(f"Name validation passed for {file_info['owner']['firstName']} {file_info['owner']['lastName']}")
+                    file_info['notes'].append("Name validation passed against expected name parts")
+
+            # Add notes about data completeness
+            if not processor_data and not ocr_owner_data:
+                file_info['notes'].append("No data could be extracted from file")
+            elif not processor_data and ocr_owner_data:
+                file_info['notes'].append("Only OCR data available - no structured data extracted")
+            elif processor_data and not processor_data.get('owner') and not processor_data.get('jointOwner'):
+                file_info['notes'].append("Processor ran but no owner/joint owner data found")
+            elif processor_data and (
+                (processor_data.get('owner') and all([
+                    processor_data['owner'].get('firstName'),
+                    processor_data['owner'].get('lastName'),
+                    processor_data['owner'].get('dateOfBirth'),
+                    processor_data['owner'].get('gender')
+                ])) or
+                (processor_data.get('jointOwner') and all([
+                    processor_data['jointOwner'].get('firstName'),
+                    processor_data['jointOwner'].get('lastName'),
+                    processor_data['jointOwner'].get('dateOfBirth'),
+                    processor_data['jointOwner'].get('gender')
+                ]))
+            ):
+                file_info['notes'].append("Successfully extracted structured data using Qwen2-VL processor")
+
+            # Add note about application type detection
+            app_type = file_info['application_type']
+            if app_type != 'Unknown':
+                file_info['notes'].append(f"Application type detected: {app_type}")
+
+            if ocr_attempted and not any('OCR' in note for note in file_info['notes']):
+                file_info['notes'].append("OCR extraction attempted but no valid name found")
 
             logger.info(f"Final extracted file info: {json.dumps(file_info, indent=2)}")
             return file_info
