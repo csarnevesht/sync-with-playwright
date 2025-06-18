@@ -20,7 +20,7 @@ import time
 
 from sync.dropbox_client.utils.dropbox_utils import get_renamed_path, list_dropbox_folder_contents
 from sync.dropbox_client.utils.file_utils import log_renamed_file
-from sync.dropbox_client.utils.logging_utils import log_dropbox_app_file_info
+from sync.dropbox_client.utils.logging_utils import log_dropbox_app_file_info, log_best_dropbox_account_info_from_app_files, log_app_files_notes_summary, log_app_files_processing_summary
 from sync.salesforce_client.utils.file_upload import upload_account_file, upload_account_file_with_retries
 
 class CommandRunner:
@@ -222,7 +222,6 @@ class CommandRunner:
             'download-salesforce-account-file': self._download_salesforce_account_file,
             'delete-salesforce-account-files': self._delete_salesforce_account_files,
             'force-delete-salesforce-account-files': self._force_delete_salesforce_account_files,
-            'extract-dropbox-account-app-files-dob-gender': self._extract_dropbox_account_app_files_dob_gender,
             'extract-dropbox-account-app-files-info': self._handle_extract_dropbox_account_app_files_info,
             'store-in-supabase': self._store_in_supabase,
             'search-supabase': self._search_supabase,
@@ -606,57 +605,6 @@ class CommandRunner:
         self.report_logger.info("\n=== FORCE DELETING SALESFORCE ACCOUNT FILES ===")
         self._delete_salesforce_account_files(force=True)
 
-    def _extract_dropbox_account_app_files_dob_gender(self) -> None:
-        """Get Dropbox Account information from all the application files in each Dropbox account folder.
-           Currently only gets the DOB and gender from the application files.
-        """
-        self.logger.info("Starting extract-dropbox-account-app-files-dob-gender operation")
-        self.report_logger.info("\n=== GETTING DROPBOX APPLICATION INFORMATION ===")
-        
-        try:
-            # Get required context
-            dropbox_client = self.get_context('dropbox_client')
-            dropbox_root_folder = self.get_context('dropbox_root_folder')
-            dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
-            logging.info(f"dropbox_account_folder_name: {dropbox_account_folder_name}")
-
-            # Construct folder path
-            folder_path = f"/{dropbox_root_folder}/{dropbox_account_folder_name}"
-            folder_path = folder_path.replace('//', '/')
-            
-            # Extract only birthdate and gender information
-            summary_data = dropbox_client.extract_app_files_info(folder_path, extract_fields={'birthdate', 'gender'})
-            
-            # Log the summary for this folder
-            folder_app_files = summary_data['all_folder_app_files'].get(folder_path, [])
-            files_with_birthdate_in_folder = [file for file in folder_app_files if file.path_display in summary_data['files_with_birthdate']]
-            
-            self.summary_logger.info(f"\nDropbox Account Folder: {dropbox_account_folder_name}")
-            if files_with_birthdate_in_folder:
-                for file in files_with_birthdate_in_folder:
-                    birthdate = summary_data['file_birthdates'].get(file.path_display, '')
-                    sex = summary_data['file_sexes'].get(file.path_display, '')
-                    if sex:
-                        if sex.upper().startswith('F'):
-                            sex_icon = '👩'
-                        elif sex.upper().startswith('M'):
-                            sex_icon = '👨'
-                        else:
-                            sex_icon = ''
-                        sex_str = f", ☑️ {sex_icon} {sex}"
-                    else:
-                        sex_str = ", ❌ F/M"
-                    self.summary_logger.info(f"  ✅🎂 {file.name} [{birthdate}{sex_str}]")
-            else:
-                self.summary_logger.info(f"  ❌ No application files found for {dropbox_account_folder_name}")
-
-            self.logger.info("\nSuccessfully completed extract-dropbox-account-app-files-dob-gender operation")
-            
-        except Exception as e:
-            error_msg = f"Error in extract-dropbox-account-app-files-dob-gender operation: {str(e)}"
-            self.logger.error(error_msg)
-            raise
-
     def _handle_extract_dropbox_account_app_files_info(self) -> None:
         """Handle the extract-dropbox-account-app-files-info command."""
         self.logger.info("Executing command handler: extract-dropbox-account-app-files-info")
@@ -723,73 +671,303 @@ class CommandRunner:
         
         try:
             # Get Dropbox client and folder names from context
-            dropbox_client = self._context.get('dropbox_client')
-            dropbox_root_folder = self._context.get('dropbox_root_folder')
-            if not dropbox_client:
-                raise ValueError("Dropbox client not found in context")
+            dropbox_client = self.get_context('dropbox_client')
+            dropbox_root_folder = self.get_context('dropbox_root_folder')
             
             # Construct folder path
-            folder_path = f"{dropbox_root_folder}/{dropbox_account_folder_name}"
+            folder_path = f"/{dropbox_root_folder}/{dropbox_account_folder_name}"
             folder_path = folder_path.replace('//', '/')
             
-            # Get list of files in the folder
-            list_start = time.time()
-            from sync.dropbox_client.utils.dropbox_utils import list_dropbox_folder_contents
-            files = list_dropbox_folder_contents(dropbox_client.dbx, folder_path)
-            files = [f for f in files if isinstance(f, dropbox.files.FileMetadata)]
-            list_time = time.time() - list_start
-            self.logger.info(f"Time to list files: {list_time:.2f} seconds")
-            
-            # Filter files if file_filter is provided
-            if file_filter:
-                files = [f for f in files if fnmatch.fnmatch(f.name, file_filter)]
-                self.logger.info(f"\nFound {len(files)} files matching filter '{file_filter}' in {folder_path}:")
-                for file in files:
-                    self.logger.info(f"  ✅ {file.name}")
-            
-            # Extract all fields except birthdate and gender
+            # First pass: Extract all fields except birthdate and gender, skipping 0-length files
             extract_start = time.time()
+            
+            # Always skip zero-length files during initial processing
             summary_data = dropbox_client.extract_app_files_info(
                 folder_path, 
                 extract_fields={'name', 'address'}, 
-                file_filter=file_filter
+                file_filter=file_filter,
+                skip_zero_length_if_account_info_exists=True,  # Always skip 0-length files initially
+                report_logger=self.report_logger
             )
             extract_time = time.time() - extract_start
-            self.logger.info(f"Time to extract information: {extract_time:.2f} seconds")
+            self.logger.info(f"Extraction completed in {extract_time:.2f} seconds")
             
-            # Log the extracted information
-            if summary_data and 'file_info' in summary_data:
-                filter_text = f" matching File Filter: {file_filter}" if file_filter else ""
-                self.summary_logger.info(f"\nDropbox Account Application File Information for Folder{filter_text}: {dropbox_account_folder_name}")
-                for file in files:
-                    if file.path_display in summary_data['file_info']:
-                        info = summary_data['file_info'][file.path_display]
-                        self.summary_logger.info(f"  ✅ {file.name}")
-                        log_dropbox_app_file_info(info, self.summary_logger)
-            else:
-                if file_filter:
-                    self.summary_logger.info(f"  ❌ No application files found matching filter '{file_filter}' for {dropbox_account_folder_name}")
+            # Log if we skipped any zero-length files
+            if summary_data and 'skipped_zero_length_files' in summary_data and summary_data['skipped_zero_length_files'] > 0:
+                self.logger.info(f"Skipped {summary_data['skipped_zero_length_files']} zero-length files during initial processing")
+                self.report_logger.info(f"Skipped {summary_data['skipped_zero_length_files']} zero-length files during initial processing")
+            
+            # Store the aggregated account info from app files
+            if summary_data:
+                # Get the list of files that were processed
+                # The app file extractor returns files in all_folder_app_files
+                folder_path_key = folder_path
+                files = summary_data.get('all_folder_app_files', {}).get(folder_path_key, [])
+                
+                # Aggregate the account info
+                aggregated_info = self._aggregate_account_info_from_app_files(summary_data, files)
+                
+                # Store the aggregated info
+                self.set_data('account_info_from_app_files', aggregated_info)
+                
+                # Log the results
+                self.logger.info(f"✅ Successfully extracted information from {len(files)} application files")
+                self.logger.info(f"Files with complete info: {aggregated_info.get('files_with_complete_info', 0)}")
+                self.logger.info(f"Files with partial info: {aggregated_info.get('files_with_partial_info', 0)}")
+                self.logger.info(f"Files with no info: {aggregated_info.get('files_with_no_info', 0)}")
+                
+                # Log the best guess account info
+                best_info = aggregated_info.get('best_available_info', {})
+                log_best_dropbox_account_info_from_app_files(
+                    best_info, 
+                    self.logger, 
+                    self.report_logger, 
+                    "BEST ACCOUNT INFO FROM APP FILES"
+                )
+                
+                # Log detailed notes for each app file
+                if summary_data and 'file_info' in summary_data:
+                    log_app_files_processing_summary(
+                        summary_data,
+                        self.logger,
+                        self.report_logger
+                    )
+                
+                # Check if we have complete account info from app files
+                has_complete_account_info = aggregated_info.get('has_complete_account_info', False)
+                
+                if has_complete_account_info:
+                    self.logger.info("✅ Complete account information found from app files")
+                    self.report_logger.info("✅ Complete account information found from app files")
                 else:
-                    self.summary_logger.info(f"  ❌ No application files found for {dropbox_account_folder_name}")
-            
-            # Log timing information
-            total_time = time.time() - start_time
-            self.logger.info("\n=== TIMING INFORMATION ===")
-            self.logger.info(f"Total processing time: {total_time:.2f} seconds")
-            self.logger.info(f"Time to list files: {list_time:.2f} seconds")
-            self.logger.info(f"Time to extract information: {extract_time:.2f} seconds")
-            
-            # Log detailed timing information from the extractor if available
-            if summary_data and 'timing_info' in summary_data:
-                self.logger.info("\nDetailed timing information from extractor:")
-                for operation, duration in summary_data['timing_info']['operations'].items():
-                    self.logger.info(f"{operation}: {duration:.2f} seconds")
-            
-            self.logger.info("\nSuccessfully completed extract-dropbox-account-app-files-info operation")
-            
+                    self.logger.info("⚠️ Incomplete account information from app files")
+                    self.report_logger.info("⚠️ Incomplete account information from app files")
+                    
+                    # If we don't have complete account info, process the 0-length files
+                    if summary_data and 'skipped_zero_length_files' in summary_data and summary_data['skipped_zero_length_files'] > 0:
+                        self.logger.info(f"Processing {summary_data['skipped_zero_length_files']} zero-length files to try to get complete account info")
+                        self.report_logger.info(f"Processing {summary_data['skipped_zero_length_files']} zero-length files to try to get complete account info")
+                        
+                        # Second pass: Process 0-length files to try to get complete account info
+                        zero_length_summary = dropbox_client.extract_app_files_info(
+                            folder_path, 
+                            extract_fields={'name', 'address'}, 
+                            file_filter=file_filter,
+                            skip_zero_length_if_account_info_exists=False,  # Process 0-length files
+                            report_logger=self.report_logger
+                        )
+                        
+                        if zero_length_summary:
+                            # Get the additional files that were processed
+                            additional_files = zero_length_summary.get('files', [])
+                            
+                            # Combine the results
+                            combined_files = files + additional_files
+                            combined_summary = {
+                                'files': combined_files,
+                                'extracted_info': summary_data.get('extracted_info', []) + zero_length_summary.get('extracted_info', []),
+                                'total_files_processed': len(combined_files),
+                                'skipped_zero_length_files': 0  # All files processed now
+                            }
+                            
+                            # Re-aggregate with all files
+                            updated_aggregated_info = self._aggregate_account_info_from_app_files(combined_summary, combined_files)
+                            
+                            # Update the stored info
+                            self.set_data('account_info_from_app_files', updated_aggregated_info)
+                            
+                            # Log the updated results
+                            self.logger.info(f"✅ After processing zero-length files: {len(combined_files)} total files processed")
+                            self.logger.info(f"Files with complete info: {updated_aggregated_info.get('files_with_complete_info', 0)}")
+                            self.logger.info(f"Files with partial info: {updated_aggregated_info.get('files_with_partial_info', 0)}")
+                            self.logger.info(f"Files with no info: {updated_aggregated_info.get('files_with_no_info', 0)}")
+                            
+                            if updated_aggregated_info.get('has_complete_account_info', False):
+                                self.logger.info("✅ Complete account information now found after processing zero-length files")
+                                self.report_logger.info("✅ Complete account information now found after processing zero-length files")
+                            else:
+                                self.logger.info("⚠️ Still incomplete account information after processing zero-length files")
+                                self.report_logger.info("⚠️ Still incomplete account information after processing zero-length files")
+                
+                # Store the summary data for reporting
+                self.set_data('app_files_extraction_summary', summary_data)
+                
+            else:
+                self.logger.warning("❌ No summary data returned from app files extraction")
+                self.report_logger.warning("❌ No summary data returned from app files extraction")
+                
         except Exception as e:
-            self.logger.error(f"Error extracting app files info: {str(e)}")
+            self.logger.error(f"❌ Error extracting app files info: {str(e)}")
+            self.report_logger.error(f"❌ Error extracting app files info: {str(e)}")
             raise
+        
+        total_time = time.time() - start_time
+        self.logger.info(f"=== APP FILES EXTRACTION COMPLETED IN {total_time:.2f} SECONDS ===")
+        self.report_logger.info(f"=== APP FILES EXTRACTION COMPLETED IN {total_time:.2f} SECONDS ===")
+
+    def _aggregate_account_info_from_app_files(self, summary_data: Dict[str, Any], files: List[dropbox.files.FileMetadata]) -> Dict[str, Any]:
+        """Aggregate account information from multiple app files into a single structure.
+        
+        Args:
+            summary_data: The summary data from app file extraction
+            files: List of files that were processed
+            
+        Returns:
+            Dict containing aggregated account information
+        """
+        aggregated_info = {
+            'total_files_processed': len(files),
+            'files_with_complete_info': 0,
+            'files_with_partial_info': 0,
+            'files_with_no_info': 0,
+            'best_available_info': {},
+            'file_details': {},
+            'has_complete_account_info': False
+        }
+        
+        if not summary_data or 'file_info' not in summary_data:
+            aggregated_info['files_with_no_info'] = len(files)
+            return aggregated_info
+        
+        file_info = summary_data['file_info']
+        best_info = {}
+        best_completeness_score = 0
+        
+        # Process each file that was actually processed (not skipped)
+        for file in files:
+            file_path = file.path_display
+            info = file_info.get(file_path, {})
+            
+            # Store file details
+            aggregated_info['file_details'][file.name] = {
+                'path': file_path,
+                'info': info,
+                'completeness_score': 0
+            }
+            
+            if not info:
+                aggregated_info['files_with_no_info'] += 1
+                continue
+            
+            # Calculate completeness score for this file
+            completeness_score = self._calculate_info_completeness(info)
+            aggregated_info['file_details'][file.name]['completeness_score'] = completeness_score
+            
+            # Categorize file based on completeness
+            if completeness_score >= 0.8:  # 80% or more complete
+                aggregated_info['files_with_complete_info'] += 1
+            elif completeness_score >= 0.3:  # 30% or more complete
+                aggregated_info['files_with_partial_info'] += 1
+            else:
+                aggregated_info['files_with_no_info'] += 1
+            
+            # Update best available info if this file has better completeness
+            if completeness_score > best_completeness_score:
+                best_completeness_score = completeness_score
+                best_info = info.copy()
+        
+        # Structure the best available info as proper account information
+        if best_info:
+            # Create structured account info with Owner and Joint Owner data
+            account_info = {
+                'owner': {},
+                'jointOwner': {},
+                'application_type': best_info.get('application_type', 'Unknown'),
+                'status': best_info.get('status', 'Unknown'),
+                'notes': best_info.get('notes', [])
+            }
+            
+            # Add owner information if available
+            if best_info.get('owner'):
+                owner_data = best_info['owner']
+                account_info['owner'] = {
+                    'firstName': owner_data.get('firstName'),
+                    'lastName': owner_data.get('lastName'),
+                    'dateOfBirth': owner_data.get('dateOfBirth'),
+                    'gender': owner_data.get('gender'),
+                    'mailingAddressStreet': owner_data.get('mailingAddressStreet'),
+                    'mailingAddressCity': owner_data.get('mailingAddressCity'),
+                    'mailingAddressState': owner_data.get('mailingAddressState'),
+                    'mailingAddressZip': owner_data.get('mailingAddressZip'),
+                    'phoneNumber': owner_data.get('phoneNumber'),
+                    'emailAddress': owner_data.get('emailAddress')
+                }
+                
+                # Add OCR method if it was used
+                if owner_data.get('ocrMethod'):
+                    account_info['owner']['ocrMethod'] = owner_data['ocrMethod']
+            
+            # Add joint owner information if available
+            if best_info.get('jointOwner'):
+                joint_owner_data = best_info['jointOwner']
+                account_info['jointOwner'] = {
+                    'firstName': joint_owner_data.get('firstName'),
+                    'lastName': joint_owner_data.get('lastName'),
+                    'dateOfBirth': joint_owner_data.get('dateOfBirth'),
+                    'gender': joint_owner_data.get('gender'),
+                    'mailingAddressStreet': joint_owner_data.get('mailingAddressStreet'),
+                    'mailingAddressCity': joint_owner_data.get('mailingAddressCity'),
+                    'mailingAddressState': joint_owner_data.get('mailingAddressState'),
+                    'mailingAddressZip': joint_owner_data.get('mailingAddressZip'),
+                    'phoneNumber': joint_owner_data.get('phoneNumber'),
+                    'emailAddress': joint_owner_data.get('emailAddress')
+                }
+                
+                # Add OCR method if it was used
+                if joint_owner_data.get('ocrMethod'):
+                    account_info['jointOwner']['ocrMethod'] = joint_owner_data['ocrMethod']
+            
+            aggregated_info['best_available_info'] = account_info
+        else:
+            aggregated_info['best_available_info'] = {}
+        
+        # Determine if we have complete account info
+        if best_completeness_score >= 0.8:
+            aggregated_info['has_complete_account_info'] = True
+        
+        return aggregated_info
+
+    def _calculate_info_completeness(self, info: Dict[str, Any]) -> float:
+        """Calculate how complete the account information is (0.0 to 1.0).
+        
+        Args:
+            info: File information dictionary
+            
+        Returns:
+            Float between 0.0 and 1.0 representing completeness
+        """
+        if not info:
+            return 0.0
+        
+        # Define required fields for complete account info
+        required_fields = {
+            'owner': ['firstName', 'lastName', 'dateOfBirth', 'gender', 'mailingAddressStreet', 'mailingAddressCity', 'mailingAddressState', 'mailingAddressZip', 'phoneNumber'],
+            'jointOwner': ['firstName', 'lastName', 'dateOfBirth', 'gender']  # Joint owner is optional
+        }
+        
+        total_fields = 0
+        filled_fields = 0
+        
+        # Check owner fields
+        owner = info.get('owner', {})
+        for field in required_fields['owner']:
+            total_fields += 1
+            if owner.get(field) and str(owner.get(field)).strip() not in ['', 'None', 'null', 'nan']:
+                filled_fields += 1
+        
+        # Check joint owner fields (optional, but if present should be complete)
+        joint_owner = info.get('jointOwner', {})
+        if joint_owner:
+            for field in required_fields['jointOwner']:
+                total_fields += 1
+                if joint_owner.get(field) and str(joint_owner.get(field)).strip() not in ['', 'None', 'null', 'nan']:
+                    filled_fields += 1
+        
+        # Calculate completeness score
+        if total_fields == 0:
+            return 0.0
+        
+        return filled_fields / total_fields
 
     def _store_in_supabase(self) -> None:
         """Store data in Supabase database.
