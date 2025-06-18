@@ -131,33 +131,74 @@ Return ONLY the JSON object. Use null for missing fields."""
 
         return final_prompt
 
-    def create_owner_extraction_prompt(self, text: str, processor_type: str = "default") -> str:
-        """
-        Create a prompt for extracting primary owner information from text.
+    def _create_short_extraction_prompt(self, text: str, owner_type: str) -> str:
+        """Create a short extraction prompt for LM Studio to avoid context overflow."""
+        self.logger.info(f"_create_short_extraction_prompt: {owner_type}")
         
-        Args:
-            text (str): The text to analyze
-            processor_type (str): The type of processor ("ollama", "qwen", "lm_studio", or "default")
-            
-        Returns:
-            str: The formatted prompt
-        """
+        # Truncate text to first 2000 characters to fit in context window
+        max_text_length = 2000
+        if len(text) > max_text_length:
+            self.logger.info(f"Truncating text from {len(text)} to {max_text_length} characters for LM Studio")
+            text = text[:max_text_length]
+        
+        # Short prompt template
+        prompt = f"""Extract {owner_type} information and return ONLY a JSON object.
+
+JSON structure:
+{{
+  "{owner_type}": {{
+    "firstName": "string or null",
+    "lastName": "string or null", 
+    "dateOfBirth": "string (YYYY-MM-DD) or null",
+    "gender": "string or null",
+    "mailingAddressStreet": "string or null",
+    "mailingAddressCity": "string or null",
+    "mailingAddressState": "string or null",
+    "mailingAddressZip": "string or null",
+    "phoneNumber": "string or null",
+    "emailAddress": "string or null"
+  }}
+}}
+
+Rules:
+- Return ONLY the JSON object
+- Use null for missing fields
+- Convert dates from MM/DD/YYYY to YYYY-MM-DD format
+- Look for "Gender: X Male Female" patterns
+- Extract address from "Street Address" and "City State Zip" sections
+
+Text to analyze:
+{text}
+
+Return ONLY the JSON object."""
+        
+        self.logger.info(f"_create_short_extraction_prompt: Prompt length: {len(prompt)} characters")
+        return prompt
+
+    def create_owner_extraction_prompt(self, text: str, processor_type: str = "default") -> str:
+        """Create a prompt for extracting owner information."""
         self.logger.info(f"create_owner_extraction_prompt: Creating owner extraction prompt")
-        return self._create_extraction_prompt(text, "owner", processor_type)
+        self.logger.info(f"=== [PROMPT CREATION START] ===")
+        self.logger.info(f"Text length: {len(text)} characters")
+        self.logger.info(f"Text first 200 chars: {text[:200]}")
+        self.logger.info(f"Processor type: {processor_type}")
+        self.logger.info(f"Owner type: owner")
+        
+        # For LM Studio, create a shorter prompt to avoid context overflow
+        if processor_type == "lm_studio":
+            return self._create_short_extraction_prompt(text, "owner")
+        else:
+            return self._create_extraction_prompt(text, "owner", processor_type)
 
     def create_joint_owner_extraction_prompt(self, text: str, processor_type: str = "default") -> str:
-        """
-        Create a prompt for extracting joint owner information from text.
-        
-        Args:
-            text (str): The text to analyze
-            processor_type (str): The type of processor ("ollama", "qwen", "lm_studio", or "default")
-            
-        Returns:
-            str: The formatted prompt
-        """
+        """Create a prompt for extracting joint owner information."""
         self.logger.info(f"create_joint_owner_extraction_prompt: Creating joint owner extraction prompt")
-        return self._create_extraction_prompt(text, "jointOwner", processor_type)
+        
+        # For LM Studio, create a shorter prompt to avoid context overflow
+        if processor_type == "lm_studio":
+            return self._create_short_extraction_prompt(text, "jointOwner")
+        else:
+            return self._create_extraction_prompt(text, "jointOwner", processor_type)
 
     def create_chat_prompt(self, text: str, processor_type: str = "default") -> Dict[str, Any]:
         """
