@@ -111,15 +111,18 @@ class BaseProcessor(ABC):
                                 self.logger.info(f"Cleaned OCR text from page {i+1} length: {len(text)}")
                         
                         if text:
+                            # Check if this page contains cover sheet followed by application
+                            processed_text = self._process_cover_sheet_and_application(text)
+                            
                             # Estimate tokens (rough estimate: 1 token ≈ 4 characters)
-                            estimated_tokens = len(text) // 4
+                            estimated_tokens = len(processed_text) // 4
                             if total_length + estimated_tokens > max_tokens:
                                 self.logger.warning(f"Reached token limit after page {i+1}, truncating text")
                                 # Truncate text to fit within remaining tokens
                                 remaining_chars = (max_tokens - total_length) * 4
-                                text = text[:remaining_chars]
+                                processed_text = processed_text[:remaining_chars]
                             
-                            all_text.append(text)
+                            all_text.append(processed_text)
                             total_length += estimated_tokens
                             self.logger.info(f"Successfully extracted text from page {i+1}, total estimated tokens: {total_length}")
                             
@@ -140,6 +143,62 @@ class BaseProcessor(ABC):
         except Exception as e:
             self.logger.error(f"Error extracting text from file: {str(e)}")
             return ""
+
+    def _process_cover_sheet_and_application(self, text: str) -> str:
+        """Process text to skip cover sheet sections when Application section follows."""
+        try:
+            # Look for cover sheet patterns followed by application patterns
+            cover_sheet_patterns = [
+                r'COVER\s+SHEET',
+                r'COVER\s+PAGE',
+                r'SUMMARY\s+SHEET',
+                r'INFORMATION\s+SHEET',
+                r'DETAILS\s+SHEET'
+            ]
+            
+            application_patterns = [
+                r'APPLICATION',
+                r'APPLICATION\s+FORM',
+                r'OWNER\s+INFORMATION',
+                r'APPLICANT\s+INFORMATION'
+            ]
+            
+            # Check if text contains both cover sheet and application sections
+            has_cover_sheet = any(re.search(pattern, text, re.IGNORECASE) for pattern in cover_sheet_patterns)
+            has_application = any(re.search(pattern, text, re.IGNORECASE) for pattern in application_patterns)
+            
+            if has_cover_sheet and has_application:
+                self.logger.info("Detected cover sheet followed by application section, skipping cover sheet")
+                
+                # Find the start of the application section
+                application_start = -1
+                for pattern in application_patterns:
+                    match = re.search(pattern, text, re.IGNORECASE)
+                    if match:
+                        application_start = match.start()
+                        break
+                
+                if application_start != -1:
+                    # Extract text from the application section onwards
+                    application_text = text[application_start:]
+                    self.logger.info(f"Extracted application section starting at position {application_start}")
+                    return application_text
+                else:
+                    self.logger.warning("Could not find start of application section, returning full text")
+                    return text
+            else:
+                # No cover sheet detected or no application section, return full text
+                if has_cover_sheet:
+                    self.logger.info("Cover sheet detected but no application section found, returning full text")
+                elif has_application:
+                    self.logger.info("Application section detected but no cover sheet found, returning full text")
+                else:
+                    self.logger.info("No cover sheet or application patterns detected, returning full text")
+                return text
+                
+        except Exception as e:
+            self.logger.error(f"Error processing cover sheet and application: {str(e)}")
+            return text
 
     def _clean_ocr_text(self, text: str) -> str:
         """Common OCR text cleaning."""
