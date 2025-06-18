@@ -127,7 +127,8 @@ Return ONLY the JSON object. Use null for missing fields."""
         self.logger.info("\n=== [PROMPT GENERATED] ===")
         self.logger.info(f"_create_extraction_prompt: Prompt length: {len(final_prompt)} characters")
         self.logger.info(f"_create_extraction_prompt: Final Prompt BEGIN PROMPT: \n{final_prompt}\nEND OF PROMPT")
-        
+        self.logger.info(f"\n{'='*80}\n{'='*80}\n{'='*80}\n{'='*80}")
+
         return final_prompt
 
     def create_owner_extraction_prompt(self, text: str, processor_type: str = "default") -> str:
