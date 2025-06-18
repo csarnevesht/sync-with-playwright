@@ -798,9 +798,11 @@ def run_command(args):
                             logger.info(f'dropbox_account_search_result: {dropbox_account_search_result}')
                             logger.info(f"Successfully retrieved info for Dropbox account: {dropbox_account_folder_name}")
 
-                            # Log detailed Dropbox account information
-                            logger.info(f"logging dropbox_account_search_result")
-                            log_dropbox_account_info(dropbox_account_search_result, summary_logger, args)
+                            # Call log_dropbox_account_info for detailed logging if dropbox account info is available
+                            if dropbox_account_search_result and args.dropbox_account_info:
+                                from sync.dropbox_client.utils.logging_utils import log_dropbox_account_info
+                                # Call with both loggers so it appears in both summary and report logs
+                                log_dropbox_account_info(dropbox_account_search_result, summary_logger, args, report_logger)
 
                             # Update FlatFile with account info if found
                             if dropbox_account_search_result.get('account_data'):
@@ -1307,6 +1309,12 @@ def build_and_log_summary_line(result, report_logger, summary_logger, red_logger
     dropbox_info.setdefault('account_name', '--')
     dropbox_info.setdefault('match', '--')
     
+    # Call log_dropbox_account_info for detailed logging if dropbox account info is available
+    if dropbox_info and args.dropbox_account_info:
+        from sync.dropbox_client.utils.logging_utils import log_dropbox_account_info
+        # Call with both loggers so it appears in both summary and report logs
+        log_dropbox_account_info(dropbox_info, summary_logger, args, report_logger)
+    
     # Format the summary line
     summary = format_summary_line(result.get('dropbox_name', '--'), salesforce_info, dropbox_info, args)
     
@@ -1365,6 +1373,42 @@ def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox
         dropbox_account_match = match_info.get('match_status', '--')
         dropbox_icon = '📄' if dropbox_account_match == 'Match found' else '🔴'
         summary += f", {dropbox_icon} Dropbox Name: {dropbox_account_search_name}, Dropbox Match: {dropbox_account_match}"
+        
+        # Add additional account information if available
+        if account_data:
+            # Contact information
+            if account_data.get('email'):
+                summary += f", 📧 {account_data['email']}"
+            if account_data.get('phone'):
+                summary += f", 📞 {account_data['phone']}"
+            
+            # Address information (condensed)
+            address_parts = []
+            if account_data.get('address'):
+                address_parts.append(account_data['address'])
+            if account_data.get('city'):
+                address_parts.append(account_data['city'])
+            if account_data.get('state'):
+                address_parts.append(account_data['state'])
+            if account_data.get('zip'):
+                address_parts.append(account_data['zip'])
+            
+            if address_parts:
+                summary += f", 📍 {', '.join(address_parts)}"
+            
+            # Personal information
+            if account_data.get('birthdate'):
+                summary += f", 🎂 {account_data['birthdate']}"
+            if account_data.get('age'):
+                summary += f", 👶 {account_data['age']}"
+            if account_data.get('gender'):
+                summary += f", 👤 {account_data['gender']}"
+            
+            # Identification information (condensed for security)
+            if account_data.get('ssn'):
+                summary += f", 🔒 SSN: ***-**-{account_data['ssn'][-4:]}" if len(account_data['ssn']) >= 4 else f", 🔒 SSN: {account_data['ssn']}"
+            if account_data.get('tax_id'):
+                summary += f", 🔒 Tax ID: ***-**-{account_data['tax_id'][-4:]}" if len(account_data['tax_id']) >= 4 else f", 🔒 Tax ID: {account_data['tax_id']}"
     
     # Add Salesforce info if available
     if args.salesforce_accounts:
@@ -1384,7 +1428,7 @@ def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox
                     # Add account information if available
                     account_info = rel.get('account_info', {})
                     fields_info = []
-                    logger.info(f"CAROLINA account_info: {account_info}")
+                    logger.info(f"account_info: {account_info}")
                     # Check for each field and add to fields_info if present
                     if account_info.get('email'):
                         fields_info.append('📧')

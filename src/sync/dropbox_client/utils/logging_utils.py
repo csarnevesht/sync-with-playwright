@@ -50,18 +50,22 @@ def _check_account_info_missing_fields(data: Dict[str, Any], prefix: str = "") -
     
     return [f"{prefix}{field}" for field in required_fields if not is_valid_value(data.get(field))]
 
-def log_dropbox_account_info(account_search_result: Dict[str, Any], logger_instance: Any = None, args: Any = None) -> None:
+def log_dropbox_account_info(account_search_result: Dict[str, Any], logger_instance: Any = None, args: Any = None, report_logger: Any = None) -> None:
     """Log detailed information about a Dropbox account.
     
     Args:
         account_search_result: Dictionary containing account search result information
         logger_instance: Optional logger instance to use (defaults to module logger)
         args: Optional argparse.Namespace to check for --dl flag
+        report_logger: Optional report logger instance to use for additional logging
     """
     log = logger_instance or logger
+    report_log = report_logger  # Use report_logger if provided
     
     # Log method name at the beginning
     log.info("[log_dropbox_account_info]")
+    if report_log:
+        report_log.info("[log_dropbox_account_info]")
     
     # Get account data from the search result
     account_data = account_search_result.get('account_data', {})
@@ -71,107 +75,179 @@ def log_dropbox_account_info(account_search_result: Dict[str, Any], logger_insta
     
     summary = f"📁 **Dropbox Folder** Name: {account_search_result.get('folder_name', 'Unknown')}"
     log.info(summary)
+    if report_log:
+        report_log.info(summary)
 
     # Log account basic information
     if account_data:
         log.info("    📄 **Dropbox Account Information from client list search **")
+        if report_log:
+            report_log.info("    📄 **Dropbox Account Information from client list search **")
         
         # Name information
         if account_data.get('name'):
             log.info(f"    👤 Account Name: {account_data['name']}")
+            if report_log:
+                report_log.info(f"    👤 Account Name: {account_data['name']}")
         if account_data.get('first_name'):
             log.info(f"    👤 First Name: {account_data['first_name']}")
+            if report_log:
+                report_log.info(f"    👤 First Name: {account_data['first_name']}")
         if account_data.get('last_name'):
             log.info(f"    👤 Last Name: {account_data['last_name']}")
+            if report_log:
+                report_log.info(f"    👤 Last Name: {account_data['last_name']}")
         if account_data.get('middle_name'):
             log.info(f"    👤 Middle Name: {account_data['middle_name']}")
+            if report_log:
+                report_log.info(f"    👤 Middle Name: {account_data['middle_name']}")
         if account_data.get('additional_info'):
             log.info(f"    ℹ️ Additional Info: {account_data['additional_info']}")
+            if report_log:
+                report_log.info(f"    ℹ️ Additional Info: {account_data['additional_info']}")
         
         # Contact information
         if account_data.get('email'):
             log.info(f"    📧 Email: {account_data['email']}")
+            if report_log:
+                report_log.info(f"    📧 Email: {account_data['email']}")
         if account_data.get('phone'):
             log.info(f"    📞 Phone: {account_data['phone']}")
+            if report_log:
+                report_log.info(f"    📞 Phone: {account_data['phone']}")
         
         # Address information
         if account_data.get('address'):
             log.info(f"    📍 Address: {account_data['address']}")
+            if report_log:
+                report_log.info(f"    📍 Address: {account_data['address']}")
         if account_data.get('city'):
             log.info(f"    📍 City: {account_data['city']}")
+            if report_log:
+                report_log.info(f"    📍 City: {account_data['city']}")
         if account_data.get('state'):
             log.info(f"    📍 State: {account_data['state']}")
+            if report_log:
+                report_log.info(f"    📍 State: {account_data['state']}")
         if account_data.get('zip'):
             log.info(f"    📍 ZIP: {account_data['zip']}")
+            if report_log:
+                report_log.info(f"    📍 ZIP: {account_data['zip']}")
         
         # Personal information
         if account_data.get('birthdate'):
             log.info(f"    🎂 Birthdate: {account_data['birthdate']}")
+            if report_log:
+                report_log.info(f"    🎂 Birthdate: {account_data['birthdate']}")
         if account_data.get('age'):
             log.info(f"    👶 Age: {account_data['age']}")
+            if report_log:
+                report_log.info(f"    👶 Age: {account_data['age']}")
         if account_data.get('gender'):
             log.info(f"    👤 Gender: {account_data['gender']}")
+            if report_log:
+                report_log.info(f"    👤 Gender: {account_data['gender']}")
         
         # Identification information
         if account_data.get('ssn'):
             log.info(f"    🔒 SSN: {account_data['ssn']}")
+            if report_log:
+                report_log.info(f"    🔒 SSN: {account_data['ssn']}")
         if account_data.get('tax_id'):
             log.info(f"    🔒 Tax ID: {account_data['tax_id']}")
+            if report_log:
+                report_log.info(f"    🔒 Tax ID: {account_data['tax_id']}")
         
         # Driver's license information - only log if --dl flag is set
         if args and hasattr(args, 'dl') and args.dl and drivers_license_info:
             dl_status = drivers_license_info.get('status', 'not_found')
             if dl_status == 'found':
                 log.info("    🪪 Driver's License: Found")
+                if report_log:
+                    report_log.info("    🪪 Driver's License: Found")
                 drivers_license_data = account_search_result.get('drivers_license', {})
                 if drivers_license_data:
                     if drivers_license_data.get('license_number'):
                         log.info(f"    🪪 License Number: {drivers_license_data['license_number']}")
+                        if report_log:
+                            report_log.info(f"    🪪 License Number: {drivers_license_data['license_number']}")
                     if drivers_license_data.get('date_of_birth'):
                         log.info(f"    🪪 DOB from DL: {drivers_license_data['date_of_birth']}")
+                        if report_log:
+                            report_log.info(f"    🪪 DOB from DL: {drivers_license_data['date_of_birth']}")
                     if drivers_license_data.get('expiration_date'):
                         log.info(f"    🪪 Expiration Date: {drivers_license_data['expiration_date']}")
+                        if report_log:
+                            report_log.info(f"    🪪 Expiration Date: {drivers_license_data['expiration_date']}")
                     if drivers_license_data.get('state'):
                         log.info(f"    🪪 State: {drivers_license_data['state']}")
+                        if report_log:
+                            report_log.info(f"    🪪 State: {drivers_license_data['state']}")
             else:
                 if drivers_license_info.get('status') == 'not_found':
                     log.info("    🔺 Driver's License: Not Found")
+                    if report_log:
+                        report_log.info("    🔺 Driver's License: Not Found")
         
         # Search and match information
         if match_info:
             match_status = match_info.get('match_status', 'Unknown')
             log.info(f"    🔍 Match Status: {match_status}")
+            if report_log:
+                report_log.info(f"    🔍 Match Status: {match_status}")
             
             if match_info.get('search_attempts'):
                 log.info("    🔍 Search Attempts:")
+                if report_log:
+                    report_log.info("    🔍 Search Attempts:")
                 for attempt in match_info['search_attempts']:
                     log.info(f"      • {attempt}")
+                    if report_log:
+                        report_log.info(f"      • {attempt}")
             
             if match_info.get('exact_matches'):
                 log.info(f"    ✅ Exact Matches: {len(match_info['exact_matches'])}")
+                if report_log:
+                    report_log.info(f"    ✅ Exact Matches: {len(match_info['exact_matches'])}")
                 for match in match_info['exact_matches']:
                     log.info(f"      • {match}")
+                    if report_log:
+                        report_log.info(f"      • {match}")
             
             if match_info.get('partial_matches'):
                 log.info(f"    🔶 Partial Matches: {len(match_info['partial_matches'])}")
+                if report_log:
+                    report_log.info(f"    🔶 Partial Matches: {len(match_info['partial_matches'])}")
                 for match in match_info['partial_matches']:
                     log.info(f"      • {match}")
+                    if report_log:
+                        report_log.info(f"      • {match}")
         
         # Check for missing information
         missing_fields = _check_account_info_missing_fields(account_data)
         if missing_fields:
             log.warning("    ⚠️ Missing Account Information:")
+            if report_log:
+                report_log.warning("    ⚠️ Missing Account Information:")
             for field in missing_fields:
                 log.warning(f"      • {field}")
+                if report_log:
+                    report_log.warning(f"      • {field}")
         
         # Add summary line
         account_name = account_data.get('name', '--')
         match_status = match_info.get('match_status', '--') if match_info else '--'
         log.info(f"    📄 **Summary**: Dropbox Name: {account_name}, Dropbox Match: {match_status}")
+        if report_log:
+            report_log.info(f"    📄 **Summary**: Dropbox Name: {account_name}, Dropbox Match: {match_status}")
         
         log.info("")  # Add blank line after account info
+        if report_log:
+            report_log.info("")  # Add blank line after account info
     else:
         log.warning("    ❌ No account data found in search result")
+        if report_log:
+            report_log.warning("    ❌ No account data found in search result")
 
 def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None, report_logger: Any = None, file_name: str = None, folder_name: str = None) -> None:
     """Log detailed information about a file.
