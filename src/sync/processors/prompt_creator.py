@@ -167,14 +167,16 @@ Rules:
 - For gender field: CRITICAL - Read the gender selection carefully
   * Look for "Sex:" or "Gender:" followed by gender options
   * The "X" indicates which option is SELECTED
-  * Read from left to right: "Sex: M X F" means X is next to F, so Female is selected
+  * Read from left to right and identify which option the X is next to
   * Examples:
     - "Sex: M X F" → gender: "F" (X is between M and F, next to F)
     - "Sex: X M F" → gender: "M" (X is before M, next to M)
     - "Sex: M F X" → gender: "F" (X is after F, next to F)
     - "Sex: X F M" → gender: "F" (X is before F, next to F)
+    - "Gender: X Male Female" → gender: "M" (X is before Male, next to Male)
+    - "Gender: Male X Female" → gender: "F" (X is between Male and Female, next to Female)
+    - "Gender: Male Female X" → gender: "F" (X is after Female, next to Female)
   * IMPORTANT: Return ONLY "M" or "F", not the full pattern
-  * CRITICAL: If you see "Sex: M X F" in the text, the answer is "F" (Female)
 - Extract address from "Street Address" and "City State Zip" sections
 
 Text to analyze:
