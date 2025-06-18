@@ -42,6 +42,8 @@ class PromptCreator:
             "5. Use camelCase keys\n"
             "6. Only extract listed fields\n"
             "7. Never guess information\n"
+            "8. For dateOfBirth: Convert MM/DD/YYYY or MM/DD/YY to YYYY-MM-DD format\n"
+            "9. Look for DOB, Date of Birth, Birth Date, or similar terms\n"
         )
 
         # Base prompt template that works for all processors
@@ -51,7 +53,7 @@ class PromptCreator:
     "firstName": "string or null",
     "middleInitial": "string or null",
     "lastName": "string or null",
-    "dateOfBirth": "string (YYYY-MM-DD) or null",
+    "dateOfBirth": "string (YYYY-MM-DD) or null - Convert MM/DD/YYYY to YYYY-MM-DD",
     "gender": "string or null",
     "mailingAddressStreet": "string or null",
     "mailingAddressCity": "string or null",
@@ -65,6 +67,12 @@ class PromptCreator:
     "emailAddress": "string or null"
   }}
 }}
+
+IMPORTANT: For dateOfBirth field:
+- Look for patterns like: "Date of Birth (MM/DD/YY)", "DOB", "Birth Date", etc.
+- If you find a date like "04/11/1961", convert it to "1961-04-11"
+- If you find a date like "04/11/61", convert it to "1961-04-11" (assume 19xx for 2-digit years)
+- If no date is found, use null
 
 Text to analyze:
 {text}
