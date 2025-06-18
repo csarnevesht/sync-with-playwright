@@ -157,15 +157,39 @@ class BaseProcessor(ABC):
             ]
             
             application_patterns = [
-                r'APPLICATION',
-                r'APPLICATION\s+FORM',
-                r'OWNER\s+INFORMATION',
-                r'APPLICANT\s+INFORMATION'
+                r'^APPLICATION\s+FOR',  # Application for Individual...
+                r'^APPLICATION\s+FORM',  # Application Form
+                r'^OWNER\s+INFORMATION',  # Owner Information
+                r'^APPLICANT\s+INFORMATION',  # Applicant Information
+                r'APPLICATION\s+FOR\s+INDIVIDUAL',  # Application for Individual
+                r'APPLICATION\s+FOR\s+INDEXED',  # Application for Indexed
+                r'APPLICATION\s+FOR\s+DEFERRED',  # Application for Deferred
+                r'^APPLICATION$',  # Standalone "Application"
+                r'\nAPPLICATION\s+FOR',  # Application for on new line
+                r'\nAPPLICATION\s+FORM',  # Application Form on new line
+                r'\nOWNER\s+INFORMATION',  # Owner Information on new line
+                r'\nAPPLICANT\s+INFORMATION'  # Applicant Information on new line
             ]
             
             # Check if text contains both cover sheet and application sections
             has_cover_sheet = any(re.search(pattern, text, re.IGNORECASE) for pattern in cover_sheet_patterns)
-            has_application = any(re.search(pattern, text, re.IGNORECASE) for pattern in application_patterns)
+            
+            # Check for application patterns with detailed logging
+            has_application = False
+            matched_application_pattern = None
+            for pattern in application_patterns:
+                match = re.search(pattern, text, re.IGNORECASE)
+                if match:
+                    has_application = True
+                    matched_application_pattern = pattern
+                    self.logger.info(f"Found application pattern: '{pattern}' at position {match.start()}")
+                    break
+            
+            if not has_application:
+                self.logger.info("No application patterns found. Available patterns checked:")
+                for pattern in application_patterns:
+                    self.logger.info(f"  - {pattern}")
+                self.logger.info(f"Text sample (first 200 chars): {text[:200]}")
             
             if has_cover_sheet and has_application:
                 self.logger.info("Detected cover sheet followed by application section, skipping cover sheet")
@@ -191,7 +215,7 @@ class BaseProcessor(ABC):
                 if has_cover_sheet:
                     self.logger.info("Cover sheet detected but no application section found, returning full text")
                 elif has_application:
-                    self.logger.info("Application section detected but no cover sheet found, returning full text")
+                    self.logger.info(f"Application section detected (pattern: {matched_application_pattern}) but no cover sheet found, returning full text")
                 else:
                     self.logger.info("No cover sheet or application patterns detected, returning full text")
                 return text
