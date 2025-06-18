@@ -88,17 +88,61 @@ class BaseProcessor(ABC):
                 return ""
 
             with pdfplumber.open(file_path) as pdf:
-                # extract text from first 5 pages
-                num_pages = min(5, len(pdf.pages))
-                self.logger.info(f"PDF has {len(pdf.pages)} pages, will process first {num_pages} pages")
+                # Get total number of pages first
+                total_pages = len(pdf.pages)
+                self.logger.info(f"PDF has {total_pages} total pages")
+                
+                # First, extract text from first 6 pages and append them together
+                initial_pages_to_check = min(6, total_pages)  # Check first 6 pages for cover sheet + application
+                combined_text = ""
+                
+                self.logger.info(f"Extracting text from first {initial_pages_to_check} pages and combining them")
+                
+                for i in range(initial_pages_to_check):
+                    try:
+                        page = pdf.pages[i]
+                        self.logger.info(f"Processing page {i+1} for text extraction")
+                        text = page.extract_text()
+                        
+                        if not text or len(text.strip()) < 50:
+                            self.logger.info(f"Initial text extraction from page {i+1} yielded minimal text, trying with tolerance")
+                            text = page.extract_text(x_tolerance=3, y_tolerance=3)
+                            if text:
+                                self.logger.info(f"Text extracted with tolerance from page {i+1} length: {len(text)}")
+                                text = self._clean_ocr_text(text)
+                                self.logger.info(f"Cleaned OCR text from page {i+1} length: {len(text)}")
+                        
+                        if text:
+                            combined_text += text + "\n\n"
+                            self.logger.info(f"Added text from page {i+1}, combined length: {len(combined_text)}")
+                    
+                    except Exception as e:
+                        self.logger.error(f"Error extracting text from page {i+1}: {str(e)}")
+                        continue
+                
+                # Now process the combined text for cover sheet and application
+                if combined_text:
+                    self.logger.info(f"Processing combined text ({len(combined_text)} chars) for cover sheet and application")
+                    processed_text = self._process_cover_sheet_and_application(combined_text)
+                    
+                    # Check if we have enough text after processing
+                    if len(processed_text) >= 500:  # Minimum text threshold
+                        self.logger.info(f"Found sufficient processed text: {len(processed_text)} characters")
+                        return processed_text
+                    else:
+                        self.logger.info(f"Processed text too short ({len(processed_text)} chars), will get more pages")
+                
+                # If we didn't find sufficient text, get approximately 5 pages
+                self.logger.info("Getting approximately 5 pages worth of content")
+                pages_to_extract = min(5, total_pages)
                 all_text = []
                 total_length = 0
                 max_tokens = 3000  # Reduced to leave more room for the prompt
                 
-                for i in range(num_pages):
+                for i in range(pages_to_extract):
                     try:
                         page = pdf.pages[i]
-                        self.logger.info(f"Processing page {i+1}")
+                        self.logger.info(f"Processing page {i+1} for general extraction")
                         text = page.extract_text()
                         self.logger.info(f"Initial text extraction from page {i+1} length: {len(text) if text else 0}")
                         
@@ -111,18 +155,15 @@ class BaseProcessor(ABC):
                                 self.logger.info(f"Cleaned OCR text from page {i+1} length: {len(text)}")
                         
                         if text:
-                            # Check if this page contains cover sheet followed by application
-                            processed_text = self._process_cover_sheet_and_application(text)
-                            
                             # Estimate tokens (rough estimate: 1 token ≈ 4 characters)
-                            estimated_tokens = len(processed_text) // 4
+                            estimated_tokens = len(text) // 4
                             if total_length + estimated_tokens > max_tokens:
                                 self.logger.warning(f"Reached token limit after page {i+1}, truncating text")
                                 # Truncate text to fit within remaining tokens
                                 remaining_chars = (max_tokens - total_length) * 4
-                                processed_text = processed_text[:remaining_chars]
+                                text = text[:remaining_chars]
                             
-                            all_text.append(processed_text)
+                            all_text.append(text)
                             total_length += estimated_tokens
                             self.logger.info(f"Successfully extracted text from page {i+1}, total estimated tokens: {total_length}")
                             
@@ -144,11 +185,28 @@ class BaseProcessor(ABC):
             self.logger.error(f"Error extracting text from file: {str(e)}")
             return ""
 
+    def _has_cover_sheet(self, text: str) -> bool:
+        """Check if text contains a cover sheet pattern."""
+        cover_sheet_patterns = [
+            r'COVERSHEET',
+            r'COVER\s+SHEET',
+            r'COVER\s+PAGE',
+            r'SUMMARY\s+SHEET',
+            r'INFORMATION\s+SHEET',
+            r'DETAILS\s+SHEET'
+        ]
+        
+        for pattern in cover_sheet_patterns:
+            if re.search(pattern, text, re.IGNORECASE):
+                return True
+        return False
+
     def _process_cover_sheet_and_application(self, text: str) -> str:
         """Process text to skip cover sheet sections when Application section follows."""
         try:
             # Look for cover sheet patterns followed by application patterns
             cover_sheet_patterns = [
+                r'COVERSHEET',
                 r'COVER\s+SHEET',
                 r'COVER\s+PAGE',
                 r'SUMMARY\s+SHEET',
@@ -157,6 +215,7 @@ class BaseProcessor(ABC):
             ]
             
             application_patterns = [
+                r'^PARTIES\s+TO\s+THE\s+CONTRACT',  # Parties to the Contract
                 r'^APPLICATION\s+FOR',  # Application for Individual...
                 r'^APPLICATION\s+FORM',  # Application Form
                 r'^OWNER\s+INFORMATION',  # Owner Information
@@ -188,6 +247,11 @@ class BaseProcessor(ABC):
                 r'SSN',  # SSN section
                 r'TAX\s+ID'  # Tax ID section
             ]
+
+            self.logger.info(f"Checking for cover sheet and application patterns")
+            self.logger.info(f"================================================")
+            self.logger.info(f"Text sample (first 5000 chars): {text[:5000]}")
+            self.logger.info(f"================================================")
             
             # Check if text contains both cover sheet and application sections
             has_cover_sheet = False
@@ -199,6 +263,8 @@ class BaseProcessor(ABC):
                     matched_cover_pattern = pattern
                     self.logger.info(f"Found cover sheet pattern: '{pattern}' at position {match.start()}")
                     break
+                else:
+                    self.logger.info(f"No cover sheet pattern found: '{pattern}'")
             
             # Check for application patterns with detailed logging
             has_application = False
@@ -602,4 +668,47 @@ class BaseProcessor(ABC):
             'mailingAddressZip': None,
             'phoneNumber': None,
             'emailAddress': None
-        } 
+        }
+
+    def _has_application(self, text: str) -> bool:
+        """Check if text contains an application pattern."""
+        application_patterns = [
+            r'^PARTIES\s+TO\s+THE\s+CONTRACT',  # Parties to the Contract
+            r'^APPLICATION\s+FOR',  # Application for Individual...
+            r'^APPLICATION\s+FORM',  # Application Form
+            r'^OWNER\s+INFORMATION',  # Owner Information
+            r'^APPLICANT\s+INFORMATION',  # Applicant Information
+            r'APPLICATION\s+FOR\s+INDIVIDUAL',  # Application for Individual
+            r'APPLICATION\s+FOR\s+INDEXED',  # Application for Indexed
+            r'APPLICATION\s+FOR\s+DEFERRED',  # Application for Deferred
+            r'^APPLICATION$',  # Standalone "Application"
+            r'\nAPPLICATION\s+FOR',  # Application for on new line
+            r'\nAPPLICATION\s+FORM',  # Application Form on new line
+            r'\nOWNER\s+INFORMATION',  # Owner Information on new line
+            r'\nAPPLICANT\s+INFORMATION',  # Applicant Information on new line
+            r'APPLICATION\s+FOR',  # More general Application for
+            r'APPLICATION',  # Fallback to any Application
+            r'OWNER\s+INFORMATION',  # More general Owner Information
+            r'APPLICANT\s+INFORMATION',  # More general Applicant Information
+            r'OWNER\s+INFORMATION\s+SECTION',  # Owner Information Section
+            r'APPLICANT\s+INFORMATION\s+SECTION',  # Applicant Information Section
+            r'APPLICATION\s+SECTION',  # Application Section
+            r'OWNER\s+DETAILS',  # Owner Details
+            r'APPLICANT\s+DETAILS',  # Applicant Details
+            r'PERSONAL\s+INFORMATION',  # Personal Information
+            r'CONTACT\s+INFORMATION',  # Contact Information
+            r'ADDRESS\s+INFORMATION',  # Address Information
+            r'PHONE\s+NUMBER',  # Phone Number section
+            r'EMAIL\s+ADDRESS',  # Email Address section
+            r'DATE\s+OF\s+BIRTH',  # Date of Birth section
+            r'GENDER',  # Gender section
+            r'SSN',  # SSN section
+            r'TAX\s+ID'  # Tax ID section
+        ]
+        
+        for pattern in application_patterns:
+            self.logger.info(f"Checking for application pattern: {pattern}")
+            if re.search(pattern, text, re.IGNORECASE):
+                self.logger.info(f"Application pattern found: {pattern}")
+                return True
+        return False 
