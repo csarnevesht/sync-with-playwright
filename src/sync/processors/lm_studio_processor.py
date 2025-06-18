@@ -38,6 +38,50 @@ class LMStudioProcessor(BaseProcessor):
             self.logger.error("Please ensure the LM Studio server is running at http://localhost:1234")
             raise
 
+    def _truncate_prompt_for_context(self, prompt: str, max_tokens: int = 4000) -> str:
+        """Truncate prompt to fit within model's context window."""
+        # Rough estimate: 1 token ≈ 4 characters
+        max_chars = max_tokens * 4
+        
+        if len(prompt) <= max_chars:
+            return prompt
+        
+        self.logger.warning(f"Prompt too long ({len(prompt)} chars), truncating to {max_chars} chars")
+        
+        # Find the text to analyze section and truncate from there
+        text_marker = "Text to analyze:"
+        if text_marker in prompt:
+            # Split at the text marker
+            prompt_parts = prompt.split(text_marker)
+            if len(prompt_parts) >= 2:
+                instructions = prompt_parts[0] + text_marker
+                text_to_analyze = prompt_parts[1]
+                
+                # Calculate how much text we can keep
+                available_chars = max_chars - len(instructions)
+                
+                if available_chars > 0:
+                    # Truncate the text to analyze part
+                    truncated_text = text_to_analyze[:available_chars]
+                    # Try to truncate at a word boundary
+                    last_space = truncated_text.rfind(' ')
+                    if last_space > available_chars * 0.8:  # If we can find a space in the last 20%
+                        truncated_text = truncated_text[:last_space]
+                    
+                    final_prompt = instructions + truncated_text
+                    self.logger.info(f"Truncated prompt from {len(prompt)} to {len(final_prompt)} characters")
+                    return final_prompt
+        
+        # Fallback: simple truncation
+        truncated = prompt[:max_chars]
+        # Try to truncate at a word boundary
+        last_space = truncated.rfind(' ')
+        if last_space > max_chars * 0.8:
+            truncated = truncated[:last_space]
+        
+        self.logger.info(f"Fallback truncation: {len(prompt)} to {len(truncated)} characters")
+        return truncated
+
     def _make_request(self, prompt: str, temperature: float = 0.0) -> Dict:
         """Make a request to the LM Studio API."""
         cached_response = self._get_cached_response(prompt)
@@ -45,6 +89,7 @@ class LMStudioProcessor(BaseProcessor):
             return cached_response
 
         try:
+            prompt = self._truncate_prompt_for_context(prompt)
             request_data = self.prompt_creator.create_chat_prompt(prompt, "lm_studio")
             # self._log_curl_command(request_data)
             
