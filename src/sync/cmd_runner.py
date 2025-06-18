@@ -967,7 +967,7 @@ def run_command(args):
 📁 **Dropbox Folder**
 - Name: {dropbox_account_folder_name}
 
-📄 **Dropbox Account Search** 
+📄 **Dropbox Account Search (client list search)** 
 """
                                 if args.dropbox_account_info:
                                     log_dropbox_account_info(dropbox_account_search_result, report_logger, args)
@@ -1288,6 +1288,10 @@ def build_and_log_summary_line(result, report_logger, summary_logger, red_logger
     """
     Builds and logs a summary line for the report log.
     """
+    # Log method name at the beginning
+    report_logger.info("[build_and_log_summary_line]")
+    summary_logger.info("[build_and_log_summary_line]")
+    
     # Initialize salesforce_info with default values
     salesforce_info = result.get('salesforce_account_search_result', {})
     salesforce_info.setdefault('matches', [])
