@@ -202,6 +202,15 @@ class CommandRunner:
         Args:
             command: The command to execute
         """
+        # Check if this command should be skipped for the current account
+        dropbox_account_name = getattr(self.args, 'dropbox_account_name', None)
+        if dropbox_account_name:
+            from sync.utils.name_utils import should_skip_command_for_account
+            if should_skip_command_for_account(dropbox_account_name, command):
+                self.logger.info(f"Skipping command '{command}' for account '{dropbox_account_name}' due to special case rule")
+                self.report_logger.info(f"Skipping command '{command}' for account '{dropbox_account_name}' due to special case rule")
+                return
+        
         command_map = {
             'prefix-dropbox-account-files': self._prefix_dropbox_account_files,
             'prefix-dropbox-account-file': self._prefix_dropbox_account_file,
