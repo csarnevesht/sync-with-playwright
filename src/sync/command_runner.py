@@ -618,19 +618,19 @@ class CommandRunner:
         self._extract_dropbox_account_app_files_info(dropbox_account_folder_name, file_filter)
 
     def _has_complete_account_info(self, dropbox_account_search_result: Dict[str, Any]) -> bool:
-        """Check if the dropbox account search result has most account info (email can be missing).
+        """Check if the dropbox account search result has complete account info including birthdate and gender.
         
         Args:
             dropbox_account_search_result: Dictionary containing account search result
             
         Returns:
-            bool: True if most account info is present, False otherwise
+            bool: True if complete account info is present (including birthdate and gender), False otherwise
         """
         account_data = dropbox_account_search_result.get('account_data', {})
         
-        # Required fields for "most account info" (email is optional)
+        # Required fields for complete account info (email is optional)
         required_fields = {
-            'name', 'first_name', 'last_name', 'address', 'city', 'state', 'zip', 'phone'
+            'name', 'first_name', 'last_name', 'address', 'city', 'state', 'zip', 'phone', 'birthdate', 'gender'
         }
         
         # Check if all required fields are present and not empty
