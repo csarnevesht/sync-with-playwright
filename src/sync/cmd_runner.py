@@ -322,16 +322,19 @@ def setup_logging(args, command: str = None):
     report_logger = logging.getLogger('report')
     report_logger.setLevel(logging.INFO)
     report_logger.addHandler(report_handler)
+    report_logger.propagate = False
     
     # Create a separate logger for summary
     summary_logger = logging.getLogger('summary')
     summary_logger.setLevel(logging.INFO)
     summary_logger.addHandler(summary_handler)
+    summary_logger.propagate = False
     
     # Create a separate logger for red items
     red_logger = logging.getLogger('red')
     red_logger.setLevel(logging.INFO)
     red_logger.addHandler(red_handler)
+    red_logger.propagate = False
     
     # Set logging level for Supabase client and its dependencies to WARNING
     logging.getLogger('httpx').setLevel(logging.WARNING)
@@ -797,7 +800,7 @@ def run_command(args):
 
                             # Log detailed Dropbox account information
                             logger.info(f"logging dropbox_account_search_result")
-                            log_dropbox_account_info(dropbox_account_search_result, summary_logger)
+                            log_dropbox_account_info(dropbox_account_search_result, summary_logger, args)
 
                             # Update FlatFile with account info if found
                             if dropbox_account_search_result.get('account_data'):
@@ -967,11 +970,7 @@ def run_command(args):
 📄 **Dropbox Account Search** 
 """
                                 if args.dropbox_account_info:
-                                    log_dropbox_account_info(dropbox_account_search_result, report_logger)
-                                    # dropbox_account_data = dropbox_account_search_result.get('account_data', {})
-                                    # for key, value in dropbox_account_data.items():
-                                    #     log_block += f"   + {key}: {value}\n"
-                                    # log_block += "\n"
+                                    log_dropbox_account_info(dropbox_account_search_result, report_logger, args)
                                 if args.salesforce_accounts:
                                     # Update match status to include count if there are multiple matches
                                     if salesforce_matches and len(salesforce_matches) > 1:
@@ -1223,12 +1222,13 @@ Additional Account Information:
                             else:
                                 total_dropbox_no_matches += 1
                             
-                            # Check for driver's license
-                            drivers_license_info = dropbox_result.get('drivers_license_info', {})
-                            if drivers_license_info.get('status') == 'found':
-                                total_dl_matches += 1
-                            else:
-                                total_dl_no_matches += 1
+                            if args.dl:
+                                # Check for driver's license
+                                drivers_license_info = dropbox_result.get('drivers_license_info', {})
+                                if drivers_license_info.get('status') == 'found':
+                                    total_dl_matches += 1
+                                else:
+                                    total_dl_no_matches += 1
                     
                     stats_lines = [
                         f"Total Dropbox Matches Found: {total_dropbox_matches}",
@@ -1330,7 +1330,8 @@ def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox
     summary = f"📁 **Dropbox Folder** Name: {dropbox_folder_name}"
 
     # Add driver's license info only if --dl flag is set
-    if args.dl:
+    if args.dl and args.dl is not None:
+        logger.info(f"args.dl: {args.dl}")
         drivers_license_info = dropbox_info.get('drivers_license_info', {})
         if drivers_license_info:
             drivers_license_status = drivers_license_info.get('status', 'not_found')
