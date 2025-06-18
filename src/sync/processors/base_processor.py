@@ -172,7 +172,21 @@ class BaseProcessor(ABC):
                 r'APPLICATION\s+FOR',  # More general Application for
                 r'APPLICATION',  # Fallback to any Application
                 r'OWNER\s+INFORMATION',  # More general Owner Information
-                r'APPLICANT\s+INFORMATION'  # More general Applicant Information
+                r'APPLICANT\s+INFORMATION',  # More general Applicant Information
+                r'OWNER\s+INFORMATION\s+SECTION',  # Owner Information Section
+                r'APPLICANT\s+INFORMATION\s+SECTION',  # Applicant Information Section
+                r'APPLICATION\s+SECTION',  # Application Section
+                r'OWNER\s+DETAILS',  # Owner Details
+                r'APPLICANT\s+DETAILS',  # Applicant Details
+                r'PERSONAL\s+INFORMATION',  # Personal Information
+                r'CONTACT\s+INFORMATION',  # Contact Information
+                r'ADDRESS\s+INFORMATION',  # Address Information
+                r'PHONE\s+NUMBER',  # Phone Number section
+                r'EMAIL\s+ADDRESS',  # Email Address section
+                r'DATE\s+OF\s+BIRTH',  # Date of Birth section
+                r'GENDER',  # Gender section
+                r'SSN',  # SSN section
+                r'TAX\s+ID'  # Tax ID section
             ]
             
             # Check if text contains both cover sheet and application sections
@@ -201,7 +215,29 @@ class BaseProcessor(ABC):
                 self.logger.info("No application patterns found. Available patterns checked:")
                 for pattern in application_patterns:
                     self.logger.info(f"  - {pattern}")
-                self.logger.info(f"Text sample (first 500 chars): {text[:500]}")
+                self.logger.info(f"Text sample (first 1000 chars): {text[:1000]}")
+                
+                # Test some common patterns manually for debugging
+                test_patterns = [
+                    r'APPLICATION',
+                    r'OWNER',
+                    r'APPLICANT',
+                    r'PERSONAL',
+                    r'CONTACT',
+                    r'ADDRESS',
+                    r'PHONE',
+                    r'EMAIL',
+                    r'DATE',
+                    r'GENDER',
+                    r'SSN'
+                ]
+                self.logger.info("Testing basic patterns in text:")
+                for pattern in test_patterns:
+                    match = re.search(pattern, text, re.IGNORECASE)
+                    if match:
+                        self.logger.info(f"  ✓ Found '{pattern}' at position {match.start()}: '{text[match.start():match.start()+50]}...'")
+                    else:
+                        self.logger.info(f"  ✗ Not found: '{pattern}'")
             
             if has_cover_sheet and has_application:
                 self.logger.info("Detected cover sheet followed by application section, skipping cover sheet")
