@@ -20,7 +20,7 @@ import time
 
 from sync.dropbox_client.utils.dropbox_utils import get_renamed_path, list_dropbox_folder_contents
 from sync.dropbox_client.utils.file_utils import log_renamed_file
-from sync.dropbox_client.utils.logging_utils import log_dropbox_app_file_info, log_best_dropbox_account_info_from_app_files, log_app_files_notes_summary, log_app_files_processing_summary
+from sync.dropbox_client.utils.logging_utils import log_dropbox_app_file_info, log_best_dropbox_account_app_info, log_app_files_notes_summary, log_app_files_processing_summary
 from sync.salesforce_client.utils.file_upload import upload_account_file, upload_account_file_with_retries
 
 class CommandRunner:
@@ -718,18 +718,18 @@ class CommandRunner:
                 
                 # Log the best guess account info
                 best_info = aggregated_info.get('best_available_info', {})
-                log_best_dropbox_account_info_from_app_files(
+                log_best_dropbox_account_app_info(
                     best_info, 
-                    self.logger, 
+                    self.summary_logger, 
                     self.report_logger, 
-                    "BEST ACCOUNT INFO FROM APP FILES"
+                    "BEST ACCOUNT APP FILES INFO"
                 )
                 
                 # Log detailed notes for each app file
                 if summary_data and 'file_info' in summary_data:
                     log_app_files_processing_summary(
                         summary_data,
-                        self.logger,
+                        self.summary_logger,
                         self.report_logger
                     )
                 
