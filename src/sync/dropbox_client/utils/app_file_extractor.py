@@ -158,7 +158,9 @@ class AppFileExtractor:
                     # Log any additional information found in the file
                     if file.path_display in summary_data.get('file_info', {}):
                         info = summary_data['file_info'][file.path_display]
-                        log_dropbox_app_file_info(info, logger, self.report_logger, file.name)
+                        # Extract folder name from file path
+                        folder_name = file.path_display.split('/')[-2] if '/' in file.path_display else None
+                        log_dropbox_app_file_info(info, logger, self.report_logger, file.name, folder_name)
                 
                 # Log skipped files info
                 if summary_data['skipped_zero_length_files'] > 0:
@@ -579,7 +581,9 @@ class AppFileExtractor:
                     logger.info(f"  ✅ {file.name}")
                     if file.path_display in app_file_info_summary['file_info']:
                         info = app_file_info_summary['file_info'][file.path_display]
-                        log_dropbox_app_file_info(info, logger, self.report_logger, file.name)
+                        # Extract folder name from file path
+                        folder_name = file.path_display.split('/')[-2] if '/' in file.path_display else None
+                        log_dropbox_app_file_info(info, logger, self.report_logger, file.name, folder_name)
 
             return app_file_info_summary
 
