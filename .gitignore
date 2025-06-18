@@ -60,4 +60,5 @@ debug_**
 ollama_request_**
 lm_studio_request_**
 lmstudioprocessor_request**
-
+logs/** 
+logs/.preserved_logs
