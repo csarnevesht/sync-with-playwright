@@ -576,7 +576,16 @@ class BaseProcessor(ABC):
         try:
             self.logger.info(f"_process_owner: Processing owner information")
             # Use the model to extract owner information
-            owner_prompt = self.prompt_creator.create_owner_extraction_prompt(text)
+            # Determine processor type based on the class name
+            processor_type = "default"
+            if "LMStudio" in self.__class__.__name__:
+                processor_type = "lm_studio"
+            elif "Qwen" in self.__class__.__name__:
+                processor_type = "qwen"
+            elif "Ollama" in self.__class__.__name__:
+                processor_type = "ollama"
+            
+            owner_prompt = self.prompt_creator.create_owner_extraction_prompt(text, processor_type)
             self.logger.info(f"owner_prompt: {owner_prompt}")
             owner_response = self._make_request(owner_prompt)
             self.logger.info(f"owner_response: {owner_response}")
@@ -625,7 +634,16 @@ class BaseProcessor(ABC):
         try:
             self.logger.info(f"_process_joint_owner: Processing joint owner information")
             # Use the model to extract joint owner information
-            joint_owner_prompt = self.prompt_creator.create_joint_owner_extraction_prompt(text)
+            # Determine processor type based on the class name
+            processor_type = "default"
+            if "LMStudio" in self.__class__.__name__:
+                processor_type = "lm_studio"
+            elif "Qwen" in self.__class__.__name__:
+                processor_type = "qwen"
+            elif "Ollama" in self.__class__.__name__:
+                processor_type = "ollama"
+            
+            joint_owner_prompt = self.prompt_creator.create_joint_owner_extraction_prompt(text, processor_type)
             self.logger.info(f"joint_owner_prompt: {joint_owner_prompt}")
             joint_owner_response = self._make_request(joint_owner_prompt)
             self.logger.info(f"joint_owner_response: {joint_owner_response}")
