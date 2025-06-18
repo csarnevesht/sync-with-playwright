@@ -669,12 +669,53 @@ class CommandRunner:
         # Call the implementation method with required arguments
         self._extract_dropbox_account_app_files_info(dropbox_account_folder_name, file_filter)
 
+    def _has_complete_account_info(self, dropbox_account_search_result: Dict[str, Any]) -> bool:
+        """Check if the dropbox account search result has most account info (email can be missing).
+        
+        Args:
+            dropbox_account_search_result: Dictionary containing account search result
+            
+        Returns:
+            bool: True if most account info is present, False otherwise
+        """
+        account_data = dropbox_account_search_result.get('account_data', {})
+        
+        # Required fields for "most account info" (email is optional)
+        required_fields = {
+            'name', 'first_name', 'last_name', 'address', 'city', 'state', 'zip', 'phone'
+        }
+        
+        # Check if all required fields are present and not empty
+        for field in required_fields:
+            value = account_data.get(field, '')
+            if not value or str(value).strip() == '' or str(value).lower() in ['nan', 'none', 'null']:
+                return False
+        
+        # Check if we have a match found
+        search_info = dropbox_account_search_result.get('search_info', {})
+        match_info = search_info.get('match_info', {})
+        match_status = match_info.get('match_status', '')
+        
+        # Only consider it complete if we found a match
+        if 'match found' not in match_status.lower():
+            return False
+        
+        return True
+
     def _extract_dropbox_account_app_files_info(self, dropbox_account_folder_name: str, file_filter: Optional[str] = None) -> None:
         """Extract information from application files in the specified Dropbox account folder."""
         start_time = time.time()
         self.logger.info("\n=== GETTING DROPBOX APPLICATION INFORMATION ===")
         self.logger.info(f"dropbox_account_folder_name: {dropbox_account_folder_name}")
         self.logger.info(f"dropbox_account_name_parts: {self._data.get('dropbox_account_name_parts')}")
+        
+        # Check if we already have complete account info from dropbox search
+        dropbox_account_search_result = self.get_data('dropbox_account_info')
+        if dropbox_account_search_result and self._has_complete_account_info(dropbox_account_search_result):
+            self.logger.info("✅ Account already has complete information from Dropbox search - skipping app files extraction")
+            self.report_logger.info("✅ Account already has complete information from Dropbox search - skipping app files extraction")
+            self.summary_logger.info(f"✅ Skipped app files extraction for {dropbox_account_folder_name} - complete account info already available")
+            return
         
         if file_filter:
             self.logger.info(f"Using file filter: {file_filter} (only files matching this pattern will be processed)")
