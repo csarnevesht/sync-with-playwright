@@ -50,12 +50,13 @@ def _check_account_info_missing_fields(data: Dict[str, Any], prefix: str = "") -
     
     return [f"{prefix}{field}" for field in required_fields if not is_valid_value(data.get(field))]
 
-def log_dropbox_account_info(account_search_result: Dict[str, Any], logger_instance: Any = None) -> None:
+def log_dropbox_account_info(account_search_result: Dict[str, Any], logger_instance: Any = None, args: Any = None) -> None:
     """Log detailed information about a Dropbox account.
     
     Args:
         account_search_result: Dictionary containing account search result information
         logger_instance: Optional logger instance to use (defaults to module logger)
+        args: Optional argparse.Namespace to check for --dl flag
     """
     log = logger_instance or logger
     
@@ -111,8 +112,8 @@ def log_dropbox_account_info(account_search_result: Dict[str, Any], logger_insta
         if account_data.get('tax_id'):
             log.info(f"    🔒 Tax ID: {account_data['tax_id']}")
         
-        # Driver's license information
-        if drivers_license_info:
+        # Driver's license information - only log if --dl flag is set
+        if args and hasattr(args, 'dl') and args.dl and drivers_license_info:
             dl_status = drivers_license_info.get('status', 'not_found')
             if dl_status == 'found':
                 log.info("    🪪 Driver's License: Found")
@@ -127,7 +128,8 @@ def log_dropbox_account_info(account_search_result: Dict[str, Any], logger_insta
                     if drivers_license_data.get('state'):
                         log.info(f"    🪪 State: {drivers_license_data['state']}")
             else:
-                log.info("    🔺 Driver's License: Not Found")
+                if drivers_license_info.get('status') == 'not_found':
+                    log.info("    🔺 Driver's License: Not Found")
         
         # Search and match information
         if match_info:
