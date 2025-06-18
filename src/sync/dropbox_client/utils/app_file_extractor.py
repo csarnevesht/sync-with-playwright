@@ -16,6 +16,7 @@ import json
 from .logging_utils import log_dropbox_app_file_info
 import time
 from datetime import datetime
+from .ocr_utils import extract_name_with_ocr_with_conf
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -186,18 +187,34 @@ class AppFileExtractor:
             
             # Extract text from PDF
             extracted_text = processor._extract_text_from_file(temp_path)
+            ocr_owner_data = None
+            ocr_avg_conf = None
             if not extracted_text or len(extracted_text.strip()) == 0:
                 logger.warning(f"No text could be extracted from file: {file.name}")
+                # Try OCR extraction for name fields
+                logger.info(f"Trying OCR extraction for name fields")
+                ocr_result = extract_name_with_ocr_with_conf(temp_path, name_parts=self.name_parts, file_name=file.name, logger=logger)
+                if ocr_result:
+                    ocr_owner_data = ocr_result.get('owner_data')
+                    ocr_avg_conf = ocr_result.get('avg_conf')
+                    logger.info(f"[OCR] Extracted owner data: {ocr_owner_data}")
+                    if ocr_avg_conf is not None:
+                        if ocr_avg_conf < 60:
+                            logger.info(f"[OCR] File {file.name} is likely handwritten (avg conf: {ocr_avg_conf:.2f})")
+                        else:
+                            logger.info(f"[OCR] File {file.name} is likely printed (avg conf: {ocr_avg_conf:.2f})")
+                else:
+                    logger.warning(f"[OCR] No owner data could be extracted from file: {file.name}")
             
-                
+            logger.info(f"process extracted_text: {extracted_text}")
             processor_data = processor.process_text(extracted_text, file.name)
             logger.info(f"processor extraction results: {json.dumps(processor_data, indent=2)}")
             
             # Clean up temp file
             os.unlink(temp_path)
 
-            if not processor_data:
-                logger.warning("No data extracted from processor")
+            if not processor_data and not ocr_owner_data:
+                logger.warning("No data extracted from processor or OCR")
                 return None
 
             # Format the extracted data
@@ -210,7 +227,7 @@ class AppFileExtractor:
             logger.info(f"Initial file info: {json.dumps(file_info, indent=2)}")
 
             # Add owner (primary applicant) information
-            if processor_data.get('owner'):
+            if processor_data and processor_data.get('owner'):
                 owner_data = processor_data['owner']
                 file_info['owner'] = {
                     'firstName': owner_data.get('firstName'),
@@ -224,9 +241,23 @@ class AppFileExtractor:
                     'phoneNumber': owner_data.get('phoneNumber'),
                     'emailAddress': owner_data.get('emailAddress')
                 }
+            elif ocr_owner_data:
+                # Use OCR result for owner name if processor_data is missing or empty
+                file_info['owner'] = {
+                    'firstName': ocr_owner_data.get('first_name'),
+                    'lastName': ocr_owner_data.get('last_name'),
+                    'dateOfBirth': None,
+                    'gender': None,
+                    'mailingAddressStreet': None,
+                    'mailingAddressCity': None,
+                    'mailingAddressState': None,
+                    'mailingAddressZip': None,
+                    'phoneNumber': None,
+                    'emailAddress': None
+                }
 
             # Add joint owner information if present
-            if processor_data.get('jointOwner'):
+            if processor_data and processor_data.get('jointOwner'):
                 joint_owner_data = processor_data['jointOwner']
                 file_info['jointOwner'] = {
                     'firstName': joint_owner_data.get('firstName'),
@@ -386,9 +417,29 @@ class AppFileExtractor:
                 return None
 
             ocr_lines = []
+            confidences = []
             for image in images:
-                text = pytesseract.image_to_string(image)
-                ocr_lines.extend(text.splitlines())
+                # Use pytesseract to get confidence scores
+                ocr_data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
+                for i, text in enumerate(ocr_data['text']):
+                    if text.strip():
+                        ocr_lines.append(text)
+                        conf = ocr_data['conf'][i]
+                        if conf != '-1':
+                            try:
+                                confidences.append(int(conf))
+                            except ValueError:
+                                pass
+                # Also add splitlines for compatibility with old logic
+                ocr_lines.extend(pytesseract.image_to_string(image).splitlines())
+
+            # Heuristic: check average confidence
+            avg_conf = sum(confidences) / len(confidences) if confidences else 0
+            logger.info(f"[OCR] Average Tesseract confidence: {avg_conf:.2f}")
+            if avg_conf < 60:
+                logger.info("[OCR] Low average confidence detected; this file is likely handwritten or of poor quality.")
+            else:
+                logger.info("[OCR] Average confidence suggests mostly printed or high-quality text.")
 
             # First strategy: Look for OWNER section, then 'Name: First MI Last' header, then extract the next line(s) as the name
             for i, line in enumerate(ocr_lines):
