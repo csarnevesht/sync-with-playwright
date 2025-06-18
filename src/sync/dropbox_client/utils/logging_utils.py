@@ -66,9 +66,12 @@ def log_dropbox_account_info(account_search_result: Dict[str, Any], logger_insta
     match_info = search_info.get('match_info', {})
     drivers_license_info = account_search_result.get('drivers_license_info', {})
     
+    summary = f"📁 **Dropbox Folder** Name: {account_search_result.get('folder_name', 'Unknown')}"
+    log.info(summary)
+
     # Log account basic information
     if account_data:
-        log.info("    📄 **Dropbox Account Information**")
+        log.info("    📄 **Dropbox Account Information from client list search **")
         
         # Name information
         if account_data.get('name'):
@@ -167,16 +170,23 @@ def log_dropbox_account_info(account_search_result: Dict[str, Any], logger_insta
     else:
         log.warning("    ❌ No account data found in search result")
 
-def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None, report_logger: Any = None) -> None:
+def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None, report_logger: Any = None, file_name: str = None) -> None:
     """Log detailed information about a file.
     
     Args:
         info: Dictionary containing file information
         logger_instance: Optional logger instance to use (defaults to module logger)
         report_logger: Optional report logger instance to use for additional logging
+        file_name: Optional file name to display at the beginning
     """
     log = logger_instance or logger
     report_log = report_logger  # Use report_logger if provided
+
+    # Log file name if provided
+    if file_name:
+        log.info(f"📄 **{file_name}**:")
+        if report_log:
+            report_log.info(f"📄 **{file_name}**:")
 
     # Owner information
     if info.get('owner'):
@@ -327,3 +337,278 @@ def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None,
     log.info("")  # Add blank line between files
     if report_log:
         report_log.info("")  # Add blank line between files 
+
+def log_best_dropbox_account_info_from_app_files(best_info: Dict[str, Any], logger_instance: Any = None, report_logger: Any = None, title: str = "BEST GUESS ACCOUNT INFO") -> None:
+    """Log the best account information from app files in a structured format.
+    
+    Args:
+        best_info: Dictionary containing the best available account information
+        logger_instance: Optional logger instance to use (defaults to module logger)
+        report_logger: Optional report logger instance to use for additional logging
+        title: Optional title for the log section (defaults to "BEST GUESS ACCOUNT INFO")
+    """
+    log = logger_instance or logger
+    report_log = report_logger
+    
+    if not best_info:
+        log.info("❌ No account information found in any files")
+        if report_log:
+            report_log.info("❌ No account information found in any files")
+        return
+    
+    # Log the header
+    log.info(f"\n🏆 {title}:")
+    if report_log:
+        report_log.info(f"\n🏆 {title}:")
+    
+    # Log owner information
+    owner = best_info.get('owner', {})
+    if owner:
+        log.info("👤 OWNER:")
+        if report_log:
+            report_log.info("👤 OWNER:")
+        
+        if owner.get('firstName') and owner.get('lastName'):
+            log.info(f"   Name: {owner.get('firstName')} {owner.get('lastName')}")
+            if report_log:
+                report_log.info(f"   Name: {owner.get('firstName')} {owner.get('lastName')}")
+        
+        if owner.get('dateOfBirth'):
+            log.info(f"   DOB: {owner.get('dateOfBirth')}")
+            if report_log:
+                report_log.info(f"   DOB: {owner.get('dateOfBirth')}")
+        
+        if owner.get('gender'):
+            log.info(f"   Gender: {owner.get('gender')}")
+            if report_log:
+                report_log.info(f"   Gender: {owner.get('gender')}")
+        
+        if owner.get('mailingAddressStreet') and owner.get('mailingAddressCity'):
+            address = f"{owner.get('mailingAddressStreet')}, {owner.get('mailingAddressCity')}"
+            if owner.get('mailingAddressState'):
+                address += f", {owner.get('mailingAddressState')}"
+            if owner.get('mailingAddressZip'):
+                address += f" {owner.get('mailingAddressZip')}"
+            log.info(f"   Address: {address}")
+            if report_log:
+                report_log.info(f"   Address: {address}")
+        
+        if owner.get('phoneNumber'):
+            log.info(f"   Phone: {owner.get('phoneNumber')}")
+            if report_log:
+                report_log.info(f"   Phone: {owner.get('phoneNumber')}")
+        
+        if owner.get('emailAddress'):
+            log.info(f"   Email: {owner.get('emailAddress')}")
+            if report_log:
+                report_log.info(f"   Email: {owner.get('emailAddress')}")
+        
+        if owner.get('ocrMethod'):
+            log.info(f"   OCR Method: {owner.get('ocrMethod')}")
+            if report_log:
+                report_log.info(f"   OCR Method: {owner.get('ocrMethod')}")
+    
+    # Log joint owner information
+    joint_owner = best_info.get('jointOwner', {})
+    if joint_owner:
+        log.info("👥 JOINT OWNER:")
+        if report_log:
+            report_log.info("👥 JOINT OWNER:")
+        
+        if joint_owner.get('firstName') and joint_owner.get('lastName'):
+            log.info(f"   Name: {joint_owner.get('firstName')} {joint_owner.get('lastName')}")
+            if report_log:
+                report_log.info(f"   Name: {joint_owner.get('firstName')} {joint_owner.get('lastName')}")
+        
+        if joint_owner.get('dateOfBirth'):
+            log.info(f"   DOB: {joint_owner.get('dateOfBirth')}")
+            if report_log:
+                report_log.info(f"   DOB: {joint_owner.get('dateOfBirth')}")
+        
+        if joint_owner.get('gender'):
+            log.info(f"   Gender: {joint_owner.get('gender')}")
+            if report_log:
+                report_log.info(f"   Gender: {joint_owner.get('gender')}")
+        
+        if joint_owner.get('mailingAddressStreet') and joint_owner.get('mailingAddressCity'):
+            address = f"{joint_owner.get('mailingAddressStreet')}, {joint_owner.get('mailingAddressCity')}"
+            if joint_owner.get('mailingAddressState'):
+                address += f", {joint_owner.get('mailingAddressState')}"
+            if joint_owner.get('mailingAddressZip'):
+                address += f" {joint_owner.get('mailingAddressZip')}"
+            log.info(f"   Address: {address}")
+            if report_log:
+                report_log.info(f"   Address: {address}")
+        
+        if joint_owner.get('phoneNumber'):
+            log.info(f"   Phone: {joint_owner.get('phoneNumber')}")
+            if report_log:
+                report_log.info(f"   Phone: {joint_owner.get('phoneNumber')}")
+        
+        if joint_owner.get('emailAddress'):
+            log.info(f"   Email: {joint_owner.get('emailAddress')}")
+            if report_log:
+                report_log.info(f"   Email: {joint_owner.get('emailAddress')}")
+        
+        if joint_owner.get('ocrMethod'):
+            log.info(f"   OCR Method: {joint_owner.get('ocrMethod')}")
+            if report_log:
+                report_log.info(f"   OCR Method: {joint_owner.get('ocrMethod')}")
+    
+    
+    # Log notes if any
+    notes = best_info.get('notes', [])
+    if notes:
+        log.info("📝 Notes:")
+        if report_log:
+            report_log.info("📝 Notes:")
+        for note in notes:
+            log.info(f"   • {note}")
+            if report_log:
+                report_log.info(f"   • {note}")
+
+def log_app_files_notes_summary(file_info_dict: Dict[str, Any], logger_instance: Any = None, report_logger: Any = None) -> None:
+    """Log a summary of notes for all app files in a prominent way.
+    
+    Args:
+        file_info_dict: Dictionary containing file info with file paths as keys
+        logger_instance: Optional logger instance to use (defaults to module logger)
+        report_logger: Optional report logger instance to use for additional logging
+    """
+    log = logger_instance or logger
+    report_log = report_logger
+    
+    if not file_info_dict:
+        log.info("📝 No app files processed - no notes to display")
+        if report_log:
+            report_log.info("📝 No app files processed - no notes to display")
+        return
+    
+    log.info("\n" + "="*60)
+    log.info("📝 APP FILES PROCESSING NOTES SUMMARY")
+    log.info("="*60)
+    if report_log:
+        report_log.info("\n" + "="*60)
+        report_log.info("📝 APP FILES PROCESSING NOTES SUMMARY")
+        report_log.info("="*60)
+    
+    files_with_notes = 0
+    total_notes = 0
+    
+    for file_path, info in file_info_dict.items():
+        if not info:
+            continue
+            
+        # Extract filename from path
+        filename = file_path.split('/')[-1] if '/' in file_path else file_path
+        
+        notes = info.get('notes', [])
+        if notes:
+            files_with_notes += 1
+            total_notes += len(notes)
+            
+            log.info(f"\n📄 {filename}:")
+            if report_log:
+                report_log.info(f"\n📄 {filename}:")
+            
+            for i, note in enumerate(notes, 1):
+                log.info(f"   {i}. {note}")
+                if report_log:
+                    report_log.info(f"   {i}. {note}")
+        else:
+            log.info(f"\n📄 {filename}: No processing notes")
+            if report_log:
+                report_log.info(f"\n📄 {filename}: No processing notes")
+    
+    # Summary
+    log.info(f"\n📊 SUMMARY:")
+    log.info(f"   • Total files processed: {len(file_info_dict)}")
+    log.info(f"   • Files with notes: {files_with_notes}")
+    log.info(f"   • Total notes: {total_notes}")
+    if report_log:
+        report_log.info(f"\n📊 SUMMARY:")
+        report_log.info(f"   • Total files processed: {len(file_info_dict)}")
+        report_log.info(f"   • Files with notes: {files_with_notes}")
+        report_log.info(f"   • Total notes: {total_notes}")
+    
+    log.info("="*60)
+    if report_log:
+        report_log.info("="*60) 
+
+def log_app_files_processing_summary(summary_data: Dict[str, Any], logger_instance: Any = None, report_logger: Any = None) -> None:
+    """Log a summary of app files processing results.
+    
+    Args:
+        summary_data: Dictionary containing summary data from app file extraction
+        logger_instance: Optional logger instance to use (defaults to module logger)
+        report_logger: Optional report logger instance to use for additional logging
+    """
+    log = logger_instance or logger
+    report_log = report_logger
+    
+    if not summary_data or 'file_info' not in summary_data:
+        log.warning("No summary data available for app files processing summary")
+        if report_log:
+            report_log.warning("No summary data available for app files processing summary")
+        return
+    
+    file_info = summary_data['file_info']
+    
+    # Log the summary header
+    log.info("============================================================")
+    log.info("📝 APP FILES PROCESSING NOTES SUMMARY")
+    log.info("============================================================")
+    log.info("")
+    
+    if report_log:
+        report_log.info("============================================================")
+        report_log.info("📝 APP FILES PROCESSING NOTES SUMMARY")
+        report_log.info("============================================================")
+        report_log.info("")
+    
+    # Process each file
+    files_with_notes = 0
+    total_notes = 0
+    
+    for file_path, info in file_info.items():
+        # Extract filename from path
+        filename = file_path.split('/')[-1] if '/' in file_path else file_path
+        
+        # Log file header
+        log.info(f"📄 {filename}:")
+        if report_log:
+            report_log.info(f"📄 {filename}:")
+        
+        # Log notes
+        notes = info.get('notes', [])
+        if notes:
+            files_with_notes += 1
+            total_notes += len(notes)
+            
+            for i, note in enumerate(notes, 1):
+                log.info(f"   {i}. {note}")
+                if report_log:
+                    report_log.info(f"   {i}. {note}")
+        else:
+            log.info("   No notes available")
+            if report_log:
+                report_log.info("   No notes available")
+        
+        log.info("")
+        if report_log:
+            report_log.info("")
+    
+    # Log summary statistics
+    total_files = len(file_info)
+    log.info("📊 SUMMARY:")
+    log.info(f"   • Total files processed: {total_files}")
+    log.info(f"   • Files with notes: {files_with_notes}")
+    log.info(f"   • Total notes: {total_notes}")
+    log.info("============================================================")
+    
+    if report_log:
+        report_log.info("📊 SUMMARY:")
+        report_log.info(f"   • Total files processed: {total_files}")
+        report_log.info(f"   • Files with notes: {files_with_notes}")
+        report_log.info(f"   • Total notes: {total_notes}")
+        report_log.info("============================================================") 

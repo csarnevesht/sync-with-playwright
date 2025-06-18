@@ -36,21 +36,20 @@ class SetEncoder(json.JSONEncoder):
         return super().default(obj)
 
 class AppFileExtractor:
-    def __init__(self, dbx: dropbox.Dropbox):
+    def __init__(self, dbx: dropbox.Dropbox, report_logger: Any = None):
+        """Initialize the AppFileExtractor.
+        
+        Args:
+            dbx: Dropbox client instance
+            report_logger: Optional report logger instance for additional logging
+        """
         self.dbx = dbx
+        self.report_logger = report_logger
         self.name_parts = None
         self.timing_info = {}
 
-    def _log_dropbox_app_file_info(self, info: Dict[str, Any], logger_instance: Any = None) -> None:
-        """Log detailed information about a file.
-        
-        Args:
-            info: Dictionary containing file information
-            logger_instance: Optional logger instance to use (defaults to module logger)
-        """
-        log_dropbox_app_file_info(info, logger_instance)
 
-    def extract_info(self, folder_path: str, extract_fields: set = None, name_parts: Dict[str, Any] = None, file_filter: str = None) -> Dict[str, Any]:
+    def extract_info(self, folder_path: str, extract_fields: set = None, name_parts: Dict[str, Any] = None, file_filter: str = None, skip_zero_length_if_account_info_exists: bool = False, report_logger: Any = None) -> Dict[str, Any]:
         """Extract information from application files in a Dropbox folder.
         
         Args:
@@ -59,6 +58,8 @@ class AppFileExtractor:
                            Valid fields: 'name', 'address', 'application_type', 'status', 'birthdate', 'gender'
             name_parts: Optional dictionary containing name parts for better name extraction
             file_filter: Optional pattern to filter files by name (e.g. "*Joint*")
+            skip_zero_length_if_account_info_exists: If True, skip processing files with 0 extracted text when account info already exists
+            report_logger: Optional report logger instance for additional logging
             
         Returns:
             Dict containing extracted information
@@ -73,6 +74,7 @@ class AppFileExtractor:
             extract_fields = {'name', 'address', 'application_type', 'status'}
         
         self.name_parts = name_parts
+        self.skip_zero_length_if_account_info_exists = skip_zero_length_if_account_info_exists
 
         summary_data = {
             'total_app_files': 0,
@@ -82,7 +84,8 @@ class AppFileExtractor:
             'file_sexes': {},
             'file_info': {},
             'all_folder_app_files': {},
-            'files_with_name': []
+            'files_with_name': [],
+            'skipped_zero_length_files': 0
         }
 
         app_files = []
@@ -116,6 +119,10 @@ class AppFileExtractor:
                     summary_data['file_info'][file.path_display] = file_info
                     if file_info.get('name'):
                         summary_data['files_with_name'].append(file.path_display)
+                else:
+                    # Check if this was a skipped zero-length file
+                    if hasattr(self, 'skip_zero_length_if_account_info_exists') and self.skip_zero_length_if_account_info_exists:
+                        summary_data['skipped_zero_length_files'] += 1
 
             summary_data['all_folder_app_files'][folder_path] = app_files
             summary_data['processed_folders'].add(folder_path)
@@ -130,6 +137,7 @@ class AppFileExtractor:
                 'file_info': summary_data['file_info'],
                 'all_folder_app_files': summary_data['all_folder_app_files'],
                 'files_with_name': summary_data['files_with_name'],
+                'skipped_zero_length_files': summary_data['skipped_zero_length_files'],
                 'timing_info': self.timing_info
             }
 
@@ -150,7 +158,11 @@ class AppFileExtractor:
                     # Log any additional information found in the file
                     if file.path_display in summary_data.get('file_info', {}):
                         info = summary_data['file_info'][file.path_display]
-                        self._log_dropbox_app_file_info(info)
+                        log_dropbox_app_file_info(info, logger, self.report_logger, file.name)
+                
+                # Log skipped files info
+                if summary_data['skipped_zero_length_files'] > 0:
+                    logger.info(f"  ⏭️ Skipped {summary_data['skipped_zero_length_files']} zero-length files (account info already exists)")
             else:
                 if file_filter:
                     logger.info(f"  ❌ No application files found matching filter '{file_filter}' for {folder_path}")
@@ -210,8 +222,30 @@ class AppFileExtractor:
             ocr_method = None
             special_case_applied = False
             
+            # Check if we have zero-length extracted text
             if not extracted_text or len(extracted_text.strip()) == 0:
                 logger.warning(f"No text could be extracted from file: {file.name}")
+                
+                # If we should skip zero-length files when account info exists, create file info with notes
+                if hasattr(self, 'skip_zero_length_if_account_info_exists') and self.skip_zero_length_if_account_info_exists:
+                    logger.info(f"Skipping zero-length file {file.name} - account info already exists from app files")
+                    # Clean up temp file
+                    os.unlink(temp_path)
+                    
+                    # Create file info object with notes explaining why it was skipped
+                    file_info = {
+                        'application_type': self._determine_application_type(file.name),
+                        'status': 'Skipped',
+                        'owner': {},
+                        'jointOwner': {},
+                        'notes': [
+                            "File skipped due to zero-length text extraction",
+                            "Account info already exists from other app files",
+                            "No text could be extracted from any page"
+                        ]
+                    }
+                    return file_info
+                
                 if force_trocr:
                     # Only run TrOCR
                     logger.info(f"[OCR] Running TrOCR only due to special_cases directive.")
@@ -302,7 +336,20 @@ class AppFileExtractor:
 
             if not processor_data and not ocr_owner_data:
                 logger.warning("No data extracted from processor or OCR")
-                return None
+                
+                # Create file info object with notes explaining why no data was extracted
+                file_info = {
+                    'application_type': self._determine_application_type(file.name),
+                    'status': 'Failed',
+                    'owner': {},
+                    'jointOwner': {},
+                    'notes': [
+                        "No data could be extracted from file",
+                        "Both processor and OCR extraction failed",
+                        "File may be corrupted, password-protected, or contain no readable text"
+                    ]
+                }
+                return file_info
 
             # Format the extracted data
             file_info = {
@@ -429,7 +476,20 @@ class AppFileExtractor:
 
         except Exception as e:
             logger.error(f"Error processing file {file.name}: {str(e)}")
-            return None
+            
+            # Create file info object with notes explaining the error
+            file_info = {
+                'application_type': self._determine_application_type(file.name),
+                'status': 'Error',
+                'owner': {},
+                'jointOwner': {},
+                'notes': [
+                    f"Error processing file: {str(e)}",
+                    "File processing failed due to an exception",
+                    "Check file format and accessibility"
+                ]
+            }
+            return file_info
 
     def _validate_name_against_parts(self, first_name: str, last_name: str) -> bool:
         """Validate extracted name against expected name parts.
@@ -519,7 +579,7 @@ class AppFileExtractor:
                     logger.info(f"  ✅ {file.name}")
                     if file.path_display in app_file_info_summary['file_info']:
                         info = app_file_info_summary['file_info'][file.path_display]
-                        self._log_dropbox_app_file_info(info)
+                        log_dropbox_app_file_info(info, logger, self.report_logger, file.name)
 
             return app_file_info_summary
 
