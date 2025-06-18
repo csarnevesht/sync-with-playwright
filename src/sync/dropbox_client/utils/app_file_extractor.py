@@ -16,7 +16,7 @@ import json
 from .logging_utils import log_dropbox_app_file_info
 import time
 from datetime import datetime
-from .ocr_utils import extract_name_with_ocr_with_conf
+from .ocr_utils import extract_name_with_ocr_with_conf, extract_text_with_trocr
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -181,6 +181,23 @@ class AppFileExtractor:
                 temp_path = temp_file.name
                 self.dbx.files_download_to_file(temp_path, file.path_display)
 
+            # Check for special case: force TrOCR for handwritten files
+            force_trocr = False
+            try:
+                with open('accounts/special_cases.json', 'r') as f:
+                    special_cases = json.load(f)
+                folder_name = file.path_display.split('/')[-2] if '/' in file.path_display else None
+                for case in special_cases.get('special_cases', []):
+                    if case.get('folder_name') == folder_name:
+                        handwritten_files = case.get('handwritten_app_files', [])
+                        matched_patterns = [pattern for pattern in handwritten_files if fnmatch.fnmatch(file.name, pattern)]
+                        if matched_patterns:
+                            force_trocr = True
+                            logger.info(f"[SPECIAL CASE] Forcing TrOCR for handwritten file: {file.name} in folder: {folder_name} (matched patterns: {matched_patterns})")
+                            break
+            except Exception as e:
+                logger.warning(f"Could not check special_cases.json for handwritten directive: {e}")
+
             # Initialize processor
             from sync.processors.lm_studio_processor import LMStudioProcessor
             processor = LMStudioProcessor(model_name="qwen2-vl-7b-instruct")
@@ -189,22 +206,84 @@ class AppFileExtractor:
             extracted_text = processor._extract_text_from_file(temp_path)
             ocr_owner_data = None
             ocr_avg_conf = None
+            ocr_method = None
             if not extracted_text or len(extracted_text.strip()) == 0:
                 logger.warning(f"No text could be extracted from file: {file.name}")
-                # Try OCR extraction for name fields
-                logger.info(f"Trying OCR extraction for name fields")
-                ocr_result = extract_name_with_ocr_with_conf(temp_path, name_parts=self.name_parts, file_name=file.name, logger=logger)
-                if ocr_result:
-                    ocr_owner_data = ocr_result.get('owner_data')
-                    ocr_avg_conf = ocr_result.get('avg_conf')
-                    logger.info(f"[OCR] Extracted owner data: {ocr_owner_data}")
-                    if ocr_avg_conf is not None:
-                        if ocr_avg_conf < 60:
-                            logger.info(f"[OCR] File {file.name} is likely handwritten (avg conf: {ocr_avg_conf:.2f})")
-                        else:
-                            logger.info(f"[OCR] File {file.name} is likely printed (avg conf: {ocr_avg_conf:.2f})")
+                if force_trocr:
+                    # Only run TrOCR
+                    logger.info(f"[OCR] Running TrOCR only due to special_cases directive.")
+                    from pdf2image import convert_from_path
+                    images = convert_from_path(temp_path, dpi=300)
+                    images = images[:5]
+                    logger.info(f"[TrOCR] Number of images/pages to process: {len(images)}")
+                    trocr_texts = []
+                    for i, image in enumerate(images):
+                        text = extract_text_with_trocr(image)
+                        logger.info(f"[TrOCR] Page {i+1} text: {text}")
+                        trocr_texts.append(text)
+                    import re
+                    found_name = False
+                    for page_num, text in enumerate(trocr_texts):
+                        words = re.findall(r'\b[A-Z][a-z]+\b', text)
+                        logger.info(f"[TrOCR] Page {page_num+1} candidate words: {words}")
+                        if len(words) >= 2:
+                            trocr_owner_data = {'first_name': words[0], 'last_name': words[1]}
+                            logger.info(f"[TrOCR] Extracted owner data: {trocr_owner_data} from page {page_num+1}")
+                            ocr_owner_data = trocr_owner_data
+                            ocr_method = 'TrOCR'
+                            found_name = True
+                            break
+                    if not found_name:
+                        logger.warning(f"[TrOCR] No valid name found in any page for file: {file.name}")
                 else:
-                    logger.warning(f"[OCR] No owner data could be extracted from file: {file.name}")
+                    # Hybrid: EasyOCR first, fallback to TrOCR if needed
+                    logger.info(f"Trying EasyOCR extraction for name fields")
+                    ocr_result = extract_name_with_ocr_with_conf(temp_path, name_parts=self.name_parts, file_name=file.name, logger=logger)
+                    if ocr_result:
+                        ocr_owner_data = ocr_result.get('owner_data')
+                        ocr_avg_conf = ocr_result.get('avg_conf')
+                        logger.info(f"[OCR] Extracted owner data (EasyOCR): {ocr_owner_data}")
+                        if ocr_avg_conf is not None:
+                            if ocr_avg_conf < 60 or not ocr_owner_data or not ocr_owner_data.get('first_name') or not ocr_owner_data.get('last_name'):
+                                logger.info(f"[OCR] EasyOCR confidence low or no valid name found, trying TrOCR for handwritten text.")
+                                images = convert_from_path(temp_path, dpi=300)
+                                images = images[:5]
+                                trocr_texts = []
+                                for i, image in enumerate(images):
+                                    text = extract_text_with_trocr(image)
+                                    logger.info(f"[TrOCR] Page {i+1} text: {text}")
+                                    trocr_texts.append(text)
+                                import re
+                                for page_num, text in enumerate(trocr_texts):
+                                    words = re.findall(r'\b[A-Z][a-z]+\b', text)
+                                    if len(words) >= 2:
+                                        trocr_owner_data = {'first_name': words[0], 'last_name': words[1]}
+                                        logger.info(f"[TrOCR] Extracted owner data: {trocr_owner_data} from page {page_num+1}")
+                                        ocr_owner_data = trocr_owner_data
+                                        ocr_method = 'TrOCR'
+                                        break
+                            else:
+                                ocr_method = 'EasyOCR'
+                        else:
+                            ocr_method = 'EasyOCR'
+                    else:
+                        logger.warning(f"[OCR] No owner data could be extracted from file: {file.name}")
+                        images = convert_from_path(temp_path, dpi=300)
+                        images = images[:5]
+                        trocr_texts = []
+                        for i, image in enumerate(images):
+                            text = extract_text_with_trocr(image)
+                            logger.info(f"[TrOCR] Page {i+1} text: {text}")
+                            trocr_texts.append(text)
+                        import re
+                        for page_num, text in enumerate(trocr_texts):
+                            words = re.findall(r'\b[A-Z][a-z]+\b', text)
+                            if len(words) >= 2:
+                                trocr_owner_data = {'first_name': words[0], 'last_name': words[1]}
+                                logger.info(f"[TrOCR] Extracted owner data: {trocr_owner_data} from page {page_num+1}")
+                                ocr_owner_data = trocr_owner_data
+                                ocr_method = 'TrOCR'
+                                break
             
             logger.info(f"process extracted_text: {extracted_text}")
             processor_data = processor.process_text(extracted_text, file.name)
@@ -253,7 +332,8 @@ class AppFileExtractor:
                     'mailingAddressState': None,
                     'mailingAddressZip': None,
                     'phoneNumber': None,
-                    'emailAddress': None
+                    'emailAddress': None,
+                    'ocrMethod': ocr_method
                 }
 
             # Add joint owner information if present
@@ -334,234 +414,7 @@ class AppFileExtractor:
         """Check if a file is an application file based on its name."""
         return 'App' in filename or 'Application' in filename
 
-    def _extract_name_from_line(self, line: str, lines: List[str], line_index: int) -> Optional[Dict[str, str]]:
-        """Extract name from a line and its surrounding context."""
-        # Try to extract name directly from the current line
-        name_match = re.search(r'Name\s*:\s*(.+)', line, re.IGNORECASE)
-        if name_match:
-            name = name_match.group(1).strip()
-            name_parts = re.split(r'\s+', name)
-            if len(name_parts) >= 2:
-                return {
-                    'first_name': name_parts[0],
-                    'last_name': name_parts[-1]
-                }
-
-        # Look at next few lines for name
-        for offset in range(1, 10):
-            idx = line_index + offset
-            if idx < len(lines):
-                candidate = lines[idx].strip()
-                if self._is_valid_name_candidate(candidate):
-                    name_parts = re.split(r'\s+', candidate)
-                    return {
-                        'first_name': name_parts[0],
-                        'last_name': name_parts[-1]
-                    }
-
-        return None
-
-    def _is_valid_name_candidate(self, text: str) -> bool:
-        """Check if a text line is likely to contain a valid name."""
-        if not text:
-            return False
-
-        # Skip if contains common non-name patterns
-        non_name_patterns = [
-            r'\d',  # Contains numbers
-            r'[()]',  # Contains parentheses
-            r'[#@]',  # Contains special characters
-            r'box',  # Contains "box"
-            r'address',  # Contains "address"
-            r'city',  # Contains "city"
-            r'state',  # Contains "state"
-            r'zip',  # Contains "zip"
-        ]
-        if any(re.search(pattern, text.lower()) for pattern in non_name_patterns):
-            return False
-
-        # Check if line looks like a real name
-        words = re.split(r'\s+', text)
-        if len(words) < 2:
-            return False
-
-        # Skip if any word is a label
-        labels = {'first', 'last', 'mi', 'address', 'city', 'state', 'zip', 'mailing', 
-                 'phone', 'number', 'dob', 'date', 'ssn', 'email', 'residence', 'cannot', 
-                 'box', 'different', 'than'}
-        if any(word.lower() in labels for word in words):
-            return False
-
-        # Check if at least one word starts with capital letter
-        return any(word[0].isupper() for word in words) 
     
-    def _extract_name_with_ocr(self, content: str, file: FileMetadata) -> Optional[Dict[str, str]]:
-        """Extract name information from file content using OCR."""
-        try:
-            # Check if the file is a valid PDF before attempting OCR
-            mime_type, _ = mimetypes.guess_type(content)
-            logger.info(f"[OCR] File path: {content}, Detected MIME type: {mime_type}")
-            if not (mime_type and mime_type.lower() == 'application/pdf'):
-                logger.error(f"[OCR] File is not a valid PDF: BEGIN CONTENT {content} END CONTENT. Skipping OCR extraction.")
-                return None
-
-            # Convert PDF to images with higher DPI and larger size for better text recognition
-            try:
-                images = convert_from_path(
-                    content,
-                    dpi=600,  # Increased DPI for better quality
-                    size=(2000, None)  # Wider width to capture longer lines
-                )
-            except Exception as pdf_exc:
-                logger.error(f"[OCR] Failed to convert PDF to images: {pdf_exc}")
-                return None
-
-            ocr_lines = []
-            confidences = []
-            for image in images:
-                # Use pytesseract to get confidence scores
-                ocr_data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
-                for i, text in enumerate(ocr_data['text']):
-                    if text.strip():
-                        ocr_lines.append(text)
-                        conf = ocr_data['conf'][i]
-                        if conf != '-1':
-                            try:
-                                confidences.append(int(conf))
-                            except ValueError:
-                                pass
-                # Also add splitlines for compatibility with old logic
-                ocr_lines.extend(pytesseract.image_to_string(image).splitlines())
-
-            # Heuristic: check average confidence
-            avg_conf = sum(confidences) / len(confidences) if confidences else 0
-            logger.info(f"[OCR] Average Tesseract confidence: {avg_conf:.2f}")
-            if avg_conf < 60:
-                logger.info("[OCR] Low average confidence detected; this file is likely handwritten or of poor quality.")
-            else:
-                logger.info("[OCR] Average confidence suggests mostly printed or high-quality text.")
-
-            # First strategy: Look for OWNER section, then 'Name: First MI Last' header, then extract the next line(s) as the name
-            for i, line in enumerate(ocr_lines):
-                logger.debug(f"[OWNER] Checking line {i}: '{line}'")
-                if 'OWNER' in line.upper():
-                    # Look for the table header in the next few lines
-                    for j in range(i+1, min(i+6, len(ocr_lines))):
-                        header = ocr_lines[j]
-                        if 'Name:' in header and 'First' in header and 'Last' in header:
-                            # The next line(s) should be the actual name row
-                            if j+1 < len(ocr_lines):
-                                name_row = ocr_lines[j+1].strip()
-                                name_parts = name_row.split()
-                                # If only one word, check the next line for the last name
-                                if len(name_parts) == 1 and (j+2) < len(ocr_lines):
-                                    next_row = ocr_lines[j+2].strip()
-                                    next_parts = next_row.split()
-                                    if len(next_parts) == 1:
-                                        result = {
-                                            'first_name': name_parts[0],
-                                            'last_name': next_parts[0]
-                                        }
-                                        logger.info(f"[OWNER TABLE] Extracted split name: {result}")
-                                        return result
-                                elif len(name_parts) >= 2:
-                                    result = {
-                                        'first_name': name_parts[0],
-                                        'last_name': name_parts[-1]
-                                    }
-                                    if len(name_parts) == 3:
-                                        result['middle_initial'] = name_parts[1]
-                                    logger.info(f"[OWNER TABLE] Extracted name: {result}")
-                                    return result
-
-            # 2. Look for 'Full Name' marker and extract the next non-empty line
-            for i, line in enumerate(ocr_lines):
-                logger.debug(f"[Full Name] Checking line {i}: '{line}'")
-                if 'Full Name' in line:
-                    # Look for the next non-empty line
-                    for j in range(i+1, min(i+5, len(ocr_lines))):
-                        candidate = ocr_lines[j].strip()
-                        logger.debug(f"[Full Name] Candidate after marker: '{candidate}'")
-                        if candidate and len(candidate.split()) >= 2:
-                            name_parts = candidate.split()
-                            if self.name_parts and any(part.lower() in self.name_parts.get('last_name', '').lower() for part in name_parts):
-                                logger.info(f"[Full Name] Found name after marker: {candidate}")
-                                # Find the index of the part containing the last name
-                                last_name_index = next(i for i, part in enumerate(name_parts) 
-                                                        if part.lower() in self.name_parts.get('last_name', '').lower())
-                                # Use all parts up to and including the last name as the last name
-                                last_name = ' '.join(name_parts[last_name_index:])
-                                first_name = ' '.join(name_parts[:last_name_index])
-                                return {
-                                    'first_name': first_name,
-                                    'last_name': last_name
-                                }
-
-            # 3. Fallback: Any line containing the last name and at least two words
-            for i, line in enumerate(ocr_lines):
-                logger.debug(f"[Last Name Fallback] Checking line {i}: '{line}'")
-                if self.name_parts and self.name_parts.get('last_name', '').lower() in line.lower():
-                    words = line.strip().split()
-                    if len(words) >= 2:
-                        logger.info(f"[Last Name Fallback] Found line with last name: {line}")
-                        return {
-                            'first_name': words[0],
-                            'last_name': words[-1]
-                        }
-
-            # 4. Try previous patterns
-            name_patterns = [
-                r'Name\s*:\s*([A-Z][a-z]+\s+[A-Z][a-z]+)',
-                r'Applicant\s*:\s*([A-Z][a-z]+\s+[A-Z][a-z]+)',
-                r'Insured\s*:\s*([A-Z][a-z]+\s+[A-Z][a-z]+)',
-                r'Policyholder\s*:\s*([A-Z][a-z]+\s+[A-Z][a-z]+)',
-                r'([A-Z][a-z]+\s+[A-Z][a-z]+)\s*$',
-                r'^([A-Z][a-z]+\s+[A-Z][a-z]+)\s*',
-            ]
-            for line in ocr_lines:
-                logger.debug(f"[Pattern] Checking line for name: '{line}'")
-                for pattern in name_patterns:
-                    match = re.search(pattern, line)
-                    if match:
-                        name = match.group(1).strip()
-                        logger.info(f"[Pattern] Found potential name match: '{name}'")
-                        name_parts = re.split(r'\s+', name)
-                        if len(name_parts) >= 2:
-                            if self.name_parts and any(part.lower() in self.name_parts.get('last_name', '').lower() for part in name_parts):
-                                logger.info(f"[Pattern] Found name with matching last name: {name}")
-                                return {
-                                    'first_name': name_parts[0],
-                                    'last_name': name_parts[-1]
-                                }
-                            elif all(word[0].isupper() for word in name_parts):
-                                logger.info(f"[Pattern] Found name without matching last name: {name}")
-                                return {
-                                    'first_name': name_parts[0],
-                                    'last_name': name_parts[-1]
-                                }
-
-            # 5. Fallback: two consecutive capitalized words
-            for line in ocr_lines:
-                words = re.split(r'\s+', line.strip())
-                if len(words) >= 2:
-                    for i in range(len(words) - 1):
-                        if (words[i][0].isupper() and words[i+1][0].isupper() and
-                            len(words[i]) > 1 and len(words[i+1]) > 1):
-                            potential_name = f"{words[i]} {words[i+1]}"
-                            logger.info(f"[CapWords] Found potential name from capitalized words: '{potential_name}'")
-                            if self.name_parts and any(word.lower() in self.name_parts.get('last_name', '').lower() for word in words):
-                                logger.info(f"[CapWords] Found name with matching last name: {potential_name}")
-                                return {
-                                    'first_name': words[i],
-                                    'last_name': words[i+1]
-                                }
-
-            return None
-        except Exception as e:
-            import traceback
-            logger.error(f"Error during OCR name extraction: {str(e)}\n{traceback.format_exc()}")
-            return None
-
     def _extract_dropbox_account_app_files_info(self, account_name: str, file_filter: str = None) -> Dict[str, Any]:
         """Extract information from application files in a Dropbox account folder."""
         try:
