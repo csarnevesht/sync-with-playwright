@@ -68,11 +68,29 @@ class PromptCreator:
   }}
 }}
 
-IMPORTANT: For dateOfBirth field:
+IMPORTANT EXTRACTION GUIDELINES:
+
+For dateOfBirth field:
 - Look for patterns like: "Date of Birth (MM/DD/YY)", "DOB", "Birth Date", etc.
 - If you find a date like "04/11/1961", convert it to "1961-04-11"
 - If you find a date like "04/11/61", convert it to "1961-04-11" (assume 19xx for 2-digit years)
 - If no date is found, use null
+
+For gender field:
+- Look for "Gender:" followed by "X Male Female" or similar patterns
+- If "X" appears next to "Male", extract "Male"
+- If "X" appears next to "Female", extract "Female"
+- Look in both Annuitant and Owner sections
+
+For address fields:
+- Look for "Street Address" or "Address" sections
+- Extract the street address, city, state, and zip code
+- Look for patterns like "City State Zip" followed by the actual values
+- Check both Annuitant and Owner sections for address information
+
+For phone and email:
+- Look for "Phone" and "Email Address" fields
+- Extract the actual phone number and email address values
 
 Text to analyze:
 {text}
