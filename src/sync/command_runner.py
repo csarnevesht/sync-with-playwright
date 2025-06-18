@@ -716,7 +716,7 @@ class CommandRunner:
                 self.logger.info(f"Files with partial info: {aggregated_info.get('files_with_partial_info', 0)}")
                 self.logger.info(f"Files with no info: {aggregated_info.get('files_with_no_info', 0)}")
                 
-                # Log the best guess account info
+                # Log the best dropbox account app files info
                 best_info = aggregated_info.get('best_available_info', {})
                 log_best_dropbox_account_app_info(
                     best_info, 

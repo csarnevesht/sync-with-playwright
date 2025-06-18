@@ -988,13 +988,14 @@ def run_command(args):
                                 print('*********log_block*********', log_block)
                                 report_logger.info(log_block)
 
-                                # Create result dictionary before calling build_and_log_summary_line
+                                # Create result dictionary before calling the summary logging below
                                 result_dict = {
                                     'dropbox_name': dropbox_account_folder_name,
                                     'salesforce_account_search_result': salesforce_account_search_result if args.salesforce_accounts else {},
                                     'dropbox_account_search_result': dropbox_account_search_result
                                 }
-                                build_and_log_summary_line(result_dict, report_logger, summary_logger, red_logger, args)
+                                # CAROLINA HERE
+                                # build_and_log_summary_line(result_dict, report_logger, summary_logger, red_logger, args)
 
                                 # Get Salesforce files if requested and account was found
                                 if args.salesforce_account_files and salesforce_matches and len(salesforce_matches) > 0 and salesforce_matches != "--":
@@ -1309,11 +1310,12 @@ def build_and_log_summary_line(result, report_logger, summary_logger, red_logger
     dropbox_info.setdefault('account_name', '--')
     dropbox_info.setdefault('match', '--')
     
+    # CAROLINA HERE HERE
     # Call log_dropbox_account_info for detailed logging if dropbox account info is available
-    if dropbox_info and args.dropbox_account_info:
-        from sync.dropbox_client.utils.logging_utils import log_dropbox_account_info
-        # Call with both loggers so it appears in both summary and report logs
-        log_dropbox_account_info(dropbox_info, summary_logger, args, report_logger)
+    # if dropbox_info and args.dropbox_account_info:
+    #     from sync.dropbox_client.utils.logging_utils import log_dropbox_account_info
+    #     # Call with both loggers so it appears in both summary and report logs
+    #     log_dropbox_account_info(dropbox_info, summary_logger, args, report_logger)
     
     # Format the summary line
     summary = format_summary_line(result.get('dropbox_name', '--'), salesforce_info, dropbox_info, args)

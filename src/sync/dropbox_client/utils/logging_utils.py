@@ -286,9 +286,9 @@ def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None,
             if report_log:
                 report_log.info(f"    👤 Owner: {owner_data['firstName']} {owner_data['lastName']}")
         if owner_data.get('dateOfBirth') and owner_data.get('dateOfBirth') != "null":
-            log.info(f"    📅 Owner DOB: {owner_data['dateOfBirth']}")
+            log.info(f"    🎂 Owner DOB: {owner_data['dateOfBirth']}")
             if report_log:
-                report_log.info(f"    📅 Owner DOB: {owner_data['dateOfBirth']}")
+                report_log.info(f"    🎂 Owner DOB: {owner_data['dateOfBirth']}")
         if owner_data.get('gender') and owner_data.get('gender') != "null":
             log.info(f"    👤 Owner Gender: {owner_data['gender']}")
             if report_log:
@@ -321,9 +321,9 @@ def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None,
             if report_log:
                 report_log.info(f"    👥 Joint Owner: {joint_owner_data['firstName']} {joint_owner_data['lastName']}")
         if joint_owner_data.get('dateOfBirth') and joint_owner_data.get('dateOfBirth') != "null":
-            log.info(f"    📅 Joint Owner DOB: {joint_owner_data['dateOfBirth']}")
+            log.info(f"    🎂 Joint Owner DOB: {joint_owner_data['dateOfBirth']}")
             if report_log:
-                report_log.info(f"    📅 Joint Owner DOB: {joint_owner_data['dateOfBirth']}")
+                report_log.info(f"    🎂 Joint Owner DOB: {joint_owner_data['dateOfBirth']}")
         if joint_owner_data.get('gender') and joint_owner_data.get('gender') != "null":
             log.info(f"    👤 Joint Owner Gender: {joint_owner_data['gender']}")
             if report_log:
@@ -528,10 +528,10 @@ def log_best_dropbox_account_app_info(info: Dict[str, Any], logger_instance: Any
             if report_log:
                 report_log.info(f"    Name: {joint_owner_data['firstName']} {joint_owner_data['lastName']}")
         
-        if joint_owner_data.get('dateOfBirth'):
-            log.info(f"    Date of Birth: {joint_owner_data['dateOfBirth']}")
+        if joint_owner_data.get('dateOfBirth') and joint_owner_data.get('dateOfBirth') != "null":
+            log.info(f"    🎂 Joint Owner DOB: {joint_owner_data['dateOfBirth']}")
             if report_log:
-                report_log.info(f"    Date of Birth: {joint_owner_data['dateOfBirth']}")
+                report_log.info(f"    🎂 Joint Owner DOB: {joint_owner_data['dateOfBirth']}")
         
         if joint_owner_data.get('gender'):
             log.info(f"    Gender: {joint_owner_data['gender']}")
@@ -679,8 +679,39 @@ def log_app_files_processing_summary(summary_data: Dict[str, Any], logger_instan
 
     # Log summary statistics
     total_files = len(file_info)
-    files_with_info = sum(1 for info in file_info.values() if info)
-    files_without_info = total_files - files_with_info
+    
+    # Count files with actual extracted information (not just notes about skipping)
+    files_with_info = 0
+    files_without_info = 0
+    
+    for info in file_info.values():
+        if not info:
+            files_without_info += 1
+            continue
+            
+        # Check if the file has actual extracted account information
+        has_owner_info = False
+        has_joint_owner_info = False
+        
+        # Check for owner information
+        if info.get('owner'):
+            owner_data = info['owner']
+            if (owner_data.get('firstName') and owner_data.get('lastName') and 
+                owner_data.get('dateOfBirth') and owner_data.get('gender')):
+                has_owner_info = True
+        
+        # Check for joint owner information
+        if info.get('jointOwner'):
+            joint_owner_data = info['jointOwner']
+            if (joint_owner_data.get('firstName') and joint_owner_data.get('lastName') and 
+                joint_owner_data.get('dateOfBirth') and joint_owner_data.get('gender')):
+                has_joint_owner_info = True
+        
+        # File has info if it has either owner or joint owner information
+        if has_owner_info or has_joint_owner_info:
+            files_with_info += 1
+        else:
+            files_without_info += 1
     
     log.info(f"\n=== APP FILES PROCESSING SUMMARY ===")
     log.info(f"📊 Total files processed: {total_files}")
@@ -693,57 +724,30 @@ def log_app_files_processing_summary(summary_data: Dict[str, Any], logger_instan
         report_log.info(f"✅ Files with extracted info: {files_with_info}")
         report_log.info(f"❌ Files without info: {files_without_info}")
 
-    # Log detailed information for each file
-    log.info(f"\n📋 DETAILED FILE INFORMATION:")
+    # Log detailed information for each file using log_dropbox_app_file_info
+    log.info(f"\n📋 DETAILED APP FILE INFORMATION:")
     if report_log:
-        report_log.info(f"\n📋 DETAILED FILE INFORMATION:")
+        report_log.info(f"\n📋 DETAILED APP FILE INFORMATION:")
     
     for file_path, info in file_info.items():
         file_name = file_path.split('/')[-1] if '/' in file_path else file_path
         
-        if info:
-            # File has extracted information
-            log.info(f"\n📄 **{file_name}** - ✅ Info extracted")
-            if report_log:
-                report_log.info(f"\n📄 **{file_name}** - ✅ Info extracted")
-            
-            # Log owner info if present
-            if info.get('owner'):
-                owner = info['owner']
-                if owner.get('firstName') and owner.get('lastName'):
-                    log.info(f"    👤 Owner: {owner['firstName']} {owner['lastName']}")
-                    if report_log:
-                        report_log.info(f"    👤 Owner: {owner['firstName']} {owner['lastName']}")
-            
-            # Log joint owner info if present
-            if info.get('jointOwner'):
-                joint_owner = info['jointOwner']
-                if joint_owner.get('firstName') and joint_owner.get('lastName'):
-                    log.info(f"    👥 Joint Owner: {joint_owner['firstName']} {joint_owner['lastName']}")
-                    if report_log:
-                        report_log.info(f"    👥 Joint Owner: {joint_owner['firstName']} {joint_owner['lastName']}")
-            
-            # Log application type and status
-            if info.get('application_type'):
-                log.info(f"    📋 Type: {info['application_type']}")
-                if report_log:
-                    report_log.info(f"    📋 Type: {info['application_type']}")
-            
-            if info.get('status'):
-                log.info(f"    📊 Status: {info['status']}")
-                if report_log:
-                    report_log.info(f"    📊 Status: {info['status']}")
-            
-            # Log notes if present
-            if info.get('notes') and isinstance(info['notes'], list) and info['notes']:
-                log.info(f"    📝 Notes: {', '.join(info['notes'])}")
-                if report_log:
-                    report_log.info(f"    📝 Notes: {', '.join(info['notes'])}")
-        else:
-            # File has no extracted information
-            log.info(f"\n📄 **{file_name}** - ❌ No info extracted")
-            if report_log:
-                report_log.info(f"\n📄 **{file_name}** - ❌ No info extracted")
+        # Extract folder name from path for better context
+        folder_name = None
+        if '/' in file_path:
+            # Get the folder name from the path (second to last part)
+            path_parts = file_path.split('/')
+            if len(path_parts) >= 2:
+                folder_name = path_parts[-2]  # Second to last part is the folder name
+        
+        # Use log_dropbox_app_file_info for detailed logging of each file
+        log_dropbox_app_file_info(
+            info, 
+            log, 
+            report_log, 
+            file_name, 
+            folder_name
+        )
 
     log.info("")  # Add blank line at the end
     if report_log:
