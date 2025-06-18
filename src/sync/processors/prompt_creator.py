@@ -68,6 +68,12 @@ class PromptCreator:
   }}
 }}
 
+FORM STRUCTURE UNDERSTANDING:
+This is an insurance application form with multiple sections. Look for:
+1. Annuitant section (usually first)
+2. Owner section (may be same as annuitant or different)
+3. Each section contains: Name, Gender, Address, Birth Date, etc.
+
 IMPORTANT EXTRACTION GUIDELINES:
 
 For dateOfBirth field:
@@ -82,15 +88,31 @@ For gender field:
 - If "X" appears next to "Female", extract "Female"
 - Look in both Annuitant and Owner sections
 
-For address fields:
+For address fields (CRITICAL):
 - Look for "Street Address" or "Address" sections
 - Extract the street address, city, state, and zip code
 - Look for patterns like "City State Zip" followed by the actual values
 - Check both Annuitant and Owner sections for address information
+- IMPORTANT: In forms, address information is often structured as:
+  * Street address on one line (e.g., "2217 Blue Springs Road")
+  * City, State, Zip on the next line (e.g., "West Palm Beach FL 33411")
+- Extract each component separately into the appropriate fields
+- DO NOT skip address extraction - this is required information
 
 For phone and email:
 - Look for "Phone" and "Email Address" fields
 - Extract the actual phone number and email address values
+
+EXAMPLES OF WHAT TO EXTRACT:
+- If you see: "2217 Blue Springs Road" → mailingAddressStreet: "2217 Blue Springs Road"
+- If you see: "West Palm Beach FL 33411" → 
+  * mailingAddressCity: "West Palm Beach"
+  * mailingAddressState: "FL" 
+  * mailingAddressZip: "33411"
+- If you see: "Gender: X Male Female" → gender: "Male"
+- If you see: "Birth Date (mm/dd/yyyy) 04/05/1946" → dateOfBirth: "1946-04-05"
+
+REQUIRED: You MUST extract ALL available information including addresses. Do not leave address fields as null if the information is present in the text.
 
 Text to analyze:
 {text}
