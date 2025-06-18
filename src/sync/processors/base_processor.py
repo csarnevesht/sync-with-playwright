@@ -222,12 +222,30 @@ class BaseProcessor(ABC):
                 else:
                     self.logger.warning("Could not find start of application section, returning full text")
                     return text
+            elif has_application:
+                # Application section detected (with or without cover sheet), extract it
+                self.logger.info(f"Application section detected (pattern: {matched_application_pattern}), extracting application section")
+                
+                # Find the start of the application section
+                application_start = -1
+                for pattern in application_patterns:
+                    match = re.search(pattern, text, re.IGNORECASE)
+                    if match:
+                        application_start = match.start()
+                        break
+                
+                if application_start != -1:
+                    # Extract text from the application section onwards
+                    application_text = text[application_start:]
+                    self.logger.info(f"Extracted application section starting at position {application_start}")
+                    return application_text
+                else:
+                    self.logger.warning("Could not find start of application section, returning full text")
+                    return text
             else:
-                # No cover sheet detected or no application section, return full text
+                # No application section detected, return full text
                 if has_cover_sheet:
                     self.logger.info(f"Cover sheet detected (pattern: {matched_cover_pattern}) but no application section found, returning full text")
-                elif has_application:
-                    self.logger.info(f"Application section detected (pattern: {matched_application_pattern}) but no cover sheet found, returning full text")
                 else:
                     self.logger.info("No cover sheet or application patterns detected, returning full text")
                 return text
