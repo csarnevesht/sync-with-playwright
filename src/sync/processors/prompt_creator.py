@@ -164,7 +164,17 @@ Rules:
 - Return ONLY the JSON object
 - Use null for missing fields
 - Convert dates from MM/DD/YYYY to YYYY-MM-DD format
-- Look for "Gender: X Male Female" patterns
+- For gender field: CRITICAL - Read the gender selection carefully
+  * Look for "Sex:" or "Gender:" followed by gender options
+  * The "X" indicates which option is SELECTED
+  * Read from left to right: "Sex: M X F" means X is next to F, so Female is selected
+  * Examples:
+    - "Sex: M X F" → gender: "F" (X is between M and F, next to F)
+    - "Sex: X M F" → gender: "M" (X is before M, next to M)
+    - "Sex: M F X" → gender: "F" (X is after F, next to F)
+    - "Sex: X F M" → gender: "F" (X is before F, next to F)
+  * IMPORTANT: Return ONLY "M" or "F", not the full pattern
+  * CRITICAL: If you see "Sex: M X F" in the text, the answer is "F" (Female)
 - Extract address from "Street Address" and "City State Zip" sections
 
 Text to analyze:
@@ -173,6 +183,8 @@ Text to analyze:
 Return ONLY the JSON object."""
         
         self.logger.info(f"_create_short_extraction_prompt: Prompt length: {len(prompt)} characters")
+        self.logger.info(f"_create_short_extraction_prompt: Final Prompt BEGIN PROMPT: \n{prompt}\nEND OF PROMPT")
+        self.logger.info(f"\n{'='*80}\n{'='*80}\n{'='*80}\n{'='*80}")
         return prompt
 
     def create_owner_extraction_prompt(self, text: str, processor_type: str = "default") -> str:
