@@ -36,6 +36,7 @@ from .path_utils import clean_dropbox_folder_name
 from .file_utils import log_renamed_file
 from src.config import DROPBOX_FOLDER, ACCOUNT_INFO_PATTERN, DRIVERS_LICENSE_PATTERN, DROPBOX_HOLIDAY_FOLDER, DROPBOX_SALESFORCE_FOLDER, DROPBOX_HOLIDAY_FILE
 from .auth import DropboxAuth
+from sync.utils.name_utils import _load_special_cases
 
 # Configure logging
 # Get the logger for this module
@@ -617,6 +618,28 @@ class DropboxClient:
             else:
                 logger.info("Skipping driver's license processing (--dl flag not set)")
 
+            # Check for special cases with account_info and birth_date
+            logger.info(f"\n=== Checking for special case account info for {account_name} ===")
+            special_cases = _load_special_cases()
+            normalized_name = ' '.join(account_name.split())
+            special_case = special_cases.get(normalized_name)
+            
+            special_case_account_info = None
+            if special_case and special_case.get('account_info'):
+                logger.info(f"Found special case with account_info for: {account_name}")
+                
+                # Store special case account info for later merging
+                special_case_account_info = special_case['account_info']
+                logger.info(f"Using account_info from special case: {special_case_account_info}")
+                
+                # Update match status to indicate special case was found
+                dropbox_account_info['search_info']['status'] = 'found'
+                dropbox_account_info['search_info']['match_info']['match_status'] = "Match found (special case)"
+                dropbox_account_info['search_info']['match_info']['total_matches'] = 1
+                dropbox_account_info['search_info']['match_info']['total_no_matches'] = 0
+            else:
+                logger.info(f"No special case with account_info found for: {account_name}")
+
             # Log search parameters
             logger.info("Search parameters:")
             logger.info(f"  - Last name: {dropbox_account_name_parts['last_name']}")
@@ -886,6 +909,27 @@ class DropboxClient:
                 logger.info(f"DEBUG: driver's_license info: {dropbox_account_info['drivers_license']}")
             else:
                 logger.info("DEBUG: No driver's_license info extracted.")
+            
+            # Merge special case account info with search results if available
+            if special_case_account_info:
+                logger.info("Merging special case account info with search results...")
+                # Merge special case data, taking precedence over search results
+                for key, value in special_case_account_info.items():
+                    if value:  # Only overwrite if special case has a value
+                        dropbox_account_info['account_data'][key] = value
+                        logger.info(f"  - Set {key}: {value} (from special case)")
+                
+                # Ensure we have the basic structure even if search didn't find anything
+                if not dropbox_account_info['account_data'].get('name') and special_case_account_info.get('name'):
+                    dropbox_account_info['account_data']['name'] = special_case_account_info['name']
+                if not dropbox_account_info['account_data'].get('first_name') and special_case_account_info.get('first_name'):
+                    dropbox_account_info['account_data']['first_name'] = special_case_account_info['first_name']
+                if not dropbox_account_info['account_data'].get('last_name') and special_case_account_info.get('last_name'):
+                    dropbox_account_info['account_data']['last_name'] = special_case_account_info['last_name']
+                
+                logger.info("Special case account info merged successfully")
+            else:
+                logger.info("No special case account info to merge")
             
             # Log driver's license information to report.log
             report_logger = logging.getLogger('report')

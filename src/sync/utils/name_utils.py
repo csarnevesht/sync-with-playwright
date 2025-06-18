@@ -368,4 +368,31 @@ def extract_name_parts(name: str, log: bool = False) -> Dict[str, Any]:
     
     return result
 
+def should_skip_command_for_account(account_name: str, command_name: str) -> bool:
+    """
+    Check if a command should be skipped for a given account based on special case rules.
+    
+    Args:
+        account_name (str): The account name to check
+        command_name (str): The command name to check
+        
+    Returns:
+        bool: True if the command should be skipped, False otherwise
+    """
+    try:
+        special_cases = _load_special_cases()
+        normalized_name = ' '.join(account_name.split())
+        special_case = special_cases.get(normalized_name)
+        
+        if special_case and special_case.get('skip_commands'):
+            skip_commands = special_case['skip_commands']
+            if command_name in skip_commands:
+                logger.info(f"Command '{command_name}' skipped for account '{account_name}' due to special case rule")
+                return True
+        
+        return False
+    except Exception as e:
+        logger.error(f"Error checking skip command for {account_name}: {str(e)}")
+        return False
+
 
