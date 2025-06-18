@@ -125,6 +125,7 @@ from src.sync.dropbox_client.utils.dropbox_utils import (
     get_folder_creation_date
 )
 from src.sync.dropbox_client.utils.date_utils import has_date_prefix
+from src.sync.dropbox_client.utils.logging_utils import log_dropbox_account_info
 from dropbox.exceptions import ApiError
 import dropbox
 from typing import List, Union
@@ -794,6 +795,10 @@ def run_command(args):
                             logger.info(f'dropbox_account_search_result: {dropbox_account_search_result}')
                             logger.info(f"Successfully retrieved info for Dropbox account: {dropbox_account_folder_name}")
 
+                            # Log detailed Dropbox account information
+                            logger.info(f"logging dropbox_account_search_result")
+                            log_dropbox_account_info(dropbox_account_search_result, summary_logger)
+
                             # Update FlatFile with account info if found
                             if dropbox_account_search_result.get('account_data'):
                                 logger.info("Updating FlatFile with account info...")
@@ -941,95 +946,97 @@ def run_command(args):
                                         logger.error(f"Account not found in All Clients or All Clients view: {match}")
                                         report_logger.info(f"Account not found in All Clients or All Clients view: {match}")
 
-                            if args.salesforce_accounts or args.dropbox_account_info or args.dropbox_accounts:
-                                # Add to summary results
-                                summary_results.append({
-                                    'dropbox_name': dropbox_account_folder_name,
-                                    'salesforce_account_search_result': salesforce_account_search_result,
-                                    'dropbox_account_search_result': dropbox_account_search_result,
-                                    'dropbox_account_file_names': dropbox_account_file_names,
-                                    'salesforce_account_file_names': salesforce_account_file_names,
-                                    'file_comparison': file_comparison
-                                })                                
+                        if args.salesforce_accounts or args.dropbox_account_info or args.dropbox_accounts:
+                            # Add to summary results
+                            logger.info(f"adding to summary_results")
+                            summary_results.append({
+                                'dropbox_name': dropbox_account_folder_name,
+                                'salesforce_account_search_result': salesforce_account_search_result,
+                                'dropbox_account_search_result': dropbox_account_search_result,
+                                'dropbox_account_file_names': dropbox_account_file_names,
+                                'salesforce_account_file_names': salesforce_account_file_names,
+                                'file_comparison': file_comparison
+                            })                                
 
-                                if args.salesforce_accounts or args.dropbox_account_info:
+                            if args.salesforce_accounts or args.dropbox_account_info:
 
-                                    log_block = f"""
+                                log_block = f"""
 📁 **Dropbox Folder**
-   - Name: {dropbox_account_folder_name}
-   
+- Name: {dropbox_account_folder_name}
+
 📄 **Dropbox Account Search** 
 """
-                                    if args.dropbox_account_info:
-                                        dropbox_account_data = dropbox_account_search_result.get('account_data', {})
-                                        for key, value in dropbox_account_data.items():
-                                            log_block += f"   + {key}: {value}\n"
-                                        log_block += "\n"
-                                    if args.salesforce_accounts:
-                                        # Update match status to include count if there are multiple matches
-                                        if salesforce_matches and len(salesforce_matches) > 1:
-                                            salesforce_match = f"Match Found ({len(salesforce_matches)})"
-                                        
-                                        log_block = f"""
-   
+                                if args.dropbox_account_info:
+                                    log_dropbox_account_info(dropbox_account_search_result, report_logger)
+                                    # dropbox_account_data = dropbox_account_search_result.get('account_data', {})
+                                    # for key, value in dropbox_account_data.items():
+                                    #     log_block += f"   + {key}: {value}\n"
+                                    # log_block += "\n"
+                                if args.salesforce_accounts:
+                                    # Update match status to include count if there are multiple matches
+                                    if salesforce_matches and len(salesforce_matches) > 1:
+                                        salesforce_match = f"Match Found ({len(salesforce_matches)})"
+                                    
+                                    log_block = f"""
+
 👤 **Salesforce Account Search**
-   - Names found: {', '.join(salesforce_matches) if salesforce_matches else '--'}
-   - Match: {salesforce_match}
-   - View: {salesforce_view}
+- Names found: {', '.join(salesforce_matches) if salesforce_matches else '--'}
+- Match: {salesforce_match}
+- View: {salesforce_view}
 """                 
-                                    print('*********log_block*********', log_block)
-                                    report_logger.info(log_block)
+                                print('*********log_block*********', log_block)
+                                report_logger.info(log_block)
 
-                                    # Create result dictionary before calling build_and_log_summary_line
-                                    result_dict = {
-                                        'dropbox_name': dropbox_account_folder_name,
-                                        'salesforce_account_search_result': salesforce_account_search_result if args.salesforce_accounts else {},
-                                        'dropbox_account_search_result': dropbox_account_search_result
-                                    }
-                                    build_and_log_summary_line(result_dict, report_logger, summary_logger, red_logger, args)
+                                # Create result dictionary before calling build_and_log_summary_line
+                                result_dict = {
+                                    'dropbox_name': dropbox_account_folder_name,
+                                    'salesforce_account_search_result': salesforce_account_search_result if args.salesforce_accounts else {},
+                                    'dropbox_account_search_result': dropbox_account_search_result
+                                }
+                                build_and_log_summary_line(result_dict, report_logger, summary_logger, red_logger, args)
 
-                                    # Get Salesforce files if requested and account was found
-                                    if args.salesforce_account_files and salesforce_matches and len(salesforce_matches) > 0 and salesforce_matches != "--":
-                                        salesforce_matches = salesforce_account_search_result['matches']
-                                        logger.info(f"*** salesforce_matches: {salesforce_matches}")
-                                        logger.info(f"step: Get Salesforce Account Files")
-                                        # For multiple matches, we'll check files for the first match
-                                        logger.info("for multiple matches, we'll check files for the first match")
-                                        account_to_check = salesforce_matches[0] if isinstance(salesforce_matches, list) else salesforce_matches 
-                                        logger.info(f"accounts_to_check: {account_to_check}")
-                                        # Navigate to the account and get its ID
-                                        logger.info(f"click_account_name: {account_to_check}")
-                                        if account_manager.click_account_name(account_to_check):
-                                            logger.info("verify_account_page_url")
-                                            is_valid, salesforce_account_id = account_manager.verify_account_page_url()
-                                            if is_valid and salesforce_account_id:
-                                                logger.info(f"salesforce_account_id: {salesforce_account_id}")
-                                                if command_runner:  
-                                                    command_runner.set_data('salesforce_account_id', salesforce_account_id)
-                                                logger.info(f"salesforce_account_id: {salesforce_account_id}")
+                                # Get Salesforce files if requested and account was found
+                                if args.salesforce_account_files and salesforce_matches and len(salesforce_matches) > 0 and salesforce_matches != "--":
+                                    salesforce_matches = salesforce_account_search_result['matches']
+                                    logger.info(f"*** salesforce_matches: {salesforce_matches}")
+                                    logger.info(f"step: Get Salesforce Account Files")
+                                    # For multiple matches, we'll check files for the first match
+                                    logger.info("for multiple matches, we'll check files for the first match")
+                                    account_to_check = salesforce_matches[0] if isinstance(salesforce_matches, list) else salesforce_matches 
+                                    logger.info(f"accounts_to_check: {account_to_check}")
+                                    # Navigate to the account and get its ID
+                                    logger.info(f"click_account_name: {account_to_check}")
+                                    if account_manager.click_account_name(account_to_check):
+                                        logger.info("verify_account_page_url")
+                                        is_valid, salesforce_account_id = account_manager.verify_account_page_url()
+                                        if is_valid and salesforce_account_id:
+                                            logger.info(f"salesforce_account_id: {salesforce_account_id}")
+                                            if command_runner:  
+                                                command_runner.set_data('salesforce_account_id', salesforce_account_id)
+                                            logger.info(f"salesforce_account_id: {salesforce_account_id}")
 
-                                                logger.info(f"get salesforce account file names")
-                                                salesforce_account_file_names = account_manager.get_salesforce_account_file_names(salesforce_account_id)
-                                                logger.info(f"Found {len(salesforce_account_file_names)} files in Salesforce")
+                                            logger.info(f"get salesforce account file names")
+                                            salesforce_account_file_names = account_manager.get_salesforce_account_file_names(salesforce_account_id)
+                                            logger.info(f"Found {len(salesforce_account_file_names)} files in Salesforce")
 
-                                                # Update summary results with Salesforce files
-                                                for summary in summary_results:
-                                                    if summary['dropbox_name'] == dropbox_account_folder_name:
-                                                        summary['salesforce_account_file_names'] = salesforce_account_file_names
-                                                        break
+                                            # Update summary results with Salesforce files
+                                            for summary in summary_results:
+                                                if summary['dropbox_name'] == dropbox_account_folder_name:
+                                                    summary['salesforce_account_file_names'] = salesforce_account_file_names
+                                                    break
 
-                                                if command_runner:
-                                                    command_runner.set_data('dropbox_account_folder_name', dropbox_account_folder_name)
-                                                    command_runner.set_data('salesforce_account_file_names', salesforce_account_file_names)
+                                            if command_runner:
+                                                command_runner.set_data('dropbox_account_folder_name', dropbox_account_folder_name)
+                                                command_runner.set_data('salesforce_account_file_names', salesforce_account_file_names)
 
-                                            else:
-                                                logger.error(f"Could not verify account page or get account ID for: {account_to_check}")
-                                                report_logger.info(f"Could not verify account page or get account ID for: {account_to_check}")
-                                                raise Exception(f"Could not verify account page or get account ID for: {account_to_check}")
                                         else:
-                                            logger.error(f"Could not navigate to Salesforce account: {account_to_check}")
-                                            report_logger.info(f"Could not navigate to Salesforce account: {account_to_check}")
-                                            raise Exception(f"Could not navigate to Salesforce account: {account_to_check}")
+                                            logger.error(f"Could not verify account page or get account ID for: {account_to_check}")
+                                            report_logger.info(f"Could not verify account page or get account ID for: {account_to_check}")
+                                            raise Exception(f"Could not verify account page or get account ID for: {account_to_check}")
+                                    else:
+                                        logger.error(f"Could not navigate to Salesforce account: {account_to_check}")
+                                        report_logger.info(f"Could not navigate to Salesforce account: {account_to_check}")
+                                        raise Exception(f"Could not navigate to Salesforce account: {account_to_check}")
 
                         if command_runner:  
                             command_runner.set_data('dropbox_account_folder_name', dropbox_account_folder_name)
