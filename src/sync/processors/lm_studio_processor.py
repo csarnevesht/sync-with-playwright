@@ -47,6 +47,11 @@ class LMStudioProcessor(BaseProcessor):
         try:
             request_data = self.prompt_creator.create_chat_prompt(prompt, "lm_studio")
             # self._log_curl_command(request_data)
+            
+            # Log request data for debugging
+            self.logger.info(f"Request data being sent to LM Studio:")
+            self.logger.info(f"URL: {self.base_url}/chat/completions")
+            self.logger.info(f"Request data: {json.dumps(request_data, indent=2)}")
 
             response = requests.post(
                 f"{self.base_url}/chat/completions",
@@ -55,6 +60,15 @@ class LMStudioProcessor(BaseProcessor):
             )
 
             if response.status_code != 200:
+                # Log detailed error information
+                self.logger.error(f"API request failed with status code {response.status_code}")
+                self.logger.error(f"Response headers: {dict(response.headers)}")
+                try:
+                    error_response = response.json()
+                    self.logger.error(f"Error response body: {json.dumps(error_response, indent=2)}")
+                except Exception as e:
+                    self.logger.error(f"Could not parse error response as JSON: {str(e)}")
+                    self.logger.error(f"Raw error response: {response.text}")
                 raise Exception(f"API request failed with status code {response.status_code}")
 
             result = response.json()
