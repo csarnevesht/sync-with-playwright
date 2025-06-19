@@ -1118,6 +1118,12 @@ def run_command(args):
                             command_runner.set_data('result', salesforce_account_search_result if args.salesforce_accounts else {})
                             if args.salesforce_account_info and 'salesforce_account_information' in salesforce_account_search_result:
                                 command_runner.set_data('salesforce_account_information', salesforce_account_search_result['salesforce_account_information'])
+                            
+                            # Build and store dropbox_account_information structure if dropbox account info is available
+                            if args.dropbox_account_info:
+                                dropbox_account_information = command_runner._build_dropbox_account_information()
+                                command_runner.set_data('dropbox_account_information', dropbox_account_information)
+                            
                             command_runner.execute_commands()
                         
                         # Compare files if both Dropbox and Salesforce files are available

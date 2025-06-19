@@ -225,7 +225,9 @@ class CommandRunner:
             'extract-dropbox-account-app-files-info': self._handle_extract_dropbox_account_app_files_info,
             'store-in-supabase': self._store_in_supabase,
             'search-supabase': self._search_supabase,
-            'list-dropbox-account-app-files': self._list_dropbox_account_app_files
+            'list-dropbox-account-app-files': self._list_dropbox_account_app_files,
+            'log-dropbox-account-information': self._handle_log_dropbox_account_information,
+            'log-dropbox-account-information-json': self._handle_log_dropbox_account_information_json
         }
         
         if command not in command_map:
@@ -661,10 +663,26 @@ class CommandRunner:
         try:
             dropbox_account_search_result = self.get_data('dropbox_account_info')
             if dropbox_account_search_result and self._has_complete_account_info(dropbox_account_search_result):
-                info = f"Skipped app files extraction for Dropbox Account Folder '{dropbox_account_folder_name}' - complete account info already available from Dropbox client list file\n"
+                info = f"Skipped app files extraction for Dropbox Account Folder '{dropbox_account_folder_name}' - complete account info already available from Dropbox Client List File\n"
                 self.logger.info(info)
                 self.report_logger.info(info)
                 self.summary_logger.info(info)
+                
+                # Set empty app files data since we skipped extraction
+                self.set_data('account_info_from_app_files', {
+                    'total_files_processed': 0,
+                    'files_with_complete_info': 0,
+                    'files_with_partial_info': 0,
+                    'files_with_no_info': 0,
+                    'best_available_info': {},
+                    'file_details': {},
+                    'has_complete_account_info': False,
+                    'owner': {},
+                    'jointOwner': {},
+                    'application_type': 'N/A',
+                    'status': 'Skipped - Complete info from Client List File',
+                    'notes': ['App files extraction skipped due to complete account info from Client List File']
+                })
                 return
         except KeyError:
             # No dropbox_account_info found, continue with app files extraction
@@ -801,9 +819,41 @@ class CommandRunner:
                 self.logger.warning("❌ No summary data returned from app files extraction")
                 self.report_logger.warning("❌ No summary data returned from app files extraction")
                 
+                # Set empty app files data since extraction failed
+                self.set_data('account_info_from_app_files', {
+                    'total_files_processed': 0,
+                    'files_with_complete_info': 0,
+                    'files_with_partial_info': 0,
+                    'files_with_no_info': 0,
+                    'best_available_info': {},
+                    'file_details': {},
+                    'has_complete_account_info': False,
+                    'owner': {},
+                    'jointOwner': {},
+                    'application_type': 'N/A',
+                    'status': 'Failed - No summary data returned',
+                    'notes': ['App files extraction failed - no summary data returned']
+                })
+                
         except Exception as e:
             self.logger.error(f"❌ Error extracting app files info: {str(e)}")
             self.report_logger.error(f"❌ Error extracting app files info: {str(e)}")
+            
+            # Set empty app files data since extraction failed with exception
+            self.set_data('account_info_from_app_files', {
+                'total_files_processed': 0,
+                'files_with_complete_info': 0,
+                'files_with_partial_info': 0,
+                'files_with_no_info': 0,
+                'best_available_info': {},
+                'file_details': {},
+                'has_complete_account_info': False,
+                'owner': {},
+                'jointOwner': {},
+                'application_type': 'N/A',
+                'status': f'Failed - Exception: {str(e)}',
+                'notes': [f'App files extraction failed with exception: {str(e)}']
+            })
             raise
         
         total_time = time.time() - start_time
@@ -839,142 +889,268 @@ class CommandRunner:
         best_info = {}
         best_completeness_score = 0
         
-        # Process each file that was actually processed (not skipped)
-        for file in files:
-            file_path = file.path_display
-            info = file_info.get(file_path, {})
-            
-            # Store file details
-            aggregated_info['file_details'][file.name] = {
-                'path': file_path,
-                'info': info,
-                'completeness_score': 0
-            }
-            
+        # Process each file's information
+        for file_path, info in file_info.items():
             if not info:
                 aggregated_info['files_with_no_info'] += 1
                 continue
             
             # Calculate completeness score for this file
-            completeness_score = self._calculate_info_completeness(info)
-            aggregated_info['file_details'][file.name]['completeness_score'] = completeness_score
+            completeness_score = 0
+            has_owner_info = False
+            has_joint_owner_info = False
             
-            # Categorize file based on completeness
-            if completeness_score >= 0.8:  # 80% or more complete
-                aggregated_info['files_with_complete_info'] += 1
-            elif completeness_score >= 0.3:  # 30% or more complete
-                aggregated_info['files_with_partial_info'] += 1
-            else:
-                aggregated_info['files_with_no_info'] += 1
+            # Check for owner information
+            if info.get('owner'):
+                owner_data = info['owner']
+                owner_fields = [
+                    'firstName', 'lastName', 'dateOfBirth', 'gender',
+                    'mailingAddressStreet', 'mailingAddressCity',
+                    'mailingAddressState', 'mailingAddressZip',
+                    'phoneNumber', 'emailAddress'
+                ]
+                owner_score = sum(1 for field in owner_fields if owner_data.get(field))
+                if owner_score >= 4:  # At least 4 fields including name and DOB
+                    has_owner_info = True
+                    completeness_score += owner_score
             
-            # Update best available info if this file has better completeness
+            # Check for joint owner information
+            if info.get('jointOwner'):
+                joint_owner_data = info['jointOwner']
+                joint_owner_fields = [
+                    'firstName', 'lastName', 'dateOfBirth', 'gender',
+                    'mailingAddressStreet', 'mailingAddressCity',
+                    'mailingAddressState', 'mailingAddressZip',
+                    'phoneNumber', 'emailAddress'
+                ]
+                joint_owner_score = sum(1 for field in joint_owner_fields if joint_owner_data.get(field))
+                if joint_owner_score >= 4:  # At least 4 fields including name and DOB
+                    has_joint_owner_info = True
+                    completeness_score += joint_owner_score
+            
+            # Update file details
+            aggregated_info['file_details'][file_path] = {
+                'has_owner_info': has_owner_info,
+                'has_joint_owner_info': has_joint_owner_info,
+                'completeness_score': completeness_score,
+                'info': info
+            }
+            
+            # Update best available info if this file has better information
             if completeness_score > best_completeness_score:
                 best_completeness_score = completeness_score
                 best_info = info.copy()
+            
+            # Update statistics
+            if has_owner_info or has_joint_owner_info:
+                if completeness_score >= 8:  # High completeness
+                    aggregated_info['files_with_complete_info'] += 1
+                else:
+                    aggregated_info['files_with_partial_info'] += 1
+            else:
+                aggregated_info['files_with_no_info'] += 1
         
-        # Structure the best available info as proper account information
-        if best_info:
-            # Create structured account info with Owner and Joint Owner data
-            account_info = {
-                'folder_name': dropbox_account_folder_name,
-                'owner': {},
-                'jointOwner': {},
-                'application_type': best_info.get('application_type', 'Unknown'),
-                'status': best_info.get('status', 'Unknown'),
-                'notes': best_info.get('notes', [])
-            }
-            
-            # Add owner information if available
-            if best_info.get('owner'):
-                owner_data = best_info['owner']
-                account_info['owner'] = {
-                    'firstName': owner_data.get('firstName'),
-                    'lastName': owner_data.get('lastName'),
-                    'dateOfBirth': owner_data.get('dateOfBirth'),
-                    'gender': owner_data.get('gender'),
-                    'mailingAddressStreet': owner_data.get('mailingAddressStreet'),
-                    'mailingAddressCity': owner_data.get('mailingAddressCity'),
-                    'mailingAddressState': owner_data.get('mailingAddressState'),
-                    'mailingAddressZip': owner_data.get('mailingAddressZip'),
-                    'phoneNumber': owner_data.get('phoneNumber'),
-                    'emailAddress': owner_data.get('emailAddress')
-                }
-                
-                # Add OCR method if it was used
-                if owner_data.get('ocrMethod'):
-                    account_info['owner']['ocrMethod'] = owner_data['ocrMethod']
-            
-            # Add joint owner information if available
-            if best_info.get('jointOwner'):
-                joint_owner_data = best_info['jointOwner']
-                account_info['jointOwner'] = {
-                    'firstName': joint_owner_data.get('firstName'),
-                    'lastName': joint_owner_data.get('lastName'),
-                    'dateOfBirth': joint_owner_data.get('dateOfBirth'),
-                    'gender': joint_owner_data.get('gender'),
-                    'mailingAddressStreet': joint_owner_data.get('mailingAddressStreet'),
-                    'mailingAddressCity': joint_owner_data.get('mailingAddressCity'),
-                    'mailingAddressState': joint_owner_data.get('mailingAddressState'),
-                    'mailingAddressZip': joint_owner_data.get('mailingAddressZip'),
-                    'phoneNumber': joint_owner_data.get('phoneNumber'),
-                    'emailAddress': joint_owner_data.get('emailAddress')
-                }
-                
-                # Add OCR method if it was used
-                if joint_owner_data.get('ocrMethod'):
-                    account_info['jointOwner']['ocrMethod'] = joint_owner_data['ocrMethod']
-            
-            aggregated_info['best_available_info'] = account_info
-        else:
-            aggregated_info['best_available_info'] = {}
-        
-        # Determine if we have complete account info
-        if best_completeness_score >= 0.8:
-            aggregated_info['has_complete_account_info'] = True
+        # Store the best available info
+        aggregated_info['best_available_info'] = best_info
+        aggregated_info['has_complete_account_info'] = best_completeness_score >= 8
         
         return aggregated_info
 
-    def _calculate_info_completeness(self, info: Dict[str, Any]) -> float:
-        """Calculate how complete the account information is (0.0 to 1.0).
+    def _build_dropbox_account_information(self) -> Dict[str, Any]:
+        """Build the dropbox_account_information structure from available data.
         
-        Args:
-            info: File information dictionary
-            
         Returns:
-            Float between 0.0 and 1.0 representing completeness
+            Dict containing the structured dropbox account information
         """
-        if not info:
-            return 0.0
-        
-        # Define required fields for complete account info
-        required_fields = {
-            'owner': ['firstName', 'lastName', 'dateOfBirth', 'gender', 'mailingAddressStreet', 'mailingAddressCity', 'mailingAddressState', 'mailingAddressZip', 'phoneNumber'],
-            'jointOwner': ['firstName', 'lastName', 'dateOfBirth', 'gender']  # Joint owner is optional
+        dropbox_account_information = {
+            'names_found': [],
+            'client_list_data': None,
+            'application_data': None,
+            'accounts': []
         }
         
-        total_fields = 0
-        filled_fields = 0
+        # Get the account folder name
+        dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
+        if dropbox_account_folder_name:
+            dropbox_account_information['names_found'].append(dropbox_account_folder_name)
         
-        # Check owner fields
-        owner = info.get('owner', {})
-        for field in required_fields['owner']:
-            total_fields += 1
-            if owner.get(field) and str(owner.get(field)).strip() not in ['', 'None', 'null', 'nan']:
-                filled_fields += 1
+        # Get client list file data
+        try:
+            client_list_file_data = self.get_data('dropbox_account_info')
+        except KeyError:
+            client_list_file_data = None
+        if client_list_file_data:
+            dropbox_account_information['client_list_data'] = client_list_file_data
+            # Create account object from client list file data
+            account_data = client_list_file_data.get('account_data', {})
+            search_info = client_list_file_data.get('search_info', {})
+            match_info = search_info.get('match_info', {})
+            if account_data:
+                client_list_account = {
+                    'account_name': dropbox_account_folder_name,
+                    'source': 'client_list_file',
+                    'account_type': 'Primary',
+                    'first_name': account_data.get('first_name', ''),
+                    'middle_name': account_data.get('middle_name', ''),
+                    'last_name': account_data.get('last_name', ''),
+                    'birthdate': account_data.get('birthdate', ''),
+                    'gender': account_data.get('gender', ''),
+                    'phone': account_data.get('phone', ''),
+                    'address': account_data.get('address', ''),
+                    'email': account_data.get('email', ''),
+                    'additional_info': account_data.get('additional_info', ''),
+                    'match_status': match_info.get('match_status', ''),
+                    'drivers_license': client_list_file_data.get('drivers_license')
+                }
+                dropbox_account_information['accounts'].append(client_list_account)
         
-        # Check joint owner fields (optional, but if present should be complete)
-        joint_owner = info.get('jointOwner', {})
-        if joint_owner:
-            for field in required_fields['jointOwner']:
-                total_fields += 1
-                if joint_owner.get(field) and str(joint_owner.get(field)).strip() not in ['', 'None', 'null', 'nan']:
-                    filled_fields += 1
+        # Get application files data
+        try:
+            account_info_from_app_files = self.get_data('account_info_from_app_files')
+        except KeyError:
+            account_info_from_app_files = None
+        if not account_info_from_app_files:
+            # Set default empty structure if not available
+            account_info_from_app_files = {
+                'total_files_processed': 0,
+                'files_with_complete_info': 0,
+                'files_with_partial_info': 0,
+                'files_with_no_info': 0,
+                'best_available_info': {},
+                'file_details': {},
+                'has_complete_account_info': False,
+                'owner': {},
+                'jointOwner': {},
+                'application_type': 'N/A',
+                'status': 'Not available',
+                'notes': ['Application files data not available']
+            }
+            self.set_data('account_info_from_app_files', account_info_from_app_files)
         
-        # Calculate completeness score
-        if total_fields == 0:
-            return 0.0
+        dropbox_account_information['application_data'] = account_info_from_app_files
         
-        return filled_fields / total_fields
+        # Create account objects from application files data
+        owner = account_info_from_app_files.get('owner', {})
+        joint_owner = account_info_from_app_files.get('jointOwner', {})
+        
+        # Primary account holder
+        if owner and (owner.get('firstName') or owner.get('lastName')):
+            # Build address string
+            address_parts = []
+            if owner.get('mailingAddressStreet'):
+                address_parts.append(owner['mailingAddressStreet'])
+            if owner.get('mailingAddressCity'):
+                address_parts.append(owner['mailingAddressCity'])
+            if owner.get('mailingAddressState'):
+                address_parts.append(owner['mailingAddressState'])
+            if owner.get('mailingAddressZip'):
+                address_parts.append(owner['mailingAddressZip'])
+            
+            address = ', '.join(address_parts) if address_parts else ''
+            
+            # Build name
+            first_name = owner.get('firstName', '')
+            last_name = owner.get('lastName', '')
+            account_name = f"{first_name} {last_name}".strip()
+            if not account_name:
+                account_name = dropbox_account_folder_name
+            
+            owner_account = {
+                'account_name': account_name,
+                'source': 'application_files',
+                'account_type': 'Primary',
+                'first_name': first_name,
+                'middle_name': '',  # Not typically available in app files
+                'last_name': last_name,
+                'birthdate': owner.get('dateOfBirth', ''),
+                'gender': owner.get('gender', ''),
+                'phone': owner.get('phoneNumber', ''),
+                'address': address,
+                'email': owner.get('emailAddress', ''),
+                'additional_info': '',
+                'match_status': 'N/A',  # Not applicable for app files
+                'drivers_license': None
+            }
+            dropbox_account_information['accounts'].append(owner_account)
+        
+        # Joint account holder
+        if joint_owner and (joint_owner.get('firstName') or joint_owner.get('lastName')):
+            # Build address string
+            address_parts = []
+            if joint_owner.get('mailingAddressStreet'):
+                address_parts.append(joint_owner['mailingAddressStreet'])
+            if joint_owner.get('mailingAddressCity'):
+                address_parts.append(joint_owner['mailingAddressCity'])
+            if joint_owner.get('mailingAddressState'):
+                address_parts.append(joint_owner['mailingAddressState'])
+            if joint_owner.get('mailingAddressZip'):
+                address_parts.append(joint_owner['mailingAddressZip'])
+            
+            address = ', '.join(address_parts) if address_parts else ''
+            
+            # Build name
+            first_name = joint_owner.get('firstName', '')
+            last_name = joint_owner.get('lastName', '')
+            account_name = f"{first_name} {last_name}".strip()
+            if not account_name:
+                account_name = f"{dropbox_account_folder_name} (Joint)"
+            
+            joint_account = {
+                'account_name': account_name,
+                'source': 'application_files',
+                'account_type': 'Joint',
+                'first_name': first_name,
+                'middle_name': '',  # Not typically available in app files
+                'last_name': last_name,
+                'birthdate': joint_owner.get('dateOfBirth', ''),
+                'gender': joint_owner.get('gender', ''),
+                'phone': joint_owner.get('phoneNumber', ''),
+                'address': address,
+                'email': joint_owner.get('emailAddress', ''),
+                'additional_info': '',
+                'match_status': 'N/A',  # Not applicable for app files
+                'drivers_license': None
+            }
+            dropbox_account_information['accounts'].append(joint_account)
+        
+        return dropbox_account_information
+
+    def _handle_log_dropbox_account_information(self) -> None:
+        """Handle the log-dropbox-account-information command."""
+        self.logger.info("Executing command handler: log-dropbox-account-information")
+        
+        # Build the dropbox account information structure
+        dropbox_account_information = self._build_dropbox_account_information()
+        
+        # Store it in the command runner data
+        self.set_data('dropbox_account_information', dropbox_account_information)
+        
+        # Get the account folder name
+        dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
+        
+        # Log the information using the new logging utilities
+        from sync.dropbox_client.utils.logging_utils import log_dropbox_account_information
+        log_dropbox_account_information(
+            dropbox_account_information,
+            dropbox_account_folder_name,
+            self.logger,
+            self.summary_logger,
+            self.report_logger
+        )
+
+    def _handle_log_dropbox_account_information_json(self) -> None:
+        """Handle the log-dropbox-account-information-json command."""
+        self.logger.info("Executing command handler: log-dropbox-account-information-json")
+        
+        # Build the dropbox account information structure
+        dropbox_account_information = self._build_dropbox_account_information()
+        
+        # Store it in the command runner data
+        self.set_data('dropbox_account_information', dropbox_account_information)
+        
+        # Log the information in JSON format
+        from sync.dropbox_client.utils.logging_utils import log_json_format
+        log_json_format(dropbox_account_information, self.logger)
 
     def _store_in_supabase(self) -> None:
         """Store data in Supabase database.

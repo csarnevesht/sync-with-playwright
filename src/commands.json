@@ -8,7 +8,7 @@
     "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files"
   },
   {
-    "description": "prefix dropbox account 'Montesino, Maria' [account found in dropbox client list file] and store it in Dropbox Salesforce folder",
+    "description": "prefix dropbox account 'Montesino, Maria' [account found in dropbox Client List File] and store it in Dropbox Salesforce folder",
     "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --commands='prefix-dropbox-account-files' --dropbox-account-name='Montesino, Maria'"
   },
   {
@@ -56,7 +56,11 @@
     "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --commands='force-delete-salesforce-account-files'"
   },
   {
-    "description": "re(load) salesforce account files for'Montesino, Maria' [account found in dropbox client list file]",
+    "description": "re(load) salesforce account files for'Montesino, Maria' [account found in dropbox Client List File]",
+    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --commands='prefix-dropbox-account-files,delete-salesforce-account-files,upload-salesforce-account-files' --dropbox-account-name='Montesino, Maria'"
+  },
+  {
+    "description": "delete salesforce account files for 'Montesino, Maria' [account found in dropbox Client List File]",
     "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --commands='prefix-dropbox-account-files,delete-salesforce-account-files,upload-salesforce-account-files' --dropbox-account-name='Montesino, Maria'"
   },
   {
@@ -110,5 +114,21 @@
   {
     "description": "List all application files in a specific Dropbox account folder",
     "command": "python -m sync.cmd_runner --commands=list-dropbox-account-app-files --dropbox-accounts --dropbox-account-name='Account Name'"
+  },
+  {
+    "description": "Log Dropbox account information in beautiful format for a specific account",
+    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-info --commands=log-dropbox-account-information --dropbox-account-name='Account Name'"
+  },
+  {
+    "description": "Log Dropbox account information in JSON format for a specific account",
+    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-info --commands=log-dropbox-account-information-json --dropbox-account-name='Account Name'"
+  },
+  {
+    "description": "Log Dropbox account information for multiple accounts from file",
+    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-info --commands=log-dropbox-account-information --dropbox-accounts-file accounts/fuzzy.txt"
+  },
+  {
+    "description": "Extract and log Dropbox account information with application files for a specific account",
+    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-info --commands='extract-dropbox-account-app-files-info,log-dropbox-account-information' --dropbox-account-name='Account Name'"
   }
 ]

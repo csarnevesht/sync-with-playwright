@@ -216,20 +216,14 @@ class BaseProcessor(ABC):
             
             application_patterns = [
                 r'^PARTIES\s+TO\s+THE\s+CONTRACT',  # Parties to the Contract
-                r'^APPLICATION\s+FOR',  # Application for Individual...
                 r'^APPLICATION\s+FORM',  # Application Form
                 r'^OWNER\s+INFORMATION',  # Owner Information
+                r'\nOWNER\s+INFORMATION',  # Owner Information on new line
+                r'\nAPPLICANT\s+INFORMATION',  # Applicant Information on new line
                 r'^APPLICANT\s+INFORMATION',  # Applicant Information
                 r'APPLICATION\s+FOR\s+INDIVIDUAL',  # Application for Individual
                 r'APPLICATION\s+FOR\s+INDEXED',  # Application for Indexed
                 r'APPLICATION\s+FOR\s+DEFERRED',  # Application for Deferred
-                r'^APPLICATION$',  # Standalone "Application"
-                r'\nAPPLICATION\s+FOR',  # Application for on new line
-                r'\nAPPLICATION\s+FORM',  # Application Form on new line
-                r'\nOWNER\s+INFORMATION',  # Owner Information on new line
-                r'\nAPPLICANT\s+INFORMATION',  # Applicant Information on new line
-                r'APPLICATION\s+FOR',  # More general Application for
-                r'APPLICATION',  # Fallback to any Application
                 r'OWNER\s+INFORMATION',  # More general Owner Information
                 r'APPLICANT\s+INFORMATION',  # More general Applicant Information
                 r'OWNER\s+INFORMATION\s+SECTION',  # Owner Information Section
@@ -237,6 +231,12 @@ class BaseProcessor(ABC):
                 r'APPLICATION\s+SECTION',  # Application Section
                 r'OWNER\s+DETAILS',  # Owner Details
                 r'APPLICANT\s+DETAILS',  # Applicant Details
+                r'\nAPPLICATION\s+FOR',  # Application for on new line
+                r'\nAPPLICATION\s+FORM',  # Application Form on new line
+                r'^APPLICATION\s+FOR',  # Application for Individual...
+                r'APPLICATION\s+FOR',  # More general Application for
+                r'^APPLICATION$',  # Standalone "Application"
+                r'APPLICATION',  # Fallback to any Application
                 r'PERSONAL\s+INFORMATION',  # Personal Information
                 r'CONTACT\s+INFORMATION',  # Contact Information
                 r'ADDRESS\s+INFORMATION',  # Address Information
