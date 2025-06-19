@@ -220,13 +220,13 @@ class AccountManager(BasePage):
                 
                 # Wait for network to be idle with increased timeout
                 # try:
-                #     self.page.wait_for_load_state('networkidle', timeout=20000)  # Increased timeout to 20 seconds
+                #     if not self.wait_for_page_to_load(timeout=20000):
+                self.logger.warning("Page load wait failed after refresh, continuing anyway...")  # Increased timeout to 20 seconds
                 # except Exception as e:
                 #     self.log_helper.log(self.logger, 'warning', f"Network idle timeout, but continuing: {str(e)}")
                 
                 # Wait for DOM content to be loaded
                 # try:
-                #     self.page.wait_for_load_state('domcontentloaded', timeout=20000)  # Increased timeout to 20 seconds
                 # except Exception as e:
                 #     self.log_helper.log(self.logger, 'warning', f"DOM content load timeout, but continuing: {str(e)}")
                 
@@ -266,10 +266,10 @@ class AccountManager(BasePage):
             self.log_helper.log(self.logger, 'info', f"Current URL: {current_url}")
             self.log_helper.log(self.logger, 'info', f"Current page title: {current_title}")
             
-            # Wait for the page to be fully loaded
-            self.log_helper.log(self.logger, 'info', "Waiting for page to be fully loaded...")
-            self.page.wait_for_load_state("networkidle")
-            self.page.wait_for_load_state("domcontentloaded")
+            # Wait for the page to be fully loaded using the new method
+            if not self.wait_for_page_to_load():
+                self.log_helper.log(self.logger, 'warning', "Page load wait failed, continuing anyway...")
+            
             
             # Try to find the search button first
             self.log_helper.log(self.logger, 'info', "Looking for search button...")
@@ -2367,12 +2367,6 @@ class AccountManager(BasePage):
         try:
             self.logger.info("Refreshing page")
             self.page.reload()
-            # Wait for network to be idle
-            self.page.wait_for_load_state('networkidle', timeout=20000)
-            # Wait for DOM content to be loaded
-            self.page.wait_for_load_state('domcontentloaded', timeout=20000)
-            self.logger.info("Successfully refreshed page")
-            return True
         except Exception as e:
             self.logger.error(f"Error refreshing page: {str(e)}")
             self._take_screenshot("page-refresh-error")
@@ -2582,4 +2576,82 @@ class AccountManager(BasePage):
         except Exception as e:
             self.log_helper.log(self.logger, 'error', f"Failed to navigate to dashboard: {str(e)}")
             self.log_helper.dedent()
+            return False
+
+    def wait_for_page_to_load(self, timeout: int = 30000) -> bool:
+        """Wait for the page to be fully loaded using multiple strategies.
+        
+        Args:
+            timeout: Maximum time to wait in milliseconds (default: 30000)
+            
+        Returns:
+            bool: True if page loaded successfully, False otherwise
+        """
+        self.log_helper.log(self.logger, 'info', "Waiting for page to be fully loaded...")
+        
+        try:
+            # Strategy 1: Wait for DOM content to be loaded
+            self.log_helper.log(self.logger, 'info', "Waiting for DOM content to be loaded...")
+            self.page.wait_for_load_state("domcontentloaded", timeout=timeout)
+            
+            # Strategy 2: Wait for page to be fully loaded (but not networkidle)
+            self.log_helper.log(self.logger, 'info', "Waiting for page load to complete...")
+            self.page.wait_for_load_state("load", timeout=timeout)
+            
+            # Strategy 3: Wait for document ready state to be 'complete'
+            self.log_helper.log(self.logger, 'info', "Waiting for document ready state to be complete...")
+            self.page.wait_for_function(
+                "() => document.readyState === 'complete'",
+                timeout=timeout
+            )
+            
+            # Strategy 4: Wait for any Salesforce-specific loading indicators to disappear
+            # Common Salesforce loading selectors
+            loading_selectors = [
+                '.loadingSpinner',
+                '.slds-spinner',
+                '[data-aura-class="forceSpinner"]',
+                '.spinner',
+                '.loading',
+                '[class*="spinner"]',
+                '[class*="loading"]'
+            ]
+            
+            for selector in loading_selectors:
+                try:
+                    # Check if loading element exists and is visible
+                    loading_element = self.page.locator(selector)
+                    if loading_element.count() > 0 and loading_element.is_visible():
+                        self.log_helper.log(self.logger, 'info', f"Waiting for loading indicator to disappear: {selector}")
+                        # Wait for the loading element to become invisible
+                        loading_element.wait_for(state="hidden", timeout=10000)
+                        self.log_helper.log(self.logger, 'info', f"Loading indicator disappeared: {selector}")
+                except Exception as e:
+                    # Loading element doesn't exist or already hidden, which is fine
+                    continue
+            
+            # Strategy 5: Wait for common Salesforce page elements to be present
+            # These indicate the page is ready for interaction
+            salesforce_selectors = [
+                'body',
+                '[data-aura-class]',  # Salesforce Lightning components
+                '.slds-page-header',   # Salesforce Lightning Design System header
+                '.forceCommunityTheme', # Community pages
+                '.desktop.container'   # Classic pages
+            ]
+            
+            for selector in salesforce_selectors:
+                try:
+                    self.page.wait_for_selector(selector, timeout=5000)
+                    break  # If any Salesforce element is found, we're good
+                except Exception:
+                    continue
+            
+            self.log_helper.log(self.logger, 'info', "Page fully loaded successfully")
+            return True
+            
+        except Exception as e:
+            self.log_helper.log(self.logger, 'warning', f"Page load wait strategy failed: {str(e)}")
+            # Fallback: just wait a bit and continue
+            self.page.wait_for_timeout(2000)
             return False
