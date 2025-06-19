@@ -1236,7 +1236,8 @@ Additional Account Information:
                     stats_lines = [
                         f"Total Dropbox Matches Found: {total_dropbox_matches}",
                         f"Total Dropbox No Matches: {total_dropbox_no_matches}",
-                        f"Total Driver's License Matches Found: {total_dl_matches}",
+                        if args.dl:
+                            f"Total Driver's License Matches Found: {total_dl_matches}",
                         f"Total Driver's License No Matches: {total_dl_no_matches}"
                     ]
                     for line in stats_lines:
