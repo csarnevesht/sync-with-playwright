@@ -786,7 +786,6 @@ def run_command(args):
                                 logger.error("Failed to navigate to Salesforce base URL")
                                 report_logger.info("Failed to navigate to Salesforce base URL")
                                 raise Exception("Failed to navigate to Salesforce base URL")
-                            logger.info("Refreshing page")
                             account_manager.refresh_page()
 
                         # Get Dropbox account info
