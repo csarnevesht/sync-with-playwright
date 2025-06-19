@@ -21,131 +21,142 @@ class SalesforceAccountLogger:
         """
         self.logger = logger or logging.getLogger(__name__)
     
+    def _log(self, message: str, summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None):
+        self.logger.info(message)  # analyzer.log
+        if summary_logger:
+            summary_logger.info(message)  # summary.log
+        if report_logger:
+            report_logger.info(message)  # report.log
+    
     def log_salesforce_account_information(self, 
                                          salesforce_account_information: Dict[str, Any], 
-                                         dropbox_account_folder_name: str) -> None:
+                                         dropbox_account_folder_name: str,
+                                         summary_logger: Optional[logging.Logger] = None,
+                                         report_logger: Optional[logging.Logger] = None) -> None:
         """
         Log comprehensive Salesforce Account Information with beautiful formatting.
         
         Args:
             salesforce_account_information: The structured account information
             dropbox_account_folder_name: Name of the Dropbox account folder
+            summary_logger: Optional logger for summary log output
+            report_logger: Optional logger for report log output
         """
         # Header section
-        self.logger.info(f"\n{'='*80}")
-        self.logger.info(f"👤 **SALESFORCE ACCOUNT INFORMATION** 📊")
-        self.logger.info(f"📁 Dropbox Account Folder: {dropbox_account_folder_name}")
-        self.logger.info(f"{'='*80}")
+        self._log(f"\n{'='*80}", summary_logger, report_logger)
+        self._log(f"👤 **SALESFORCE ACCOUNT INFORMATION** 📊", summary_logger, report_logger)
+        self._log(f"📁 Dropbox Account Folder: {dropbox_account_folder_name}", summary_logger, report_logger)
+        self._log(f"{'='*80}", summary_logger, report_logger)
         
         # Summary section
-        self._log_summary_section(salesforce_account_information)
+        self._log_summary_section(salesforce_account_information, summary_logger, report_logger)
         
         # Detailed account information
-        self._log_detailed_account_information(salesforce_account_information)
+        self._log_detailed_account_information(salesforce_account_information, summary_logger, report_logger)
         
         # Statistics summary
-        self._log_statistics_summary(salesforce_account_information)
+        self._log_statistics_summary(salesforce_account_information, summary_logger, report_logger)
     
-    def _log_summary_section(self, salesforce_account_information: Dict[str, Any]) -> None:
+    def _log_summary_section(self, salesforce_account_information: Dict[str, Any], summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None) -> None:
         """Log the summary section with key information."""
-        self.logger.info(f"\n📋 **SUMMARY**")
+        self._log(f"\n📋 **SUMMARY**", summary_logger, report_logger)
         
         names_found = salesforce_account_information.get('names_found', [])
-        self.logger.info(f"🔍 Names found: {', '.join(names_found) if names_found else '--'}")
+        self._log(f"🔍 Names found: {', '.join(names_found) if names_found else '--'}", summary_logger, report_logger)
         
         household = salesforce_account_information.get('household')
         if household:
-            self.logger.info(f"🏠 Household: {household['account_name']}")
+            self._log(f"🏠 Household: {household['account_name']}", summary_logger, report_logger)
         
         head = salesforce_account_information.get('head')
         if head:
-            self.logger.info(f"👑 Head: {head['account_name']}")
+            self._log(f"👑 Head: {head['account_name']}", summary_logger, report_logger)
         
         members = salesforce_account_information.get('members', [])
         if members:
             member_names = [member['account_name'] for member in members]
-            self.logger.info(f"👥 Members: {', '.join(member_names)}")
+            self._log(f"👥 Members: {', '.join(member_names)}", summary_logger, report_logger)
     
-    def _log_detailed_account_information(self, salesforce_account_information: Dict[str, Any]) -> None:
+    def _log_detailed_account_information(self, salesforce_account_information: Dict[str, Any], summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None) -> None:
         """Log detailed information for each account."""
         accounts = salesforce_account_information.get('accounts', [])
         if not accounts:
             return
         
-        self.logger.info(f"\n📊 **DETAILED ACCOUNT INFORMATION**")
+        self._log(f"\n📊 **DETAILED ACCOUNT INFORMATION**", summary_logger, report_logger)
         
         for i, account in enumerate(accounts, 1):
-            self._log_single_account(account, i)
+            self._log_single_account(account, i, summary_logger, report_logger)
     
-    def _log_single_account(self, account: Dict[str, Any], account_number: int) -> None:
+    def _log_single_account(self, account: Dict[str, Any], account_number: int, summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None) -> None:
         """Log information for a single account."""
-        self.logger.info(f"\n{'─'*60}")
-        self.logger.info(f"🏢 **Account {account_number}: {account['account_name']}**")
-        self.logger.info(f"{'─'*60}")
+        self._log(f"\n{'─'*60}", summary_logger, report_logger)
+        self._log(f"🏢 **Account {account_number}: {account['account_name']}**", summary_logger, report_logger)
+        self._log(f"{'─'*60}", summary_logger, report_logger)
         
         # Account type and role
         type_icon = "🏠" if account['type'] == 'Household' else "👤"
-        self.logger.info(f"{type_icon} Type: {account['type']}")
+        self._log(f"{type_icon} Type: {account['type']}", summary_logger, report_logger)
         
         if account.get('role'):
             role_icon = "👑" if account['role'] == 'Household Head' else "👥"
-            self.logger.info(f"{role_icon} Role: {account['role']}")
+            self._log(f"{role_icon} Role: {account['role']}", summary_logger, report_logger)
         
         # Account details
-        self._log_account_details(account)
+        self._log_account_details(account, summary_logger, report_logger)
         
         # Relationships
-        self._log_account_relationships(account)
+        self._log_account_relationships(account, summary_logger, report_logger)
     
-    def _log_account_details(self, account: Dict[str, Any]) -> None:
+    def _log_account_details(self, account: Dict[str, Any], summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None) -> None:
         """Log account details like stage, email, phone, etc."""
         if account.get('stage'):
             stage_icon = self._get_stage_icon(account['stage'])
-            self.logger.info(f"{stage_icon} Stage: {account['stage']}")
+            self._log(f"{stage_icon} Stage: {account['stage']}", summary_logger, report_logger)
         
         if account.get('email'):
-            self.logger.info(f"📧 Email: {account['email']}")
+            self._log(f"📧 Email: {account['email']}", summary_logger, report_logger)
         
         if account.get('phone'):
-            self.logger.info(f"📞 Phone: {account['phone']}")
+            self._log(f"📞 Phone: {account['phone']}", summary_logger, report_logger)
         
         if account.get('mailing_address'):
-            self.logger.info(f"📍 Address: {account['mailing_address']}")
+            self._log(f"📍 Address: {account['mailing_address']}", summary_logger, report_logger)
         
         if account.get('ssn/tax_id'):
-            self.logger.info(f"🔒 SSN/Tax ID: {account['ssn/tax_id']}")
+            self._log(f"🔒 SSN/Tax ID: {account['ssn/tax_id']}", summary_logger, report_logger)
     
-    def _log_account_relationships(self, account: Dict[str, Any]) -> None:
+    def _log_account_relationships(self, account: Dict[str, Any], summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None) -> None:
         """Log relationships for an account."""
         relationships = account.get('relationships', [])
         if relationships:
-            self.logger.info(f"\n🔗 **Relationships ({len(relationships)})**")
+            self._log(f"\n🔗 **Relationships ({len(relationships)})**", summary_logger, report_logger)
             for j, rel in enumerate(relationships, 1):
-                self._log_single_relationship(rel, j)
+                self._log_single_relationship(rel, j, summary_logger, report_logger)
         else:
-            self.logger.info(f"\n🔗 **Relationships**: None")
+            self._log(f"\n🔗 **Relationships**: None", summary_logger, report_logger)
     
-    def _log_single_relationship(self, rel: Dict[str, Any], rel_number: int) -> None:
+    def _log_single_relationship(self, rel: Dict[str, Any], rel_number: int, summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None) -> None:
         """Log information for a single relationship."""
         rel_type_icon = "🏠" if rel['type'] == 'Household' else "👤"
         rel_role_icon = self._get_role_icon(rel.get('role'))
         
-        self.logger.info(f"   {rel_number}. 📝 {rel['account_name']}")
-        self.logger.info(f"      {rel_type_icon} Type: {rel['type']}")
+        self._log(f"   {rel_number}. 📝 {rel['account_name']}", summary_logger, report_logger)
+        self._log(f"      {rel_type_icon} Type: {rel['type']}", summary_logger, report_logger)
         
         if rel.get('role'):
-            self.logger.info(f"      {rel_role_icon} Role: {rel['role']}")
+            self._log(f"      {rel_role_icon} Role: {rel['role']}", summary_logger, report_logger)
         
         if rel.get('stage'):
-            self.logger.info(f"      📋 Stage: {rel['stage']}")
+            self._log(f"      📋 Stage: {rel['stage']}", summary_logger, report_logger)
         
         if rel.get('email'):
-            self.logger.info(f"      📧 Email: {rel['email']}")
+            self._log(f"      📧 Email: {rel['email']}", summary_logger, report_logger)
         
         if rel.get('phone'):
-            self.logger.info(f"      📞 Phone: {rel['phone']}")
+            self._log(f"      📞 Phone: {rel['phone']}", summary_logger, report_logger)
     
-    def _log_statistics_summary(self, salesforce_account_information: Dict[str, Any]) -> None:
+    def _log_statistics_summary(self, salesforce_account_information: Dict[str, Any], summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None) -> None:
         """Log the final statistics summary."""
         total_accounts = len(salesforce_account_information.get('accounts', []))
         total_relationships = sum(len(acc.get('relationships', [])) for acc in salesforce_account_information.get('accounts', []))
@@ -153,15 +164,15 @@ class SalesforceAccountLogger:
         has_head = salesforce_account_information.get('head') is not None
         total_members = len(salesforce_account_information.get('members', []))
         
-        self.logger.info(f"\n{'='*80}")
-        self.logger.info(f"📈 **STATISTICS SUMMARY**")
-        self.logger.info(f"{'='*80}")
-        self.logger.info(f"📊 Total Accounts: {total_accounts}")
-        self.logger.info(f"🔗 Total Relationships: {total_relationships}")
-        self.logger.info(f"🏠 Has Household: {'✅ Yes' if has_household else '❌ No'}")
-        self.logger.info(f"👑 Has Head: {'✅ Yes' if has_head else '❌ No'}")
-        self.logger.info(f"👥 Total Members: {total_members}")
-        self.logger.info(f"{'='*80}")
+        self._log(f"\n{'='*80}", summary_logger, report_logger)
+        self._log(f"📈 **STATISTICS SUMMARY**", summary_logger, report_logger)
+        self._log(f"{'='*80}", summary_logger, report_logger)
+        self._log(f"📊 Total Accounts: {total_accounts}", summary_logger, report_logger)
+        self._log(f"🔗 Total Relationships: {total_relationships}", summary_logger, report_logger)
+        self._log(f"🏠 Has Household: {'✅ Yes' if has_household else '❌ No'}", summary_logger, report_logger)
+        self._log(f"👑 Has Head: {'✅ Yes' if has_head else '❌ No'}", summary_logger, report_logger)
+        self._log(f"👥 Total Members: {total_members}", summary_logger, report_logger)
+        self._log(f"{'='*80}", summary_logger, report_logger)
     
     def _get_stage_icon(self, stage: str) -> str:
         """Get the appropriate icon for a stage."""
@@ -340,7 +351,9 @@ class SalesforceAccountLogger:
 # Convenience functions for easy usage
 def log_salesforce_account_information(salesforce_account_information: Dict[str, Any], 
                                      dropbox_account_folder_name: str,
-                                     logger: Optional[logging.Logger] = None) -> None:
+                                     logger: Optional[logging.Logger] = None,
+                                     summary_logger: Optional[logging.Logger] = None,
+                                     report_logger: Optional[logging.Logger] = None) -> None:
     """
     Convenience function to log Salesforce Account Information.
     
@@ -348,9 +361,11 @@ def log_salesforce_account_information(salesforce_account_information: Dict[str,
         salesforce_account_information: The structured account information
         dropbox_account_folder_name: Name of the Dropbox account folder
         logger: Optional logger instance
+        summary_logger: Optional logger for summary log output
+        report_logger: Optional logger for report log output
     """
     salesforce_logger = SalesforceAccountLogger(logger)
-    salesforce_logger.log_salesforce_account_information(salesforce_account_information, dropbox_account_folder_name)
+    salesforce_logger.log_salesforce_account_information(salesforce_account_information, dropbox_account_folder_name, summary_logger, report_logger)
 
 
 def log_command_analysis(salesforce_account_information: Dict[str, Any],

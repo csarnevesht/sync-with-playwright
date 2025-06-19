@@ -1028,7 +1028,7 @@ def run_command(args):
                                 salesforce_account_search_result['salesforce_account_information'] = salesforce_account_information
                                 
                                 # Log the comprehensive Salesforce Account Information using the new utilities
-                                log_salesforce_account_information(salesforce_account_information, dropbox_account_folder_name, report_logger)
+                                log_salesforce_account_information(salesforce_account_information, dropbox_account_folder_name, report_logger=report_logger, summary_logger=summary_logger)
 
                         if args.salesforce_accounts or args.dropbox_account_info or args.dropbox_accounts:
                             # Add to summary results
