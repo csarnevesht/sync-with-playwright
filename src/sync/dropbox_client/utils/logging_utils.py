@@ -841,6 +841,7 @@ class DropboxAccountLogger:
         """Log Dropbox Account Information in a structured format."""
         self._log("[log_dropbox_account_information]", summary_logger, report_logger)
         self._log(f"\n{'='*80}", summary_logger, report_logger)
+        self._log(f"📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦", summary_logger, report_logger)
         self._log(f"📦 **DROPBOX ACCOUNT INFORMATION** 📊", summary_logger, report_logger)
         self._log(f"📁 Dropbox Account Folder: {dropbox_account_folder_name}", summary_logger, report_logger)
         self._log(f"{'='*80}", summary_logger, report_logger)

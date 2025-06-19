@@ -1065,7 +1065,7 @@ def run_command(args):
                                     'dropbox_account_search_result': dropbox_account_search_result
                                 }
                                 # CAROLINA HERE
-                                # build_and_log_summary_line(result_dict, report_logger, summary_logger, red_logger, args)
+                                # build_and_log_final_summary_line(result_dict, report_logger, summary_logger, red_logger, args)
 
                                 # Get Salesforce files if requested and account was found
                                 if args.salesforce_account_files and salesforce_matches and len(salesforce_matches) > 0 and salesforce_matches != "--":
@@ -1232,18 +1232,24 @@ def run_command(args):
 
             if summary_results:
                 # Print final summary
-                report_logger.info("\n=== SUMMARY ===")
-                summary_logger.info("\n=== SUMMARY ===")
+                report_logger.info("\n" + "=" * 80)
+                summary_logger.info("\n" + "=" * 80)
+                report_logger.info("📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋")
+                summary_logger.info("📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋")
+                report_logger.info("📋 **FINAL SUMMARY**")
+                summary_logger.info("📋 **FINAL SUMMARY**")
+                report_logger.info("─" * 60)
+                summary_logger.info("─" * 60)
                 
                 # Add icon legend
                 log_icon_legend(summary_logger, report_logger)
                 
                 for result_dict in summary_results:
-                    build_and_log_summary_line(result_dict, report_logger, summary_logger, red_logger, args)
+                    build_and_log_final_summary_line(result_dict, report_logger, summary_logger, red_logger, args)
 
                     # Show file summary if available
                     if args.dropbox_account_files and args.salesforce_account_files:
-                        file_summary = "\nFile Migration Status:"
+                        file_summary = "\n📁 **File Migration Status**"
                         report_logger.info(file_summary)
                         summary_logger.info(file_summary)
                         
@@ -1251,14 +1257,14 @@ def run_command(args):
                         if file_comparison:
                             matched = file_comparison.get('matched_files', 0)
                             total = file_comparison.get('total_files', 0)
-                            status_line = f"   {matched}/{total} files matched"
+                            status_line = f"   📄 {matched}/{total} files matched"
                             report_logger.info(status_line)
                             summary_logger.info(status_line)
                             
                             missing_files = file_comparison.get('missing_files', [])
                             extra_files = file_comparison.get('extra_files', [])
                             if missing_files:
-                                missing_msg = "   Missing files in Salesforce:"
+                                missing_msg = "   ❌ Missing files in Salesforce:"
                                 report_logger.info(missing_msg)
                                 summary_logger.info(missing_msg)
                                 for f in missing_files:
@@ -1266,7 +1272,7 @@ def run_command(args):
                                     report_logger.info(file_line)
                                     summary_logger.info(file_line)
                             if extra_files:
-                                extra_msg = "   Extra files in Salesforce:"
+                                extra_msg = "   ⚠️ Extra files in Salesforce:"
                                 report_logger.info(extra_msg)
                                 summary_logger.info(extra_msg)
                                 for f in extra_files:
@@ -1274,14 +1280,16 @@ def run_command(args):
                                     report_logger.info(file_line)
                                     summary_logger.info(file_line)
                         else:
-                            no_files_msg = "   No files to compare"
+                            no_files_msg = "   📄 No files to compare"
                             report_logger.info(no_files_msg)
                             summary_logger.info(no_files_msg)
                 
                 # Print match statistics
-                stats_header = "\n=== MATCH STATISTICS ==="
+                stats_header = "\n📊 **MATCH STATISTICS**"
                 report_logger.info(stats_header)
                 summary_logger.info(stats_header)
+                report_logger.info("─" * 40)
+                summary_logger.info("─" * 40)
                 
                 if(args.dropbox_account_info):
                     # Update Dropbox match statistics
@@ -1358,13 +1366,13 @@ def run_command(args):
     logging.info(duration_message)
     report_logger.info(duration_message)   
 
-def build_and_log_summary_line(result, report_logger, summary_logger, red_logger, args):
+def build_and_log_final_summary_line(result, report_logger, summary_logger, red_logger, args):
     """
     Builds and logs a summary line for the report log.
     """
     # Log method name at the beginning
-    report_logger.info("[build_and_log_summary_line]")
-    summary_logger.info("[build_and_log_summary_line]")
+    report_logger.info("[build_and_log_final_summary_line]")
+    summary_logger.info("[build_and_log_final_summary_line]")
     
     # Initialize salesforce_info with default values
     salesforce_info = result.get('salesforce_account_search_result', {})
