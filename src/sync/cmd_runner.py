@@ -809,9 +809,9 @@ def run_command(args):
                             logger.info(f'dropbox_account_search_result: {dropbox_account_search_result}')
                             logger.info(f"Successfully retrieved info for Dropbox account: {dropbox_account_folder_name}")
 
-                            # Call log_dropbox_account_info for detailed logging if dropbox account info is available
-                            if dropbox_account_search_result and args.dropbox_account_info:
-                                log_dropbox_account_info(dropbox_account_search_result, summary_logger, args, report_logger)
+                            # # Call log_dropbox_account_info for detailed logging if dropbox account info is available
+                            # if dropbox_account_search_result and args.dropbox_account_info:
+                            #     log_dropbox_account_info(dropbox_account_search_result, summary_logger, args, report_logger)
 
                             # Update FlatFile with account info if found
                             if dropbox_account_search_result.get('account_data'):
@@ -1125,6 +1125,20 @@ def run_command(args):
                                 command_runner.set_data('dropbox_account_information', dropbox_account_information)
                             
                             command_runner.execute_commands()
+                            
+                            # Rebuild dropbox_account_information after commands execute to include any new data
+                            if args.dropbox_account_info:
+                                dropbox_account_information = command_runner._build_dropbox_account_information()
+                                command_runner.set_data('dropbox_account_information', dropbox_account_information)
+
+                            from sync.dropbox_client.utils.logging_utils import log_dropbox_account_information
+                            log_dropbox_account_information(
+                                dropbox_account_information,
+                                dropbox_account_folder_name,
+                                logger,
+                                summary_logger,
+                                report_logger
+                            )
                         
                         # Compare files if both Dropbox and Salesforce files are available
                         file_comparison = None
