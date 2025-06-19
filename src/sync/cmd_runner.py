@@ -125,7 +125,7 @@ from src.sync.dropbox_client.utils.dropbox_utils import (
     get_folder_creation_date
 )
 from src.sync.dropbox_client.utils.date_utils import has_date_prefix
-from src.sync.dropbox_client.utils.logging_utils import log_dropbox_account_info
+from src.sync.dropbox_client.utils.logging_utils import log_dropbox_account_info, log_icon_legend
 from dropbox.exceptions import ApiError
 import dropbox
 from typing import List, Union
@@ -800,8 +800,6 @@ def run_command(args):
 
                             # Call log_dropbox_account_info for detailed logging if dropbox account info is available
                             if dropbox_account_search_result and args.dropbox_account_info:
-                                from sync.dropbox_client.utils.logging_utils import log_dropbox_account_info
-                                # Call with both loggers so it appears in both summary and report logs
                                 log_dropbox_account_info(dropbox_account_search_result, summary_logger, args, report_logger)
 
                             # Update FlatFile with account info if found
@@ -1135,28 +1133,7 @@ def run_command(args):
                 summary_logger.info("\n=== SUMMARY ===")
                 
                 # Add icon legend
-                legend = """
-Icon Legend:
-📁 - Dropbox Folder
-🪪 - Driver's License Found
-🔺 - No Driver's License
-📄 - Dropbox Account Match Found
-🔴 - No Dropbox Account Match
-👤 - Salesforce Account
-🟥 - No Salesforce Account
-
-Additional Account Information:
-📧 - Email
-📞 - Phone
-📍 - Address
-🔒 - SSN/Tax ID
-🎂 - Birthdate
-👶 - Age
-"""
-                report_logger.info(legend)
-                summary_logger.info(legend)
-                report_logger.info("\n" + "="*50 + "\n")
-                summary_logger.info("\n" + "="*50 + "\n")
+                log_icon_legend(summary_logger, report_logger)
                 
                 for result_dict in summary_results:
                     build_and_log_summary_line(result_dict, report_logger, summary_logger, red_logger, args)

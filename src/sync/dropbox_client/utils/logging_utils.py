@@ -778,3 +778,40 @@ def log_app_files_processing_summary(summary_data: Dict[str, Any], logger_instan
     log.info("")  # Add blank line at the end
     if report_log:
         report_log.info("")  # Add blank line at the end 
+
+def log_icon_legend(logger_instance: Any = None, report_logger: Any = None) -> None:
+    """Log the icon legend for account information display.
+    
+    Args:
+        logger_instance: Optional logger instance to use (defaults to module logger)
+        report_logger: Optional report logger instance to use for additional logging
+    """
+    log = logger_instance or logger
+    report_log = report_logger
+    
+    legend = """
+Icon Legend:
+📁 - Dropbox Folder
+🪪 - Driver's License Found
+🔺 - No Driver's License
+📄 - Dropbox Account Match Found
+🔴 - No Dropbox Account Match
+👤 - Salesforce Account
+🟥 - No Salesforce Account
+
+Additional Account Information:
+📧 - Email
+📞 - Phone
+📍 - Address
+🔒 - SSN/Tax ID
+🎂 - Birthdate
+👶 - Age
+"""
+    log.info(legend)
+    if report_log:
+        report_log.info(legend)
+    
+    separator = "\n" + "="*50 + "\n"
+    log.info(separator)
+    if report_log:
+        report_log.info(separator) 
