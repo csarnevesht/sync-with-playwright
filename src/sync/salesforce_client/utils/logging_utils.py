@@ -42,6 +42,7 @@ class SalesforceAccountLogger:
             summary_logger: Optional logger for summary log output
             report_logger: Optional logger for report log output
         """
+        self._log("[log_salesforce_account_information]", summary_logger, report_logger)
         # Header section
         self._log(f"\n{'='*80}", summary_logger, report_logger)
         self._log(f"👤 **SALESFORCE ACCOUNT INFORMATION** 📊", summary_logger, report_logger)
