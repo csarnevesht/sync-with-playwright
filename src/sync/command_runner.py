@@ -734,20 +734,10 @@ class CommandRunner:
                 self.set_data('account_info_from_app_files', aggregated_info)
                 
                 # Log the results
-                self.logger.info(f"✅ Successfully extracted information from {len(files)} application files")
-                self.logger.info(f"Files with complete info: {aggregated_info.get('files_with_complete_info', 0)}")
-                self.logger.info(f"Files with partial info: {aggregated_info.get('files_with_partial_info', 0)}")
-                self.logger.info(f"Files with no info: {aggregated_info.get('files_with_no_info', 0)}")
-                
-                # Log the best dropbox account app files info
-                best_info = aggregated_info.get('best_available_info', {})
-                log_dropbox_account_app_files_info(
-                    best_info, 
-                    self.summary_logger, 
-                    self.report_logger, 
-                    f"Dropbox Account Information 'from application files' - [📁Dropbox Account Folder: Dropbox Account Folder Name: '{dropbox_account_folder_name}']",
-                    dropbox_account_folder_name
-                )
+                self.logger.info(f"[_extract_dropbox_account_app_files_info] ✅ Successfully extracted information from {len(files)} application files")
+                self.logger.info(f"[_extract_dropbox_account_app_files_info] Files with complete info: {aggregated_info.get('files_with_complete_info', 0)}")
+                self.logger.info(f"[_extract_dropbox_account_app_files_info] Files with partial info: {aggregated_info.get('files_with_partial_info', 0)}")
+                self.logger.info(f"[_extract_dropbox_account_app_files_info] Files with no info: {aggregated_info.get('files_with_no_info', 0)}")
                 
                 # Log detailed notes for each app file
                 if summary_data and 'file_info' in summary_data:
@@ -760,16 +750,16 @@ class CommandRunner:
                 has_complete_account_info = aggregated_info.get('has_complete_account_info', False)
                 
                 if has_complete_account_info:
-                    self.logger.info("✅ Complete account information found from app files")
-                    self.report_logger.info("✅ Complete account information found from app files")
+                    self.logger.info("[_extract_dropbox_account_app_files_info] ✅ Complete account information found from app files")
+                    self.report_logger.info("[_extract_dropbox_account_app_files_info] ✅ Complete account information found from app files")
                 else:
-                    self.logger.info("⚠️ Incomplete account information from app files")
-                    self.report_logger.info("⚠️ Incomplete account information from app files")
+                    self.logger.info("[_extract_dropbox_account_app_files_info] ⚠️ Incomplete account information from app files")
+                    self.report_logger.info("[_extract_dropbox_account_app_files_info] ⚠️ Incomplete account information from app files")
                     
                     # If we don't have complete account info, process the 0-length files
                     if summary_data and 'skipped_zero_length_files' in summary_data and summary_data['skipped_zero_length_files'] > 0:
-                        self.logger.info(f"Processing {summary_data['skipped_zero_length_files']} zero-length files to try to get complete account info")
-                        self.report_logger.info(f"Processing {summary_data['skipped_zero_length_files']} zero-length files to try to get complete account info")
+                        self.logger.info(f"[_extract_dropbox_account_app_files_info] Processing {summary_data['skipped_zero_length_files']} zero-length files to try to get complete account info")
+                        self.report_logger.info(f"[_extract_dropbox_account_app_files_info] Processing {summary_data['skipped_zero_length_files']} zero-length files to try to get complete account info")
                         
                         # Second pass: Process 0-length files to try to get complete account info
                         zero_length_summary = dropbox_client.extract_app_files_info(
@@ -800,17 +790,17 @@ class CommandRunner:
                             self.set_data('account_info_from_app_files', updated_aggregated_info)
                             
                             # Log the updated results
-                            self.logger.info(f"✅ After processing zero-length files: {len(combined_files)} total files processed")
-                            self.logger.info(f"Files with complete info: {updated_aggregated_info.get('files_with_complete_info', 0)}")
-                            self.logger.info(f"Files with partial info: {updated_aggregated_info.get('files_with_partial_info', 0)}")
-                            self.logger.info(f"Files with no info: {updated_aggregated_info.get('files_with_no_info', 0)}")
+                            self.logger.info(f"[_extract_dropbox_account_app_files_info] ✅ After processing zero-length files: {len(combined_files)} total files processed")
+                            self.logger.info(f"[_extract_dropbox_account_app_files_info] Files with complete info: {updated_aggregated_info.get('files_with_complete_info', 0)}")
+                            self.logger.info(f"[_extract_dropbox_account_app_files_info] Files with partial info: {updated_aggregated_info.get('files_with_partial_info', 0)}")
+                            self.logger.info(f"[_extract_dropbox_account_app_files_info] Files with no info: {updated_aggregated_info.get('files_with_no_info', 0)}")
                             
                             if updated_aggregated_info.get('has_complete_account_info', False):
-                                self.logger.info("✅ Complete account information now found after processing zero-length files")
-                                self.report_logger.info("✅ Complete account information now found after processing zero-length files")
+                                self.logger.info("[_extract_dropbox_account_app_files_info] ✅ Complete account information now found after processing zero-length files")
+                                self.report_logger.info("[_extract_dropbox_account_app_files_info] ✅ Complete account information now found after processing zero-length files")
                             else:
-                                self.logger.info("⚠️ Still incomplete account information after processing zero-length files")
-                                self.report_logger.info("⚠️ Still incomplete account information after processing zero-length files")
+                                self.logger.info("[_extract_dropbox_account_app_files_info] ⚠️ Still incomplete account information after processing zero-length files")
+                                self.report_logger.info("[_extract_dropbox_account_app_files_info] ⚠️ Still incomplete account information after processing zero-length files")
                 
                 # Store the summary data for reporting
                 self.set_data('app_files_extraction_summary', summary_data)
@@ -1030,8 +1020,9 @@ class CommandRunner:
         dropbox_account_information['application_data'] = account_info_from_app_files
         
         # Create account objects from application files data
-        owner = account_info_from_app_files.get('owner', {})
-        joint_owner = account_info_from_app_files.get('jointOwner', {})
+        best_available_info = account_info_from_app_files.get('best_available_info', {})
+        owner = best_available_info.get('owner', {})
+        joint_owner = best_available_info.get('jointOwner', {})
         
         # Primary account holder
         if owner and (owner.get('firstName') or owner.get('lastName')):
@@ -1117,7 +1108,7 @@ class CommandRunner:
 
     def _handle_log_dropbox_account_information(self) -> None:
         """Handle the log-dropbox-account-information command."""
-        self.logger.info("Executing command handler: log-dropbox-account-information")
+        self.logger.info("[_handle_log_dropbox_account_information] Executing command handler: log-dropbox-account-information")
         
         # Build the dropbox account information structure
         dropbox_account_information = self._build_dropbox_account_information()
