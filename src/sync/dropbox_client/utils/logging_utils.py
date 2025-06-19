@@ -841,7 +841,7 @@ class DropboxAccountLogger:
         """Log Dropbox Account Information in a structured format."""
         self._log("[log_dropbox_account_information]", summary_logger, report_logger)
         self._log(f"\n{'='*80}", summary_logger, report_logger)
-        self._log(f"📁 **DROPBOX ACCOUNT INFORMATION** 📊", summary_logger, report_logger)
+        self._log(f"📦 **DROPBOX ACCOUNT INFORMATION** 📊", summary_logger, report_logger)
         self._log(f"📁 Dropbox Account Folder: {dropbox_account_folder_name}", summary_logger, report_logger)
         self._log(f"{'='*80}", summary_logger, report_logger)
         
@@ -1078,18 +1078,16 @@ class DropboxAccountLogger:
         """Log the final statistics summary."""
         self._log("[_log_statistics_summary]", summary_logger, report_logger)
         total_accounts = len(dropbox_account_information.get('accounts', []))
-        has_client_list_data = dropbox_account_information.get('client_list_data') is not None
-        has_application_data = dropbox_account_information.get('application_data') is not None
-        total_matches = sum(1 for acc in dropbox_account_information.get('accounts', []) 
-                          if acc.get('match_status', '').lower() == 'match found')
-        total_drivers_licenses = sum(1 for acc in dropbox_account_information.get('accounts', []) 
-                                   if acc.get('drivers_license', {}) and any(acc['drivers_license'].values()))
+        client_list_data_available = dropbox_account_information.get('client_list_data') is not None
+        application_data_available = dropbox_account_information.get('application_data') is not None
+        total_matches = sum(1 for account in dropbox_account_information.get('accounts', []) if account.get('match_status') == 'Match found')
+        total_drivers_licenses = sum(1 for account in dropbox_account_information.get('accounts', []) if account.get('drivers_license'))
         
         self._log(f"\n📊 **STATISTICS SUMMARY**", summary_logger, report_logger)
-        self._log(f"{'─'*40}", summary_logger, report_logger)
+        self._log(f"{'─'*60}", summary_logger, report_logger)
         self._log(f"📁 Total Accounts: {total_accounts}", summary_logger, report_logger)
-        self._log(f"📄 Client List File Data: {'✅ Available' if has_client_list_data else '❌ Not available'}", summary_logger, report_logger)
-        self._log(f"📄 Application Files Data: {'✅ Available' if has_application_data else '❌ Not available'}", summary_logger, report_logger)
+        self._log(f"📄 Client List File Data: {'✅ Available' if client_list_data_available else '❌ Not Available'}", summary_logger, report_logger)
+        self._log(f"📄 Application Files Data: {'✅ Available' if application_data_available else '❌ Not Available'}", summary_logger, report_logger)
         self._log(f"🔍 Total Matches: {total_matches}", summary_logger, report_logger)
         self._log(f"🪪 Total Driver's Licenses: {total_drivers_licenses}", summary_logger, report_logger)
 

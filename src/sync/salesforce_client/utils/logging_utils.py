@@ -45,7 +45,7 @@ class SalesforceAccountLogger:
         self._log("[log_salesforce_account_information]", summary_logger, report_logger)
         # Header section
         self._log(f"\n{'='*80}", summary_logger, report_logger)
-        self._log(f"👤 **SALESFORCE ACCOUNT INFORMATION** 📊", summary_logger, report_logger)
+        self._log(f"⚡ **SALESFORCE ACCOUNT INFORMATION** 📊", summary_logger, report_logger)
         self._log(f"📁 Dropbox Account Folder: {dropbox_account_folder_name}", summary_logger, report_logger)
         self._log(f"{'='*80}", summary_logger, report_logger)
         
@@ -167,7 +167,7 @@ class SalesforceAccountLogger:
         
         self._log(f"\n{'='*80}", summary_logger, report_logger)
         self._log(f"📈 **STATISTICS SUMMARY**", summary_logger, report_logger)
-        self._log(f"{'='*80}", summary_logger, report_logger)
+        self._log(f"{'─'*60}", summary_logger, report_logger)
         self._log(f"📊 Total Accounts: {total_accounts}", summary_logger, report_logger)
         self._log(f"🔗 Total Relationships: {total_relationships}", summary_logger, report_logger)
         self._log(f"🏠 Has Household: {'✅ Yes' if has_household else '❌ No'}", summary_logger, report_logger)
