@@ -145,9 +145,9 @@ def log_dropbox_account_info(account_search_result: Dict[str, Any], logger_insta
             if report_log:
                 report_log.info(f"    👶 Age: {account_data['age']}")
         if account_data.get('gender'):
-            log.info(f"    👤 Gender: {account_data['gender']}")
+            log.info(f"    ♂️♀️ Gender: {account_data['gender']}")
             if report_log:
-                report_log.info(f"    👤 Gender: {account_data['gender']}")
+                report_log.info(f"    ♂️♀️ Gender: {account_data['gender']}")
         
         # Identification information
         if account_data.get('ssn'):
@@ -291,9 +291,9 @@ def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None,
             if report_log:
                 report_log.info(f"    🎂 Owner DOB: {owner_data['dateOfBirth']}")
         if owner_data.get('gender') and owner_data.get('gender') != "null":
-            log.info(f"    👤 Owner Gender: {owner_data['gender']}")
+            log.info(f"    ♂️♀️ Gender: {owner_data['gender']}")
             if report_log:
-                report_log.info(f"    👤 Owner Gender: {owner_data['gender']}")
+                report_log.info(f"    ♂️♀️ Gender: {owner_data['gender']}")
         if owner_data.get('mailingAddressStreet') and owner_data.get('mailingAddressStreet') != "null":
             address = f"{owner_data['mailingAddressStreet']}"
             if owner_data.get('mailingAddressCity') and owner_data.get('mailingAddressCity') != "null":
@@ -302,9 +302,9 @@ def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None,
                 address += f", {owner_data['mailingAddressState']}"
             if owner_data.get('mailingAddressZip') and owner_data.get('mailingAddressZip') != "null":
                 address += f" {owner_data['mailingAddressZip']}"
-            log.info(f"    📍 Owner Address: {address}")
+            log.info(f"    📍 Address: {address}")
             if report_log:
-                report_log.info(f"    📍 Owner Address: {address}")
+                report_log.info(f"    📍 Address: {address}")
         if owner_data.get('phoneNumber') and owner_data.get('phoneNumber') != "null":
             log.info(f"    📞 Owner Phone: {owner_data['phoneNumber']}")
             if report_log:
@@ -326,9 +326,9 @@ def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None,
             if report_log:
                 report_log.info(f"    🎂 Joint Owner DOB: {joint_owner_data['dateOfBirth']}")
         if joint_owner_data.get('gender') and joint_owner_data.get('gender') != "null":
-            log.info(f"    👤 Joint Owner Gender: {joint_owner_data['gender']}")
+            log.info(f"    ♂️♀️ Gender: {joint_owner_data['gender']}")
             if report_log:
-                report_log.info(f"    👤 Joint Owner Gender: {joint_owner_data['gender']}")
+                report_log.info(f"    ♂️♀️ Gender: {joint_owner_data['gender']}")
         if joint_owner_data.get('mailingAddressStreet') and joint_owner_data.get('mailingAddressStreet') != "null":
             address = f"{joint_owner_data['mailingAddressStreet']}"
             if joint_owner_data.get('mailingAddressCity') and joint_owner_data.get('mailingAddressCity') != "null":
@@ -337,9 +337,9 @@ def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None,
                 address += f", {joint_owner_data['mailingAddressState']}"
             if joint_owner_data.get('mailingAddressZip') and joint_owner_data.get('mailingAddressZip') != "null":
                 address += f" {joint_owner_data['mailingAddressZip']}"
-            log.info(f"    📍 Joint Owner Address: {address}")
+            log.info(f"    📍 Address: {address}")
             if report_log:
-                report_log.info(f"    📍 Joint Owner Address: {address}")
+                report_log.info(f"    📍 Address: {address}")
         if joint_owner_data.get('phoneNumber') and joint_owner_data.get('phoneNumber') != "null":
             log.info(f"    📞 Joint Owner Phone: {joint_owner_data['phoneNumber']}")
             if report_log:
@@ -503,19 +503,19 @@ def log_dropbox_account_app_files_info(info: Dict[str, Any], logger_instance: An
             report_log.info("\n👤 **OWNER INFORMATION:**")
         
         if owner_data.get('firstName') and owner_data.get('lastName'):
-            log.info(f"    Name: {owner_data['firstName']} {owner_data['lastName']}")
+            log.info(f"    👤 Name: {owner_data['firstName']} {owner_data['lastName']}")
             if report_log:
-                report_log.info(f"    Name: {owner_data['firstName']} {owner_data['lastName']}")
+                report_log.info(f"    👤 Name: {owner_data['firstName']} {owner_data['lastName']}")
         
         if owner_data.get('dateOfBirth'):
-            log.info(f"    Date of Birth: {owner_data['dateOfBirth']}")
+            log.info(f"    🎂 Date of Birth: {owner_data['dateOfBirth']}")
             if report_log:
-                report_log.info(f"    Date of Birth: {owner_data['dateOfBirth']}")
+                report_log.info(f"    🎂 Date of Birth: {owner_data['dateOfBirth']}")
         
         if owner_data.get('gender'):
-            log.info(f"    Gender: {owner_data['gender']}")
+            log.info(f"    ♂️♀️ Gender: {owner_data['gender']}")
             if report_log:
-                report_log.info(f"    Gender: {owner_data['gender']}")
+                report_log.info(f"    ♂️♀️ Gender: {owner_data['gender']}")
         
         if owner_data.get('mailingAddressStreet'):
             address = f"{owner_data['mailingAddressStreet']}"
@@ -525,24 +525,24 @@ def log_dropbox_account_app_files_info(info: Dict[str, Any], logger_instance: An
                 address += f", {owner_data['mailingAddressState']}"
             if owner_data.get('mailingAddressZip'):
                 address += f" {owner_data['mailingAddressZip']}"
-            log.info(f"    Address: {address}")
+            log.info(f"    📍 Address: {address}")
             if report_log:
-                report_log.info(f"    Address: {address}")
+                report_log.info(f"    📍 Address: {address}")
         
         if owner_data.get('phoneNumber'):
-            log.info(f"    Phone: {owner_data['phoneNumber']}")
+            log.info(f"    📞 Phone: {owner_data['phoneNumber']}")
             if report_log:
-                report_log.info(f"    Phone: {owner_data['phoneNumber']}")
+                report_log.info(f"    📞 Phone: {owner_data['phoneNumber']}")
         
         if owner_data.get('emailAddress'):
-            log.info(f"    Email: {owner_data['emailAddress']}")
+            log.info(f"    📧 Email: {owner_data['emailAddress']}")
             if report_log:
-                report_log.info(f"    Email: {owner_data['emailAddress']}")
+                report_log.info(f"    📧 Email: {owner_data['emailAddress']}")
         
         if owner_data.get('ocrMethod'):
-            log.info(f"    OCR Method: {owner_data['ocrMethod']}")
+            log.info(f"    🔍 OCR Method: {owner_data['ocrMethod']}")
             if report_log:
-                report_log.info(f"    OCR Method: {owner_data['ocrMethod']}")
+                report_log.info(f"    🔍 OCR Method: {owner_data['ocrMethod']}")
 
     # Joint owner information
     if info.get('jointOwner'):
@@ -552,19 +552,19 @@ def log_dropbox_account_app_files_info(info: Dict[str, Any], logger_instance: An
             report_log.info("\n👥 **JOINT OWNER INFORMATION:**")
         
         if joint_owner_data.get('firstName') and joint_owner_data.get('lastName'):
-            log.info(f"    Name: {joint_owner_data['firstName']} {joint_owner_data['lastName']}")
+            log.info(f"    👥 Name: {joint_owner_data['firstName']} {joint_owner_data['lastName']}")
             if report_log:
-                report_log.info(f"    Name: {joint_owner_data['firstName']} {joint_owner_data['lastName']}")
+                report_log.info(f"    👥 Name: {joint_owner_data['firstName']} {joint_owner_data['lastName']}")
         
         if joint_owner_data.get('dateOfBirth') and joint_owner_data.get('dateOfBirth') != "null":
-            log.info(f"    🎂 Joint Owner DOB: {joint_owner_data['dateOfBirth']}")
+            log.info(f"    🎂 Date of Birth: {joint_owner_data['dateOfBirth']}")
             if report_log:
-                report_log.info(f"    🎂 Joint Owner DOB: {joint_owner_data['dateOfBirth']}")
+                report_log.info(f"    🎂 Date of Birth: {joint_owner_data['dateOfBirth']}")
         
         if joint_owner_data.get('gender'):
-            log.info(f"    Gender: {joint_owner_data['gender']}")
+            log.info(f"    ♂️♀️ Gender: {joint_owner_data['gender']}")
             if report_log:
-                report_log.info(f"    Gender: {joint_owner_data['gender']}")
+                report_log.info(f"    ♂️♀️ Gender: {joint_owner_data['gender']}")
         
         if joint_owner_data.get('mailingAddressStreet'):
             address = f"{joint_owner_data['mailingAddressStreet']}"
@@ -574,24 +574,24 @@ def log_dropbox_account_app_files_info(info: Dict[str, Any], logger_instance: An
                 address += f", {joint_owner_data['mailingAddressState']}"
             if joint_owner_data.get('mailingAddressZip'):
                 address += f" {joint_owner_data['mailingAddressZip']}"
-            log.info(f"    Address: {address}")
+            log.info(f"    📍 Address: {address}")
             if report_log:
-                report_log.info(f"    Address: {address}")
+                report_log.info(f"    📍 Address: {address}")
         
         if joint_owner_data.get('phoneNumber'):
-            log.info(f"    Phone: {joint_owner_data['phoneNumber']}")
+            log.info(f"    📞 Phone: {joint_owner_data['phoneNumber']}")
             if report_log:
-                report_log.info(f"    Phone: {joint_owner_data['phoneNumber']}")
+                report_log.info(f"    📞 Phone: {joint_owner_data['phoneNumber']}")
         
         if joint_owner_data.get('emailAddress'):
-            log.info(f"    Email: {joint_owner_data['emailAddress']}")
+            log.info(f"    📧 Email: {joint_owner_data['emailAddress']}")
             if report_log:
-                report_log.info(f"    Email: {joint_owner_data['emailAddress']}")
+                report_log.info(f"    📧 Email: {joint_owner_data['emailAddress']}")
         
         if joint_owner_data.get('ocrMethod'):
-            log.info(f"    OCR Method: {joint_owner_data['ocrMethod']}")
+            log.info(f"    🔍 OCR Method: {joint_owner_data['ocrMethod']}")
             if report_log:
-                report_log.info(f"    OCR Method: {joint_owner_data['ocrMethod']}")
+                report_log.info(f"    🔍 OCR Method: {joint_owner_data['ocrMethod']}")
 
     # Notes
     if info.get('notes') and isinstance(info['notes'], list) and info['notes']:
