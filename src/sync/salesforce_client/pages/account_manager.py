@@ -1143,12 +1143,15 @@ class AccountManager(BasePage):
                             confirmation_found = True
                             
                             # Wait for page load after URL change with shorter timeouts
-                            self.log_helper.log(self.logger, 'info', "Waiting for page load after URL change...")
+                            self.log_helper.log(self.logger, 'info', "⏳ Waiting for page load after URL change...")
                             try:
-                                self.page.wait_for_load_state('domcontentloaded', timeout=10000)
-                                self.log_helper.log(self.logger, 'info', "DOM content loaded")
+                                # Use the new robust wait method instead of individual load states
+                                if self.wait_for_page_to_load(timeout=20000):
+                                    self.log_helper.log(self.logger, 'info', "✅ Page loaded successfully after URL change")
+                                else:
+                                    self.log_helper.log(self.logger, 'warning', "⚠️ Page load wait strategy failed, but continuing...")
                             except Exception as e:
-                                self.log_helper.log(self.logger, 'info', f"DOM content load timeout: {str(e)}")
+                                self.log_helper.log(self.logger, 'info', f"Page load timeout: {str(e)}")
                                 
                             try:
                                 self.page.wait_for_load_state('networkidle', timeout=10000)
@@ -1714,27 +1717,26 @@ class AccountManager(BasePage):
         Returns:
             dict: Dictionary containing account information
         """
-        self.log_helper.log(self.logger, 'info', f"Getting information for account {account_id}")
+        self.log_helper.log(self.logger, 'info', f"📋 Getting information for account {account_id}")
         self.log_helper.indent()
         
         try:
             # Ensure we're on the account view page
             if not self.ensure_account_view_page(account_id):
-                self.log_helper.log(self.logger, 'error', "Failed to ensure account view page")
+                self.log_helper.log(self.logger, 'error', "❌ Failed to ensure account view page")
                 self.log_helper.dedent()
                 return {}
             
-            # Wait for the page to be fully loaded
-            self.log_helper.log(self.logger, 'info', "Waiting for page to be fully loaded")
-            self.page.wait_for_load_state('networkidle', timeout=10000)
-            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
+            # Wait for the page to be fully loaded using the new robust method
+            self.log_helper.log(self.logger, 'info', "⏳ Waiting for page to be fully loaded...")
+            if not self.wait_for_page_to_load(timeout=45000):  # Increased timeout for account pages
+                self.log_helper.log(self.logger, 'warning', "⚠️ Page load wait strategy failed, but continuing...")
             
             # Get account details from the page
             account_info = {}
             
-            
             # Get additional account details with Lightning component selectors
-            self.log_helper.log(self.logger, 'info', "Attempting to get additional account details")
+            self.log_helper.log(self.logger, 'info', "🔍 Attempting to get additional account details")
             try:
                 # Try both Lightning and classic selectors
                 detail_selectors = [
@@ -1767,7 +1769,7 @@ class AccountManager(BasePage):
                         self.log_helper.log(self.logger, 'debug', f"Failed to get details with selector {selector}: {str(e)}")
                         continue
             except Exception as e:
-                self.log_helper.log(self.logger, 'warn', f"Error getting additional account details: {str(e)}")
+                self.log_helper.log(self.logger, 'warn', f"⚠️ Error getting additional account details: {str(e)}")
             
             # Extract secondary fields (header details)
             try:
@@ -1784,7 +1786,7 @@ class AccountManager(BasePage):
                                 account_info[label.lower().replace(' ', '_')] = value
                                 self.log_helper.log(self.logger, 'info', f"Found {label}: {value}")
             except Exception as e:
-                self.log_helper.log(self.logger, 'warn', f"Error extracting secondary fields: {str(e)}")
+                self.log_helper.log(self.logger, 'warn', f"⚠️ Error extracting secondary fields: {str(e)}")
 
             # Extract general information from records-record-layout-item blocks
             try:
@@ -1799,14 +1801,14 @@ class AccountManager(BasePage):
                             account_info[label.lower().replace(' ', '_')] = value
                             self.log_helper.log(self.logger, 'info', f"Found {label}: {value}")
             except Exception as e:
-                self.log_helper.log(self.logger, 'warn', f"Error extracting general info fields: {str(e)}")
+                self.log_helper.log(self.logger, 'warn', f"⚠️ Error extracting general info fields: {str(e)}")
 
-            self.log_helper.log(self.logger, 'info', f"Successfully retrieved account information: {account_info}")
+            self.log_helper.log(self.logger, 'info', f"✅ Successfully retrieved account information: {account_info}")
             self.log_helper.dedent()
             return account_info
             
         except Exception as e:
-            self.log_helper.log(self.logger, 'error', f"Error getting account information: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"❌ Error getting account information: {str(e)}")
             self.log_helper.dedent()
             return {}
 
@@ -1815,17 +1817,23 @@ class AccountManager(BasePage):
         Get all relationship accounts for a given Salesforce account ID.
         Returns a list of dictionaries with keys: name, role, type.
         """
+        self.log_helper.log(self.logger, 'info', f"👥 Getting relationships for account {account_id}")
+        self.log_helper.indent()
+        
         try:
             # Ensure we're on the account view page
             if not self.verify_account_page_url()[0]:
-                self.logger.error(f"Not on account view page for ID: {account_id}")
+                self.log_helper.log(self.logger, 'error', f"❌ Not on account view page for ID: {account_id}")
+                self.log_helper.dedent()
                 return []
 
-            # Wait for the page to load
-            self.page.wait_for_load_state('networkidle', timeout=10000)
-            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
+            # Wait for the page to load using the new robust method
+            self.log_helper.log(self.logger, 'info', "⏳ Waiting for page to be fully loaded...")
+            if not self.wait_for_page_to_load(timeout=45000):  # Increased timeout for account pages
+                self.log_helper.log(self.logger, 'warning', "⚠️ Page load wait strategy failed, but continuing...")
 
             # Click the Relationships tab
+            self.log_helper.log(self.logger, 'info', "🔍 Looking for Relationships tab...")
             tab_selectors = [
                 "a[title='Relationships']",
                 "a[data-label='Relationships']",
@@ -1839,48 +1847,63 @@ class AccountManager(BasePage):
                     if tab.count() > 0:
                         tab.click()
                         tab_found = True
-                        self.logger.info("Clicked on Relationships tab")
+                        self.log_helper.log(self.logger, 'info', "✅ Clicked on Relationships tab")
                         break
                 except Exception as e:
-                    self.logger.warn(f"Failed to find/click tab with selector {selector}: {str(e)}")
+                    self.log_helper.log(self.logger, 'warn', f"⚠️ Failed to find/click tab with selector {selector}: {str(e)}")
                     continue
             if not tab_found:
-                self.logger.error("Could not find Relationships tab")
+                self.log_helper.log(self.logger, 'error', "❌ Could not find Relationships tab")
+                self.log_helper.dedent()
                 return []
 
             # Wait for at least one relationship block to appear
+            self.log_helper.log(self.logger, 'info', "⏳ Waiting for relationship blocks to load...")
             try:
-                self.page.wait_for_selector('div.FinServRelationshipEntityBlock', timeout=10000)
+                self.page.wait_for_selector('div.FinServRelationshipEntityBlock', timeout=15000)  # Increased timeout
+                self.log_helper.log(self.logger, 'info', "✅ Relationship blocks found")
             except Exception as e:
-                self.logger.error(f"No relationship blocks found: {str(e)}")
+                self.log_helper.log(self.logger, 'error', f"❌ No relationship blocks found: {str(e)}")
+                self.log_helper.dedent()
                 return []
 
             relationship_blocks = self.page.query_selector_all('div.FinServRelationshipEntityBlock')
             relationships = []
-            for block in relationship_blocks:
-                # Name
-                name_elem = block.query_selector('a.outputLookupLink')
-                name = name_elem.inner_text().strip() if name_elem else None
-                # Role
-                role_elem = block.query_selector('span[title], .slds-text-heading--label-normal span')
-                role = role_elem.inner_text().strip() if role_elem else None
-                # Type (from icon or context)
-                type_elem = block.query_selector('lightning-icon')
-                type_ = "Contact"
-                if type_elem:
-                    icon_name = type_elem.get_attribute('icon-name')
-                    if icon_name:
-                        type_ = icon_name.split(':')[-1].capitalize()
-                relationships.append({
-                    'name': name,
-                    'role': role,
-                    'type': type_,
-                })
-                self.logger.info(f"Found relationship: name={name}, role={role}, type={type_}")
-            self.logger.info(f"Successfully retrieved {len(relationships)} relationships")
+            self.log_helper.log(self.logger, 'info', f"🔍 Processing {len(relationship_blocks)} relationship blocks...")
+            
+            for i, block in enumerate(relationship_blocks):
+                try:
+                    # Name
+                    name_elem = block.query_selector('a.outputLookupLink')
+                    name = name_elem.inner_text().strip() if name_elem else None
+                    # Role
+                    role_elem = block.query_selector('span[title], .slds-text-heading--label-normal span')
+                    role = role_elem.inner_text().strip() if role_elem else None
+                    # Type (from icon or context)
+                    type_elem = block.query_selector('lightning-icon')
+                    type_ = "Contact"
+                    if type_elem:
+                        icon_name = type_elem.get_attribute('icon-name')
+                        if icon_name:
+                            type_ = icon_name.split(':')[-1].capitalize()
+                    
+                    relationship = {
+                        'name': name,
+                        'role': role,
+                        'type': type_,
+                    }
+                    relationships.append(relationship)
+                    self.log_helper.log(self.logger, 'info', f"Found relationship {i+1}: name={name}, role={role}, type={type_}")
+                except Exception as e:
+                    self.log_helper.log(self.logger, 'warn', f"⚠️ Error processing relationship block {i+1}: {str(e)}")
+                    continue
+                    
+            self.log_helper.log(self.logger, 'info', f"✅ Successfully retrieved {len(relationships)} relationships")
+            self.log_helper.dedent()
             return relationships
         except Exception as e:
-            self.logger.error(f"Error getting account relationships: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"❌ Error getting account relationships: {str(e)}")
+            self.log_helper.dedent()
             return []
 
     def delete_account(self, full_name: str, view_name: str = "Recent") -> bool:
@@ -2364,12 +2387,54 @@ class AccountManager(BasePage):
         Returns:
             bool: True if refresh was successful, False otherwise
         """
+        self.log_helper.log(self.logger, 'info', "🔄 Refreshing page...")
+        self.log_helper.indent()
+        
         try:
-            self.logger.info("Refreshing page")
+            # Store current URL for verification
+            current_url = self.page.url
+            self.log_helper.log(self.logger, 'info', f"Current URL before refresh: {current_url}")
+            
+            # Refresh the page
             self.page.reload()
+            self.log_helper.log(self.logger, 'info', "Page reload initiated")
+            
+            # Use the new robust wait method
+            if not self.wait_for_page_to_load(timeout=45000):  # Increased timeout for refresh
+                self.log_helper.log(self.logger, 'warning', "Page load wait strategy failed, but continuing...")
+            
+            # Verify we're still on a valid page
+            new_url = self.page.url
+            self.log_helper.log(self.logger, 'info', f"URL after refresh: {new_url}")
+            
+            # Check for common error indicators
+            error_selectors = [
+                '.error-page',
+                '.error-message',
+                '[data-aura-class*="error"]',
+                '.slds-notify--toast.slds-theme--error'
+            ]
+            
+            for selector in error_selectors:
+                try:
+                    error_element = self.page.locator(selector)
+                    if error_element.count() > 0 and error_element.is_visible():
+                        error_text = error_element.inner_text().strip()
+                        self.log_helper.log(self.logger, 'error', f"Error detected after refresh: {error_text}")
+                        self._take_screenshot("page-refresh-error")
+                        self.log_helper.dedent()
+                        return False
+                except Exception:
+                    continue
+            
+            self.log_helper.log(self.logger, 'info', "✅ Page refresh completed successfully")
+            self.log_helper.dedent()
+            return True
+            
         except Exception as e:
-            self.logger.error(f"Error refreshing page: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"❌ Error refreshing page: {str(e)}")
             self._take_screenshot("page-refresh-error")
+            self.log_helper.dedent()
             return False
     
     def get_match_info(self, result):
@@ -2449,7 +2514,7 @@ class AccountManager(BasePage):
         Returns:
             bool: True if successfully on account view page, False otherwise
         """
-        self.log_helper.log(self.logger, 'info', f"****ensure_account_view_page for account {account_id}")
+        self.log_helper.log(self.logger, 'info', f"🎯 Ensuring account view page for account {account_id}")
         
         self.log_helper.indent()
         try:
@@ -2458,32 +2523,34 @@ class AccountManager(BasePage):
             expected_url_pattern = f".*Account/{account_id}/view.*"
             
             if re.match(expected_url_pattern, current_url):
-                self.log_helper.log(self.logger, 'info', f"Already on account view page for {account_id}")
+                self.log_helper.log(self.logger, 'info', f"✅ Already on account view page for {account_id}")
                 self.log_helper.dedent()
                 return True
                 
             # If not on the correct page, navigate to it
-            self.log_helper.log(self.logger, 'info', f"Not on account view page, navigating to account {account_id}")
+            self.log_helper.log(self.logger, 'info', f"🔄 Not on account view page, navigating to account {account_id}")
             account_url = f"{SALESFORCE_URL}/lightning/r/Account/{account_id}/view"
             self.page.goto(account_url)
             
-            # Wait for the page to load
-            self.page.wait_for_load_state('networkidle')
+            # Wait for the page to load using the new robust method
+            self.log_helper.log(self.logger, 'info', "⏳ Waiting for page to be fully loaded...")
+            if not self.wait_for_page_to_load(timeout=45000):  # Increased timeout for account pages
+                self.log_helper.log(self.logger, 'warning', "⚠️ Page load wait strategy failed, but continuing...")
             
             # Verify we're on the correct page
             current_url = self.page.url
             if not re.match(expected_url_pattern, current_url):
-                self.log_helper.log(self.logger, 'error', f"Failed to navigate to account view page. Current URL: {current_url}")
+                self.log_helper.log(self.logger, 'error', f"❌ Failed to navigate to account view page. Current URL: {current_url}")
                 self._take_screenshot("account-navigation-error")
                 self.log_helper.dedent()
                 return False
                 
-            self.log_helper.log(self.logger, 'info', f"Successfully navigated to account view page for {account_id}")
+            self.log_helper.log(self.logger, 'info', f"✅ Successfully navigated to account view page for {account_id}")
             self.log_helper.dedent()
             return True
             
         except Exception as e:
-            self.log_helper.log(self.logger, 'error', f"Error ensuring account view page: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"❌ Error ensuring account view page: {str(e)}")
             self._take_screenshot("account-navigation-error")
             self.log_helper.dedent()
             return False
@@ -2567,14 +2634,19 @@ class AccountManager(BasePage):
         self.log_helper.indent()
         dashboard_url = f"{SALESFORCE_URL}/lightning/n/command__Dashboard"
         try:
-            self.log_helper.log(self.logger, 'info', f"Navigating to dashboard: {dashboard_url}")
+            self.log_helper.log(self.logger, 'info', f"📊 Navigating to dashboard: {dashboard_url}")
             self.page.goto(dashboard_url, timeout=30000)
-            self.page.wait_for_load_state('domcontentloaded', timeout=10000)
-            self.log_helper.log(self.logger, 'info', "Successfully navigated to dashboard")
+            
+            # Wait for the page to load using the new robust method
+            self.log_helper.log(self.logger, 'info', "⏳ Waiting for dashboard to be fully loaded...")
+            if not self.wait_for_page_to_load(timeout=45000):  # Increased timeout for dashboard
+                self.log_helper.log(self.logger, 'warning', "⚠️ Dashboard load wait strategy failed, but continuing...")
+            
+            self.log_helper.log(self.logger, 'info', "✅ Successfully navigated to dashboard")
             self.log_helper.dedent()
             return True
         except Exception as e:
-            self.log_helper.log(self.logger, 'error', f"Failed to navigate to dashboard: {str(e)}")
+            self.log_helper.log(self.logger, 'error', f"❌ Failed to navigate to dashboard: {str(e)}")
             self.log_helper.dedent()
             return False
 
@@ -2587,19 +2659,19 @@ class AccountManager(BasePage):
         Returns:
             bool: True if page loaded successfully, False otherwise
         """
-        self.log_helper.log(self.logger, 'info', "Waiting for page to be fully loaded...")
+        self.log_helper.log(self.logger, 'info', "⏳ Waiting for page to be fully loaded...")
         
         try:
             # Strategy 1: Wait for DOM content to be loaded
-            self.log_helper.log(self.logger, 'info', "Waiting for DOM content to be loaded...")
+            self.log_helper.log(self.logger, 'info', "📄 Waiting for DOM content to be loaded...")
             self.page.wait_for_load_state("domcontentloaded", timeout=timeout)
             
             # Strategy 2: Wait for page to be fully loaded (but not networkidle)
-            self.log_helper.log(self.logger, 'info', "Waiting for page load to complete...")
+            self.log_helper.log(self.logger, 'info', "🌐 Waiting for page load to complete...")
             self.page.wait_for_load_state("load", timeout=timeout)
             
             # Strategy 3: Wait for document ready state to be 'complete'
-            self.log_helper.log(self.logger, 'info', "Waiting for document ready state to be complete...")
+            self.log_helper.log(self.logger, 'info', "✅ Waiting for document ready state to be complete...")
             self.page.wait_for_function(
                 "() => document.readyState === 'complete'",
                 timeout=timeout
@@ -2614,7 +2686,11 @@ class AccountManager(BasePage):
                 '.spinner',
                 '.loading',
                 '[class*="spinner"]',
-                '[class*="loading"]'
+                '[class*="loading"]',
+                '.slds-spinner_container',
+                '[data-aura-class*="spinner"]',
+                '.forceSpinner',
+                '.auraLoadingMask'
             ]
             
             for selector in loading_selectors:
@@ -2622,10 +2698,10 @@ class AccountManager(BasePage):
                     # Check if loading element exists and is visible
                     loading_element = self.page.locator(selector)
                     if loading_element.count() > 0 and loading_element.is_visible():
-                        self.log_helper.log(self.logger, 'info', f"Waiting for loading indicator to disappear: {selector}")
+                        self.log_helper.log(self.logger, 'info', f"⏳ Waiting for loading indicator to disappear: {selector}")
                         # Wait for the loading element to become invisible
                         loading_element.wait_for(state="hidden", timeout=10000)
-                        self.log_helper.log(self.logger, 'info', f"Loading indicator disappeared: {selector}")
+                        self.log_helper.log(self.logger, 'info', f"✅ Loading indicator disappeared: {selector}")
                 except Exception as e:
                     # Loading element doesn't exist or already hidden, which is fine
                     continue
@@ -2637,21 +2713,63 @@ class AccountManager(BasePage):
                 '[data-aura-class]',  # Salesforce Lightning components
                 '.slds-page-header',   # Salesforce Lightning Design System header
                 '.forceCommunityTheme', # Community pages
-                '.desktop.container'   # Classic pages
+                '.desktop.container',   # Classic pages
+                '.oneHeader',          # Lightning Experience header
+                '.slds-template_default', # Lightning template
+                '.forceCommunityTheme',   # Community theme
+                '.auraPage',           # Aura pages
+                '.slds-page-header__title', # Page title
+                '.slds-tabs_default',  # Tab navigation
+                '.slds-card',          # Card components
+                '.forceRecordLayout'   # Record layout
             ]
             
+            selector_found = False
             for selector in salesforce_selectors:
                 try:
-                    self.page.wait_for_selector(selector, timeout=5000)
-                    break  # If any Salesforce element is found, we're good
+                    element = self.page.locator(selector)
+                    if element.count() > 0:
+                        self.log_helper.log(self.logger, 'info', f"✅ Found Salesforce element: {selector}")
+                        selector_found = True
+                        break
                 except Exception:
                     continue
             
-            self.log_helper.log(self.logger, 'info', "Page fully loaded successfully")
+            if not selector_found:
+                self.log_helper.log(self.logger, 'warning', "⚠️ No standard Salesforce elements found, but continuing...")
+            
+            # Strategy 6: Wait for any error banners or notifications to appear
+            # If they appear, we might want to handle them
+            error_selectors = [
+                '.slds-notify--toast.slds-theme--error',
+                '.error-page',
+                '.error-message',
+                '[data-aura-class*="error"]',
+                '.slds-notify--alert.slds-theme--error',
+                '.forceErrorPage'
+            ]
+            
+            for selector in error_selectors:
+                try:
+                    error_element = self.page.locator(selector)
+                    if error_element.count() > 0 and error_element.is_visible():
+                        error_text = error_element.inner_text().strip()
+                        self.log_helper.log(self.logger, 'warning', f"⚠️ Error detected on page: {error_text}")
+                        # Don't fail here, just log the warning
+                except Exception:
+                    continue
+            
+            # Strategy 7: Additional wait for dynamic content
+            # Wait a bit more for any remaining dynamic content to load
+            self.log_helper.log(self.logger, 'info', "⏳ Waiting for dynamic content to settle...")
+            self.page.wait_for_timeout(2000)
+            
+            self.log_helper.log(self.logger, 'info', "✅ Page fully loaded successfully")
             return True
             
         except Exception as e:
-            self.log_helper.log(self.logger, 'warning', f"Page load wait strategy failed: {str(e)}")
+            self.log_helper.log(self.logger, 'warning', f"⚠️ Page load wait strategy failed: {str(e)}")
             # Fallback: just wait a bit and continue
-            self.page.wait_for_timeout(2000)
+            self.log_helper.log(self.logger, 'info', "🔄 Using fallback wait strategy...")
+            self.page.wait_for_timeout(3000)
             return False
