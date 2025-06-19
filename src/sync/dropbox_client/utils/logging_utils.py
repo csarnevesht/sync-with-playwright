@@ -1,7 +1,7 @@
 """Utility functions for logging operations."""
 
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -79,9 +79,8 @@ def log_dropbox_account_info(account_search_result: Dict[str, Any], logger_insta
     #     report_log.info(summary)
 
     account_name = account_search_result.get('folder_name', 'Unknown')
-    log.info(f"📊 Dropbox Account Information 'from client list file'  - [📁Dropbox Account Folder Name: '{account_search_result.get('folder_name', 'Unknown')}']**")
-    if report_log:
-        report_log.info(f"📊 Dropbox Account Information 'from client list file'  - [📁Dropbox Account Folder Name: '{account_search_result.get('folder_name', 'Unknown')}']**")
+    log.info(f"📊 Dropbox Account Information 'from Client List File'  - [📁Dropbox Account Folder Name: '{account_search_result.get('folder_name', 'Unknown')}']**")
+    report_log.info(f"📊 Dropbox Account Information 'from Client List File'  - [📁Dropbox Account Folder Name: '{account_search_result.get('folder_name', 'Unknown')}']**")
 
     # Log account basic information
     if account_data:
@@ -246,9 +245,9 @@ def log_dropbox_account_info(account_search_result: Dict[str, Any], logger_insta
         if report_log:
             report_log.info("")  # Add blank line after account info
     else:
-        log.warning(f"    ❌ No account information found 'in client list file - [📁Dropbox Account Folder Name: '{account_name}']'")
+        log.warning(f"    ❌ No account information found 'in Client List File - [📁Dropbox Account Folder Name: '{account_name}']'")
         if report_log:
-            report_log.warning(f"    ❌ No account information found 'in client list file - [📁Dropbox Account Folder Name: '{account_name}']'")
+            report_log.warning(f"    ❌ No account information found 'in Client List File - [📁Dropbox Account Folder Name: '{account_name}']'")
 
 def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None, report_logger: Any = None, file_name: str = None, folder_name: str = None) -> None:
     """Log detailed information about a file.
@@ -814,4 +813,426 @@ Additional Account Information:
     separator = "\n" + "="*50 + "\n"
     log.info(separator)
     if report_log:
-        report_log.info(separator) 
+        report_log.info(separator)
+
+
+class DropboxAccountLogger:
+    """Utility class for logging Dropbox Account Information with beautiful formatting."""
+    
+    def __init__(self, logger: Optional[logging.Logger] = None):
+        """
+        Initialize the Dropbox Account Logger.
+        
+        Args:
+            logger: Optional logger instance. If not provided, uses the root logger.
+        """
+        self.logger = logger or logging.getLogger(__name__)
+    
+    def _log(self, message: str, summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None):
+        self.logger.info(message)  # analyzer.log
+        if summary_logger:
+            summary_logger.info(message)  # summary.log
+        if report_logger:
+            report_logger.info(message)  # report.log
+    
+    def log_dropbox_account_information(self, 
+                                      dropbox_account_information: Dict[str, Any], 
+                                      dropbox_account_folder_name: str,
+                                      summary_logger: Optional[logging.Logger] = None,
+                                      report_logger: Optional[logging.Logger] = None) -> None:
+        """
+        Log comprehensive Dropbox Account Information with beautiful formatting.
+        
+        Args:
+            dropbox_account_information: The structured account information
+            dropbox_account_folder_name: Name of the Dropbox account folder
+            summary_logger: Optional logger for summary log output
+            report_logger: Optional logger for report log output
+        """
+        # Header section
+        self._log(f"\n{'='*80}", summary_logger, report_logger)
+        self._log(f"📁 **DROPBOX ACCOUNT INFORMATION** 📊", summary_logger, report_logger)
+        self._log(f"📁 Dropbox Account Folder: {dropbox_account_folder_name}", summary_logger, report_logger)
+        self._log(f"{'='*80}", summary_logger, report_logger)
+        
+        # Summary section
+        self._log_summary_section(dropbox_account_information, summary_logger, report_logger)
+        
+        # Detailed account information
+        self._log_detailed_account_information(dropbox_account_information, summary_logger, report_logger)
+        
+        # Statistics summary
+        self._log_statistics_summary(dropbox_account_information, summary_logger, report_logger)
+    
+    def _log_summary_section(self, dropbox_account_information: Dict[str, Any], summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None) -> None:
+        """Log the summary section with key information."""
+        self._log(f"\n📋 **SUMMARY**", summary_logger, report_logger)
+        
+        names_found = dropbox_account_information.get('names_found', [])
+        self._log(f"🔍 Names found: {', '.join(names_found) if names_found else '--'}", summary_logger, report_logger)
+        
+        # Client List File information
+        client_list_data = dropbox_account_information.get('client_list_data')
+        if client_list_data:
+            self._log(f"📄 Client List File Information: Available", summary_logger, report_logger)
+        else:
+            self._log(f"📄 Client List File Information: Not available", summary_logger, report_logger)
+        
+        application_data = dropbox_account_information.get('application_data')
+        if application_data:
+            self._log(f"📄 Application Files Data: Available", summary_logger, report_logger)
+        else:
+            self._log(f"📄 Application Files Data: Not available", summary_logger, report_logger)
+    
+    def _log_detailed_account_information(self, dropbox_account_information: Dict[str, Any], summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None) -> None:
+        """Log detailed information for each account."""
+        accounts = dropbox_account_information.get('accounts', [])
+        if not accounts:
+            return
+        
+        self._log(f"\n📊 **DETAILED ACCOUNT INFORMATION**", summary_logger, report_logger)
+        
+        for i, account in enumerate(accounts, 1):
+            self._log_single_account(account, i, summary_logger, report_logger)
+    
+    def _log_single_account(self, account: Dict[str, Any], account_number: int, summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None) -> None:
+        """Log information for a single account."""
+        self._log(f"\n{'─'*60}", summary_logger, report_logger)
+        source_icon = "📄" if account['source'] == 'client_list' else "📄"
+        self._log(f"{source_icon} **Account {account_number}: {account['account_name']} ({account['source'].replace('_', ' ').title()})**", summary_logger, report_logger)
+        self._log(f"{'─'*60}", summary_logger, report_logger)
+        
+        # Account source and type
+        self._log(f"👤 Source: {account['source']}", summary_logger, report_logger)
+        
+        if account.get('account_type'):
+            self._log(f"👤 Account Type: {account['account_type']}", summary_logger, report_logger)
+        
+        # Account details
+        self._log_account_details(account, summary_logger, report_logger)
+        
+        # Driver's license information
+        self._log_drivers_license_info(account, summary_logger, report_logger)
+    
+    def _log_account_details(self, account: Dict[str, Any], summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None) -> None:
+        """Log account details like name, contact info, etc."""
+        if account.get('match_status'):
+            status_icon = "✅" if "match found" in account['match_status'].lower() else "❌"
+            self._log(f"{status_icon} Match Status: {account['match_status']}", summary_logger, report_logger)
+        
+        if account.get('first_name'):
+            self._log(f"👤 First Name: {account['first_name']}", summary_logger, report_logger)
+        
+        if account.get('middle_name'):
+            self._log(f"👤 Middle Name: {account['middle_name']}", summary_logger, report_logger)
+        
+        if account.get('last_name'):
+            self._log(f"👤 Last Name: {account['last_name']}", summary_logger, report_logger)
+        
+        if account.get('email'):
+            self._log(f"📧 Email: {account['email']}", summary_logger, report_logger)
+        
+        if account.get('phone'):
+            self._log(f"📞 Phone: {account['phone']}", summary_logger, report_logger)
+        
+        if account.get('address'):
+            self._log(f"📍 Address: {account['address']}", summary_logger, report_logger)
+        
+        if account.get('birthdate'):
+            self._log(f"🎂 Birthdate: {account['birthdate']}", summary_logger, report_logger)
+        
+        if account.get('gender'):
+            self._log(f"♂️♀️ Gender: {account['gender']}", summary_logger, report_logger)
+        
+        if account.get('additional_info'):
+            self._log(f"ℹ️ Additional Info: {account['additional_info']}", summary_logger, report_logger)
+    
+    def _log_drivers_license_info(self, account: Dict[str, Any], summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None) -> None:
+        """Log driver's license information for an account."""
+        drivers_license = account.get('drivers_license')
+        if drivers_license:
+            self._log(f"\n🪪 **Driver's License**: Found", summary_logger, report_logger)
+            
+            if drivers_license.get('license_number'):
+                self._log(f"   🪪 License Number: {drivers_license['license_number']}", summary_logger, report_logger)
+            
+            if drivers_license.get('date_of_birth'):
+                self._log(f"   🪪 Date of Birth: {drivers_license['date_of_birth']}", summary_logger, report_logger)
+            
+            if drivers_license.get('expiration_date'):
+                self._log(f"   🪪 Expiration Date: {drivers_license['expiration_date']}", summary_logger, report_logger)
+            
+            if drivers_license.get('state'):
+                self._log(f"   🪪 State: {drivers_license['state']}", summary_logger, report_logger)
+        else:
+            self._log(f"\n🪪 **Driver's License**: Not found", summary_logger, report_logger)
+    
+    def _log_statistics_summary(self, dropbox_account_information: Dict[str, Any], summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None) -> None:
+        """Log the final statistics summary."""
+        total_accounts = len(dropbox_account_information.get('accounts', []))
+        has_client_list_data = dropbox_account_information.get('client_list_data') is not None
+        has_application_data = dropbox_account_information.get('application_data') is not None
+        total_matches = sum(1 for acc in dropbox_account_information.get('accounts', []) 
+                          if acc.get('match_status', '').lower() == 'match found')
+        total_drivers_licenses = sum(1 for acc in dropbox_account_information.get('accounts', []) 
+                                   if acc.get('drivers_license'))
+        
+        self._log(f"\n{'='*80}", summary_logger, report_logger)
+        self._log(f"📈 **STATISTICS SUMMARY**", summary_logger, report_logger)
+        self._log(f"{'='*80}", summary_logger, report_logger)
+        self._log(f"📊 Total Accounts: {total_accounts}", summary_logger, report_logger)
+        self._log(f"📄 Has Client List File Information: {'✅ Yes' if has_client_list_data else '❌ No'}", summary_logger, report_logger)
+        self._log(f"📄 Has Application Files Data: {'✅ Yes' if has_application_data else '❌ No'}", summary_logger, report_logger)
+        self._log(f"🔍 Total Matches: {total_matches}", summary_logger, report_logger)
+        self._log(f"🪪 Total Driver's Licenses: {total_drivers_licenses}", summary_logger, report_logger)
+        self._log(f"{'='*80}", summary_logger, report_logger)
+    
+    def log_command_analysis(self, dropbox_account_information: Dict[str, Any]) -> None:
+        """
+        Log Dropbox Account Information in command analysis format.
+        
+        Args:
+            dropbox_account_information: The structured account information
+        """
+        self._log(f"\n🎯 === DROPBOX ACCOUNT INFORMATION ANALYSIS ===")
+        
+        # Names found
+        names_found = dropbox_account_information.get('names_found', [])
+        self._log(f"📋 **Names found**: {', '.join(names_found) if names_found else '--'}")
+        
+        # Client list information
+        self._log_command_client_list_info(dropbox_account_information)
+        
+        # Application files information
+        self._log_command_application_files_info(dropbox_account_information)
+        
+        # All accounts
+        self._log_command_accounts_info(dropbox_account_information)
+        
+        # Summary statistics
+        self._log_command_summary_statistics(dropbox_account_information)
+    
+    def _log_command_client_list_info(self, dropbox_account_information: Dict[str, Any]) -> None:
+        """Log Client List File information in command analysis format."""
+        client_list_data = dropbox_account_information.get('client_list_data')
+        if client_list_data:
+            account_data = client_list_data.get('account_data', {})
+            search_info = client_list_data.get('search_info', {})
+            match_info = search_info.get('match_info', {})
+            
+            self._log(f"\n📄 **Client List File Information**")
+            if account_data.get('name'):
+                self._log(f"   📝 Name: {account_data['name']}")
+            if match_info.get('match_status'):
+                self._log(f"   🔍 Match Status: {match_info['match_status']}")
+            if account_data.get('first_name'):
+                self._log(f"   👤 First Name: {account_data['first_name']}")
+            if account_data.get('last_name'):
+                self._log(f"   👤 Last Name: {account_data['last_name']}")
+            if account_data.get('email'):
+                self._log(f"   📧 Email: {account_data['email']}")
+            if account_data.get('phone'):
+                self._log(f"   📞 Phone: {account_data['phone']}")
+            if account_data.get('address'):
+                self._log(f"   📍 Address: {account_data['address']}")
+            if account_data.get('birthdate'):
+                self._log(f"   🎂 Birthdate: {account_data['birthdate']}")
+            if account_data.get('gender'):
+                self._log(f"   ♂️♀️ Gender: {account_data['gender']}")
+        else:
+            self._log(f"\n📄 **Client List File Information**: Not available")
+    
+    def _log_command_application_files_info(self, dropbox_account_information: Dict[str, Any]) -> None:
+        """Log application files information in command analysis format."""
+        application_data = dropbox_account_information.get('application_data')
+        if application_data:
+            self._log(f"\n📄 **Application Files Information**")
+            
+            # Primary account holder
+            owner = application_data.get('owner', {})
+            if owner:
+                if owner.get('firstName') and owner.get('lastName'):
+                    self._log(f"   👤 Primary Account: {owner['firstName']} {owner['lastName']}")
+                if owner.get('dateOfBirth'):
+                    self._log(f"   🎂 Birthdate: {owner['dateOfBirth']}")
+                if owner.get('gender'):
+                    self._log(f"   ♂️♀️ Gender: {owner['gender']}")
+                if owner.get('emailAddress'):
+                    self._log(f"   📧 Email: {owner['emailAddress']}")
+                if owner.get('phoneNumber'):
+                    self._log(f"   📞 Phone: {owner['phoneNumber']}")
+                if owner.get('mailingAddressStreet'):
+                    address = f"{owner['mailingAddressStreet']}"
+                    if owner.get('mailingAddressCity'):
+                        address += f", {owner['mailingAddressCity']}"
+                    if owner.get('mailingAddressState'):
+                        address += f", {owner['mailingAddressState']}"
+                    if owner.get('mailingAddressZip'):
+                        address += f" {owner['mailingAddressZip']}"
+                    self._log(f"   📍 Address: {address}")
+            
+            # Joint account holder
+            joint_owner = application_data.get('joint_owner', {})
+            if joint_owner:
+                if joint_owner.get('firstName') and joint_owner.get('lastName'):
+                    self._log(f"   👤 Joint Account: {joint_owner['firstName']} {joint_owner['lastName']}")
+                if joint_owner.get('dateOfBirth'):
+                    self._log(f"   🎂 Birthdate: {joint_owner['dateOfBirth']}")
+                if joint_owner.get('gender'):
+                    self._log(f"   ♂️♀️ Gender: {joint_owner['gender']}")
+                if joint_owner.get('emailAddress'):
+                    self._log(f"   📧 Email: {joint_owner['emailAddress']}")
+                if joint_owner.get('phoneNumber'):
+                    self._log(f"   📞 Phone: {joint_owner['phoneNumber']}")
+                if joint_owner.get('mailingAddressStreet'):
+                    address = f"{joint_owner['mailingAddressStreet']}"
+                    if joint_owner.get('mailingAddressCity'):
+                        address += f", {joint_owner['mailingAddressCity']}"
+                    if joint_owner.get('mailingAddressState'):
+                        address += f", {joint_owner['mailingAddressState']}"
+                    if joint_owner.get('mailingAddressZip'):
+                        address += f" {joint_owner['mailingAddressZip']}"
+                    self._log(f"   📍 Address: {address}")
+        else:
+            self._log(f"\n📄 **Application Files Information**: Not available")
+    
+    def _log_command_accounts_info(self, dropbox_account_information: Dict[str, Any]) -> None:
+        """Log all accounts information in command analysis format."""
+        accounts = dropbox_account_information.get('accounts', [])
+        if accounts:
+            self._log(f"\n📋 **All Accounts** ({len(accounts)})")
+            
+            for i, account in enumerate(accounts, 1):
+                self._log(f"\n{'─'*60}")
+                source_icon = "📄" if account['source'] == 'client_list' else "📄"
+                self._log(f"{source_icon} **Account {i}: {account['account_name']} ({account['source'].replace('_', ' ').title()})**")
+                self._log(f"{'─'*60}")
+                
+                self._log(f"👤 Source: {account['source']}")
+                
+                if account.get('account_type'):
+                    self._log(f"👤 Account Type: {account['account_type']}")
+                
+                if account.get('match_status'):
+                    status_icon = "✅" if "match found" in account['match_status'].lower() else "❌"
+                    self._log(f"{status_icon} Match Status: {account['match_status']}")
+                
+                if account.get('first_name'):
+                    self._log(f"👤 First Name: {account['first_name']}")
+                
+                if account.get('last_name'):
+                    self._log(f"👤 Last Name: {account['last_name']}")
+                
+                if account.get('email'):
+                    self._log(f"📧 Email: {account['email']}")
+                
+                if account.get('phone'):
+                    self._log(f"📞 Phone: {account['phone']}")
+                
+                if account.get('address'):
+                    self._log(f"📍 Address: {account['address']}")
+                
+                if account.get('birthdate'):
+                    self._log(f"🎂 Birthdate: {account['birthdate']}")
+                
+                if account.get('gender'):
+                    self._log(f"♂️♀️ Gender: {account['gender']}")
+        else:
+            self._log(f"\n📋 **All Accounts**: No accounts found")
+    
+    def _log_command_summary_statistics(self, dropbox_account_information: Dict[str, Any]) -> None:
+        """Log summary statistics in command analysis format."""
+        names_found = dropbox_account_information.get('names_found', [])
+        has_client_list_data = dropbox_account_information.get('client_list_data') is not None
+        has_application_data = dropbox_account_information.get('application_data') is not None
+        total_accounts = len(dropbox_account_information.get('accounts', []))
+        total_matches = sum(1 for acc in dropbox_account_information.get('accounts', []) 
+                          if acc.get('match_status', '').lower() == 'match found')
+        total_drivers_licenses = sum(1 for acc in dropbox_account_information.get('accounts', []) 
+                                   if acc.get('drivers_license'))
+        
+        self._log(f"\n{'='*80}")
+        self._log(f"📈 **SUMMARY STATISTICS**")
+        self._log(f"{'='*80}")
+        self._log(f"📊 Total names found: {len(names_found)}")
+        self._log(f"📄 Has client list file information: {'✅ Yes' if has_client_list_data else '❌ No'}")
+        self._log(f"📄 Has application files data: {'✅ Yes' if has_application_data else '❌ No'}")
+        self._log(f"📊 Total accounts: {total_accounts}")
+        self._log(f"🔍 Total matches: {total_matches}")
+        self._log(f"🪪 Total driver's licenses: {total_drivers_licenses}")
+        self._log(f"{'='*80}")
+    
+    def log_json_format(self, dropbox_account_information: Dict[str, Any]) -> None:
+        """
+        Log Dropbox Account Information in JSON format for easy parsing.
+        
+        Args:
+            dropbox_account_information: The structured account information
+        """
+        import json
+        
+        # Create a clean copy for JSON serialization
+        json_data = {
+            'names_found': dropbox_account_information.get('names_found', []),
+            'client_list_data': dropbox_account_information.get('client_list_data'),
+            'application_data': dropbox_account_information.get('application_data'),
+            'accounts': dropbox_account_information.get('accounts', [])
+        }
+        
+        # Convert to JSON with proper formatting
+        json_string = json.dumps(json_data, indent=2, default=str)
+        
+        self._log(f"\n📄 **DROPBOX ACCOUNT INFORMATION (JSON FORMAT)**")
+        self._log(f"{'='*80}")
+        self._log(json_string)
+        self._log(f"{'='*80}")
+
+
+def log_dropbox_account_information(dropbox_account_information: Dict[str, Any], 
+                                  dropbox_account_folder_name: str,
+                                  logger: Optional[logging.Logger] = None,
+                                  summary_logger: Optional[logging.Logger] = None,
+                                  report_logger: Optional[logging.Logger] = None) -> None:
+    """
+    Log comprehensive Dropbox Account Information with beautiful formatting.
+    
+    Args:
+        dropbox_account_information: The structured account information
+        dropbox_account_folder_name: Name of the Dropbox account folder
+        logger: Optional logger instance to use (defaults to module logger)
+        summary_logger: Optional logger for summary log output
+        report_logger: Optional logger for report log output
+    """
+    dropbox_logger = DropboxAccountLogger(logger)
+    dropbox_logger.log_dropbox_account_information(
+        dropbox_account_information, 
+        dropbox_account_folder_name,
+        summary_logger,
+        report_logger
+    )
+
+
+def log_command_analysis(dropbox_account_information: Dict[str, Any],
+                        logger: Optional[logging.Logger] = None) -> None:
+    """
+    Log Dropbox Account Information in command analysis format.
+    
+    Args:
+        dropbox_account_information: The structured account information
+        logger: Optional logger instance to use (defaults to module logger)
+    """
+    dropbox_logger = DropboxAccountLogger(logger)
+    dropbox_logger.log_command_analysis(dropbox_account_information)
+
+
+def log_json_format(dropbox_account_information: Dict[str, Any],
+                   logger: Optional[logging.Logger] = None) -> None:
+    """
+    Log Dropbox Account Information in JSON format for easy parsing.
+    
+    Args:
+        dropbox_account_information: The structured account information
+        logger: Optional logger instance to use (defaults to module logger)
+    """
+    dropbox_logger = DropboxAccountLogger(logger)
+    dropbox_logger.log_json_format(dropbox_account_information) 
