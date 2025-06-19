@@ -571,10 +571,23 @@ class BaseProcessor(ABC):
                 }
             }
 
+    def _clean_name_lines(self, text):
+        def clean_line(line):
+            if re.search(r'Name[:/]', line):
+                # Convert __ to space, _ to nothing, then clean up extra spaces
+                cleaned = re.sub(r'__+', ' ', line)
+                cleaned = re.sub(r'_', '', cleaned)
+                cleaned = re.sub(r'\s+', ' ', cleaned)
+                return cleaned.strip()
+            return line
+        return '\n'.join(clean_line(line) for line in text.splitlines())
+
     def _process_owner(self, text: str) -> Dict[str, Any]:
         """Process text to extract owner information."""
         try:
             self.logger.info(f"_process_owner: Processing owner information")
+            # Clean up name lines before prompt creation
+            text = self._clean_name_lines(text)
             # Use the model to extract owner information
             # Determine processor type based on the class name
             processor_type = "default"
@@ -584,32 +597,25 @@ class BaseProcessor(ABC):
                 processor_type = "qwen"
             elif "Ollama" in self.__class__.__name__:
                 processor_type = "ollama"
-            
             owner_prompt = self.prompt_creator.create_owner_extraction_prompt(text, processor_type)
             self.logger.info(f"owner_prompt: {owner_prompt}")
             owner_response = self._make_request(owner_prompt)
             self.logger.info(f"owner_response: {owner_response}")
-            
             if not owner_response or "response" not in owner_response:
                 self.logger.error("No response from model for owner")
                 return self._get_default_owner_info()
-            
             try:
                 owner_model_info = json.loads(owner_response["response"])
                 if not isinstance(owner_model_info, dict):
                     self.logger.error("Model response is not a dictionary")
                     return self._get_default_owner_info()
-                
                 if not owner_model_info.get('owner'):
                     self.logger.error("Model response does not contain owner information")
                     return self._get_default_owner_info()
-                
                 return owner_model_info['owner']
-                
             except json.JSONDecodeError as e:
                 self.logger.error(f"Failed to parse owner model response as JSON: {str(e)}")
                 return self._get_default_owner_info()
-                
         except Exception as e:
             self.logger.error(f"Error processing owner text: {str(e)}")
             return self._get_default_owner_info()
@@ -633,6 +639,8 @@ class BaseProcessor(ABC):
         """Process text to extract joint owner information."""
         try:
             self.logger.info(f"_process_joint_owner: Processing joint owner information")
+            # Clean up name lines before prompt creation
+            text = self._clean_name_lines(text)
             # Use the model to extract joint owner information
             # Determine processor type based on the class name
             processor_type = "default"
@@ -642,32 +650,25 @@ class BaseProcessor(ABC):
                 processor_type = "qwen"
             elif "Ollama" in self.__class__.__name__:
                 processor_type = "ollama"
-            
             joint_owner_prompt = self.prompt_creator.create_joint_owner_extraction_prompt(text, processor_type)
             self.logger.info(f"joint_owner_prompt: {joint_owner_prompt}")
             joint_owner_response = self._make_request(joint_owner_prompt)
             self.logger.info(f"joint_owner_response: {joint_owner_response}")
-            
             if not joint_owner_response or "response" not in joint_owner_response:
                 self.logger.error("No response from model for joint owner")
                 return self._get_default_joint_owner_info()
-            
             try:
                 joint_owner_model_info = json.loads(joint_owner_response["response"])
                 if not isinstance(joint_owner_model_info, dict):
                     self.logger.error("Model response is not a dictionary")
                     return self._get_default_joint_owner_info()
-                
                 if not joint_owner_model_info.get('jointOwner'):
                     self.logger.error("Model response does not contain joint owner information")
                     return self._get_default_joint_owner_info()
-                
                 return joint_owner_model_info['jointOwner']
-                
             except json.JSONDecodeError as e:
                 self.logger.error(f"Failed to parse joint owner model response as JSON: {str(e)}")
                 return self._get_default_joint_owner_info()
-                
         except Exception as e:
             self.logger.error(f"Error processing joint owner text: {str(e)}")
             return self._get_default_joint_owner_info()

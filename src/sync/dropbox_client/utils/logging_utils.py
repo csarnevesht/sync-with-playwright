@@ -445,10 +445,33 @@ def log_best_dropbox_account_app_files_info(info: Dict[str, Any], logger_instanc
     if report_log:
         report_log.info("[log_best_dropbox_account_app_files_info]")
 
+    # Check if account information is available
+    has_account_info = False
+    if info:
+        # Check for owner information
+        if info.get('owner'):
+            owner_data = info['owner']
+            if (owner_data.get('firstName') and owner_data.get('lastName') and 
+                owner_data.get('dateOfBirth') and owner_data.get('gender')):
+                has_account_info = True
+        
+        # Check for joint owner information
+        if info.get('jointOwner'):
+            joint_owner_data = info['jointOwner']
+            if (joint_owner_data.get('firstName') and joint_owner_data.get('lastName') and 
+                joint_owner_data.get('dateOfBirth') and joint_owner_data.get('gender')):
+                has_account_info = True
+
+    # Add appropriate emoji to title
+    if has_account_info:
+        title_with_emoji = f"✅ {title}"
+    else:
+        title_with_emoji = f"❌ {title}"
+
     # Log title
-    log.info(f"\n=== {title} ===")
+    log.info(f"\n=== {title_with_emoji} ===")
     if report_log:
-        report_log.info(f"\n=== {title} ===")
+        report_log.info(f"\n=== {title_with_emoji} ===")
 
     if not info:
         log.info("❌ No account information available")

@@ -177,9 +177,11 @@ Rules:
     - "Gender: Male X Female" → gender: "F" (X is between Male and Female, next to Female)
     - "Gender: Male Female X" → gender: "F" (X is after Female, next to Female)
   * IMPORTANT: Return ONLY "M" or "F", not the full pattern
-- For name fields: If you see a line labeled 'Owner Name' or 'First MI Last', extract the first word as firstName, the last word as lastName, and the middle word (if present) as middleInitial.
-  * Example: 'Cheryl Reho' under 'Owner Name' → firstName: "Cheryl", lastName: "Reho"
-  * Example: 'John Q Public' under 'First MI Last' → firstName: "John", middleInitial: "Q", lastName: "Public"
+- For name fields: If you see a line labeled 'Owner Name', 'First MI Last', 'Name:', 'Name/Trust', or 'Name/Trust**', extract the first word as firstName, the last word as lastName, and the middle word (if present) as middleInitial.
+  * Example: 'Jane Q Public' under 'Owner Name' → firstName: "Jane", middleInitial: "Q", lastName: "Public"
+  * Example: 'Jane Public' under 'Name:' → firstName: "Jane", lastName: "Public"
+  * Example: 'Jane Public' under 'Name/Trust' → firstName: "Jane", lastName: "Public"
+  * Example: 'Jane Public' under 'Name/Trust**' → firstName: "Jane", lastName: "Public"
 - Extract address from "Street Address" and "City State Zip" sections
 
 Text to analyze:
