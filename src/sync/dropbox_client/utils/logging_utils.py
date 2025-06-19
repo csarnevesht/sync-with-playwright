@@ -73,17 +73,18 @@ def log_dropbox_account_info(account_search_result: Dict[str, Any], logger_insta
     match_info = search_info.get('match_info', {})
     drivers_license_info = account_search_result.get('drivers_license_info', {})
     
-    summary = f"📁 **Dropbox Folder** Name: {account_search_result.get('folder_name', 'Unknown')}"
-    log.info(summary)
+    # summary = f"📁 **Dropbox Folder** Name: {account_search_result.get('folder_name', 'Unknown')}"
+    # log.info(summary)
+    # if report_log:
+    #     report_log.info(summary)
+
+    account_name = account_search_result.get('folder_name', 'Unknown')
+    log.info(f"📊 Dropbox Account Information 'from client list file'  - [📁Dropbox Account Folder Name: '{account_search_result.get('folder_name', 'Unknown')}']**")
     if report_log:
-        report_log.info(summary)
+        report_log.info(f"📊 Dropbox Account Information 'from client list file'  - [📁Dropbox Account Folder Name: '{account_search_result.get('folder_name', 'Unknown')}']**")
 
     # Log account basic information
     if account_data:
-        log.info("    📄 **Dropbox Account Information from client list search **")
-        if report_log:
-            report_log.info("    📄 **Dropbox Account Information from client list search **")
-        
         # Name information
         if account_data.get('name'):
             log.info(f"    👤 Account Name: {account_data['name']}")
@@ -245,9 +246,9 @@ def log_dropbox_account_info(account_search_result: Dict[str, Any], logger_insta
         if report_log:
             report_log.info("")  # Add blank line after account info
     else:
-        log.warning("    ❌ No account data found in search result")
+        log.warning(f"    ❌ No account information found 'in client list file - [📁Dropbox Account Folder Name: '{account_name}']'")
         if report_log:
-            report_log.warning("    ❌ No account data found in search result")
+            report_log.warning(f"    ❌ No account information found 'in client list file - [📁Dropbox Account Folder Name: '{account_name}']'")
 
 def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None, report_logger: Any = None, file_name: str = None, folder_name: str = None) -> None:
     """Log detailed information about a file.
@@ -428,7 +429,7 @@ def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None,
     if report_log:
         report_log.info("")  # Add blank line between files 
 
-def log_best_dropbox_account_app_files_info(info: Dict[str, Any], logger_instance: Any = None, report_logger: Any = None, title: str = f"BEST ACCOUNT APP INFO") -> None:
+def log_dropbox_account_app_files_info(info: Dict[str, Any], logger_instance: Any = None, report_logger: Any = None, title: str = f"Dropbox Account Information 'from application files'", folder_name: str = None) -> None:
     """Log the best available account information from app files.
     
     Args:
@@ -436,14 +437,15 @@ def log_best_dropbox_account_app_files_info(info: Dict[str, Any], logger_instanc
         logger_instance: Optional logger instance to use (defaults to module logger)
         report_logger: Optional report logger instance to use for additional logging
         title: Optional title for the log section
+        folder_name: Optional folder name to display in error messages
     """
     log = logger_instance or logger
     report_log = report_logger  # Use report_logger if provided
 
     # Log method name at the beginning
-    log.info("[log_best_dropbox_account_app_files_info]")
+    log.info("[log_dropbox_account_app_files_info]")
     if report_log:
-        report_log.info("[log_best_dropbox_account_app_files_info]")
+        report_log.info("[log_dropbox_account_app_files_info]")
 
     # Check if account information is available
     has_account_info = False
@@ -462,22 +464,36 @@ def log_best_dropbox_account_app_files_info(info: Dict[str, Any], logger_instanc
                 joint_owner_data.get('dateOfBirth') and joint_owner_data.get('gender')):
                 has_account_info = True
 
-    # Add appropriate emoji to title
-    if has_account_info:
-        title_with_emoji = f"✅ {title}"
-    else:
-        title_with_emoji = f"❌ {title}"
-
     # Log title
-    log.info(f"\n=== {title_with_emoji} ===")
+    log.info(f"\n📄📄 {title} ")
     if report_log:
-        report_log.info(f"\n=== {title_with_emoji} ===")
+        report_log.info(f"\n📄📄 {title}")
 
     if not info:
-        log.info("❌ No account information available")
+        # If info is None/empty, use the folder_name parameter or extract from title
+        if folder_name:
+            error_msg = f"❌ No account information found 'in application files' - [📁Dropbox Account Folder: Dropbox Account Folder Name: '{folder_name}']"
+        else:
+            # Try to extract folder name from title as fallback
+            if 'Dropbox Account Folder Name:' in title:
+                extracted_folder = title.split("Dropbox Account Folder Name: '")[-1].split("'")[0]
+                error_msg = f"❌ No account information found 'in application files' - [📁Dropbox Account Folder: Dropbox Account Folder Name: '{extracted_folder}']"
+            else:
+                error_msg = f"❌ No account information found 'in application files' - {title}"
+        
+        log.info(error_msg)
         if report_log:
-            report_log.info("❌ No account information available")
+            report_log.info(error_msg)
         return
+
+    # Get folder name from info if available, otherwise use title
+    folder_name = info.get('folder_name', 'Unknown')
+    if folder_name == 'Unknown':
+        # Try to extract folder name from title as fallback
+        if 'Dropbox Account Folder Name:' in title:
+            folder_name = title.split("Dropbox Account Folder Name: '")[-1].split("'")[0]
+        else:
+            folder_name = title
 
     # Application type and status
     if info.get('application_type'):

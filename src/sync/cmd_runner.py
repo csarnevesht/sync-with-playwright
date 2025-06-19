@@ -965,14 +965,6 @@ def run_command(args):
 
                             if args.salesforce_accounts or args.dropbox_account_info:
 
-                                log_block = f"""
-📁 **Dropbox Folder**
-- Name: {dropbox_account_folder_name}
-
-📄 **Dropbox Account Search (client list search)** 
-"""
-                                if args.dropbox_account_info:
-                                    log_dropbox_account_info(dropbox_account_search_result, report_logger, args)
                                 if args.salesforce_accounts:
                                     # Update match status to include count if there are multiple matches
                                     if salesforce_matches and len(salesforce_matches) > 1:
@@ -980,13 +972,12 @@ def run_command(args):
                                     
                                     log_block = f"""
 
-👤 **Salesforce Account Search**
+👤 **Salesforce Account Information - [📁Dropbox Account Folder Name: {dropbox_account_folder_name}]**
 - Names found: {', '.join(salesforce_matches) if salesforce_matches else '--'}
 - Match: {salesforce_match}
 - View: {salesforce_view}
 """                 
-                                print('*********log_block*********', log_block)
-                                report_logger.info(log_block)
+                                    report_logger.info(log_block)
 
                                 # Create result dictionary before calling the summary logging below
                                 result_dict = {
@@ -1236,9 +1227,8 @@ Additional Account Information:
                     stats_lines = [
                         f"Total Dropbox Matches Found: {total_dropbox_matches}",
                         f"Total Dropbox No Matches: {total_dropbox_no_matches}",
-                        if args.dl:
-                            f"Total Driver's License Matches Found: {total_dl_matches}",
-                        f"Total Driver's License No Matches: {total_dl_no_matches}"
+                        f"Total Driver's License Matches Found: {total_dl_matches}" if args.dl else "",
+                        f"Total Driver's License No Matches: {total_dl_no_matches}" if args.dl else ""
                     ]
                     for line in stats_lines:
                         report_logger.info(line)

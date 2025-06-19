@@ -20,7 +20,7 @@ import time
 
 from sync.dropbox_client.utils.dropbox_utils import get_renamed_path, list_dropbox_folder_contents
 from sync.dropbox_client.utils.file_utils import log_renamed_file
-from sync.dropbox_client.utils.logging_utils import log_dropbox_app_file_info, log_best_dropbox_account_app_files_info, log_app_files_notes_summary, log_app_files_processing_summary
+from sync.dropbox_client.utils.logging_utils import log_dropbox_app_file_info, log_dropbox_account_app_files_info, log_app_files_notes_summary, log_app_files_processing_summary
 from sync.salesforce_client.utils.file_upload import upload_account_file, upload_account_file_with_retries
 
 class CommandRunner:
@@ -658,12 +658,16 @@ class CommandRunner:
         self.logger.info(f"dropbox_account_name_parts: {self._data.get('dropbox_account_name_parts')}")
         
         # Check if we already have complete account info from dropbox search
-        dropbox_account_search_result = self.get_data('dropbox_account_info')
-        if dropbox_account_search_result and self._has_complete_account_info(dropbox_account_search_result):
-            self.logger.info("✅ Account already has complete information from Dropbox search - skipping app files extraction")
-            self.report_logger.info("✅ Account already has complete information from Dropbox search - skipping app files extraction")
-            self.summary_logger.info(f"✅ Skipped app files extraction for {dropbox_account_folder_name} - complete account info already available")
-            return
+        try:
+            dropbox_account_search_result = self.get_data('dropbox_account_info')
+            if dropbox_account_search_result and self._has_complete_account_info(dropbox_account_search_result):
+                self.logger.info("✅ Account already has complete information from Dropbox search - skipping app files extraction")
+                self.report_logger.info("✅ Account already has complete information from Dropbox search - skipping app files extraction")
+                self.summary_logger.info(f"✅ Skipped app files extraction for {dropbox_account_folder_name} - complete account info already available")
+                return
+        except KeyError:
+            # No dropbox_account_info found, continue with app files extraction
+            pass
         
         if file_filter:
             self.logger.info(f"Using file filter: {file_filter} (only files matching this pattern will be processed)")
@@ -705,7 +709,7 @@ class CommandRunner:
                 files = summary_data.get('all_folder_app_files', {}).get(folder_path_key, [])
                 
                 # Aggregate the account info
-                aggregated_info = self._aggregate_account_info_from_app_files(summary_data, files)
+                aggregated_info = self._aggregate_account_info_from_app_files(summary_data, files, dropbox_account_folder_name)
                 
                 # Store the aggregated info
                 self.set_data('account_info_from_app_files', aggregated_info)
@@ -718,11 +722,12 @@ class CommandRunner:
                 
                 # Log the best dropbox account app files info
                 best_info = aggregated_info.get('best_available_info', {})
-                log_best_dropbox_account_app_files_info(
+                log_dropbox_account_app_files_info(
                     best_info, 
                     self.summary_logger, 
                     self.report_logger, 
-                    f"BEST ACCOUNT APP FILES INFO for {dropbox_account_folder_name}"
+                    f"Dropbox Account Information 'from application files' - [📁Dropbox Account Folder: Dropbox Account Folder Name: '{dropbox_account_folder_name}']",
+                    dropbox_account_folder_name
                 )
                 
                 # Log detailed notes for each app file
@@ -771,7 +776,7 @@ class CommandRunner:
                             }
                             
                             # Re-aggregate with all files
-                            updated_aggregated_info = self._aggregate_account_info_from_app_files(combined_summary, combined_files)
+                            updated_aggregated_info = self._aggregate_account_info_from_app_files(combined_summary, combined_files, dropbox_account_folder_name)
                             
                             # Update the stored info
                             self.set_data('account_info_from_app_files', updated_aggregated_info)
@@ -805,12 +810,13 @@ class CommandRunner:
         self.logger.info(f"=== APP FILES EXTRACTION COMPLETED IN {total_time:.2f} SECONDS ===")
         self.report_logger.info(f"=== APP FILES EXTRACTION COMPLETED IN {total_time:.2f} SECONDS ===")
 
-    def _aggregate_account_info_from_app_files(self, summary_data: Dict[str, Any], files: List[dropbox.files.FileMetadata]) -> Dict[str, Any]:
+    def _aggregate_account_info_from_app_files(self, summary_data: Dict[str, Any], files: List[dropbox.files.FileMetadata], dropbox_account_folder_name: str) -> Dict[str, Any]:
         """Aggregate account information from multiple app files into a single structure.
         
         Args:
             summary_data: The summary data from app file extraction
             files: List of files that were processed
+            dropbox_account_folder_name: The name of the Dropbox account folder
             
         Returns:
             Dict containing aggregated account information
@@ -870,6 +876,7 @@ class CommandRunner:
         if best_info:
             # Create structured account info with Owner and Joint Owner data
             account_info = {
+                'folder_name': dropbox_account_folder_name,
                 'owner': {},
                 'jointOwner': {},
                 'application_type': best_info.get('application_type', 'Unknown'),
