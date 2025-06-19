@@ -35,9 +35,19 @@ COMMON_NON_PERSON_NAMES = {
     'spda', 'gro', 'mva', 'disclosure', 'periods', 'interest', 'rate', 'guarantee', 'new', 'momentum', 'check', 'one'
 }
 
-# Load TrOCR model and processor once
-TROCR_PROCESSOR = TrOCRProcessor.from_pretrained("microsoft/trocr-base-handwritten")
-TROCR_MODEL = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-base-handwritten")
+# Global variables for lazy loading
+TROCR_PROCESSOR = None
+TROCR_MODEL = None
+
+def _load_trocr_models():
+    """Lazy load TrOCR models only when needed."""
+    print("Loading TrOCR models...")
+    global TROCR_PROCESSOR, TROCR_MODEL
+    if TROCR_PROCESSOR is None:
+        TROCR_PROCESSOR = TrOCRProcessor.from_pretrained("microsoft/trocr-base-handwritten", use_fast=True)
+    if TROCR_MODEL is None:
+        TROCR_MODEL = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-base-handwritten")
+    return TROCR_PROCESSOR, TROCR_MODEL
 
 def is_likely_non_person(name):
     words = name.split()
@@ -365,8 +375,12 @@ def extract_text_with_trocr(image: Image.Image, device: str = None) -> str:
     """
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
-    TROCR_MODEL.to(device)
-    pixel_values = TROCR_PROCESSOR(images=image, return_tensors="pt").pixel_values.to(device)
-    generated_ids = TROCR_MODEL.generate(pixel_values)
-    text = TROCR_PROCESSOR.batch_decode(generated_ids, skip_special_tokens=True)[0]
+    
+    # Lazy load models only when needed
+    processor, model = _load_trocr_models()
+    
+    model.to(device)
+    pixel_values = processor(images=image, return_tensors="pt").pixel_values.to(device)
+    generated_ids = model.generate(pixel_values)
+    text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
     return text.strip() 

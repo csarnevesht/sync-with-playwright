@@ -661,9 +661,10 @@ class CommandRunner:
         try:
             dropbox_account_search_result = self.get_data('dropbox_account_info')
             if dropbox_account_search_result and self._has_complete_account_info(dropbox_account_search_result):
-                self.logger.info("✅ Account already has complete information from Dropbox search - skipping app files extraction")
-                self.report_logger.info("✅ Account already has complete information from Dropbox search - skipping app files extraction")
-                self.summary_logger.info(f"✅ Skipped app files extraction for {dropbox_account_folder_name} - complete account info already available")
+                info = f"Skipped app files extraction for Dropbox Account Folder '{dropbox_account_folder_name}' - complete account info already available from Dropbox client list file\n"
+                self.logger.info(info)
+                self.report_logger.info(info)
+                self.summary_logger.info(info)
                 return
         except KeyError:
             # No dropbox_account_info found, continue with app files extraction

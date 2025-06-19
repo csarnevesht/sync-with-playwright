@@ -12,8 +12,8 @@ def extract_handwritten_text(image_path: str, model_name: str = 'microsoft/trocr
     Returns:
         str: The extracted text
     """
-    # Load model and processor
-    processor = TrOCRProcessor.from_pretrained(model_name)
+    # Load model and processor only when needed
+    processor = TrOCRProcessor.from_pretrained(model_name, use_fast=True)
     model = VisionEncoderDecoderModel.from_pretrained(model_name)
 
     # Load and preprocess image

@@ -283,13 +283,13 @@ def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None,
     if info.get('owner'):
         owner_data = info['owner']
         if owner_data.get('firstName') and owner_data.get('lastName'):
-            log.info(f"    👤 Owner: {owner_data['firstName']} {owner_data['lastName']}")
+            log.info(f"👤 Name: {owner_data['firstName']} {owner_data['lastName']}")
             if report_log:
-                report_log.info(f"    👤 Owner: {owner_data['firstName']} {owner_data['lastName']}")
+                report_log.info(f"👤 Name: {owner_data['firstName']} {owner_data['lastName']}")
         if owner_data.get('dateOfBirth') and owner_data.get('dateOfBirth') != "null":
-            log.info(f"    🎂 Owner DOB: {owner_data['dateOfBirth']}")
+            log.info(f"    🎂 Date of Birth: {owner_data['dateOfBirth']}")
             if report_log:
-                report_log.info(f"    🎂 Owner DOB: {owner_data['dateOfBirth']}")
+                report_log.info(f"    🎂 Date of Birth: {owner_data['dateOfBirth']}")
         if owner_data.get('gender') and owner_data.get('gender') != "null":
             log.info(f"    ♂️♀️ Gender: {owner_data['gender']}")
             if report_log:
@@ -306,25 +306,25 @@ def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None,
             if report_log:
                 report_log.info(f"    📍 Address: {address}")
         if owner_data.get('phoneNumber') and owner_data.get('phoneNumber') != "null":
-            log.info(f"    📞 Owner Phone: {owner_data['phoneNumber']}")
+            log.info(f"    📞 Phone: {owner_data['phoneNumber']}")
             if report_log:
-                report_log.info(f"    📞 Owner Phone: {owner_data['phoneNumber']}")
+                report_log.info(f"    📞 Phone: {owner_data['phoneNumber']}")
         if owner_data.get('emailAddress') and owner_data.get('emailAddress') != "null":
-            log.info(f"    📧 Owner Email: {owner_data['emailAddress']}")
+            log.info(f"    📧 Email: {owner_data['emailAddress']}")
             if report_log:
-                report_log.info(f"    📧 Owner Email: {owner_data['emailAddress']}")
+                report_log.info(f"    📧 Email: {owner_data['emailAddress']}")
 
     # Joint owner information
     if info.get('jointOwner'):
         joint_owner_data = info['jointOwner']
         if joint_owner_data.get('firstName') and joint_owner_data.get('lastName'):
-            log.info(f"    👥 Joint Owner: {joint_owner_data['firstName']} {joint_owner_data['lastName']}")
+            log.info(f"👤👤 [Joint] Name: {joint_owner_data['firstName']} {joint_owner_data['lastName']}")
             if report_log:
-                report_log.info(f"    👥 Joint Owner: {joint_owner_data['firstName']} {joint_owner_data['lastName']}")
+                report_log.info(f"👤👤 [Joint] Name: {joint_owner_data['firstName']} {joint_owner_data['lastName']}")
         if joint_owner_data.get('dateOfBirth') and joint_owner_data.get('dateOfBirth') != "null":
-            log.info(f"    🎂 Joint Owner DOB: {joint_owner_data['dateOfBirth']}")
+            log.info(f"    🎂 Date of Birth: {joint_owner_data['dateOfBirth']}")
             if report_log:
-                report_log.info(f"    🎂 Joint Owner DOB: {joint_owner_data['dateOfBirth']}")
+                report_log.info(f"    🎂 Date of Birth: {joint_owner_data['dateOfBirth']}")
         if joint_owner_data.get('gender') and joint_owner_data.get('gender') != "null":
             log.info(f"    ♂️♀️ Gender: {joint_owner_data['gender']}")
             if report_log:
@@ -341,13 +341,13 @@ def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None,
             if report_log:
                 report_log.info(f"    📍 Address: {address}")
         if joint_owner_data.get('phoneNumber') and joint_owner_data.get('phoneNumber') != "null":
-            log.info(f"    📞 Joint Owner Phone: {joint_owner_data['phoneNumber']}")
+            log.info(f"    📞 Phone: {joint_owner_data['phoneNumber']}")
             if report_log:
-                report_log.info(f"    📞 Joint Owner Phone: {joint_owner_data['phoneNumber']}")
+                report_log.info(f"    📞 Phone: {joint_owner_data['phoneNumber']}")
         if joint_owner_data.get('emailAddress') and joint_owner_data.get('emailAddress') != "null":
-            log.info(f"    📧 Joint Owner Email: {joint_owner_data['emailAddress']}")
+            log.info(f"    📧 Email: {joint_owner_data['emailAddress']}")
             if report_log:
-                report_log.info(f"    📧 Joint Owner Email: {joint_owner_data['emailAddress']}")
+                report_log.info(f"    📧 Email: {joint_owner_data['emailAddress']}")
             
     # Check for complete information
     owner_data = info.get('owner', {})
@@ -384,9 +384,9 @@ def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None,
     )
     
     if not data_info_not_empty:
-        log.info(f"    ❌ Unable to extract complete owner information")
+        log.info(f"    ❌ Unable to extract complete account information for Dropbox Account Folder '{folder_name}'")
         if report_log:
-            report_log.info(f"    ❌ Unable to extract complete owner information")
+            report_log.info(f"    ❌ Unable to extract complete account information for Dropbox Account Folder '{folder_name}'")
     
     if info.get('jointOwner') and not joint_owner_data_info_not_empty:
         log.info(f"    ❌ Unable to extract complete joint owner information")
@@ -399,12 +399,16 @@ def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None,
     if info.get('owner'):
         missing_owner_fields = _check_app_file_missing_fields(info['owner'])
         if missing_owner_fields:
-            missing_info.append(f"Owner missing: {', '.join(missing_owner_fields)}")
+            missing_info.append(f"⚠️ Missing Account Information:")
+            for field in missing_owner_fields:
+                missing_info.append(f"      • {field}")
     
     if info.get('jointOwner'):
         missing_joint_owner_fields = _check_app_file_missing_fields(info['jointOwner'])
         if missing_joint_owner_fields:
-            missing_info.append(f"Joint owner missing: {', '.join(missing_joint_owner_fields)}")
+            missing_info.append(f"⚠️ Missing Joint Account Information:")
+            for field in missing_joint_owner_fields:
+                missing_info.append(f"      • {field}")
     
     if missing_info:
         log.warning("    ⚠️ Incomplete information detected:")
@@ -465,9 +469,9 @@ def log_dropbox_account_app_files_info(info: Dict[str, Any], logger_instance: An
                 has_account_info = True
 
     # Log title
-    log.info(f"\n📄📄 {title} ")
+    log.info(f"📄📄 {title} ")
     if report_log:
-        report_log.info(f"\n📄📄 {title}")
+        report_log.info(f"📄📄 {title}")
 
     if not info:
         # If info is None/empty, use the folder_name parameter or extract from title
@@ -498,14 +502,11 @@ def log_dropbox_account_app_files_info(info: Dict[str, Any], logger_instance: An
     # Owner information
     if info.get('owner'):
         owner_data = info['owner']
-        log.info("\n👤 **OWNER INFORMATION:**")
-        if report_log:
-            report_log.info("\n👤 **OWNER INFORMATION:**")
         
         if owner_data.get('firstName') and owner_data.get('lastName'):
-            log.info(f"    👤 Name: {owner_data['firstName']} {owner_data['lastName']}")
+            log.info(f"👤 Name: {owner_data['firstName']} {owner_data['lastName']}")
             if report_log:
-                report_log.info(f"    👤 Name: {owner_data['firstName']} {owner_data['lastName']}")
+                report_log.info(f"👤 Name: {owner_data['firstName']} {owner_data['lastName']}")
         
         if owner_data.get('dateOfBirth'):
             log.info(f"    🎂 Date of Birth: {owner_data['dateOfBirth']}")
@@ -547,14 +548,11 @@ def log_dropbox_account_app_files_info(info: Dict[str, Any], logger_instance: An
     # Joint owner information
     if info.get('jointOwner'):
         joint_owner_data = info['jointOwner']
-        log.info("\n👥 **JOINT OWNER INFORMATION:**")
-        if report_log:
-            report_log.info("\n👥 **JOINT OWNER INFORMATION:**")
         
         if joint_owner_data.get('firstName') and joint_owner_data.get('lastName'):
-            log.info(f"    👥 Name: {joint_owner_data['firstName']} {joint_owner_data['lastName']}")
+            log.info(f"👤👤 [Joint] Name: {joint_owner_data['firstName']} {joint_owner_data['lastName']}")
             if report_log:
-                report_log.info(f"    👥 Name: {joint_owner_data['firstName']} {joint_owner_data['lastName']}")
+                report_log.info(f"👤👤 [Joint] Name: {joint_owner_data['firstName']} {joint_owner_data['lastName']}")
         
         if joint_owner_data.get('dateOfBirth') and joint_owner_data.get('dateOfBirth') != "null":
             log.info(f"    🎂 Date of Birth: {joint_owner_data['dateOfBirth']}")
@@ -595,9 +593,9 @@ def log_dropbox_account_app_files_info(info: Dict[str, Any], logger_instance: An
 
     # Notes
     if info.get('notes') and isinstance(info['notes'], list) and info['notes']:
-        log.info("\n📝 **NOTES:**")
+        log.info("📝 Notes:")
         if report_log:
-            report_log.info("\n📝 **NOTES:**")
+            report_log.info("📝 Notes:")
         for note in info['notes']:
             log.info(f"    • {note}")
             if report_log:
