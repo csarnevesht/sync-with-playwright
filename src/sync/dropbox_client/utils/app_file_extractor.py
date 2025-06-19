@@ -230,7 +230,7 @@ class AppFileExtractor:
                 
                 # If we should skip zero-length files when account info exists, create file info with notes
                 if hasattr(self, 'skip_zero_length_if_account_info_exists') and self.skip_zero_length_if_account_info_exists:
-                    logger.info(f"Skipping zero-length file {file.name} - account info already exists from app files")
+                    logger.info(f"Skipping zero-length file {file.name} - skip_zero_length_if_account_info_exists flag is set")
                     # Clean up temp file
                     os.unlink(temp_path)
                     
@@ -242,7 +242,6 @@ class AppFileExtractor:
                         'jointOwner': {},
                         'notes': [
                             "File skipped due to zero-length text extraction",
-                            "Account info already exists from other app files",
                             "No text could be extracted from any page"
                         ]
                     }
