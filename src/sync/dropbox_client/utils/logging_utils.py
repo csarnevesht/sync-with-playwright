@@ -495,17 +495,6 @@ def log_dropbox_account_app_files_info(info: Dict[str, Any], logger_instance: An
         else:
             folder_name = title
 
-    # Application type and status
-    if info.get('application_type'):
-        log.info(f"📋 Application Type: {info['application_type']}")
-        if report_log:
-            report_log.info(f"📋 Application Type: {info['application_type']}")
-    
-    if info.get('status'):
-        log.info(f"📊 Status: {info['status']}")
-        if report_log:
-            report_log.info(f"📊 Status: {info['status']}")
-
     # Owner information
     if info.get('owner'):
         owner_data = info['owner']
