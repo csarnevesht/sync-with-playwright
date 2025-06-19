@@ -428,7 +428,7 @@ def log_dropbox_app_file_info(info: Dict[str, Any], logger_instance: Any = None,
     if report_log:
         report_log.info("")  # Add blank line between files 
 
-def log_best_dropbox_account_app_info(info: Dict[str, Any], logger_instance: Any = None, report_logger: Any = None, title: str = "BEST ACCOUNT INFO FROM APP FILES") -> None:
+def log_best_dropbox_account_app_files_info(info: Dict[str, Any], logger_instance: Any = None, report_logger: Any = None, title: str = f"BEST ACCOUNT APP INFO") -> None:
     """Log the best available account information from app files.
     
     Args:
@@ -441,9 +441,9 @@ def log_best_dropbox_account_app_info(info: Dict[str, Any], logger_instance: Any
     report_log = report_logger  # Use report_logger if provided
 
     # Log method name at the beginning
-    log.info("[log_best_dropbox_account_app_info]")
+    log.info("[log_best_dropbox_account_app_files_info]")
     if report_log:
-        report_log.info("[log_best_dropbox_account_app_info]")
+        report_log.info("[log_best_dropbox_account_app_files_info]")
 
     # Log title
     log.info(f"\n=== {title} ===")
