@@ -102,14 +102,12 @@ import pandas as pd
 import shutil
 import subprocess
 from dotenv import load_dotenv
-
-from sync import salesforce_client
-from sync.utils.name_utils import extract_name_parts
-from src.sync.utils.duration import format_duration
-from playwright.sync_api import sync_playwright, TimeoutError
 import logging
 from datetime import datetime
 from pathlib import Path
+from playwright.sync_api import sync_playwright
+
+from sync.utils.name_utils import extract_name_parts
 from src.sync.salesforce_client.pages.account_manager import AccountManager
 from src.sync.salesforce_client.pages.file_manager import SalesforceFileManager
 from src.sync.salesforce_client.utils.browser import get_salesforce_page
@@ -130,6 +128,21 @@ from dropbox.exceptions import ApiError
 import dropbox
 from typing import List, Union
 
+# Add the src directory to the path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
+from sync.salesforce_client.utils.logging_utils import log_salesforce_account_information
+
+def format_duration(seconds):
+    """Format duration in seconds to a human-readable string."""
+    if seconds < 60:
+        return f"{seconds:.1f} seconds"
+    elif seconds < 3600:
+        minutes = seconds / 60
+        return f"{minutes:.1f} minutes"
+    else:
+        hours = seconds / 3600
+        return f"{hours:.1f} hours"
 
 # ANSI color codes
 class Colors:
@@ -710,7 +723,6 @@ def run_command(args):
             if args.commands or args.commands_file:
                 from src.sync.command_runner import CommandRunner
                 command_runner = CommandRunner(args)
-                command_runner.set_context('salesforce_client', salesforce_client)
                 command_runner.set_context('dropbox_client', dropbox_client)
                 command_runner.set_context('dropbox_root_folder', dropbox_root_folder)
                 if browser and page:
@@ -857,6 +869,15 @@ def run_command(args):
                                 logger.info('step: Process Salesforce Account Relationships')
                                 report_logger.info("\n=== SALESFORCE ACCOUNT RELATIONSHIPS ===")
                                 
+                                # Initialize salesforce_account_information structure
+                                salesforce_account_information = {
+                                    'names_found': salesforce_matches,
+                                    'household': None,
+                                    'head': None,
+                                    'members': [],
+                                    'accounts': []
+                                }
+                                
                                 # Keep track of processed relationships to avoid duplicates
                                 processed_relationships = set()
                                 
@@ -884,9 +905,33 @@ def run_command(args):
                                             if is_valid and account_id:
                                                 # Get account information
                                                 account_info = account_manager.get_account_information(account_id)
+                                                
+                                                # Create account structure
+                                                account_data = {
+                                                    'account_name': match,
+                                                    'type': 'Contact',  # Default type
+                                                    'role': None,
+                                                    'stage': account_info.get('stage', ''),
+                                                    'email': account_info.get('email', ''),
+                                                    'phone': account_info.get('phone', ''),
+                                                    'mailing_address': account_info.get('mailing_address', ''),
+                                                    'ssn/tax_id': account_info.get('ssn/tax_id', ''),
+                                                    'relationships': []
+                                                }
+                                                
+                                                # Determine account type and role
+                                                if match.endswith('Household'):
+                                                    account_data['type'] = 'Household'
+                                                    salesforce_account_information['household'] = account_data
+                                                else:
+                                                    # Check if this is a head or member based on relationships
+                                                    account_data['type'] = 'Contact'
+                                                
+                                                # Log account information
                                                 report_logger.info(f"\nAccount Information:")
                                                 for key, value in account_info.items():
                                                     report_logger.info(f"  {key}: {value}")
+                                                
                                                 # Get relationships
                                                 relationships = account_manager.get_account_relationships(account_id)
                                                 if relationships:
@@ -918,10 +963,39 @@ def run_command(args):
                                                                 if rel_is_valid and rel_account_id:
                                                                     rel_info = account_manager.get_account_information(rel_account_id)
                                                                     rel['account_info'] = rel_info
+                                                                    
+                                                                    # Create relationship account structure
+                                                                    rel_account_data = {
+                                                                        'account_name': rel['name'],
+                                                                        'type': rel['type'],
+                                                                        'role': rel['role'],
+                                                                        'stage': rel_info.get('stage', ''),
+                                                                        'email': rel_info.get('email', ''),
+                                                                        'phone': rel_info.get('phone', ''),
+                                                                        'mailing_address': rel_info.get('mailing_address', ''),
+                                                                        'ssn/tax_id': rel_info.get('ssn/tax_id', ''),
+                                                                        'relationships': []
+                                                                    }
+                                                                    
+                                                                    # Add to appropriate category
+                                                                    if rel['role'] == 'Household Head':
+                                                                        salesforce_account_information['head'] = rel_account_data
+                                                                        account_data['role'] = 'Household Head'
+                                                                    elif rel['role'] == 'Member':
+                                                                        salesforce_account_information['members'].append(rel_account_data)
+                                                                        account_data['role'] = 'Member'
+                                                                    
+                                                                    # Add to relationships list
+                                                                    account_data['relationships'].append(rel_account_data)
+                                                                    
                                                                     # Mark this relationship as processed
                                                                     processed_relationships.add(rel_key)
                                                                     # Navigate back to original account
                                                                     account_manager.navigate_back_to_account_page()
+                                                    
+                                                    # Add account to accounts list
+                                                    salesforce_account_information['accounts'].append(account_data)
+                                                    
                                                     # Store relationships in salesforce_account_search_result, avoiding duplicates
                                                     if 'relationships' not in salesforce_account_search_result:
                                                         salesforce_account_search_result['relationships'] = []
@@ -938,6 +1012,8 @@ def run_command(args):
                                                             existing_relationships.add(rel_key)
                                                 else:
                                                     report_logger.info("\nNo relationship accounts found")
+                                                    # Add account to accounts list even if no relationships
+                                                    salesforce_account_information['accounts'].append(account_data)
                                             else:
                                                 logger.error(f"Could not verify account page or get account ID for: {match}")
                                                 report_logger.info(f"Could not verify account page or get account ID for: {match}")
@@ -947,6 +1023,12 @@ def run_command(args):
                                     else:
                                         logger.error(f"Account not found in All Clients or All Clients view: {match}")
                                         report_logger.info(f"Account not found in All Clients or All Clients view: {match}")
+                                
+                                # Store the comprehensive salesforce_account_information
+                                salesforce_account_search_result['salesforce_account_information'] = salesforce_account_information
+                                
+                                # Log the comprehensive Salesforce Account Information using the new utilities
+                                log_salesforce_account_information(salesforce_account_information, dropbox_account_folder_name, report_logger)
 
                         if args.salesforce_accounts or args.dropbox_account_info or args.dropbox_accounts:
                             # Add to summary results
@@ -958,7 +1040,7 @@ def run_command(args):
                                 'dropbox_account_file_names': dropbox_account_file_names,
                                 'salesforce_account_file_names': salesforce_account_file_names,
                                 'file_comparison': file_comparison
-                            })                                
+                            })
 
                             if args.salesforce_accounts or args.dropbox_account_info:
 
@@ -1034,6 +1116,8 @@ def run_command(args):
                             command_runner.set_data('salesforce_account_file_names', salesforce_account_file_names if args.salesforce_account_files else [])
                             command_runner.set_data('salesforce_matches', salesforce_matches if args.salesforce_accounts else [])
                             command_runner.set_data('result', salesforce_account_search_result if args.salesforce_accounts else {})
+                            if args.salesforce_account_info and 'salesforce_account_information' in salesforce_account_search_result:
+                                command_runner.set_data('salesforce_account_information', salesforce_account_search_result['salesforce_account_information'])
                             command_runner.execute_commands()
                         
                         # Compare files if both Dropbox and Salesforce files are available

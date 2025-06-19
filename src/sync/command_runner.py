@@ -735,7 +735,6 @@ class CommandRunner:
                 if summary_data and 'file_info' in summary_data:
                     log_app_files_processing_summary(
                         summary_data,
-                        self.summary_logger,
                         self.report_logger
                     )
                 
