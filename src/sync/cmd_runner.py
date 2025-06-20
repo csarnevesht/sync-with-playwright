@@ -371,7 +371,7 @@ def setup_logging(args, command: str = None):
     summary_logger.info(f"Summary log file: {summary_file}")
     red_logger.info(f"Red items log file: {red_file}")
     
-    return root_logger, report_logger, summary_logger, red_logger
+    return root_logger, report_logger, summary_logger, red_logger, str(log_dir)
 
 def parse_args():
     """Parse command line arguments."""
@@ -520,7 +520,7 @@ def initialize_dropbox_client(args):
     
       
 
-def run_command(args):
+def run_command(args, log_dir):
     """
     Run the command based on the provided arguments.
     """
@@ -722,7 +722,7 @@ def run_command(args):
             # Initialize command runner if commands are specified
             if args.commands or args.commands_file:
                 from src.sync.command_runner import CommandRunner
-                command_runner = CommandRunner(args)
+                command_runner = CommandRunner(args, log_dir)
                 command_runner.set_context('dropbox_client', dropbox_client)
                 command_runner.set_context('dropbox_root_folder', dropbox_root_folder)
                 if browser and page:
@@ -771,8 +771,8 @@ def run_command(args):
                 dropbox_account_search_result = {}
                 salesforce_account_search_result = {}
                 
-                # Add retry mechanism with 3 attempts
-                max_attempts = 3
+                # Add retry mechanism with 1 attempts
+                max_attempts = 1
                 current_attempt = 1
                 success = False
 
@@ -1565,5 +1565,5 @@ def prepare_flatfile_from_template(template_path, logger, report_logger):
 if __name__ == "__main__":
     args = parse_args()
     command = f"python -m sync.cmd_runner {format_args_for_logging(args)}"
-    logger, report_logger, summary_logger, red_logger = setup_logging(args, command)
-    run_command(args) 
+    logger, report_logger, summary_logger, red_logger, log_dir = setup_logging(args, command)
+    run_command(args, log_dir) 

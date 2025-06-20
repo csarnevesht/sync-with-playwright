@@ -130,5 +130,26 @@
   {
     "description": "Extract and log Dropbox account information with application files for a specific account",
     "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-info --commands='extract-dropbox-account-app-files-info,log-dropbox-account-information' --dropbox-account-name='Account Name'"
+  },
+  {
+    "description": "Analyze account data by comparing Salesforce and Dropbox information for a specific account",
+    "command": "python -m sync.cmd_runner --commands=analyze-account-data --dropbox-account-name='Account Name'"
+  },
+  {
+    "description": "Analyze account data with full pipeline (extract + analyze) for a specific account",
+    "command": "python -m sync.cmd_runner --commands='extract-dropbox-account-app-files-info,analyze-account-data' --dropbox-account-name='Account Name' --dropbox-account-info --salesforce-accounts --salesforce-account-info"
+  },
+  {
+    "description": "Analyze account data for 'Montesino, Maria' with comprehensive data collection",
+    "command": "python -m sync.cmd_runner --commands='extract-dropbox-account-app-files-info,analyze-account-data' --dropbox-account-name='Montesino, Maria' --dropbox-account-info --salesforce-accounts --salesforce-account-info"
+  },
+  {
+    "description": "Analyze account data for multiple accounts from file",
+    "command": "python -m sync.cmd_runner --commands='extract-dropbox-account-app-files-info,analyze-account-data' --dropbox-accounts-file accounts/fuzzy.txt --dropbox-account-info --salesforce-accounts --salesforce-account-info"
+  },
+  {
+    "description": "Analyze account data for all accounts in Dropbox",
+    "command": "clear && python -m sync.cmd_runner  --dropbox-account-info --commands=extract-dropbox-account-app-files-info,analyze-account-data  --salesforce-account-info --salesforce-accounts --continue-on-error"
   }
 ]
+ 
