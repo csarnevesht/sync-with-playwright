@@ -492,6 +492,46 @@ def initialize_dropbox_client(args):
         DropboxClient: Initialized client or None if initialization fails
     """
     tried_refresh = False
+    
+    # Add detailed environment variable logging
+    logger.info("=== ENVIRONMENT VARIABLE DEBUGGING ===")
+    import os
+    from dotenv import load_dotenv
+    
+    # Load environment variables
+    if args.env_file:
+        logger.info(f"Loading environment from: {args.env_file}")
+        load_dotenv(args.env_file)
+    else:
+        logger.info("Loading environment from default .env file")
+        load_dotenv()
+    
+    # Check for Dropbox environment variables
+    dropbox_token = os.getenv('DROPBOX_TOKEN')
+    dropbox_refresh_token = os.getenv('DROPBOX_REFRESH_TOKEN')
+    dropbox_app_key = os.getenv('DROPBOX_APP_KEY')
+    dropbox_app_secret = os.getenv('DROPBOX_APP_SECRET')
+    
+    logger.info(f"DROPBOX_APP_KEY: {'✅ Present' if dropbox_app_key else '❌ Missing'}")
+    if dropbox_app_key:
+        logger.info(f"  Value: {dropbox_app_key[:10]}...")
+    
+    logger.info(f"DROPBOX_APP_SECRET: {'✅ Present' if dropbox_app_secret else '❌ Missing'}")
+    if dropbox_app_secret:
+        logger.info(f"  Value: {dropbox_app_secret[:10]}...")
+    
+    logger.info(f"DROPBOX_TOKEN: {'✅ Present' if dropbox_token else '❌ Missing'}")
+    if dropbox_token:
+        logger.info(f"  Value: {dropbox_token[:20]}...")
+        logger.info(f"  Length: {len(dropbox_token)} characters")
+    
+    logger.info(f"DROPBOX_REFRESH_TOKEN: {'✅ Present' if dropbox_refresh_token else '❌ Missing'}")
+    if dropbox_refresh_token:
+        logger.info(f"  Value: {dropbox_refresh_token[:20]}...")
+        logger.info(f"  Length: {len(dropbox_refresh_token)} characters")
+    
+    logger.info("=== END ENVIRONMENT VARIABLE DEBUGGING ===")
+    
     while True:
         try:
             logger.info("Attempting to get Dropbox access token...")
