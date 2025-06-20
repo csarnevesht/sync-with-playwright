@@ -875,7 +875,8 @@ def run_command(args, log_dir):
                                     'household': None,
                                     'head': None,
                                     'members': [],
-                                    'accounts': []
+                                    'accounts': [],
+                                    'not_found_accounts': []  # Track accounts found in search but not accessible in views
                                 }
                                 
                                 # Keep track of processed relationships to avoid duplicates
@@ -1017,12 +1018,33 @@ def run_command(args, log_dir):
                                             else:
                                                 logger.error(f"Could not verify account page or get account ID for: {match}")
                                                 report_logger.info(f"Could not verify account page or get account ID for: {match}")
+                                                # Add to not_found_accounts with reason
+                                                salesforce_account_information['not_found_accounts'].append({
+                                                    'account_name': match,
+                                                    'reason': 'Could not verify account page or get account ID',
+                                                    'found_in_search': True,
+                                                    'accessible_in_views': False
+                                                })
                                         else:
                                             logger.error(f"Could not navigate to Salesforce account: {match}")
                                             report_logger.info(f"Could not navigate to Salesforce account: {match}")
+                                            # Add to not_found_accounts with reason
+                                            salesforce_account_information['not_found_accounts'].append({
+                                                'account_name': match,
+                                                'reason': 'Could not navigate to account page',
+                                                'found_in_search': True,
+                                                'accessible_in_views': False
+                                            })
                                     else:
-                                        logger.error(f"Account not found in All Clients or All Clients view: {match}")
-                                        report_logger.info(f"Account not found in All Clients or All Clients view: {match}")
+                                        logger.error(f"Account not found in All Clients or All Accounts view: {match}")
+                                        report_logger.info(f"Account not found in All Clients or All Accounts view: {match}")
+                                        # Add to not_found_accounts with reason
+                                        salesforce_account_information['not_found_accounts'].append({
+                                            'account_name': match,
+                                            'reason': 'Account not found in All Clients or All Accounts view',
+                                            'found_in_search': True,
+                                            'accessible_in_views': False
+                                        })
                                 
                                 # Store the comprehensive salesforce_account_information
                                 salesforce_account_search_result['salesforce_account_information'] = salesforce_account_information

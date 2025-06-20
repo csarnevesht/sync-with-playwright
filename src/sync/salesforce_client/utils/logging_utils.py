@@ -78,6 +78,13 @@ class SalesforceAccountLogger:
         if members:
             member_names = [member['account_name'] for member in members]
             self._log(f"👥 Members: {', '.join(member_names)}", summary_logger, report_logger)
+        
+        # Log not found accounts information
+        not_found_accounts = salesforce_account_information.get('not_found_accounts', [])
+        if not_found_accounts:
+            self._log(f"\n⚠️ **ACCOUNTS FOUND IN SEARCH BUT NOT ACCESSIBLE**", summary_logger, report_logger)
+            for account in not_found_accounts:
+                self._log(f"❌ {account['account_name']}: {account['reason']}", summary_logger, report_logger)
     
     def _log_detailed_account_information(self, salesforce_account_information: Dict[str, Any], summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None) -> None:
         """Log detailed information for each account."""
@@ -165,6 +172,7 @@ class SalesforceAccountLogger:
         has_household = salesforce_account_information.get('household') is not None
         has_head = salesforce_account_information.get('head') is not None
         total_members = len(salesforce_account_information.get('members', []))
+        total_not_found = len(salesforce_account_information.get('not_found_accounts', []))
         
         self._log(f"\n📈 **STATISTICS SUMMARY**", summary_logger, report_logger)
         self._log(f"{'─'*60}", summary_logger, report_logger)
@@ -173,6 +181,7 @@ class SalesforceAccountLogger:
         self._log(f"🏠 Has Household: {'✅ Yes' if has_household else '❌ No'}", summary_logger, report_logger)
         self._log(f"👑 Has Head: {'✅ Yes' if has_head else '❌ No'}", summary_logger, report_logger)
         self._log(f"👥 Total Members: {total_members}", summary_logger, report_logger)
+        self._log(f"⚠️ Not Accessible Accounts: {total_not_found}", summary_logger, report_logger)
     
     def _get_stage_icon(self, stage: str) -> str:
         """Get the appropriate icon for a stage."""
@@ -204,6 +213,13 @@ class SalesforceAccountLogger:
         # Log basic information
         names_found = salesforce_account_information.get('names_found', [])
         self.logger.info(f"📋 **Names found**: {', '.join(names_found) if names_found else 'None'}")
+        
+        # Log not found accounts information
+        not_found_accounts = salesforce_account_information.get('not_found_accounts', [])
+        if not_found_accounts:
+            self.logger.info(f"\n⚠️ **ACCOUNTS FOUND IN SEARCH BUT NOT ACCESSIBLE**")
+            for account in not_found_accounts:
+                self.logger.info(f"❌ {account['account_name']}: {account['reason']}")
         
         # Log household information
         self._log_command_household_info(salesforce_account_information)

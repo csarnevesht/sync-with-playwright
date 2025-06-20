@@ -979,6 +979,11 @@ class CommandRunner:
             search_info = client_list_file_data.get('search_info', {})
             match_info = search_info.get('match_info', {})
             if account_data:
+                # Add the actual name found in client list file to names_found
+                client_list_name = account_data.get('name', '')
+                if client_list_name and client_list_name not in dropbox_account_information['names_found']:
+                    dropbox_account_information['names_found'].append(client_list_name)
+                
                 client_list_account = {
                     'account_name': dropbox_account_folder_name,
                     'source': 'client_list_file',
@@ -1055,6 +1060,10 @@ class CommandRunner:
             if not account_name:
                 account_name = dropbox_account_folder_name
             
+            # Add application files name to names_found if not already present
+            if account_name and account_name not in dropbox_account_information['names_found']:
+                dropbox_account_information['names_found'].append(account_name)
+            
             owner_account = {
                 'account_name': account_name,
                 'source': 'application_files',
@@ -1097,6 +1106,10 @@ class CommandRunner:
             account_name = f"{first_name} {last_name}".strip()
             if not account_name:
                 account_name = f"{dropbox_account_folder_name} (Joint)"
+            
+            # Add joint account name to names_found if not already present
+            if account_name and account_name not in dropbox_account_information['names_found']:
+                dropbox_account_information['names_found'].append(account_name)
             
             joint_account = {
                 'account_name': account_name,
