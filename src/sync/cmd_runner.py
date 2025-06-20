@@ -505,6 +505,7 @@ def initialize_dropbox_client(args):
             dbx = DropboxClient(token, debug_mode=True)
             dbx.args = args
             try:
+                # Use the _make_request method which has automatic token refresh built in
                 account = dbx._make_request(dbx.dbx.users_get_current_account)
                 logger.info(f"Successfully connected to Dropbox as: {account.name.display_name}")
                 logger.info(f"Account ID: {account.account_id}")
@@ -512,35 +513,66 @@ def initialize_dropbox_client(args):
                 return dbx
             except ApiError as e:
                 if e.error.is_expired_access_token() or 'expired_access_token' in str(e):
-                    logger.error("Dropbox access token has expired and refresh failed (ApiError)")
+                    logger.error("Dropbox access token has expired")
                     if not tried_refresh:
-                        logger.info("Attempting to refresh token by running get_tokens.py...")
-                        subprocess.run([sys.executable, "src/sync/dropbox_client/get_tokens.py"])
-                        load_dotenv()
-                        tried_refresh = True
-                        logger.info("Token refresh completed. Please verify the .env file and press Enter to continue...")
-                        input()
-                        continue
+                        logger.info("Attempting to refresh token automatically...")
+                        # Try to refresh the token using the DropboxClient's built-in refresh logic
+                        if dbx._handle_token_expiration():
+                            logger.info("Token refreshed successfully, retrying connection...")
+                            tried_refresh = True
+                            continue
+                        else:
+                            logger.error("Automatic token refresh failed")
+                            logger.info("Attempting manual token refresh...")
+                            try:
+                                # Try to use the auth utility to refresh the token
+                                from sync.dropbox_client.utils.auth import DropboxAuth
+                                auth = DropboxAuth()
+                                new_token = auth.refresh_access_token()
+                                if new_token:
+                                    logger.info("Manual token refresh successful")
+                                    tried_refresh = True
+                                    continue
+                                else:
+                                    logger.error("Manual token refresh also failed")
+                            except Exception as auth_error:
+                                logger.error(f"Manual token refresh failed: {auth_error}")
                     else:
                         logger.error("Token refresh already attempted. Please generate a new token and update your environment.")
+                        logger.info("You can run: python src/sync/dropbox_client/get_tokens.py")
                 else:
                     logger.error(f"Failed to connect to Dropbox: {str(e)}")
                 return None
         except Exception as e:
             if 'expired_access_token' in str(e) and not tried_refresh:
-                logger.error("Dropbox access token has expired and refresh failed (Exception)")
-                logger.info("Attempting to refresh token by running get_tokens.py...")
-                subprocess.run([sys.executable, "src/sync/dropbox_client/get_tokens.py"])
-                load_dotenv()
-                tried_refresh = True
-                logger.info("Token refresh completed. Please verify the .env file and press Enter to continue...")
-                input()
-                continue
+                logger.error("Dropbox access token has expired")
+                logger.info("Attempting to refresh token automatically...")
+                try:
+                    # Try to refresh the token using the DropboxClient's built-in refresh logic
+                    if dbx._handle_token_expiration():
+                        logger.info("Token refreshed successfully, retrying connection...")
+                        tried_refresh = True
+                        continue
+                    else:
+                        logger.error("Automatic token refresh failed")
+                        logger.info("Attempting manual token refresh...")
+                        try:
+                            # Try to use the auth utility to refresh the token
+                            from sync.dropbox_client.utils.auth import DropboxAuth
+                            auth = DropboxAuth()
+                            new_token = auth.refresh_access_token()
+                            if new_token:
+                                logger.info("Manual token refresh successful")
+                                tried_refresh = True
+                                continue
+                            else:
+                                logger.error("Manual token refresh also failed")
+                        except Exception as auth_error:
+                            logger.error(f"Manual token refresh failed: {auth_error}")
+                except Exception as refresh_error:
+                    logger.error(f"Token refresh failed: {refresh_error}")
             logger.error(f"Unexpected error initializing Dropbox client: {str(e)}")
             return None
-    
-    
-      
 
 def run_command(args, log_dir):
     """
