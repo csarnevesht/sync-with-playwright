@@ -507,14 +507,24 @@ class AccountAnalyzer:
                     sf_name = sf_account.get('account_name', '')
                     sf_type = str(sf_account.get('type', ''))
                     sf_key = (sf_name, sf_type)
+                    
+                    self.logger.debug(f"Processing Salesforce account: name='{sf_name}', type='{sf_type}'")
+                    
                     found_match = False
                     for variation in self._generate_name_variations(sf_name):
+                        self.logger.debug(f"Checking name variation: '{variation}'")
                         possible_db_accounts = db_name_to_accounts.get(variation.lower(), [])
+                        self.logger.debug(f"Found {len(possible_db_accounts)} possible Dropbox accounts for variation '{variation}'")
+                        
                         for db_account in possible_db_accounts:
                             db_name = db_account.get('account_name', '')
                             db_type = str(db_account.get('type', ''))
                             db_key = (db_name, db_type)
+                            
+                            self.logger.debug(f"Checking Dropbox account: name='{db_name}', type='{db_type}', already matched: {db_key in matched_db_accounts}")
+                            
                             if db_key not in matched_db_accounts:
+                                self.logger.debug(f"Creating comparison for Salesforce '{sf_name}' ({sf_type}) and Dropbox '{db_name}' ({db_type})")
                                 comparison = self._create_account_comparison_with_mapping(
                                     sf_account, db_account, expected_mapping, db_account.get('source', DataSource.DROPBOX_MERGED)
                                 )
@@ -525,7 +535,9 @@ class AccountAnalyzer:
                                 break
                         if found_match:
                             break
+                    
                     if not found_match:
+                        self.logger.debug(f"No Dropbox match found for Salesforce account '{sf_name}' ({sf_type})")
                         # No Dropbox match found for this Salesforce account
                         comparison = self._create_account_comparison_with_mapping(
                             sf_account, None, expected_mapping, DataSource.SALESFORCE
@@ -1217,4 +1229,17 @@ class AccountAnalyzer:
             return name_parts[0]
         elif part == 'last' and len(name_parts) > 1:
             return name_parts[-1]
-        return None 
+        return None
+
+    def _format_field_status(self, field_comparison):
+        """Return a string indicating which system is missing the field, or if both are present/missing."""
+        sf_present = field_comparison.salesforce_value not in [None, '', 'None']
+        db_present = field_comparison.dropbox_value not in [None, '', 'None']
+        if sf_present and db_present:
+            return '✅ Present'
+        elif not sf_present and db_present:
+            return '❌ Missing in Salesforce'
+        elif sf_present and not db_present:
+            return '❌ Missing in Dropbox'
+        else:
+            return '❌ Missing in Both' 

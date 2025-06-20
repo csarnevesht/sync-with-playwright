@@ -323,21 +323,22 @@ def _generate_field_comparison_tables(report: AccountAnalysisReport) -> str:
     
     for comparison in report.account_comparisons:
         table = f"\n**Account: {comparison.account_name}**\n"
-        table += "┌─────────────────┬──────────────┬──────────────┬──────────────┬──────────────┐\n"
-        table += "│ Field           │ Salesforce   │ Dropbox      │ Status       │ Priority     │\n"
-        table += "├─────────────────┼──────────────┼──────────────┼──────────────┼──────────────┤\n"
+        table += "┌─────────────────┬──────────────┬──────────────┬────────────────────────────┬──────────────┐\n"
+        table += "│ Field           │ Salesforce   │ Dropbox      │ Status                     │ Priority     │\n"
+        table += "├─────────────────┼──────────────┼──────────────┼────────────────────────────┼──────────────┤\n"
         
         fields = ['first_name', 'last_name', 'email', 'phone', 'address', 'birthdate', 'gender', 'ssn_tax_id']
         for field_name in fields:
             field_comparison = getattr(comparison, field_name)
             sf_status = "✅ Present" if field_comparison.salesforce_value else "❌ Missing"
             db_status = "✅ Present" if field_comparison.dropbox_value else "❌ Missing"
-            status = field_comparison.status.title()
+            # Use the new method for the Status column
+            status = AccountAnalyzer._format_field_status(AccountAnalyzer, field_comparison)
             priority = field_comparison.migration_priority.upper() if field_comparison.migration_priority != 'not_needed' else '-'
             
-            table += f"│ {field_name:<15} │ {sf_status:<12} │ {db_status:<12} │ {status:<12} │ {priority:<11} │\n"
+            table += f"│ {field_name:<15} │ {sf_status:<12} │ {db_status:<12} │ {status:<26} │ {priority:<11} │\n"
         
-        table += "└─────────────────┴──────────────┴──────────────┴──────────────┴──────────────┘\n"
+        table += "└─────────────────┴──────────────┴──────────────┴────────────────────────────┴──────────────┘\n"
         tables.append(table)
     
     return "\n".join(tables)
