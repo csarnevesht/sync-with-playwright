@@ -1027,8 +1027,14 @@ class CommandRunner:
         owner = best_available_info.get('owner', {})
         joint_owner = best_available_info.get('jointOwner', {})
         
+        self.logger.debug(f"Application files owner data: {owner}")
+        self.logger.debug(f"Owner firstName: {owner.get('firstName', '')}")
+        self.logger.debug(f"Owner lastName: {owner.get('lastName', '')}")
+        self.logger.debug(f"Owner condition check: {owner and (owner.get('firstName') or owner.get('lastName'))}")
+        
         # Primary account holder
         if owner and (owner.get('firstName') or owner.get('lastName')):
+            self.logger.debug("Creating primary account holder from application files")
             # Build address string
             address_parts = []
             if owner.get('mailingAddressStreet'):
@@ -1065,7 +1071,10 @@ class CommandRunner:
                 'match_status': 'N/A',  # Not applicable for app files
                 'drivers_license': None
             }
+            self.logger.debug(f"Created application files account: {owner_account}")
             dropbox_account_information['accounts'].append(owner_account)
+        else:
+            self.logger.debug("No primary account holder found in application files")
         
         # Joint account holder
         if joint_owner and (joint_owner.get('firstName') or joint_owner.get('lastName')):
@@ -1357,30 +1366,30 @@ class CommandRunner:
             raise 
 
     def _handle_analyze_account_data(self) -> None:
-        """Analyze and compare Salesforce and Dropbox account information.
-        This command will analyze account data from both systems and generate comprehensive reports.
-        """
+        """Handle the analyze-account-data command."""
+        self.logger.info("Executing command handler: analyze-account-data")
         self.logger.info("Starting analyze-account-data operation")
-        self.report_logger.info("\n=== ANALYZING ACCOUNT DATA ===")
         
-        try:
-            # Import and call the analyze_account_data function
-            from sync.commands.analyze_account_data import analyze_account_data
-            
-            # Call the analyze_account_data function
-            result = analyze_account_data(self)
-            
-            if result['status'] == 'success':
-                self.logger.info("Successfully completed analyze-account-data operation")
-                self.report_logger.info("\nSuccessfully completed analyze-account-data operation")
-            else:
-                error_msg = f"Analysis failed: {result.get('message', 'Unknown error')}"
-                self.logger.error(error_msg)
-                self.report_logger.error(f"\n{error_msg}")
-                raise Exception(error_msg)
-            
-        except Exception as e:
-            error_msg = f"Error in analyze-account-data operation: {str(e)}"
-            self.logger.error(error_msg)
-            self.report_logger.error(f"\n{error_msg}")
-            raise 
+        # Rebuild dropbox account information to ensure it includes latest application files data
+        self.logger.debug("Rebuilding dropbox account information for analysis")
+        dropbox_account_information = self._build_dropbox_account_information()
+        self.set_data('dropbox_account_information', dropbox_account_information)
+        
+        # Import and run the analysis
+        from sync.analyzers.account_analyzer import AccountAnalyzer
+        
+        # Get the account folder name
+        dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
+        
+        # Get the data for analysis
+        salesforce_account_information = self.get_data('salesforce_account_information')
+        
+        # Create analyzer and run analysis
+        analyzer = AccountAnalyzer()
+        analyzer.analyze_account(
+            dropbox_account_folder=dropbox_account_folder_name,
+            salesforce_account_information=salesforce_account_information,
+            dropbox_account_information=dropbox_account_information
+        )
+        
+        self.logger.info("Successfully completed analyze-account-data operation") 
