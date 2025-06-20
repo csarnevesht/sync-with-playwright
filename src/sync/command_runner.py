@@ -1375,21 +1375,15 @@ class CommandRunner:
         dropbox_account_information = self._build_dropbox_account_information()
         self.set_data('dropbox_account_information', dropbox_account_information)
         
-        # Import and run the analysis
-        from sync.analyzers.account_analyzer import AccountAnalyzer
+        # Import and run the analysis using the proper function that includes logging
+        from sync.commands.analyze_account_data import analyze_account_data
         
-        # Get the account folder name
-        dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
+        # Run the analysis which will handle all the logging
+        result = analyze_account_data(self)
         
-        # Get the data for analysis
-        salesforce_account_information = self.get_data('salesforce_account_information')
-        
-        # Create analyzer and run analysis
-        analyzer = AccountAnalyzer()
-        analyzer.analyze_account(
-            dropbox_account_folder=dropbox_account_folder_name,
-            salesforce_account_information=salesforce_account_information,
-            dropbox_account_information=dropbox_account_information
-        )
-        
-        self.logger.info("Successfully completed analyze-account-data operation") 
+        if result['status'] == 'success':
+            self.logger.info("Successfully completed analyze-account-data operation")
+        else:
+            error_msg = f"Analysis failed: {result.get('message', 'Unknown error')}"
+            self.logger.error(error_msg)
+            raise Exception(error_msg) 
