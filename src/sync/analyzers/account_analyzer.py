@@ -628,12 +628,31 @@ class AccountAnalyzer:
                     db_name = db_account.get('account_name', '')
                     db_type = str(db_account.get('type', ''))
                     db_key = (db_name, db_type)
+                    
+                    # Only add Dropbox accounts that weren't matched with any Salesforce accounts
+                    # If a Dropbox account was matched, it means there's already a Salesforce account
+                    # and the field comparison has already been done through the Salesforce matching
                     if db_key not in matched_db_accounts:
-                        comparison = self._create_account_comparison_with_mapping(
-                            None, db_account, expected_mapping, db_account.get('source')
-                        )
-                        comparisons.append(comparison)
-                        matched_db_accounts.add(db_key)
+                        # Check if this Dropbox account was matched with any Salesforce account
+                        was_matched_with_salesforce = False
+                        for sf_key in matched_sf_accounts:
+                            # If any Salesforce account was matched to this Dropbox account,
+                            # we don't need to create a separate comparison
+                            if self._accounts_represent_same_person(db_account, sf_key):
+                                was_matched_with_salesforce = True
+                                break
+                        
+                        if not was_matched_with_salesforce:
+                            self.logger.debug(f"Adding unmatched Dropbox account: {db_name} ({db_type})")
+                            comparison = self._create_account_comparison_with_mapping(
+                                None, db_account, expected_mapping, db_account.get('source')
+                            )
+                            comparisons.append(comparison)
+                            matched_db_accounts.add(db_key)
+                        else:
+                            self.logger.debug(f"Skipping Dropbox account {db_name} ({db_type}) - already matched with Salesforce account")
+                    else:
+                        self.logger.debug(f"Skipping Dropbox account {db_name} ({db_type}) - already processed")
             except Exception as e:
                 self.logger.error(f"Error adding unmatched Dropbox accounts: {e}")
                 raise
@@ -642,13 +661,22 @@ class AccountAnalyzer:
             try:
                 self.logger.debug("Creating comparisons for expected accounts")
                 existing_names = {c.account_name for c in comparisons}
+                existing_salesforce_names = {acc.get('account_name', '') for acc in salesforce_accounts}
+                
                 for expected_account in expected_mapping.get('accounts', []):
-                    if expected_account['name'] not in existing_names:
+                    expected_name = expected_account['name']
+                    # Only create expected account comparison if:
+                    # 1. It's not already in the comparisons list
+                    # 2. It's not already in the actual Salesforce accounts
+                    if expected_name not in existing_names and expected_name not in existing_salesforce_names:
+                        self.logger.debug(f"Creating expected account comparison for: {expected_name}")
                         comparison = self._create_account_comparison_with_mapping(
                             None, None, expected_mapping, DataSource.SALESFORCE,
                             expected_account=expected_account
                         )
                         comparisons.append(comparison)
+                    else:
+                        self.logger.debug(f"Skipping expected account {expected_name} - already exists in actual data")
             except Exception as e:
                 self.logger.error(f"Error creating expected account comparisons: {e}")
                 raise
@@ -1350,5 +1378,22 @@ class AccountAnalyzer:
         
         if 'contact' in sf_type and 'primary' in str(db_account.get('type', '')).lower():
             return True
+        
+        return False
+
+    def _accounts_represent_same_person(self, db_account: Dict[str, Any], sf_key: Tuple[str, str]) -> bool:
+        """Determine if a Dropbox account represents the same person as a Salesforce account."""
+        db_name = db_account.get('account_name', '')
+        sf_name = sf_key[0]
+        
+        # Generate variations for both names and check for matches
+        db_variations = self._generate_name_variations(db_name)
+        sf_variations = self._generate_name_variations(sf_name)
+        
+        # Check if any variations match
+        for db_var in db_variations:
+            for sf_var in sf_variations:
+                if db_var.lower() == sf_var.lower():
+                    return True
         
         return False 
