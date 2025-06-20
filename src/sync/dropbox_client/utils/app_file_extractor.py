@@ -217,6 +217,20 @@ class AppFileExtractor:
             from sync.processors.lm_studio_processor import LMStudioProcessor
             processor = LMStudioProcessor(model_name="qwen2-vl-7b-instruct")
             
+            # Try to auto-load a model if none is loaded
+            try:
+                current_model = processor.get_loaded_model()
+                if not current_model:
+                    logger.info("No model loaded in LM Studio, attempting to auto-load...")
+                    if processor.auto_load_model("qwen2-vl-7b-instruct"):
+                        logger.info("Successfully auto-loaded a model in LM Studio")
+                    else:
+                        logger.warning("Failed to auto-load a model in LM Studio - will use fallback processing")
+                else:
+                    logger.info(f"LM Studio model already loaded: {current_model.get('id')}")
+            except Exception as e:
+                logger.warning(f"Error checking/loading LM Studio model: {str(e)} - will use fallback processing")
+            
             # Extract text from PDF
             extracted_text = processor._extract_text_from_file(temp_path)
             ocr_owner_data = None
@@ -331,6 +345,18 @@ class AppFileExtractor:
             logger.info(f"process extracted_text: {extracted_text}")
             processor_data = processor.process_text(extracted_text, file.name)
             logger.info(f"processor extraction results: {json.dumps(processor_data, indent=2)}")
+            
+            # Check if processor returned a fallback response (no models loaded)
+            if processor_data and processor_data.get('fallback') and processor_data.get('error') == 'no_models_loaded':
+                logger.warning("LM Studio has no models loaded - using fallback processing")
+                processor_data = None  # Reset to None so OCR fallback can be used
+                # Initialize notes list for later use
+                lm_studio_notes = [
+                    "LM Studio has no models loaded - AI processing unavailable",
+                    "Falling back to OCR-based text extraction"
+                ]
+            else:
+                lm_studio_notes = []
             
             # Clean up temp file
             os.unlink(temp_path)
@@ -471,6 +497,10 @@ class AppFileExtractor:
 
             if ocr_attempted and not any('OCR' in note for note in file_info['notes']):
                 file_info['notes'].append("OCR extraction attempted but no valid name found")
+
+            # Add LM Studio notes to file info
+            if lm_studio_notes:
+                file_info['notes'].extend(lm_studio_notes)
 
             logger.info(f"Final extracted file info: {json.dumps(file_info, indent=2)}")
             return file_info

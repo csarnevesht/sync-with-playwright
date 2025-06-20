@@ -38,6 +38,157 @@ class LMStudioProcessor(BaseProcessor):
             self.logger.error("Please ensure the LM Studio server is running at http://localhost:1234")
             raise
 
+    def list_available_models(self) -> List[Dict[str, Any]]:
+        """List all available models in LM Studio.
+        
+        Returns:
+            List of model information dictionaries
+        """
+        try:
+            response = requests.get(f"{self.base_url}/models")
+            if response.status_code == 200:
+                models = response.json()
+                self.logger.info(f"Found {len(models)} available models")
+                return models
+            else:
+                self.logger.error(f"Failed to list models: {response.status_code}")
+                return []
+        except Exception as e:
+            self.logger.error(f"Error listing models: {str(e)}")
+            return []
+
+    def load_model(self, model_id: str) -> bool:
+        """Load a specific model in LM Studio.
+        
+        Args:
+            model_id: The ID of the model to load
+            
+        Returns:
+            bool: True if model was loaded successfully, False otherwise
+        """
+        try:
+            self.logger.info(f"Loading model: {model_id}")
+            
+            # First, check if the model is already loaded
+            current_models = self.list_available_models()
+            for model in current_models:
+                if model.get('id') == model_id and model.get('object') == 'model':
+                    self.logger.info(f"Model {model_id} is already loaded")
+                    return True
+            
+            # Load the model
+            response = requests.post(
+                f"{self.base_url}/models/load",
+                json={"model_id": model_id},
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                self.logger.info(f"Successfully loaded model: {model_id}")
+                return True
+            else:
+                self.logger.error(f"Failed to load model {model_id}: {response.status_code}")
+                try:
+                    error_response = response.json()
+                    self.logger.error(f"Error response: {json.dumps(error_response, indent=2)}")
+                except:
+                    self.logger.error(f"Raw error response: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"Error loading model {model_id}: {str(e)}")
+            return False
+
+    def unload_model(self, model_id: str) -> bool:
+        """Unload a specific model in LM Studio.
+        
+        Args:
+            model_id: The ID of the model to unload
+            
+        Returns:
+            bool: True if model was unloaded successfully, False otherwise
+        """
+        try:
+            self.logger.info(f"Unloading model: {model_id}")
+            
+            response = requests.post(
+                f"{self.base_url}/models/unload",
+                json={"model_id": model_id},
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                self.logger.info(f"Successfully unloaded model: {model_id}")
+                return True
+            else:
+                self.logger.error(f"Failed to unload model {model_id}: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"Error unloading model {model_id}: {str(e)}")
+            return False
+
+    def get_loaded_model(self) -> Optional[Dict[str, Any]]:
+        """Get information about the currently loaded model.
+        
+        Returns:
+            Model information dictionary or None if no model is loaded
+        """
+        try:
+            models = self.list_available_models()
+            for model in models:
+                if model.get('object') == 'model':
+                    return model
+            return None
+        except Exception as e:
+            self.logger.error(f"Error getting loaded model: {str(e)}")
+            return None
+
+    def auto_load_model(self, preferred_model_id: str = None) -> bool:
+        """Automatically load a model, trying preferred model first, then any available model.
+        
+        Args:
+            preferred_model_id: The preferred model ID to load
+            
+        Returns:
+            bool: True if a model was loaded successfully, False otherwise
+        """
+        try:
+            # First, check if any model is already loaded
+            current_model = self.get_loaded_model()
+            if current_model:
+                self.logger.info(f"Model already loaded: {current_model.get('id')}")
+                return True
+            
+            # Get available models
+            available_models = self.list_available_models()
+            if not available_models:
+                self.logger.error("No models available in LM Studio")
+                return False
+            
+            # Try to load preferred model first
+            if preferred_model_id:
+                for model in available_models:
+                    if model.get('id') == preferred_model_id:
+                        if self.load_model(preferred_model_id):
+                            return True
+                        break
+            
+            # If preferred model failed or not found, try the first available model
+            for model in available_models:
+                model_id = model.get('id')
+                if model_id and model.get('object') == 'model':
+                    self.logger.info(f"Trying to load model: {model_id}")
+                    if self.load_model(model_id):
+                        return True
+            
+            self.logger.error("Failed to load any model")
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"Error in auto_load_model: {str(e)}")
+            return False
+
     def _truncate_prompt_for_context(self, prompt: str, max_tokens: int = 3500) -> str:
         """Truncate prompt to fit within model's context window."""
         # Rough estimate: 1 token ≈ 4 characters
@@ -111,6 +262,44 @@ class LMStudioProcessor(BaseProcessor):
                 try:
                     error_response = response.json()
                     self.logger.error(f"Error response body: {json.dumps(error_response, indent=2)}")
+                    
+                    # Check if this is the "no models loaded" error
+                    if (response.status_code == 404 and 
+                        error_response.get('error', {}).get('code') == 'model_not_found' and
+                        'No models loaded' in error_response.get('error', {}).get('message', '')):
+                        
+                        self.logger.warning("LM Studio is running but no models are loaded. Attempting to auto-load a model...")
+                        
+                        # Try to auto-load a model
+                        if self.auto_load_model():
+                            self.logger.info("Successfully loaded a model, retrying request...")
+                            # Retry the request
+                            response = requests.post(
+                                f"{self.base_url}/chat/completions",
+                                json=request_data,
+                                headers={"Content-Type": "application/json"}
+                            )
+                            
+                            if response.status_code == 200:
+                                result = response.json()
+                                if "choices" not in result or not result["choices"]:
+                                    raise Exception("No choices in response")
+                                
+                                response_text = result["choices"][0]["message"]["content"]
+                                self._cache_response(prompt, {"response": response_text})
+                                return {"response": response_text}
+                            else:
+                                self.logger.error(f"Request still failed after loading model: {response.status_code}")
+                        
+                        self.logger.warning("Falling back to basic text extraction without AI processing.")
+                        
+                        # Return a fallback response that indicates no AI processing was done
+                        return {
+                            "response": "No AI processing available - LM Studio has no models loaded. Please load a model in LM Studio to enable AI-powered text extraction.",
+                            "fallback": True,
+                            "error": "no_models_loaded"
+                        }
+                        
                 except Exception as e:
                     self.logger.error(f"Could not parse error response as JSON: {str(e)}")
                     self.logger.error(f"Raw error response: {response.text}")
