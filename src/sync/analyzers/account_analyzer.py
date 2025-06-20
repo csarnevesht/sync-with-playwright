@@ -261,30 +261,46 @@ class AccountAnalyzer:
         for account in accounts:
             account_name = account.get('account_name', '')
             if account_name:
-                # Generate name variations and use the first one as the key
+                # Generate name variations and use ALL variations as keys to ensure proper grouping
                 name_variations = self._generate_name_variations(account_name)
-                normalized_key = name_variations[0].lower() if name_variations else account_name.lower()
+                self.logger.debug(f"Account '{account_name}' has variations: {name_variations}")
                 
-                if normalized_key not in accounts_by_normalized_name:
-                    accounts_by_normalized_name[normalized_key] = []
-                accounts_by_normalized_name[normalized_key].append(account)
+                # Use all variations as keys to ensure accounts with different formats are grouped together
+                for variation in name_variations:
+                    normalized_key = variation.lower()
+                    if normalized_key not in accounts_by_normalized_name:
+                        accounts_by_normalized_name[normalized_key] = []
+                    accounts_by_normalized_name[normalized_key].append(account)
         
         self.logger.debug(f"Grouped accounts by normalized name: {list(accounts_by_normalized_name.keys())}")
         
+        # Track which accounts have been processed to avoid duplicates
+        processed_accounts = set()
+        
         # Merge accounts with the same normalized name
         for normalized_name, account_list in accounts_by_normalized_name.items():
-            if len(account_list) == 1:
+            # Filter out already processed accounts
+            unprocessed_accounts = [acc for acc in account_list if id(acc) not in processed_accounts]
+            
+            if not unprocessed_accounts:
+                continue
+                
+            if len(unprocessed_accounts) == 1:
                 # Single account, no merging needed
-                account = account_list[0]
+                account = unprocessed_accounts[0]
                 merged_account = self._create_merged_account(account)
                 merged_accounts.append(merged_account)
+                processed_accounts.add(id(account))
             else:
                 # Multiple accounts with same normalized name, merge them
-                self.logger.debug(f"Merging {len(account_list)} accounts for normalized name: {normalized_name}")
-                for acc in account_list:
+                self.logger.debug(f"Merging {len(unprocessed_accounts)} accounts for normalized name: {normalized_name}")
+                for acc in unprocessed_accounts:
                     self.logger.debug(f"  - {acc.get('account_name', '')} (source: {acc.get('source', '')})")
-                merged_account = self._merge_accounts_with_same_name(account_list)
+                merged_account = self._merge_accounts_with_same_name(unprocessed_accounts)
                 merged_accounts.append(merged_account)
+                # Mark all accounts as processed
+                for acc in unprocessed_accounts:
+                    processed_accounts.add(id(acc))
         
         return merged_accounts
     

@@ -1667,10 +1667,10 @@ class DropboxClient:
             df = pd.read_excel(flatfile_excel, sheet_name=sheet_name)
             
             # Debug: Log current sheet data
-            logger.info(f"Current sheet data shape: {df.shape}")
-            logger.info("Columns in sheet:")
-            for col in df.columns:
-                logger.info(f"  - {col}")
+            # logger.info(f"Current sheet data shape: {df.shape}")
+            # logger.info("Columns in sheet:")
+            # for col in df.columns:
+            #     logger.info(f"  - {col}")
             
             # Check if this is a new entry or update
             last_name = mapped_data['Last Name'].lower()
@@ -1709,7 +1709,7 @@ class DropboxClient:
                                 logger.info(f"  {col}: No change (already matches)")
             else:
                 # Add new entry
-                logger.info(f"\n=== Adding new entry ===")
+                logger.info(f"\n=== Adding new entry to flatfile ===")
                 logger.info(f"No matching rows found, adding new entry to sheet: {sheet_name}")
                 # Create a new row with the same columns as the DataFrame
                 new_row = pd.DataFrame([{col: mapped_data.get(col, '') for col in df.columns}])
