@@ -256,41 +256,164 @@ class AccountAnalyzer:
         
         self.logger.debug(f"Found {len(accounts)} accounts in Dropbox data")
         
+        # Group accounts by normalized name to merge them intelligently
+        accounts_by_normalized_name = {}
         for account in accounts:
             account_name = account.get('account_name', '')
             if account_name:
-                # Always convert type to AccountType if possible
-                raw_type = account.get('account_type', 'Primary')
-                try:
-                    acc_type = AccountType(raw_type)
-                except Exception:
-                    self.logger.warning(f"Invalid account_type '{raw_type}' for Dropbox account '{account_name}', defaulting to Contact.")
-                    acc_type = AccountType.CONTACT
-                merged_account = {
-                    'account_name': account_name,
-                    'type': acc_type,
-                    'role': None,
-                    'stage': None,
-                    'first_name': account.get('first_name', ''),
-                    'last_name': account.get('last_name', ''),
-                    'middle_name': account.get('middle_name', ''),
-                    'email': account.get('email', ''),
-                    'phone': account.get('phone', ''),
-                    'address': account.get('address', ''),
-                    'birthdate': account.get('birthdate', ''),
-                    'gender': account.get('gender', ''),
-                    'ssn_tax_id': account.get('ssn_tax_id', ''),
-                    'drivers_license': account.get('drivers_license', {}),
-                    'source': DataSource.DROPBOX_MERGED,
-                    'data_sources': {
-                        'client_list': account.get('source') == 'client_list_file',
-                        'application_files': account.get('source') == 'application_files'
-                    }
-                }
-                self.logger.debug(f"Created merged account: {account_name} with source: {merged_account['source']}")
-                self.logger.debug(f"Account data: first_name='{merged_account['first_name']}', last_name='{merged_account['last_name']}', phone='{merged_account['phone']}'")
+                # Generate name variations and use the first one as the key
+                name_variations = self._generate_name_variations(account_name)
+                normalized_key = name_variations[0].lower() if name_variations else account_name.lower()
+                
+                if normalized_key not in accounts_by_normalized_name:
+                    accounts_by_normalized_name[normalized_key] = []
+                accounts_by_normalized_name[normalized_key].append(account)
+        
+        self.logger.debug(f"Grouped accounts by normalized name: {list(accounts_by_normalized_name.keys())}")
+        
+        # Merge accounts with the same normalized name
+        for normalized_name, account_list in accounts_by_normalized_name.items():
+            if len(account_list) == 1:
+                # Single account, no merging needed
+                account = account_list[0]
+                merged_account = self._create_merged_account(account)
                 merged_accounts.append(merged_account)
+            else:
+                # Multiple accounts with same normalized name, merge them
+                self.logger.debug(f"Merging {len(account_list)} accounts for normalized name: {normalized_name}")
+                for acc in account_list:
+                    self.logger.debug(f"  - {acc.get('account_name', '')} (source: {acc.get('source', '')})")
+                merged_account = self._merge_accounts_with_same_name(account_list)
+                merged_accounts.append(merged_account)
+        
         return merged_accounts
+    
+    def _create_merged_account(self, account: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a merged account from a single account."""
+        account_name = account.get('account_name', '')
+        
+        # Always convert type to AccountType if possible
+        raw_type = account.get('account_type', 'Primary')
+        try:
+            acc_type = AccountType(raw_type)
+        except Exception:
+            self.logger.warning(f"Invalid account_type '{raw_type}' for Dropbox account '{account_name}', defaulting to Contact.")
+            acc_type = AccountType.CONTACT
+        
+        merged_account = {
+            'account_name': account_name,
+            'type': acc_type,
+            'role': None,
+            'stage': None,
+            'first_name': account.get('first_name', ''),
+            'last_name': account.get('last_name', ''),
+            'middle_name': account.get('middle_name', ''),
+            'email': account.get('email', ''),
+            'phone': account.get('phone', ''),
+            'address': account.get('address', ''),
+            'birthdate': account.get('birthdate', ''),
+            'gender': account.get('gender', ''),
+            'ssn_tax_id': account.get('ssn_tax_id', ''),
+            'drivers_license': account.get('drivers_license', {}),
+            'source': DataSource.DROPBOX_MERGED,
+            'data_sources': {
+                'client_list': account.get('source') == 'client_list_file',
+                'application_files': account.get('source') == 'application_files'
+            }
+        }
+        
+        self.logger.debug(f"Created merged account: {account_name} with source: {merged_account['source']}")
+        self.logger.debug(f"Account data: first_name='{merged_account['first_name']}', last_name='{merged_account['last_name']}', phone='{merged_account['phone']}'")
+        
+        return merged_account
+    
+    def _merge_accounts_with_same_name(self, accounts: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Merge multiple accounts with the same name, combining the best available data."""
+        if not accounts:
+            return {}
+        
+        # Use the first account as the base
+        base_account = accounts[0]
+        account_name = base_account.get('account_name', '')
+        
+        # Always convert type to AccountType if possible
+        raw_type = base_account.get('account_type', 'Primary')
+        try:
+            acc_type = AccountType(raw_type)
+        except Exception:
+            self.logger.warning(f"Invalid account_type '{raw_type}' for Dropbox account '{account_name}', defaulting to Contact.")
+            acc_type = AccountType.CONTACT
+        
+        # Initialize merged data
+        merged_data = {
+            'account_name': account_name,
+            'type': acc_type,
+            'role': None,
+            'stage': None,
+            'first_name': '',
+            'last_name': '',
+            'middle_name': '',
+            'email': '',
+            'phone': '',
+            'address': '',
+            'birthdate': '',
+            'gender': '',
+            'ssn_tax_id': '',
+            'drivers_license': {},
+            'source': DataSource.DROPBOX_MERGED,
+            'data_sources': {
+                'client_list': False,
+                'application_files': False
+            }
+        }
+        
+        # Merge data from all accounts, preferring application files for detailed personal info
+        for account in accounts:
+            source = account.get('source', '')
+            
+            # Update data sources
+            if source == 'client_list_file':
+                merged_data['data_sources']['client_list'] = True
+            elif source == 'application_files':
+                merged_data['data_sources']['application_files'] = True
+            
+            # Merge fields, preferring application files for personal details
+            if not merged_data['first_name'] or source == 'application_files':
+                merged_data['first_name'] = self._get_best_value(merged_data['first_name'], account.get('first_name', ''))
+            
+            if not merged_data['last_name'] or source == 'application_files':
+                merged_data['last_name'] = self._get_best_value(merged_data['last_name'], account.get('last_name', ''))
+            
+            if not merged_data['middle_name'] or source == 'application_files':
+                merged_data['middle_name'] = self._get_best_value(merged_data['middle_name'], account.get('middle_name', ''))
+            
+            if not merged_data['email'] or source == 'application_files':
+                merged_data['email'] = self._get_best_value(merged_data['email'], account.get('email', ''))
+            
+            if not merged_data['phone'] or source == 'application_files':
+                merged_data['phone'] = self._get_best_value(merged_data['phone'], account.get('phone', ''))
+            
+            if not merged_data['address'] or source == 'application_files':
+                merged_data['address'] = self._get_best_value(merged_data['address'], account.get('address', ''))
+            
+            # Prefer application files for birthdate and gender (more detailed personal info)
+            if not merged_data['birthdate'] or source == 'application_files':
+                merged_data['birthdate'] = self._get_best_value(merged_data['birthdate'], account.get('birthdate', ''))
+            
+            if not merged_data['gender'] or source == 'application_files':
+                merged_data['gender'] = self._get_best_value(merged_data['gender'], account.get('gender', ''))
+            
+            if not merged_data['ssn_tax_id'] or source == 'application_files':
+                merged_data['ssn_tax_id'] = self._get_best_value(merged_data['ssn_tax_id'], account.get('ssn_tax_id', ''))
+            
+            # Merge drivers license if available
+            if account.get('drivers_license'):
+                merged_data['drivers_license'] = account.get('drivers_license', {})
+        
+        self.logger.debug(f"Merged {len(accounts)} accounts for {account_name}")
+        self.logger.debug(f"Final merged data: first_name='{merged_data['first_name']}', last_name='{merged_data['last_name']}', gender='{merged_data['gender']}', birthdate='{merged_data['birthdate']}'")
+        
+        return merged_data
     
     def _get_best_value(self, client_list_value: Any, application_value: Any) -> Any:
         """
