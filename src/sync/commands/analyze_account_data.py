@@ -322,7 +322,21 @@ def _generate_field_comparison_tables(report: AccountAnalysisReport) -> str:
     tables = ["📊 **FIELD-BY-FIELD COMPARISON**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"]
     
     for comparison in report.account_comparisons:
-        table = f"\n**Account: {comparison.account_name}**\n"
+        # Get the actual values for first and last name from dropbox (prefer client list file data)
+        first_name_value = comparison.first_name.dropbox_value or comparison.first_name.salesforce_value or "Not specified"
+        last_name_value = comparison.last_name.dropbox_value or comparison.last_name.salesforce_value or "Not specified"
+        
+        # Use the source value directly from the comparison (account analyzer now provides correct source)
+        source_info = comparison.source.value
+        
+        # Create enhanced account header with all requested information
+        if comparison.source.value == 'dropbox_merged':
+            # For merged accounts, show "Name Found in client_list_file" format
+            table = f"\n**Account: {comparison.account_name}** Source: {source_info}, Account Type: {comparison.account_type.value}, Name Found in client_list_file: First Name: {first_name_value}, Last Name: {last_name_value}\n"
+        else:
+            # For other sources, use the original format
+            table = f"\n**Account: {comparison.account_name}** Source: {source_info}, Account Type: {comparison.account_type.value}, Name Found: {comparison.account_name}, First Name: {first_name_value}, Last Name: {last_name_value}\n"
+        
         table += "┌─────────────────┬──────────────┬──────────────┬────────────────────────────┬──────────────┐\n"
         table += "│ Field           │ Salesforce   │ Dropbox      │ Status                     │ Priority     │\n"
         table += "├─────────────────┼──────────────┼──────────────┼────────────────────────────┼──────────────┤\n"
@@ -399,7 +413,142 @@ def _generate_account_details_section(report: AccountAnalysisReport) -> str:
             details.append(f"   - Last Name: {account.get('last_name', 'Not specified')}")
             details.append(f"   - Phone: {account.get('phone', 'Not specified')}")
             details.append(f"   - Address: {account.get('address', 'Not specified')}")
-            details.append(f"   - Email: {account.get('email', 'Not specified')}\n")
+            details.append(f"   - Email: {account.get('email', 'Not specified')}")
+            details.append(f"   - Birthdate: {account.get('birthdate', 'Not specified')}")
+            details.append(f"   - Gender: {account.get('gender', 'Not specified')}")
+            
+            # Show contributing application files for application_files accounts
+            if account.get('source') == 'application_files':
+                application_data = report.dropbox_account_information.get('application_data', {})
+                if application_data and 'all_folder_app_files' in application_data:
+                    # Find the folder path for this account
+                    folder_path = None
+                    for path, files in application_data['all_folder_app_files'].items():
+                        if files:  # If there are files in this folder
+                            folder_path = path
+                            break
+                    
+                    if folder_path and folder_path in application_data['all_folder_app_files']:
+                        files = application_data['all_folder_app_files'][folder_path]
+                        if files:
+                            details.append(f"   - **Contributing Application Files:**")
+                            for file in files:
+                                if hasattr(file, 'name'):
+                                    details.append(f"     📄 {file.name}")
+                                else:
+                                    details.append(f"     📄 {file}")
+                        else:
+                            details.append(f"   - **Contributing Application Files:** None found")
+                    else:
+                        details.append(f"   - **Contributing Application Files:** File information not available")
+            
+            details.append("")  # Empty line for spacing
+    
+    # Merged accounts information
+    if report.account_comparisons:
+        merged_accounts = [comp for comp in report.account_comparisons if comp.source.value == 'dropbox_merged']
+        if merged_accounts:
+            details.append("**Merged Accounts Information:**")
+            for i, comparison in enumerate(merged_accounts, 1):
+                details.append(f"{i}. **{comparison.account_name}** (Merged Account)")
+                details.append(f"   - Account Type: {comparison.account_type.value}")
+                details.append(f"   - Source: {comparison.source.value}")
+                
+                # Find the original accounts that were merged
+                original_accounts = []
+                if report.dropbox_account_information and report.dropbox_account_information.get('accounts'):
+                    for account in report.dropbox_account_information['accounts']:
+                        if account.get('account_name') == comparison.account_name:
+                            original_accounts.append(account)
+                
+                # Show what was merged by looking at the field comparisons
+                merged_fields = []
+                for field_name in ['first_name', 'last_name', 'email', 'phone', 'address', 'birthdate', 'gender']:
+                    field_comparison = getattr(comparison, field_name)
+                    if field_comparison.dropbox_value:
+                        merged_fields.append(f"{field_name}: {field_comparison.dropbox_value}")
+                
+                if merged_fields:
+                    details.append(f"   - Final Merged Data: {', '.join(merged_fields)}")
+                
+                # Show the original sources that were merged
+                if original_accounts:
+                    details.append(f"   - **Merged from {len(original_accounts)} source(s):**")
+                    for j, orig_account in enumerate(original_accounts, 1):
+                        source = orig_account.get('source', 'Unknown')
+                        details.append(f"     {j}. {source.upper()}:")
+                        details.append(f"        - First Name: {orig_account.get('first_name', 'Not specified')}")
+                        details.append(f"        - Last Name: {orig_account.get('last_name', 'Not specified')}")
+                        details.append(f"        - Email: {orig_account.get('email', 'Not specified')}")
+                        details.append(f"        - Phone: {orig_account.get('phone', 'Not specified')}")
+                        details.append(f"        - Address: {orig_account.get('address', 'Not specified')}")
+                        details.append(f"        - Birthdate: {orig_account.get('birthdate', 'Not specified')}")
+                        details.append(f"        - Gender: {orig_account.get('gender', 'Not specified')}")
+                        
+                        # Show match status for client list accounts
+                        if source == 'client_list_file':
+                            details.append(f"        - Match Status: {orig_account.get('match_status', 'Not specified')}")
+                else:
+                    details.append(f"   - **Note: Original source accounts not found in report data**")
+                
+                # Show migration status
+                if comparison.migration_needed:
+                    details.append(f"   - Migration Status: 🔄 Needed ({comparison.migration_priority.value} priority)")
+                else:
+                    details.append(f"   - Migration Status: ✅ Not needed")
+                
+                # Show field status summary
+                field_issues = []
+                for field_name in ['first_name', 'last_name', 'email', 'phone', 'address', 'birthdate', 'gender']:
+                    field_comparison = getattr(comparison, field_name)
+                    if field_comparison.status != 'present':
+                        field_issues.append(f"{field_name}: {field_comparison.status}")
+                
+                if field_issues:
+                    details.append(f"   - Field Issues: {', '.join(field_issues)}")
+                
+                details.append("")  # Empty line for spacing
+    
+    # Show original source accounts that were merged
+    if report.dropbox_account_information and report.dropbox_account_information.get('accounts'):
+        original_sources = report.dropbox_account_information['accounts']
+        if len(original_sources) > 1:  # Only show if there were multiple sources to merge
+            details.append("**Original Source Accounts (Before Merging):**")
+            for i, account in enumerate(original_sources, 1):
+                details.append(f"{i}. **{account.get('account_name', 'Unknown')}**")
+                details.append(f"   - Original Source: {account.get('source', 'Unknown')}")
+                details.append(f"   - Account Type: {account.get('account_type', 'Unknown')}")
+                details.append(f"   - First Name: {account.get('first_name', 'Not specified')}")
+                details.append(f"   - Last Name: {account.get('last_name', 'Not specified')}")
+                details.append(f"   - Email: {account.get('email', 'Not specified')}")
+                details.append(f"   - Phone: {account.get('phone', 'Not specified')}")
+                details.append(f"   - Address: {account.get('address', 'Not specified')}")
+                details.append(f"   - Birthdate: {account.get('birthdate', 'Not specified')}")
+                details.append(f"   - Gender: {account.get('gender', 'Not specified')}")
+                
+                # Show match status for client list accounts
+                if account.get('source') == 'client_list_file':
+                    details.append(f"   - Match Status: {account.get('match_status', 'Not specified')}")
+                
+                details.append("")  # Empty line for spacing
+            
+            # Show merge summary
+            details.append("**Merge Summary:**")
+            client_list_accounts = [acc for acc in original_sources if acc.get('source') == 'client_list_file']
+            application_accounts = [acc for acc in original_sources if acc.get('source') == 'application_files']
+            
+            if client_list_accounts:
+                details.append(f"   - Client List Accounts: {len(client_list_accounts)}")
+                for acc in client_list_accounts:
+                    details.append(f"     * {acc.get('account_name', 'Unknown')} ({acc.get('account_type', 'Unknown')})")
+            
+            if application_accounts:
+                details.append(f"   - Application Files Accounts: {len(application_accounts)}")
+                for acc in application_accounts:
+                    details.append(f"     * {acc.get('account_name', 'Unknown')} ({acc.get('account_type', 'Unknown')})")
+            
+            details.append(f"   - Total Accounts Merged: {len(original_sources)}")
+            details.append("")  # Empty line for spacing
     
     return "\n".join(details)
 

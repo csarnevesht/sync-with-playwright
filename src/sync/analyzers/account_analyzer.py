@@ -316,6 +316,15 @@ class AccountAnalyzer:
             self.logger.warning(f"Invalid account_type '{raw_type}' for Dropbox account '{account_name}', defaulting to Contact.")
             acc_type = AccountType.CONTACT
         
+        # Determine the correct source - only use DROPBOX_MERGED if it actually came from multiple sources
+        original_source = account.get('source', '')
+        if original_source == 'client_list_file':
+            source = DataSource.DROPBOX_CLIENT_LIST
+        elif original_source == 'application_files':
+            source = DataSource.DROPBOX_APPLICATION_FILES
+        else:
+            source = DataSource.DROPBOX_MERGED
+        
         merged_account = {
             'account_name': account_name,
             'type': acc_type,
@@ -331,14 +340,14 @@ class AccountAnalyzer:
             'gender': account.get('gender', ''),
             'ssn_tax_id': account.get('ssn_tax_id', ''),
             'drivers_license': account.get('drivers_license', {}),
-            'source': DataSource.DROPBOX_MERGED,
+            'source': source,
             'data_sources': {
                 'client_list': account.get('source') == 'client_list_file',
                 'application_files': account.get('source') == 'application_files'
             }
         }
         
-        self.logger.debug(f"Created merged account: {account_name} with source: {merged_account['source']}")
+        self.logger.debug(f"Created account: {account_name} with source: {merged_account['source']}")
         self.logger.debug(f"Account data: first_name='{merged_account['first_name']}', last_name='{merged_account['last_name']}', phone='{merged_account['phone']}'")
         
         return merged_account
@@ -360,6 +369,19 @@ class AccountAnalyzer:
             self.logger.warning(f"Invalid account_type '{raw_type}' for Dropbox account '{account_name}', defaulting to Contact.")
             acc_type = AccountType.CONTACT
         
+        # Determine the correct source - only use DROPBOX_MERGED if there are multiple accounts
+        if len(accounts) > 1:
+            source = DataSource.DROPBOX_MERGED
+        else:
+            # Single account, use the original source
+            original_source = base_account.get('source', '')
+            if original_source == 'client_list_file':
+                source = DataSource.DROPBOX_CLIENT_LIST
+            elif original_source == 'application_files':
+                source = DataSource.DROPBOX_APPLICATION_FILES
+            else:
+                source = DataSource.DROPBOX_MERGED
+        
         # Initialize merged data
         merged_data = {
             'account_name': account_name,
@@ -376,7 +398,7 @@ class AccountAnalyzer:
             'gender': '',
             'ssn_tax_id': '',
             'drivers_license': {},
-            'source': DataSource.DROPBOX_MERGED,
+            'source': source,
             'data_sources': {
                 'client_list': False,
                 'application_files': False
@@ -426,8 +448,11 @@ class AccountAnalyzer:
             if account.get('drivers_license'):
                 merged_data['drivers_license'] = account.get('drivers_license', {})
         
-        self.logger.debug(f"Merged {len(accounts)} accounts for {account_name}")
-        self.logger.debug(f"Final merged data: first_name='{merged_data['first_name']}', last_name='{merged_data['last_name']}', gender='{merged_data['gender']}', birthdate='{merged_data['birthdate']}'")
+        if len(accounts) > 1:
+            self.logger.debug(f"Merged {len(accounts)} accounts for {account_name}")
+        else:
+            self.logger.debug(f"Single account {account_name} from {accounts[0].get('source', 'unknown')}")
+        self.logger.debug(f"Final data: first_name='{merged_data['first_name']}', last_name='{merged_data['last_name']}', gender='{merged_data['gender']}', birthdate='{merged_data['birthdate']}'")
         
         return merged_data
     
@@ -542,7 +567,7 @@ class AccountAnalyzer:
                             if db_key not in matched_db_accounts:
                                 self.logger.debug(f"Creating comparison for Salesforce '{sf_name}' ({sf_type}) and Dropbox '{db_name}' ({db_type})")
                                 comparison = self._create_account_comparison_with_mapping(
-                                    sf_account, db_account, expected_mapping, db_account.get('source', DataSource.DROPBOX_MERGED)
+                                    sf_account, db_account, expected_mapping, db_account.get('source')
                                 )
                                 comparisons.append(comparison)
                                 matched_sf_accounts.add(sf_key)
@@ -573,7 +598,7 @@ class AccountAnalyzer:
                     db_key = (db_name, db_type)
                     if db_key not in matched_db_accounts:
                         comparison = self._create_account_comparison_with_mapping(
-                            None, db_account, expected_mapping, db_account.get('source', DataSource.DROPBOX_MERGED)
+                            None, db_account, expected_mapping, db_account.get('source')
                         )
                         comparisons.append(comparison)
                         matched_db_accounts.add(db_key)
