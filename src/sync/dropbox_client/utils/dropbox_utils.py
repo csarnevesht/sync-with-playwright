@@ -81,7 +81,22 @@ class DropboxClient:
         self.debug_mode = debug_mode
         self.auth = DropboxAuth()
         self.token = token
-        self.dbx = dropbox.Dropbox(token)
+        # Get refresh token, app key, and app secret from environment
+        refresh_token = os.getenv('DROPBOX_REFRESH_TOKEN')
+        app_key = os.getenv('DROPBOX_APP_KEY')
+        app_secret = os.getenv('DROPBOX_APP_SECRET')
+        # Use Dropbox SDK's built-in refresh support if refresh token and app credentials are available
+        if refresh_token and app_key and app_secret:
+            self.dbx = dropbox.Dropbox(
+                oauth2_access_token=token,
+                oauth2_refresh_token=refresh_token,
+                app_key=app_key,
+                app_secret=app_secret
+            )
+            logger.info("Initialized Dropbox client with automatic refresh support.")
+        else:
+            self.dbx = dropbox.Dropbox(token)
+            logger.info("Initialized Dropbox client with static access token only.")
         
         # Get the root folder from environment
         folder = DROPBOX_FOLDER
@@ -134,41 +149,17 @@ class DropboxClient:
         if debug_mode:
             logging.info("Debug mode is enabled")
 
-    def _handle_token_expiration(self):
-        """Handle token expiration by refreshing the token."""
-        try:
-            new_token = self.auth.refresh_access_token()
-            if new_token:
-                self.token = new_token
-                self.dbx = dropbox.Dropbox(new_token)
-                logger.info("Successfully refreshed token and reinitialized client")
-                return True
-            return False
-        except Exception as e:
-            logger.error(f"Failed to refresh token: {str(e)}")
-            return False
-
     def _make_request(self, func, *args, **kwargs):
         """
-        Make a request to Dropbox API with automatic token refresh.
-        
+        Make a request to Dropbox API. The Dropbox SDK will handle token refresh automatically if configured.
         Args:
             func: The Dropbox API function to call
             *args: Arguments to pass to the function
             **kwargs: Keyword arguments to pass to the function
-            
         Returns:
             The result of the API call
         """
-        try:
-            return func(*args, **kwargs)
-        except dropbox.exceptions.ApiError as e:
-            if e.error.is_expired_access_token():
-                logger.info("Access token expired, attempting to refresh...")
-                if self._handle_token_expiration():
-                    # Retry the request with the new token
-                    return func(*args, **kwargs)
-            raise
+        return func(*args, **kwargs)
 
     def _debug_show_files(self, account_name: str, files: List[FileMetadata], skip_patterns: List[str] = None) -> List[FileMetadata]:
         """
@@ -2061,24 +2052,39 @@ def get_access_token() -> str:
     Returns:
         str: Dropbox access token
     """
+    logger.info("=== GET_ACCESS_TOKEN DEBUGGING ===")
+    
     # First try to load from .env file
     try:
+        logger.info("Attempting to load .env file...")
         load_dotenv()
         token = os.getenv('DROPBOX_TOKEN')
         if token:
-            logger.info("Token loaded from .env file (DROPBOX_TOKEN)")
+            logger.info("✅ Token loaded from .env file (DROPBOX_TOKEN)")
+            logger.info(f"   Token length: {len(token)} characters")
+            logger.info(f"   Token preview: {token[:20]}...")
+            logger.info("=== END GET_ACCESS_TOKEN DEBUGGING ===")
             return token
+        else:
+            logger.warning("❌ No DROPBOX_TOKEN found in .env file")
     except Exception as e:
-        logger.warning(f"Failed to load .env file: {str(e)}")
+        logger.warning(f"❌ Failed to load .env file: {str(e)}")
     
     # If not in .env, try environment variable
+    logger.info("Checking environment variable DROPBOX_TOKEN...")
     token = os.getenv('DROPBOX_TOKEN')
     if token:
-        logger.info("Token loaded from environment variable DROPBOX_TOKEN")
+        logger.info("✅ Token loaded from environment variable DROPBOX_TOKEN")
+        logger.info(f"   Token length: {len(token)} characters")
+        logger.info(f"   Token preview: {token[:20]}...")
+        logger.info("=== END GET_ACCESS_TOKEN DEBUGGING ===")
         return token
+    else:
+        logger.warning("❌ No DROPBOX_TOKEN found in environment variables")
     
     # If still not found, prompt user
-    logger.warning("No token found in .env file or environment")
+    logger.warning("❌ No token found in .env file or environment")
+    logger.info("=== END GET_ACCESS_TOKEN DEBUGGING ===")
     token = input("Please enter your Dropbox access token: ").strip()
     if not token:
         raise ValueError("No access token provided")
@@ -2286,24 +2292,39 @@ def get_refresh_token() -> str:
     Returns:
         str: Dropbox refresh token
     """
+    logger.info("=== GET_REFRESH_TOKEN DEBUGGING ===")
+    
     # First try to load from .env file
     try:
+        logger.info("Attempting to load .env file for refresh token...")
         load_dotenv()
         token = os.getenv('DROPBOX_REFRESH_TOKEN')
         if token:
-            logger.info("Refresh token loaded from .env file (DROPBOX_REFRESH_TOKEN)")
+            logger.info("✅ Refresh token loaded from .env file (DROPBOX_REFRESH_TOKEN)")
+            logger.info(f"   Token length: {len(token)} characters")
+            logger.info(f"   Token preview: {token[:20]}...")
+            logger.info("=== END GET_REFRESH_TOKEN DEBUGGING ===")
             return token
+        else:
+            logger.warning("❌ No DROPBOX_REFRESH_TOKEN found in .env file")
     except Exception as e:
-        logger.warning(f"Failed to load .env file: {str(e)}")
+        logger.warning(f"❌ Failed to load .env file: {str(e)}")
     
     # If not in .env, try environment variable
+    logger.info("Checking environment variable DROPBOX_REFRESH_TOKEN...")
     token = os.getenv('DROPBOX_REFRESH_TOKEN')
     if token:
-        logger.info("Refresh token loaded from environment variable DROPBOX_REFRESH_TOKEN")
+        logger.info("✅ Refresh token loaded from environment variable DROPBOX_REFRESH_TOKEN")
+        logger.info(f"   Token length: {len(token)} characters")
+        logger.info(f"   Token preview: {token[:20]}...")
+        logger.info("=== END GET_REFRESH_TOKEN DEBUGGING ===")
         return token
+    else:
+        logger.warning("❌ No DROPBOX_REFRESH_TOKEN found in environment variables")
     
     # If still not found, prompt user
-    logger.warning("No refresh token found in .env file or environment")
+    logger.warning("❌ No refresh token found in .env file or environment")
+    logger.info("=== END GET_REFRESH_TOKEN DEBUGGING ===")
     token = input("Please enter your Dropbox refresh token: ").strip()
     if not token:
         raise ValueError("No refresh token provided")
@@ -2347,25 +2368,43 @@ def refresh_access_token() -> str:
     Returns:
         str: New access token
     """
+    logger.info("=== REFRESH_ACCESS_TOKEN DEBUGGING ===")
+    
     try:
+        logger.info("Getting refresh token...")
         refresh_token = get_refresh_token()
-        app_key = get_app_key()
+        logger.info(f"✅ Refresh token obtained (length: {len(refresh_token)})")
         
+        logger.info("Getting app key...")
+        app_key = get_app_key()
+        logger.info(f"✅ App key obtained: {app_key[:10]}...")
+        
+        logger.info("Creating OAuth2 refresh flow...")
         # Create OAuth2 refresh flow
         auth_flow = dropbox.DropboxOAuth2FlowNoRedirect(
             app_key,
             token_access_type='offline'
         )
+        logger.info("✅ OAuth2 refresh flow created")
         
+        logger.info("Attempting to refresh access token...")
         # Get new access token
         new_token = auth_flow.refresh_access_token(refresh_token)
+        logger.info("✅ Access token refreshed successfully")
+        logger.info(f"   New token length: {len(new_token.access_token)} characters")
+        logger.info(f"   New token preview: {new_token.access_token[:20]}...")
         
+        logger.info("Updating .env file with new token...")
         # Update .env file with new token
         update_env_file('.env', token=new_token.access_token)
+        logger.info("✅ .env file updated with new token")
         
         logger.info("Successfully refreshed access token")
+        logger.info("=== END REFRESH_ACCESS_TOKEN DEBUGGING ===")
         return new_token.access_token
         
     except Exception as e:
-        logger.error(f"Failed to refresh access token: {str(e)}")
-        raise 
+        logger.error(f"❌ Failed to refresh access token: {str(e)}")
+        logger.error(f"   Error type: {type(e).__name__}")
+        logger.info("=== END REFRESH_ACCESS_TOKEN DEBUGGING ===")
+        raise
