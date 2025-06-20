@@ -959,6 +959,7 @@ class CommandRunner:
             'names_found': [],
             'client_list_data': None,
             'application_data': None,
+            'app_files_extraction_summary': None,
             'accounts': []
         }
         
@@ -1026,6 +1027,13 @@ class CommandRunner:
             self.set_data('account_info_from_app_files', account_info_from_app_files)
         
         dropbox_account_information['application_data'] = account_info_from_app_files
+        
+        # Get app files extraction summary data
+        try:
+            app_files_extraction_summary = self.get_data('app_files_extraction_summary')
+        except KeyError:
+            app_files_extraction_summary = None
+        dropbox_account_information['app_files_extraction_summary'] = app_files_extraction_summary
         
         # Create account objects from application files data
         best_available_info = account_info_from_app_files.get('best_available_info', {})
