@@ -440,38 +440,34 @@ def _generate_account_details_section(report: AccountAnalysisReport) -> str:
                             print(f"DEBUG: Checking file {file.name} with path {file_path}")
                             print(f"DEBUG: file_info: {file_info}")
                             
-                            # Check what fields are available in file_info
-                            file_first = ''
-                            file_last = ''
-                            
                             # Check owner information
                             owner = file_info.get('owner', {})
+                            account_first = account.get('first_name', '')
+                            account_last = account.get('last_name', '')
                             if owner.get('firstName') and owner.get('lastName'):
                                 file_first = owner.get('firstName', '')
                                 file_last = owner.get('lastName', '')
-                            
-                            # Check joint owner information as well
+                                print(f"DEBUG: Comparing OWNER file_first='{file_first}' vs account_first='{account_first}'")
+                                print(f"DEBUG: Comparing OWNER file_last='{file_last}' vs account_last='{account_last}'")
+                                if (
+                                    file_first.strip().lower() == account_first.strip().lower() and
+                                    file_last.strip().lower() == account_last.strip().lower()
+                                ):
+                                    print(f"DEBUG: MATCH FOUND for OWNER in file {file.name}")
+                                    matching_files.append(file)
+                            # Check joint owner information
                             joint_owner = file_info.get('jointOwner', {})
                             if joint_owner.get('firstName') and joint_owner.get('lastName'):
-                                # If we already have owner info, check if joint owner matches instead
-                                if file_first and file_last:
-                                    # Check if joint owner matches the account we're looking for
-                                    joint_first = joint_owner.get('firstName', '')
-                                    joint_last = joint_owner.get('lastName', '')
-                                    account_first = account.get('first_name', '')
-                                    account_last = account.get('last_name', '')
-                                    
-                                    print(f"DEBUG: Comparing file_first='{file_first}' vs account_first='{account_first}'")
-                                    print(f"DEBUG: Comparing file_last='{file_last}' vs account_last='{account_last}'")
-                                    
-                                    if (
-                                        file_first.strip().lower() == account_first.strip().lower() and
-                                        file_last.strip().lower() == account_last.strip().lower()
-                                    ):
-                                        print(f"DEBUG: MATCH FOUND for file {file.name}")
-                                        matching_files.append(file)
-                                else:
-                                    print(f"DEBUG: NO MATCH for file {file.name}")
+                                joint_first = joint_owner.get('firstName', '')
+                                joint_last = joint_owner.get('lastName', '')
+                                print(f"DEBUG: Comparing JOINT file_first='{joint_first}' vs account_first='{account_first}'")
+                                print(f"DEBUG: Comparing JOINT file_last='{joint_last}' vs account_last='{account_last}'")
+                                if (
+                                    joint_first.strip().lower() == account_first.strip().lower() and
+                                    joint_last.strip().lower() == account_last.strip().lower()
+                                ):
+                                    print(f"DEBUG: MATCH FOUND for JOINT OWNER in file {file.name}")
+                                    matching_files.append(file)
                     
                     print(f"DEBUG: Total matching files found: {len(matching_files)}")
                     if matching_files:
@@ -572,44 +568,35 @@ def _generate_account_details_section(report: AccountAnalysisReport) -> str:
                                 file_path = getattr(file, 'path_display', None)
                                 file_info = app_files_extraction_summary['file_info'].get(file_path, {})
                                 
-                                # Check what fields are available in file_info
-                                file_first = ''
-                                file_last = ''
-                                
                                 # Check owner information
                                 owner = file_info.get('owner', {})
+                                account_first = account.get('first_name', '')
+                                account_last = account.get('last_name', '')
                                 if owner.get('firstName') and owner.get('lastName'):
                                     file_first = owner.get('firstName', '')
                                     file_last = owner.get('lastName', '')
-                                
-                                # Check joint owner information as well
+                                    print(f"DEBUG: Comparing OWNER file_first='{file_first}' vs account_first='{account_first}'")
+                                    print(f"DEBUG: Comparing OWNER file_last='{file_last}' vs account_last='{account_last}'")
+                                    if (
+                                        file_first.strip().lower() == account_first.strip().lower() and
+                                        file_last.strip().lower() == account_last.strip().lower()
+                                    ):
+                                        print(f"DEBUG: MATCH FOUND for OWNER in file {file.name}")
+                                        matching_files.append(file)
+                                # Check joint owner information
                                 joint_owner = file_info.get('jointOwner', {})
                                 if joint_owner.get('firstName') and joint_owner.get('lastName'):
-                                    # If we already have owner info, check if joint owner matches instead
-                                    if file_first and file_last:
-                                        # Check if joint owner matches the account we're looking for
-                                        joint_first = joint_owner.get('firstName', '')
-                                        joint_last = joint_owner.get('lastName', '')
-                                        account_first = account.get('first_name', '')
-                                        account_last = account.get('last_name', '')
-                                        
-                                        print(f"DEBUG: Comparing file_first='{file_first}' vs account_first='{account_first}'")
-                                        print(f"DEBUG: Comparing file_last='{file_last}' vs account_last='{account_last}'")
-                                        
-                                        if (
-                                            file_first.strip().lower() == account_first.strip().lower() and
-                                            file_last.strip().lower() == account_last.strip().lower()
-                                        ):
-                                            print(f"DEBUG: MATCH FOUND for file {file.name}")
-                                            matching_files.append(file)
-                                    else:
-                                        print(f"DEBUG: NO MATCH for file {file.name}")
-                                
-                                if (
-                                    file_first.strip().lower() == merged_first.strip().lower() and
-                                    file_last.strip().lower() == merged_last.strip().lower()
-                                ):
-                                    matching_files.append(file)
+                                    joint_first = joint_owner.get('firstName', '')
+                                    joint_last = joint_owner.get('lastName', '')
+                                    print(f"DEBUG: Comparing JOINT file_first='{joint_first}' vs account_first='{account_first}'")
+                                    print(f"DEBUG: Comparing JOINT file_last='{joint_last}' vs account_last='{account_last}'")
+                                    if (
+                                        joint_first.strip().lower() == account_first.strip().lower() and
+                                        joint_last.strip().lower() == account_last.strip().lower()
+                                    ):
+                                        print(f"DEBUG: MATCH FOUND for JOINT OWNER in file {file.name}")
+                                        matching_files.append(file)
+
                         if matching_files:
                             details.append(f"   - **Contributing Application Files:**")
                             for file in matching_files:
@@ -651,38 +638,34 @@ def _generate_account_details_section(report: AccountAnalysisReport) -> str:
                                 file_path = getattr(file, 'path_display', None)
                                 file_info = app_files_extraction_summary['file_info'].get(file_path, {})
                                 
-                                # Check what fields are available in file_info
-                                file_first = ''
-                                file_last = ''
-                                
                                 # Check owner information
                                 owner = file_info.get('owner', {})
+                                account_first = account.get('first_name', '')
+                                account_last = account.get('last_name', '')
                                 if owner.get('firstName') and owner.get('lastName'):
                                     file_first = owner.get('firstName', '')
                                     file_last = owner.get('lastName', '')
-                                
-                                # Check joint owner information as well
+                                    print(f"DEBUG: Comparing OWNER file_first='{file_first}' vs account_first='{account_first}'")
+                                    print(f"DEBUG: Comparing OWNER file_last='{file_last}' vs account_last='{account_last}'")
+                                    if (
+                                        file_first.strip().lower() == account_first.strip().lower() and
+                                        file_last.strip().lower() == account_last.strip().lower()
+                                    ):
+                                        print(f"DEBUG: MATCH FOUND for OWNER in file {file.name}")
+                                        matching_files.append(file)
+                                # Check joint owner information
                                 joint_owner = file_info.get('jointOwner', {})
                                 if joint_owner.get('firstName') and joint_owner.get('lastName'):
-                                    # If we already have owner info, check if joint owner matches instead
-                                    if file_first and file_last:
-                                        # Check if joint owner matches the account we're looking for
-                                        joint_first = joint_owner.get('firstName', '')
-                                        joint_last = joint_owner.get('lastName', '')
-                                        account_first = account.get('first_name', '')
-                                        account_last = account.get('last_name', '')
-                                        
-                                        print(f"DEBUG: Comparing file_first='{file_first}' vs account_first='{account_first}'")
-                                        print(f"DEBUG: Comparing file_last='{file_last}' vs account_last='{account_last}'")
-                                        
-                                        if (
-                                            file_first.strip().lower() == account_first.strip().lower() and
-                                            file_last.strip().lower() == account_last.strip().lower()
-                                        ):
-                                            print(f"DEBUG: MATCH FOUND for file {file.name}")
-                                            matching_files.append(file)
-                                    else:
-                                        print(f"DEBUG: NO MATCH for file {file.name}")
+                                    joint_first = joint_owner.get('firstName', '')
+                                    joint_last = joint_owner.get('lastName', '')
+                                    print(f"DEBUG: Comparing JOINT file_first='{joint_first}' vs account_first='{account_first}'")
+                                    print(f"DEBUG: Comparing JOINT file_last='{joint_last}' vs account_last='{account_last}'")
+                                    if (
+                                        joint_first.strip().lower() == account_first.strip().lower() and
+                                        joint_last.strip().lower() == account_last.strip().lower()
+                                    ):
+                                        print(f"DEBUG: MATCH FOUND for JOINT OWNER in file {file.name}")
+                                        matching_files.append(file)
                                 
                                 if (
                                     file_first.strip().lower() == account.get('first_name', '').strip().lower() and
