@@ -347,6 +347,57 @@ def _generate_field_comparison_tables(report: AccountAnalysisReport) -> str:
             # For other sources, use the original format
             table = f"\n**Account: {comparison.account_name}** Source: {source_info}, Account Type: {comparison.account_type.value}, Name Found: {comparison.account_name}, First Name: {first_name_value}, Last Name: {last_name_value}\n"
         
+        # Add Dropbox account information for clarity
+        if comparison.source.value == 'salesforce':
+            # For Salesforce accounts, show which Dropbox account (if any) is being used for comparison
+            dropbox_account_used = "None (no matching Dropbox account found)"
+            # Check if any fields have Dropbox values
+            for field_name in ['first_name', 'last_name', 'email', 'phone', 'address', 'birthdate', 'gender', 'ssn_tax_id']:
+                field_comparison = getattr(comparison, field_name)
+                if field_comparison.dropbox_value:
+                    dropbox_account_used = f"Matched Dropbox account with data"
+                    break
+            table += f"**Dropbox Account Used:** {dropbox_account_used}\n"
+        elif comparison.source.value == 'dropbox_merged':
+            # For merged accounts, show the specific accounts that were merged
+            merged_details = "Merged from multiple Dropbox sources"
+            if hasattr(comparison, 'merged_from') and comparison.merged_from:
+                merged_accounts = comparison.merged_from
+                if len(merged_accounts) > 1:
+                    merged_details = f"Merged from {len(merged_accounts)} accounts:\n"
+                    for i, merged_account in enumerate(merged_accounts, 1):
+                        source = merged_account.get('source', 'Unknown')
+                        account_name = merged_account.get('account_name', 'Unknown')
+                        merged_details += f"  {i}. {account_name} (source: {source})\n"
+                else:
+                    merged_details = f"Single account: {merged_accounts[0].get('account_name', 'Unknown')} (source: {merged_accounts[0].get('source', 'Unknown')})"
+            else:
+                # Fallback: try to find the merged_from data in the dropbox account information
+                if report.dropbox_account_information and report.dropbox_account_information.get('accounts'):
+                    for account in report.dropbox_account_information['accounts']:
+                        if account.get('account_name') == comparison.account_name and account.get('merged_from'):
+                            merged_accounts = account.get('merged_from', [])
+                            if len(merged_accounts) > 1:
+                                merged_details = f"Merged from {len(merged_accounts)} accounts:\n"
+                                for i, merged_account in enumerate(merged_accounts, 1):
+                                    source = merged_account.get('source', 'Unknown')
+                                    account_name = merged_account.get('account_name', 'Unknown')
+                                    merged_details += f"  {i}. {account_name} (source: {source})\n"
+                            else:
+                                merged_details = f"Single account: {merged_accounts[0].get('account_name', 'Unknown')} (source: {merged_accounts[0].get('source', 'Unknown')})"
+                            break
+                    else:
+                        # If we can't find the merged_from data, try to show what we know about the account
+                        for account in report.dropbox_account_information['accounts']:
+                            if account.get('account_name') == comparison.account_name:
+                                source = account.get('source', 'Unknown')
+                                merged_details = f"Account from {source}"
+                                break
+            table += f"**Dropbox Account Used:** {merged_details}\n"
+        else:
+            # For Dropbox accounts, show the actual Dropbox account name
+            table += f"**Dropbox Account Used:** {comparison.account_name}\n"
+        
         table += "┌─────────────────┬──────────────┬──────────────┬────────────────────────────┬──────────────┐\n"
         table += "│ Field           │ Salesforce   │ Dropbox      │ Status                     │ Priority     │\n"
         table += "├─────────────────┼──────────────┼──────────────┼────────────────────────────┼──────────────┤\n"
