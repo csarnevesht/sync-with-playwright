@@ -87,6 +87,7 @@ class AccountComparison(BaseModel):
     # Additional fields
     stage: Optional[str] = None  # Salesforce specific
     drivers_license: Optional[Dict[str, Any]] = None  # Dropbox specific
+    merged_from: Optional[List[Dict[str, Any]]] = None  # For merged accounts, store original accounts
     
     # Migration information
     migration_needed: bool = False

@@ -344,7 +344,18 @@ class AccountAnalyzer:
             'data_sources': {
                 'client_list': account.get('source') == 'client_list_file',
                 'application_files': account.get('source') == 'application_files'
-            }
+            },
+            'merged_from': [{  # Single account, so it's merged from itself
+                'account_name': account.get('account_name', ''),
+                'source': account.get('source', ''),
+                'first_name': account.get('first_name', ''),
+                'last_name': account.get('last_name', ''),
+                'email': account.get('email', ''),
+                'phone': account.get('phone', ''),
+                'address': account.get('address', ''),
+                'birthdate': account.get('birthdate', ''),
+                'gender': account.get('gender', '')
+            }]
         }
         
         self.logger.debug(f"Created account: {account_name} with source: {merged_account['source']}")
@@ -402,10 +413,25 @@ class AccountAnalyzer:
             'data_sources': {
                 'client_list': False,
                 'application_files': False
-            }
+            },
+            'merged_from': []  # Store the original accounts that were merged
         }
         
-        # Merge data from all accounts, preferring application files for detailed personal info
+        # Store the original accounts that were merged
+        for account in accounts:
+            merged_data['merged_from'].append({
+                'account_name': account.get('account_name', ''),
+                'source': account.get('source', ''),
+                'first_name': account.get('first_name', ''),
+                'last_name': account.get('last_name', ''),
+                'email': account.get('email', ''),
+                'phone': account.get('phone', ''),
+                'address': account.get('address', ''),
+                'birthdate': account.get('birthdate', ''),
+                'gender': account.get('gender', '')
+            })
+        
+        # Merge data from all accounts, preferring client_list_file for basic info and application_files for detailed personal info
         for account in accounts:
             source = account.get('source', '')
             
@@ -415,26 +441,30 @@ class AccountAnalyzer:
             elif source == 'application_files':
                 merged_data['data_sources']['application_files'] = True
             
-            # Merge fields, preferring application files for personal details
-            if not merged_data['first_name'] or source == 'application_files':
+            # Merge fields with proper precedence:
+            # - client_list_file takes precedence for basic contact info (name, phone, address, email)
+            # - application_files takes precedence for detailed personal info (birthdate, gender, ssn)
+            
+            # Basic contact info - prefer client_list_file
+            if not merged_data['first_name'] or source == 'client_list_file':
                 merged_data['first_name'] = self._get_best_value(merged_data['first_name'], account.get('first_name', ''))
             
-            if not merged_data['last_name'] or source == 'application_files':
+            if not merged_data['last_name'] or source == 'client_list_file':
                 merged_data['last_name'] = self._get_best_value(merged_data['last_name'], account.get('last_name', ''))
             
-            if not merged_data['middle_name'] or source == 'application_files':
+            if not merged_data['middle_name'] or source == 'client_list_file':
                 merged_data['middle_name'] = self._get_best_value(merged_data['middle_name'], account.get('middle_name', ''))
             
-            if not merged_data['email'] or source == 'application_files':
-                merged_data['email'] = self._get_best_value(merged_data['email'], account.get('email', ''))
-            
-            if not merged_data['phone'] or source == 'application_files':
+            if not merged_data['phone'] or source == 'client_list_file':
                 merged_data['phone'] = self._get_best_value(merged_data['phone'], account.get('phone', ''))
             
-            if not merged_data['address'] or source == 'application_files':
+            if not merged_data['address'] or source == 'client_list_file':
                 merged_data['address'] = self._get_best_value(merged_data['address'], account.get('address', ''))
             
-            # Prefer application files for birthdate and gender (more detailed personal info)
+            if not merged_data['email'] or source == 'client_list_file':
+                merged_data['email'] = self._get_best_value(merged_data['email'], account.get('email', ''))
+            
+            # Detailed personal info - prefer application_files
             if not merged_data['birthdate'] or source == 'application_files':
                 merged_data['birthdate'] = self._get_best_value(merged_data['birthdate'], account.get('birthdate', ''))
             
@@ -450,9 +480,7 @@ class AccountAnalyzer:
         
         if len(accounts) > 1:
             self.logger.debug(f"Merged {len(accounts)} accounts for {account_name}")
-        else:
-            self.logger.debug(f"Single account {account_name} from {accounts[0].get('source', 'unknown')}")
-        self.logger.debug(f"Final data: first_name='{merged_data['first_name']}', last_name='{merged_data['last_name']}', gender='{merged_data['gender']}', birthdate='{merged_data['birthdate']}'")
+            self.logger.debug(f"Final data: first_name='{merged_data['first_name']}', last_name='{merged_data['last_name']}', gender='{merged_data['gender']}', birthdate='{merged_data['birthdate']}'")
         
         return merged_data
     
@@ -564,14 +592,18 @@ class AccountAnalyzer:
                             
                             self.logger.debug(f"Checking Dropbox account: name='{db_name}', type='{db_type}', already matched: {db_key in matched_db_accounts}")
                             
-                            if db_key not in matched_db_accounts:
+                            # Allow multiple Salesforce accounts to match the same Dropbox account
+                            # This handles cases like "Maria Montesino Household" and "Maria Montesino" both matching the same person
+                            if db_key not in matched_db_accounts or self._should_allow_multiple_matches(sf_account, db_account):
                                 self.logger.debug(f"Creating comparison for Salesforce '{sf_name}' ({sf_type}) and Dropbox '{db_name}' ({db_type})")
                                 comparison = self._create_account_comparison_with_mapping(
                                     sf_account, db_account, expected_mapping, db_account.get('source')
                                 )
                                 comparisons.append(comparison)
                                 matched_sf_accounts.add(sf_key)
-                                matched_db_accounts.add(db_key)
+                                # Only mark Dropbox account as matched if it's a one-to-one relationship
+                                if not self._should_allow_multiple_matches(sf_account, db_account):
+                                    matched_db_accounts.add(db_key)
                                 found_match = True
                                 break
                         if found_match:
@@ -672,7 +704,8 @@ class AccountAnalyzer:
     
     def _generate_name_variations(self, name: str) -> List[str]:
         """Generate different name variations for matching."""
-        variations = [name]
+        variations = set()  # Use set to avoid duplicates
+        variations.add(name)  # Add original name
         
         if ', ' in name:
             # Handle "Last, First" format
@@ -681,9 +714,9 @@ class AccountAnalyzer:
                 last_name = parts[0].strip()
                 first_name = parts[1].strip()
                 # Add "First Last" variation
-                variations.append(f"{first_name} {last_name}")
-                # Add "Last, First" variation (original)
-                variations.append(f"{last_name}, {first_name}")
+                variations.add(f"{first_name} {last_name}")
+                # Add "First Last Household" variation for household matching
+                variations.add(f"{first_name} {last_name} Household")
         else:
             # Handle "First Last" format
             parts = name.split()
@@ -691,11 +724,11 @@ class AccountAnalyzer:
                 first_name = parts[0].strip()
                 last_name = parts[1].strip()
                 # Add "Last, First" variation
-                variations.append(f"{last_name}, {first_name}")
-                # Add "First Last" variation (original)
-                variations.append(f"{first_name} {last_name}")
+                variations.add(f"{last_name}, {first_name}")
+                # Add "First Last Household" variation for household matching
+                variations.add(f"{first_name} {last_name} Household")
         
-        return variations
+        return list(variations)  # Convert back to list
     
     def _create_account_comparison_with_mapping(self, sf_account: Optional[Dict[str, Any]],
                                               db_account: Optional[Dict[str, Any]],
@@ -750,7 +783,8 @@ class AccountAnalyzer:
         migration_needed = any(fc.status in [FieldStatus.MISSING, FieldStatus.DIFFERENT] 
                              for fc in field_comparisons.values())
         
-        return AccountComparison(
+        # Create the comparison with the merged account data
+        comparison = AccountComparison(
             account_name=account_name,
             account_type=account_type,
             role=role,
@@ -767,6 +801,12 @@ class AccountAnalyzer:
             migration_needed=migration_needed,
             migration_priority=MigrationPriority.HIGH if migration_needed else MigrationPriority.NOT_NEEDED
         )
+        
+        # Store the merged account data for summary generation
+        if db_account and db_account.get('merged_from'):
+            comparison.merged_from = db_account.get('merged_from')
+        
+        return comparison
     
     def _compare_field(self, field_name: str, salesforce_account: Optional[Dict[str, Any]], 
                       dropbox_account: Optional[Dict[str, Any]]) -> FieldComparison:
@@ -1283,4 +1323,32 @@ class AccountAnalyzer:
         elif sf_present and not db_present:
             return '❌ Missing in Dropbox'
         else:
-            return '❌ Missing in Both' 
+            return '❌ Missing in Both'
+
+    def _should_allow_multiple_matches(self, sf_account: Dict[str, Any], db_account: Dict[str, Any]) -> bool:
+        """Determine if multiple Salesforce accounts should match the same Dropbox account."""
+        sf_name = sf_account.get('account_name', '').lower()
+        sf_type = str(sf_account.get('type', '')).lower()
+        db_name = db_account.get('account_name', '').lower()
+        
+        # Allow multiple matches when:
+        # 1. Salesforce account is a Household and Dropbox account is a Primary/Contact
+        # 2. Salesforce account is a Contact and Dropbox account is a Primary/Contact
+        # 3. Both represent the same person (name similarity check)
+        
+        # Check if names are similar (same person, different contexts)
+        sf_name_clean = sf_name.replace(' household', '').replace(' contact', '').strip()
+        db_name_clean = db_name.replace(' household', '').replace(' contact', '').strip()
+        
+        # If names are essentially the same person, allow multiple matches
+        if sf_name_clean == db_name_clean:
+            return True
+        
+        # Allow Household and Contact accounts to match the same Dropbox account
+        if 'household' in sf_type and 'primary' in str(db_account.get('type', '')).lower():
+            return True
+        
+        if 'contact' in sf_type and 'primary' in str(db_account.get('type', '')).lower():
+            return True
+        
+        return False 

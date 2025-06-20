@@ -19,13 +19,9 @@ Special Cases:
    - Last Name: McNabb
    - First Name: Frances
    - Additional Info: daughter Pam Murphy
-   - Expected Salesforce Matches:
-     * Frances McNabb
-     * McNabb, Frances
-     * McNabb Household
-   - Expected Dropbox Matches:
-     * Murphy, Pamela/Daniel
-     * Pamela/Daniel Murphy
+   - Notes:
+      * In Salesforce there is one account '???? McNabb', there is no Household account
+   
 
 2. Amaran Martin & Teresita
    - Last Name: Amaran
