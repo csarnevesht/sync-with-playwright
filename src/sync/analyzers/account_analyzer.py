@@ -309,118 +309,190 @@ class AccountAnalyzer:
                                      dropbox_accounts: List[Dict[str, Any]],
                                      expected_mapping: Dict[str, Any]) -> List[AccountComparison]:
         """Compare accounts with enhanced mapping logic that matches accounts by name."""
-        comparisons = []
-        
-        # Deduplicate Salesforce and Dropbox accounts by account_name
-        def deduplicate_accounts(accounts):
-            seen = set()
-            deduped = []
-            for acc in accounts:
-                name = acc.get('account_name', '')
-                acc_type = acc.get('type', '')
-                key = (name, acc_type)
-                if name and key not in seen:
-                    deduped.append(acc)
-                    seen.add(key)
-            return deduped
-        salesforce_accounts = deduplicate_accounts(salesforce_accounts)
-        dropbox_accounts = deduplicate_accounts(dropbox_accounts)
-        
-        # Prepare sets to track matched accounts
-        matched_sf_accounts = set()
-        matched_db_accounts = set()
-        
-        # Build lookup for dropbox accounts by all name variations
-        db_name_to_accounts = {}
-        for db_account in dropbox_accounts:
-            db_name = db_account.get('account_name', '')
-            for variation in self._generate_name_variations(db_name):
-                db_name_to_accounts.setdefault(variation.lower(), []).append(db_account)
-        
-        # For each Salesforce account, match to the first unmatched Dropbox account by any name variation
-        for sf_account in salesforce_accounts:
-            sf_name = sf_account.get('account_name', '')
-            found_match = False
-            for variation in self._generate_name_variations(sf_name):
-                possible_db_accounts = db_name_to_accounts.get(variation.lower(), [])
-                for db_account in possible_db_accounts:
-                    if db_account not in matched_db_accounts:
+        try:
+            self.logger.debug("Starting _compare_accounts_with_mapping")
+            comparisons = []
+            
+            # Deduplicate Salesforce and Dropbox accounts by account_name
+            def deduplicate_accounts(accounts):
+                try:
+                    self.logger.debug(f"Deduplicating {len(accounts)} accounts")
+                    seen = set()
+                    deduped = []
+                    for i, acc in enumerate(accounts):
+                        try:
+                            name = acc.get('account_name', '')
+                            acc_type = acc.get('type', '')
+                            self.logger.debug(f"Account {i}: name='{name}', type='{acc_type}' (type={type(acc_type)})")
+                            
+                            # Ensure acc_type is hashable
+                            if isinstance(acc_type, dict):
+                                self.logger.error(f"Found dict as account_type: {acc_type}")
+                                acc_type = str(acc_type)
+                            elif hasattr(acc_type, 'value'):
+                                acc_type = str(acc_type.value)
+                            else:
+                                acc_type = str(acc_type)
+                            
+                            key = (name, acc_type)
+                            self.logger.debug(f"Account {i}: key={key}")
+                            
+                            if name and key not in seen:
+                                deduped.append(acc)
+                                seen.add(key)
+                            else:
+                                self.logger.debug(f"Account {i}: Skipping duplicate or empty name")
+                        except Exception as e:
+                            self.logger.error(f"Error processing account {i}: {e}")
+                            continue
+                    self.logger.debug(f"Deduplicated to {len(deduped)} accounts")
+                    return deduped
+                except Exception as e:
+                    self.logger.error(f"Error in deduplicate_accounts: {e}")
+                    return accounts
+            
+            try:
+                self.logger.debug("Deduplicating Salesforce accounts")
+                salesforce_accounts = deduplicate_accounts(salesforce_accounts)
+                self.logger.debug("Deduplicating Dropbox accounts")
+                dropbox_accounts = deduplicate_accounts(dropbox_accounts)
+            except Exception as e:
+                self.logger.error(f"Error during account deduplication: {e}")
+                raise
+            
+            # Prepare sets to track matched accounts
+            matched_sf_accounts = set()
+            matched_db_accounts = set()
+            
+            # Build lookup for dropbox accounts by all name variations
+            try:
+                self.logger.debug("Building Dropbox name lookup")
+                db_name_to_accounts = {}
+                for db_account in dropbox_accounts:
+                    db_name = db_account.get('account_name', '')
+                    for variation in self._generate_name_variations(db_name):
+                        db_name_to_accounts.setdefault(variation.lower(), []).append(db_account)
+                self.logger.debug(f"Built lookup with {len(db_name_to_accounts)} name variations")
+            except Exception as e:
+                self.logger.error(f"Error building Dropbox name lookup: {e}")
+                raise
+            
+            # For each Salesforce account, match to the first unmatched Dropbox account by any name variation
+            try:
+                self.logger.debug("Processing Salesforce accounts for matching")
+                for sf_account in salesforce_accounts:
+                    sf_name = sf_account.get('account_name', '')
+                    sf_type = str(sf_account.get('type', ''))
+                    sf_key = (sf_name, sf_type)
+                    found_match = False
+                    for variation in self._generate_name_variations(sf_name):
+                        possible_db_accounts = db_name_to_accounts.get(variation.lower(), [])
+                        for db_account in possible_db_accounts:
+                            db_name = db_account.get('account_name', '')
+                            db_type = str(db_account.get('type', ''))
+                            db_key = (db_name, db_type)
+                            if db_key not in matched_db_accounts:
+                                comparison = self._create_account_comparison_with_mapping(
+                                    sf_account, db_account, expected_mapping, db_account.get('source', DataSource.DROPBOX_MERGED)
+                                )
+                                comparisons.append(comparison)
+                                matched_sf_accounts.add(sf_key)
+                                matched_db_accounts.add(db_key)
+                                found_match = True
+                                break
+                        if found_match:
+                            break
+                    if not found_match:
+                        # No Dropbox match found for this Salesforce account
                         comparison = self._create_account_comparison_with_mapping(
-                            sf_account, db_account, expected_mapping, db_account.get('source', DataSource.DROPBOX_MERGED)
+                            sf_account, None, expected_mapping, DataSource.SALESFORCE
                         )
                         comparisons.append(comparison)
-                        matched_sf_accounts.add(sf_account)
-                        matched_db_accounts.add(db_account)
-                        found_match = True
-                        break
-                if found_match:
-                    break
-            if not found_match:
-                # No Dropbox match found for this Salesforce account
-                comparison = self._create_account_comparison_with_mapping(
-                    sf_account, None, expected_mapping, DataSource.SALESFORCE
-                )
-                comparisons.append(comparison)
-                matched_sf_accounts.add(sf_account)
-        
-        # Add unmatched Dropbox accounts
-        for db_account in dropbox_accounts:
-            if db_account not in matched_db_accounts:
-                comparison = self._create_account_comparison_with_mapping(
-                    None, db_account, expected_mapping, db_account.get('source', DataSource.DROPBOX_MERGED)
-                )
-                comparisons.append(comparison)
-                matched_db_accounts.add(db_account)
-        
-        # Create comparisons for expected accounts that don't exist
-        existing_names = {c.account_name for c in comparisons}
-        for expected_account in expected_mapping.get('accounts', []):
-            if expected_account['name'] not in existing_names:
-                comparison = self._create_account_comparison_with_mapping(
-                    None, None, expected_mapping, DataSource.SALESFORCE,
-                    expected_account=expected_account
-                )
-                comparisons.append(comparison)
-        
-        # Debug: Log all generated comparisons before returning
-        self.logger.debug("Generated account comparisons:")
-        for c in comparisons:
-            self.logger.debug(f"Comparison: {c.account_name} | Source: {c.source}")
-        
-        # Deduplicate final comparisons by (account_name, account_type)
-        seen_comparisons = set()
-        deduped_comparisons = []
-        for i, comp in enumerate(comparisons):
-            try:
-                # Debug: log the type and value of account_type
-                self.logger.debug(f"Deduplication [{i}]: account_name={comp.account_name}, account_type={comp.account_type} (type={type(comp.account_type)})")
-                
-                # Robustly convert account_type to string for deduplication
-                if hasattr(comp.account_type, 'value'):
-                    account_type_str = str(comp.account_type.value)
-                elif isinstance(comp.account_type, dict):
-                    self.logger.error(f"Found dict as account_type: {comp.account_type}")
-                    account_type_str = str(comp.account_type)
-                else:
-                    account_type_str = str(comp.account_type)
-                
-                key = (comp.account_name, account_type_str)
-                self.logger.debug(f"Deduplication [{i}]: key={key}")
-                
-                if key not in seen_comparisons:
-                    deduped_comparisons.append(comp)
-                    seen_comparisons.add(key)
-                else:
-                    self.logger.debug(f"Deduplication [{i}]: Skipping duplicate key={key}")
-                    
+                        matched_sf_accounts.add(sf_key)
             except Exception as e:
-                self.logger.error(f"Error in deduplication for comparison {i}: {e}")
-                self.logger.error(f"Comparison details: account_name={getattr(comp, 'account_name', 'N/A')}, account_type={getattr(comp, 'account_type', 'N/A')}")
-                # Continue with other comparisons instead of failing completely
-                continue
-        
-        self.logger.debug(f"Deduplicated {len(comparisons)} comparisons to {len(deduped_comparisons)}")
-        return deduped_comparisons
+                self.logger.error(f"Error processing Salesforce accounts: {e}")
+                raise
+            
+            # Add unmatched Dropbox accounts
+            try:
+                self.logger.debug("Adding unmatched Dropbox accounts")
+                for db_account in dropbox_accounts:
+                    db_name = db_account.get('account_name', '')
+                    db_type = str(db_account.get('type', ''))
+                    db_key = (db_name, db_type)
+                    if db_key not in matched_db_accounts:
+                        comparison = self._create_account_comparison_with_mapping(
+                            None, db_account, expected_mapping, db_account.get('source', DataSource.DROPBOX_MERGED)
+                        )
+                        comparisons.append(comparison)
+                        matched_db_accounts.add(db_key)
+            except Exception as e:
+                self.logger.error(f"Error adding unmatched Dropbox accounts: {e}")
+                raise
+            
+            # Create comparisons for expected accounts that don't exist
+            try:
+                self.logger.debug("Creating comparisons for expected accounts")
+                existing_names = {c.account_name for c in comparisons}
+                for expected_account in expected_mapping.get('accounts', []):
+                    if expected_account['name'] not in existing_names:
+                        comparison = self._create_account_comparison_with_mapping(
+                            None, None, expected_mapping, DataSource.SALESFORCE,
+                            expected_account=expected_account
+                        )
+                        comparisons.append(comparison)
+            except Exception as e:
+                self.logger.error(f"Error creating expected account comparisons: {e}")
+                raise
+            
+            # Debug: Log all generated comparisons before returning
+            self.logger.debug("Generated account comparisons:")
+            for c in comparisons:
+                self.logger.debug(f"Comparison: {c.account_name} | Source: {c.source}")
+            
+            # Deduplicate final comparisons by (account_name, account_type)
+            try:
+                self.logger.debug("Deduplicating final comparisons")
+                seen_comparisons = set()
+                deduped_comparisons = []
+                for i, comp in enumerate(comparisons):
+                    try:
+                        # Debug: log the type and value of account_type
+                        self.logger.debug(f"Deduplication [{i}]: account_name={comp.account_name}, account_type={comp.account_type} (type={type(comp.account_type)})")
+                        
+                        # Robustly convert account_type to string for deduplication
+                        if hasattr(comp.account_type, 'value'):
+                            account_type_str = str(comp.account_type.value)
+                        elif isinstance(comp.account_type, dict):
+                            self.logger.error(f"Found dict as account_type: {comp.account_type}")
+                            account_type_str = str(comp.account_type)
+                        else:
+                            account_type_str = str(comp.account_type)
+                        
+                        key = (comp.account_name, account_type_str)
+                        self.logger.debug(f"Deduplication [{i}]: key={key}")
+                        
+                        if key not in seen_comparisons:
+                            deduped_comparisons.append(comp)
+                            seen_comparisons.add(key)
+                        else:
+                            self.logger.debug(f"Deduplication [{i}]: Skipping duplicate key={key}")
+                            
+                    except Exception as e:
+                        self.logger.error(f"Error in deduplication for comparison {i}: {e}")
+                        self.logger.error(f"Comparison details: account_name={getattr(comp, 'account_name', 'N/A')}, account_type={getattr(comp, 'account_type', 'N/A')}")
+                        # Continue with other comparisons instead of failing completely
+                        continue
+                
+                self.logger.debug(f"Deduplicated {len(comparisons)} comparisons to {len(deduped_comparisons)}")
+                return deduped_comparisons
+            except Exception as e:
+                self.logger.error(f"Error in final deduplication: {e}")
+                raise
+                
+        except Exception as e:
+            self.logger.error(f"Error in _compare_accounts_with_mapping: {e}")
+            raise
     
     def _generate_name_variations(self, name: str) -> List[str]:
         """Generate different name variations for matching."""
@@ -507,7 +579,15 @@ class AccountAnalyzer:
             account_type=account_type,
             role=role,
             source=source,
-            **field_comparisons,
+            first_name=field_comparisons['first_name'],
+            last_name=field_comparisons['last_name'],
+            middle_name=field_comparisons['middle_name'],
+            email=field_comparisons['email'],
+            phone=field_comparisons['phone'],
+            address=field_comparisons['address'],
+            birthdate=field_comparisons['birthdate'],
+            gender=field_comparisons['gender'],
+            ssn_tax_id=field_comparisons['ssn_tax_id'],
             migration_needed=migration_needed,
             migration_priority=MigrationPriority.HIGH if migration_needed else MigrationPriority.NOT_NEEDED
         )
