@@ -886,113 +886,135 @@ def run_command(args, log_dir):
                                     logger.info(f"Processing relationships for account: {match}")
                                     report_logger.info(f"\nProcessing relationships for account: {match}")
                                     
-                                    # Check if account exists in appropriate view based on name
+                                    found_account = False
                                     found_view = None
-                                    if match.endswith('Household'):
-                                        if account_manager.account_exists(match, view_name="All Accounts"):
-                                            found_view = "All Accounts"
-                                    else:
-                                        if account_manager.account_exists(match, view_name="All Clients"):
-                                            found_view = "All Clients"
-                                        elif account_manager.account_exists(match, view_name="All Accounts"):
-                                            found_view = "All Accounts"
+
+                                    # Click on the account
+                                    logger.info(f"Clicking account name: {match}")
+                                    if account_manager.click_account_name(match):
+                                        logger.info(f"Account found: {match}")
+                                        # Get account ID
+                                        is_valid, account_id = account_manager.verify_account_page_url()
+                                        if is_valid and account_id:
+                                            # Get account information
+                                            account_info = account_manager.get_account_information(account_id)
+                                            found_account = True
+                                            logger.info(f"Account found: {match}")
+                                            report_logger.info(f"Account found: {match}")
+                                            report_logger.info(f"Account ID: {account_id}")
+                                            
+                                    if not found_account:
+                                        # Check if account exists in appropriate view based on name
+                                        logger.info(f"Account not found: {match}")
+                                        report_logger.info(f"Account not found: {match}")
+                                        logger.info(f"Checking if account exists in appropriate view based on name: {match}")
+                                        report_logger.info(f"Checking if account exists in appropriate view based on name: {match}")
+                                        if match.endswith('Household'):
+                                            if account_manager.account_exists(match, view_name="All Accounts"):
+                                                found_view = "All Accounts"
+                                        else:
+                                            if account_manager.account_exists(match, view_name="All Clients"):
+                                                found_view = "All Clients"
+                                            elif account_manager.account_exists(match, view_name="All Accounts"):
+                                                found_view = "All Accounts"
                                     
-                                    if found_view:
-                                        logger.info(f"Account found in {found_view} view: {match}")
-                                        # Click on the account
-                                        if account_manager.click_account_name(match):
-                                            # Get account ID
-                                            is_valid, account_id = account_manager.verify_account_page_url()
-                                            if is_valid and account_id:
-                                                # Get account information
-                                                account_info = account_manager.get_account_information(account_id)
+                                            if found_view:
+                                                logger.info(f"Account found in {found_view} view: {match}")
+                                                # Click on the account
+                                                if account_manager.click_account_name(match):
+                                                    # Get account ID
+                                                    is_valid, account_id = account_manager.verify_account_page_url()
+                                                if is_valid and account_id:
+                                                    # Get account information
+                                                    account_info = account_manager.get_account_information(account_id)
                                                 
-                                                # Create account structure
-                                                account_data = {
-                                                    'account_name': match,
-                                                    'type': 'Contact',  # Default type
-                                                    'role': None,
-                                                    'stage': account_info.get('stage', ''),
-                                                    'email': account_info.get('email', ''),
-                                                    'phone': account_info.get('phone', ''),
-                                                    'mailing_address': account_info.get('mailing_address', ''),
-                                                    'ssn/tax_id': account_info.get('ssn/tax_id', ''),
-                                                    'relationships': []
-                                                }
+                                    if found_account or (found_view != None):
+                                        # Create account structure
+                                        account_data = {
+                                            'account_name': match,
+                                            'type': 'Contact',  # Default type
+                                            'role': None,
+                                            'stage': account_info.get('stage', ''),
+                                            'email': account_info.get('email', ''),
+                                            'phone': account_info.get('phone', ''),
+                                            'mailing_address': account_info.get('mailing_address', ''),
+                                            'ssn/tax_id': account_info.get('ssn/tax_id', ''),
+                                            'relationships': []
+                                        }
+                                        
+                                        # Determine account type and role
+                                        if match.endswith('Household'):
+                                            account_data['type'] = 'Household'
+                                            salesforce_account_information['household'] = account_data
+                                        else:
+                                            # Check if this is a head or member based on relationships
+                                            account_data['type'] = 'Contact'
+                                        
+                                        # Log account information
+                                        report_logger.info(f"\nAccount Information:")
+                                        for key, value in account_info.items():
+                                            report_logger.info(f"  {key}: {value}")
+                                        
+                                        # Get relationships
+                                        relationships = account_manager.get_account_relationships(account_id)
+                                        if relationships:
+                                            report_logger.info(f"\nFound {len(relationships)} relationship accounts:")
+                                            for rel in relationships:
+                                                # Create a unique key for this relationship
+                                                rel_key = (rel['name'], rel['role'], rel['type'])
                                                 
-                                                # Determine account type and role
-                                                if match.endswith('Household'):
-                                                    account_data['type'] = 'Household'
-                                                    salesforce_account_information['household'] = account_data
-                                                else:
-                                                    # Check if this is a head or member based on relationships
-                                                    account_data['type'] = 'Contact'
+                                                # Skip if we've already processed this relationship
+                                                if rel_key in processed_relationships:
+                                                    logger.info(f"Skipping already processed relationship: {rel['name']}")
+                                                    report_logger.info(f"Skipping already processed relationship: {rel['name']}")
+                                                    continue
                                                 
-                                                # Log account information
-                                                report_logger.info(f"\nAccount Information:")
-                                                for key, value in account_info.items():
-                                                    report_logger.info(f"  {key}: {value}")
+                                                report_logger.info(f"\nRelationship Account:")
+                                                report_logger.info(f"  Name: {rel['name']}")
+                                                report_logger.info(f"  Type: {rel['type']}")
+                                                report_logger.info(f"  Role: {rel['role']}")
                                                 
-                                                # Get relationships
-                                                relationships = account_manager.get_account_relationships(account_id)
-                                                if relationships:
-                                                    report_logger.info(f"\nFound {len(relationships)} relationship accounts:")
-                                                    for rel in relationships:
-                                                        # Create a unique key for this relationship
-                                                        rel_key = (rel['name'], rel['role'], rel['type'])
-                                                        
-                                                        # Skip if we've already processed this relationship
-                                                        if rel_key in processed_relationships:
-                                                            logger.info(f"Skipping already processed relationship: {rel['name']}")
-                                                            report_logger.info(f"Skipping already processed relationship: {rel['name']}")
-                                                            continue
-                                                        
-                                                        report_logger.info(f"\nRelationship Account:")
-                                                        report_logger.info(f"  Name: {rel['name']}")
-                                                        report_logger.info(f"  Type: {rel['type']}")
-                                                        report_logger.info(f"  Role: {rel['role']}")
-                                                        
-                                                        # Check if account exists and store result
-                                                        report_logger.info(f"Checking if account exists: {rel['name']} in view: {view_name}")
-                                                        account_exists = account_manager.account_exists(rel['name'], view_name=view_name)
-                                                        if account_exists:
-                                                            logger.info(f"Account exists: {rel['name']}")
-                                                            report_logger.info(f"Account exists: {rel['name']}")
-                                                            # Then click on the relationship account
-                                                            if account_manager.click_account_name(rel['name']):
-                                                                rel_is_valid, rel_account_id = account_manager.verify_account_page_url()
-                                                                if rel_is_valid and rel_account_id:
-                                                                    rel_info = account_manager.get_account_information(rel_account_id)
-                                                                    rel['account_info'] = rel_info
-                                                                    
-                                                                    # Create relationship account structure
-                                                                    rel_account_data = {
-                                                                        'account_name': rel['name'],
-                                                                        'type': rel['type'],
-                                                                        'role': rel['role'],
-                                                                        'stage': rel_info.get('stage', ''),
-                                                                        'email': rel_info.get('email', ''),
-                                                                        'phone': rel_info.get('phone', ''),
-                                                                        'mailing_address': rel_info.get('mailing_address', ''),
-                                                                        'ssn/tax_id': rel_info.get('ssn/tax_id', ''),
-                                                                        'relationships': []
-                                                                    }
-                                                                    
-                                                                    # Add to appropriate category
-                                                                    if rel['role'] == 'Household Head':
-                                                                        salesforce_account_information['head'] = rel_account_data
-                                                                        account_data['role'] = 'Household Head'
-                                                                    elif rel['role'] == 'Member':
-                                                                        salesforce_account_information['members'].append(rel_account_data)
-                                                                        account_data['role'] = 'Member'
-                                                                    
-                                                                    # Add to relationships list
-                                                                    account_data['relationships'].append(rel_account_data)
-                                                                    
-                                                                    # Mark this relationship as processed
-                                                                    processed_relationships.add(rel_key)
-                                                                    # Navigate back to original account
-                                                                    account_manager.navigate_back_to_account_page()
+                                                # Check if account exists and store result
+                                                report_logger.info(f"Checking if account exists: {rel['name']} in view: {view_name}")
+                                                account_exists = account_manager.account_exists(rel['name'], view_name=view_name)
+                                                if account_exists:
+                                                    logger.info(f"Account exists: {rel['name']}")
+                                                    report_logger.info(f"Account exists: {rel['name']}")
+                                                    # Then click on the relationship account
+                                                    if account_manager.click_account_name(rel['name']):
+                                                        rel_is_valid, rel_account_id = account_manager.verify_account_page_url()
+                                                        if rel_is_valid and rel_account_id:
+                                                            rel_info = account_manager.get_account_information(rel_account_id)
+                                                            rel['account_info'] = rel_info
+                                                            
+                                                            # Create relationship account structure
+                                                            rel_account_data = {
+                                                                'account_name': rel['name'],
+                                                                'type': rel['type'],
+                                                                'role': rel['role'],
+                                                                'stage': rel_info.get('stage', ''),
+                                                                'email': rel_info.get('email', ''),
+                                                                'phone': rel_info.get('phone', ''),
+                                                                'mailing_address': rel_info.get('mailing_address', ''),
+                                                                'ssn/tax_id': rel_info.get('ssn/tax_id', ''),
+                                                                'relationships': []
+                                                            }
+                                                            
+                                                            # Add to appropriate category
+                                                            if rel['role'] == 'Household Head':
+                                                                salesforce_account_information['head'] = rel_account_data
+                                                                account_data['role'] = 'Household Head'
+                                                            elif rel['role'] == 'Member':
+                                                                salesforce_account_information['members'].append(rel_account_data)
+                                                                account_data['role'] = 'Member'
+                                                            
+                                                            # Add to relationships list
+                                                            account_data['relationships'].append(rel_account_data)
+                                                            
+                                                            # Mark this relationship as processed
+                                                            processed_relationships.add(rel_key)
+                                                            # Navigate back to original account
+                                                            account_manager.navigate_back_to_account_page()
                                                     
                                                     # Add account to accounts list
                                                     salesforce_account_information['accounts'].append(account_data)
