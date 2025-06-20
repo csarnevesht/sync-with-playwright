@@ -26,13 +26,15 @@ from sync.salesforce_client.utils.file_upload import upload_account_file, upload
 class CommandRunner:
     """Handles execution of sync commands between Dropbox and Salesforce."""
     
-    def __init__(self, args):
+    def __init__(self, args, log_dir: str = None):
         """Initialize the command runner with parsed arguments.
         
         Args:
             args: Command line arguments containing all options
+            log_dir: Optional log directory path for saving analysis reports
         """
         self.args = args
+        self.log_dir = log_dir
         self.logger = logging.getLogger(__name__)
         self.report_logger = logging.getLogger('report')
         self.summary_logger = logging.getLogger('summary')
@@ -227,7 +229,8 @@ class CommandRunner:
             'search-supabase': self._search_supabase,
             'list-dropbox-account-app-files': self._list_dropbox_account_app_files,
             'log-dropbox-account-information': self._handle_log_dropbox_account_information,
-            'log-dropbox-account-information-json': self._handle_log_dropbox_account_information_json
+            'log-dropbox-account-information-json': self._handle_log_dropbox_account_information_json,
+            'analyze-account-data': self._handle_analyze_account_data
         }
         
         if command not in command_map:
@@ -1351,4 +1354,33 @@ class CommandRunner:
         except Exception as e:
             error_msg = f"Error in list-dropbox-account-app-files operation: {str(e)}"
             self.logger.error(error_msg)
+            raise 
+
+    def _handle_analyze_account_data(self) -> None:
+        """Analyze and compare Salesforce and Dropbox account information.
+        This command will analyze account data from both systems and generate comprehensive reports.
+        """
+        self.logger.info("Starting analyze-account-data operation")
+        self.report_logger.info("\n=== ANALYZING ACCOUNT DATA ===")
+        
+        try:
+            # Import and call the analyze_account_data function
+            from sync.commands.analyze_account_data import analyze_account_data
+            
+            # Call the analyze_account_data function
+            result = analyze_account_data(self)
+            
+            if result['status'] == 'success':
+                self.logger.info("Successfully completed analyze-account-data operation")
+                self.report_logger.info("\nSuccessfully completed analyze-account-data operation")
+            else:
+                error_msg = f"Analysis failed: {result.get('message', 'Unknown error')}"
+                self.logger.error(error_msg)
+                self.report_logger.error(f"\n{error_msg}")
+                raise Exception(error_msg)
+            
+        except Exception as e:
+            error_msg = f"Error in analyze-account-data operation: {str(e)}"
+            self.logger.error(error_msg)
+            self.report_logger.error(f"\n{error_msg}")
             raise 
