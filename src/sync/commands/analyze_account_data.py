@@ -329,10 +329,20 @@ def _generate_field_comparison_tables(report: AccountAnalysisReport) -> str:
         # Use the source value directly from the comparison (account analyzer now provides correct source)
         source_info = comparison.source.value
         
-        # Create enhanced account header with all requested information
+        # Find the original source for merged accounts
+        original_source = None
         if comparison.source.value == 'dropbox_merged':
-            # For merged accounts, show "Name Found in client_list_file" format
-            table = f"\n**Account: {comparison.account_name}** Source: {source_info}, Account Type: {comparison.account_type.value}, Name Found in client_list_file: First Name: {first_name_value}, Last Name: {last_name_value}\n"
+            # Look for the original source in the dropbox account information
+            if report.dropbox_account_information and report.dropbox_account_information.get('accounts'):
+                for account in report.dropbox_account_information['accounts']:
+                    if account.get('account_name') == comparison.account_name:
+                        original_source = account.get('source', 'Unknown')
+                        break
+        
+        # Create enhanced account header with original source and current source
+        if comparison.source.value == 'dropbox_merged' and original_source:
+            # For merged accounts, show both original source and current source
+            table = f"\n**Account: {comparison.account_name}** Original Source: {original_source}, Source: {source_info}, Account Type: {comparison.account_type.value}, Name Found: First Name: {first_name_value}, Last Name: {last_name_value}\n"
         else:
             # For other sources, use the original format
             table = f"\n**Account: {comparison.account_name}** Source: {source_info}, Account Type: {comparison.account_type.value}, Name Found: {comparison.account_name}, First Name: {first_name_value}, Last Name: {last_name_value}\n"
