@@ -311,6 +311,7 @@ def setup_logging(args, command: str = None):
     report_file = log_dir / 'report.log'
     summary_file = log_dir / 'summary.log'
     red_file = log_dir / 'red.log'
+    red_no_salesforce_only_file = log_dir / 'red-no-salesforce-only.log'
     
     # Create formatters
     file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
@@ -333,6 +334,10 @@ def setup_logging(args, command: str = None):
     # Create file handler for red log
     red_handler = logging.FileHandler(red_file)
     red_handler.setFormatter(report_formatter)
+    
+    # Create file handler for red-no-salesforce-only log
+    red_no_salesforce_only_handler = logging.FileHandler(red_no_salesforce_only_file)
+    red_no_salesforce_only_handler.setFormatter(report_formatter)
     
     # Create console handler
     console_handler = logging.StreamHandler()
@@ -374,6 +379,12 @@ def setup_logging(args, command: str = None):
     red_logger.addHandler(red_handler)
     red_logger.propagate = False
     
+    # Create a separate logger for red-no-salesforce-only items
+    red_no_salesforce_only_logger = logging.getLogger('red_no_salesforce_only')
+    red_no_salesforce_only_logger.setLevel(logging.INFO)
+    red_no_salesforce_only_logger.addHandler(red_no_salesforce_only_handler)
+    red_no_salesforce_only_logger.propagate = False
+    
     # Set logging level for Supabase client and its dependencies to WARNING
     logging.getLogger('httpx').setLevel(logging.WARNING)
     logging.getLogger('httpcore').setLevel(logging.WARNING)
@@ -394,8 +405,9 @@ def setup_logging(args, command: str = None):
     report_logger.info(f"Report log file: {report_file}")
     summary_logger.info(f"Summary log file: {summary_file}")
     red_logger.info(f"Red items log file: {red_file}")
+    red_no_salesforce_only_logger.info(f"Red-no-salesforce-only items log file: {red_no_salesforce_only_file}")
     
-    return root_logger, report_logger, summary_logger, red_logger, str(log_dir)
+    return root_logger, report_logger, summary_logger, red_logger, red_no_salesforce_only_logger, str(log_dir)
 
 def parse_args():
     """Parse command line arguments."""
@@ -1327,9 +1339,9 @@ def run_command(args, log_dir):
                 log_icon_legend(summary_logger, report_logger)
                 
                 for result_dict in summary_results:
-                    # Fetch the latest application files info from dropbox_account_information
-                    app_files_info = dropbox_account_information.get('application_data', {})
-                    build_and_log_final_summary_line(result_dict, report_logger, summary_logger, red_logger, args, app_files_info)
+                    # Fetch the latest application files info from result_dict
+                    app_files_info = result_dict.get('account_info_from_app_files', {})
+                    build_and_log_final_summary_line(result_dict, report_logger, summary_logger, red_logger, red_no_salesforce_only_logger, args, app_files_info)
 
                     # Show file summary if available
                     if args.dropbox_account_files and args.salesforce_account_files:
@@ -1447,7 +1459,7 @@ def run_command(args, log_dir):
     logging.info(duration_message)
     report_logger.info(duration_message)   
 
-def build_and_log_final_summary_line(result, report_logger, summary_logger, red_logger, args, app_files_info=None):
+def build_and_log_final_summary_line(result, report_logger, summary_logger, red_logger, red_no_salesforce_only_logger, args, app_files_info=None):
     """
     Builds and logs a summary line for the report log.
     """
@@ -1489,6 +1501,16 @@ def build_and_log_final_summary_line(result, report_logger, summary_logger, red_
         red_logger.info(f"Red item found for account: {result.get('dropbox_name', '--')}")
         red_logger.info(summary)
         red_logger.info("=" * 50)
+    
+    # Check for red-no-salesforce-only items (red square only OR red square AND either red circle OR red stop sign, but not both)
+    has_red_circle = '🔴' in summary
+    has_red_stop = '🚫' in summary
+    has_red_square = '🟥' in summary
+    
+    if has_red_square and not (has_red_circle and has_red_stop):
+        red_no_salesforce_only_logger.info(f"Red-no-salesforce-only item found for account: {result.get('dropbox_name', '--')}")
+        red_no_salesforce_only_logger.info(summary)
+        red_no_salesforce_only_logger.info("=" * 50)
     
     return summary
 
@@ -1680,5 +1702,5 @@ def prepare_flatfile_from_template(template_path, logger, report_logger):
 if __name__ == "__main__":
     args = parse_args()
     command = f"python -m sync.cmd_runner {format_args_for_logging(args)}"
-    logger, report_logger, summary_logger, red_logger, log_dir = setup_logging(args, command)
+    logger, report_logger, summary_logger, red_logger, red_no_salesforce_only_logger, log_dir = setup_logging(args, command)
     run_command(args, log_dir) 
