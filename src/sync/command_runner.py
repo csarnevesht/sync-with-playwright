@@ -1626,6 +1626,64 @@ class CommandRunner:
                         f.write(f"📁 {file_path}\n")
                         f.write(f"   Status: {detail.get('status', 'Unknown')}\n")
                         f.write(f"   Info Quality: {detail.get('info_quality', 'Unknown')}\n")
+                        
+                        # Add extracted fields information
+                        info = detail.get('info', {})
+                        if info:
+                            # Owner information
+                            owner = info.get('owner', {})
+                            if owner:
+                                f.write(f"   👤 **Owner Information:**\n")
+                                if owner.get('firstName') or owner.get('lastName'):
+                                    f.write(f"      Name: {owner.get('firstName', '')} {owner.get('lastName', '')}\n")
+                                if owner.get('dateOfBirth'):
+                                    f.write(f"      DOB: {owner.get('dateOfBirth')}\n")
+                                if owner.get('gender'):
+                                    f.write(f"      Gender: {owner.get('gender')}\n")
+                                if owner.get('phoneNumber'):
+                                    f.write(f"      Phone: {owner.get('phoneNumber')}\n")
+                                if owner.get('emailAddress'):
+                                    f.write(f"      Email: {owner.get('emailAddress')}\n")
+                                if owner.get('mailingAddressStreet'):
+                                    address = f"{owner.get('mailingAddressStreet')}"
+                                    if owner.get('mailingAddressCity'):
+                                        address += f", {owner.get('mailingAddressCity')}"
+                                    if owner.get('mailingAddressState'):
+                                        address += f", {owner.get('mailingAddressState')}"
+                                    if owner.get('mailingAddressZip'):
+                                        address += f" {owner.get('mailingAddressZip')}"
+                                    f.write(f"      Address: {address}\n")
+                            
+                            # Joint owner information
+                            joint_owner = info.get('jointOwner', {})
+                            if joint_owner:
+                                f.write(f"   👥 **Joint Owner Information:**\n")
+                                if joint_owner.get('firstName') or joint_owner.get('lastName'):
+                                    f.write(f"      Name: {joint_owner.get('firstName', '')} {joint_owner.get('lastName', '')}\n")
+                                if joint_owner.get('dateOfBirth'):
+                                    f.write(f"      DOB: {joint_owner.get('dateOfBirth')}\n")
+                                if joint_owner.get('gender'):
+                                    f.write(f"      Gender: {joint_owner.get('gender')}\n")
+                                if joint_owner.get('phoneNumber'):
+                                    f.write(f"      Phone: {joint_owner.get('phoneNumber')}\n")
+                                if joint_owner.get('emailAddress'):
+                                    f.write(f"      Email: {joint_owner.get('emailAddress')}\n")
+                                if joint_owner.get('mailingAddressStreet'):
+                                    address = f"{joint_owner.get('mailingAddressStreet')}"
+                                    if joint_owner.get('mailingAddressCity'):
+                                        address += f", {joint_owner.get('mailingAddressCity')}"
+                                    if joint_owner.get('mailingAddressState'):
+                                        address += f", {joint_owner.get('mailingAddressState')}"
+                                    if joint_owner.get('mailingAddressZip'):
+                                        address += f" {joint_owner.get('mailingAddressZip')}"
+                                    f.write(f"      Address: {address}\n")
+                            
+                            # Application type and status
+                            if info.get('application_type'):
+                                f.write(f"   📄 Application Type: {info.get('application_type')}\n")
+                            if info.get('status'):
+                                f.write(f"   📊 Status: {info.get('status')}\n")
+                        
                         if detail.get('notes'):
                             f.write(f"   Notes: {', '.join(detail['notes'])}\n")
                         f.write("\n")
