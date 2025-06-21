@@ -1485,7 +1485,7 @@ def build_and_log_final_summary_line(result, report_logger, summary_logger, red_
     summary_logger.info(summary)
     
     # Check for red items and log them to red.log
-    if '🔴' in summary or '🟥' in summary:
+    if '🔴' in summary or '🟥' in summary or '🚫' in summary:
         red_logger.info(f"Red item found for account: {result.get('dropbox_name', '--')}")
         red_logger.info(summary)
         red_logger.info("=" * 50)
