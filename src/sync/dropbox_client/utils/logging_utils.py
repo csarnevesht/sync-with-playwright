@@ -795,6 +795,7 @@ Icon Legend:
 🔴 - No Dropbox Account Match
 👤 - Salesforce Account
 🟥 - No Salesforce Account
+🚫 - No Application Files Data
 
 Additional Account Information:
 📧 - Email
@@ -1277,7 +1278,7 @@ class DropboxAccountLogger:
         self._log(f"{'─'*60}", summary_logger, report_logger)
         self._log(f"📁 Total Accounts: {total_accounts}", summary_logger, report_logger)
         self._log(f"📄 Client List File Data: {'✅ Available' if client_list_data_available else '❌ Not Available'}", summary_logger, report_logger)
-        self._log(f"📄 Application Files Data: {'✅ Available' if application_data_available else '❌ Not Available'}", summary_logger, report_logger)
+        self._log(f"📄 Application Files Data: {'✅ Available' if application_data_available else '🚫 Not Available'}", summary_logger, report_logger)
         self._log(f"🔍 Total Matches: {total_matches}", summary_logger, report_logger)
         self._log(f"🪪 Total Driver's Licenses: {total_drivers_licenses}", summary_logger, report_logger)
 
