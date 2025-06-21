@@ -1215,6 +1215,8 @@ def run_command(args, log_dir):
                             if args.dropbox_account_info:
                                 dropbox_account_information = command_runner._build_dropbox_account_information()
                                 command_runner.set_data('dropbox_account_information', dropbox_account_information)
+                            # Ensure result_dict has up-to-date application files info
+                            result_dict['account_info_from_app_files'] = dropbox_account_information.get('application_data', {})
 
                             from sync.dropbox_client.utils.logging_utils import log_dropbox_account_information
                             log_dropbox_account_information(
@@ -1325,7 +1327,9 @@ def run_command(args, log_dir):
                 log_icon_legend(summary_logger, report_logger)
                 
                 for result_dict in summary_results:
-                    build_and_log_final_summary_line(result_dict, report_logger, summary_logger, red_logger, args)
+                    # Fetch the latest application files info from dropbox_account_information
+                    app_files_info = dropbox_account_information.get('application_data', {})
+                    build_and_log_final_summary_line(result_dict, report_logger, summary_logger, red_logger, args, app_files_info)
 
                     # Show file summary if available
                     if args.dropbox_account_files and args.salesforce_account_files:
@@ -1443,7 +1447,7 @@ def run_command(args, log_dir):
     logging.info(duration_message)
     report_logger.info(duration_message)   
 
-def build_and_log_final_summary_line(result, report_logger, summary_logger, red_logger, args):
+def build_and_log_final_summary_line(result, report_logger, summary_logger, red_logger, args, app_files_info=None):
     """
     Builds and logs a summary line for the report log.
     """
@@ -1474,7 +1478,7 @@ def build_and_log_final_summary_line(result, report_logger, summary_logger, red_
     #     log_dropbox_account_info(dropbox_info, summary_logger, args, report_logger)
     
     # Format the summary line
-    summary = format_summary_line(result.get('dropbox_name', '--'), salesforce_info, dropbox_info, args, result)
+    summary = format_summary_line(result.get('dropbox_name', '--'), salesforce_info, dropbox_info, args, result, app_files_info)
     
     # Log the summary line to both report and summary logs
     report_logger.info(summary)
@@ -1488,7 +1492,7 @@ def build_and_log_final_summary_line(result, report_logger, summary_logger, red_
     
     return summary
 
-def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox_info: dict, args=None, result=None):
+def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox_info: dict, args=None, result=None, app_files_info=None):
     """
     Returns a formatted summary line for the report log.
     dropbox_folder_name: str
@@ -1618,29 +1622,18 @@ def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox
         else:
             summary += f", {salesforce_icon} Salesforce Account: --, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
     
-    # Add Application Files info if available
-    app_files_info = result.get('account_info_from_app_files', {})
-    if app_files_info:
-        total_files = app_files_info.get('total_files_processed', 0)
-        complete_files = app_files_info.get('files_with_complete_info', 0)
-        partial_files = app_files_info.get('files_with_partial_info', 0)
-        no_info_files = app_files_info.get('files_with_no_info', 0)
-        
-        if total_files > 0:
-            app_files_icon = '📄'
-            app_files_status = f"Files: {total_files} (Complete: {complete_files}, Partial: {partial_files}, None: {no_info_files})"
-        else:
-            app_files_icon = '🚫'
-            app_files_status = "No files found"
-        
-        summary += f", {app_files_icon} App Files: {app_files_status}"
-    
     # Add Application Files info - always show this information
-    app_files_info = result.get('account_info_from_app_files', {}) if result else {}
-    app_files_info_source = 'result.account_info_from_app_files'
-    if not app_files_info and dropbox_info:
-        app_files_info = dropbox_info.get('application_data', {})
-        app_files_info_source = 'dropbox_info.application_data'
+    if app_files_info and isinstance(app_files_info, dict) and app_files_info:
+        # Use the passed app_files_info if it has data
+        app_files_info_source = 'passed_in_app_files_info'
+    else:
+        # Fall back to result or dropbox_info
+        app_files_info = result.get('account_info_from_app_files', {}) if result else {}
+        app_files_info_source = 'result.account_info_from_app_files'
+        if not app_files_info and dropbox_info:
+            app_files_info = dropbox_info.get('application_data', {})
+            app_files_info_source = 'dropbox_info.application_data'
+    
     debug_msg = f"[DEBUG] app_files_info source: {app_files_info_source}, value: {app_files_info}"
     logger.info(debug_msg)
     if 'summary_logger' in globals() and summary_logger:
