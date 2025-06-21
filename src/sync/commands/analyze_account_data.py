@@ -173,7 +173,7 @@ def _generate_beautiful_summary(report: AccountAnalysisReport) -> str:
     asterisk_line = "*" * header_width
     
     # Center the title and account name
-    title = "ACCOUNT ANALYSIS SUMMARY REPORT"
+    title = "📊 ACCOUNT ANALYSIS SUMMARY REPORT"
     title_centered = title.center(header_width)
     
     # Center the account name
