@@ -730,6 +730,13 @@ class CommandRunner:
                 folder_path_key = folder_path
                 files = summary_data.get('all_folder_app_files', {}).get(folder_path_key, [])
                 
+                # Log if no application files were found
+                if not files:
+                    no_files_msg = f"  ❌ No application files found for {folder_path}"
+                    self.logger.info(no_files_msg)
+                    self.report_logger.info(no_files_msg)
+                    self.summary_logger.info(no_files_msg)
+                
                 # Aggregate the account info
                 aggregated_info = self._aggregate_account_info_from_app_files(summary_data, files, dropbox_account_folder_name)
                 
@@ -741,6 +748,12 @@ class CommandRunner:
                 self.logger.info(f"[_extract_dropbox_account_app_files_info] Files with complete info: {aggregated_info.get('files_with_complete_info', 0)}")
                 self.logger.info(f"[_extract_dropbox_account_app_files_info] Files with partial info: {aggregated_info.get('files_with_partial_info', 0)}")
                 self.logger.info(f"[_extract_dropbox_account_app_files_info] Files with no info: {aggregated_info.get('files_with_no_info', 0)}")
+                
+                # Also log to summary_logger
+                self.summary_logger.info(f"[_extract_dropbox_account_app_files_info] ✅ Successfully extracted information from {len(files)} application files")
+                self.summary_logger.info(f"[_extract_dropbox_account_app_files_info] Files with complete info: {aggregated_info.get('files_with_complete_info', 0)}")
+                self.summary_logger.info(f"[_extract_dropbox_account_app_files_info] Files with partial info: {aggregated_info.get('files_with_partial_info', 0)}")
+                self.summary_logger.info(f"[_extract_dropbox_account_app_files_info] Files with no info: {aggregated_info.get('files_with_no_info', 0)}")
                 
                 # Log detailed notes for each app file
                 if summary_data and 'file_info' in summary_data:
@@ -755,14 +768,17 @@ class CommandRunner:
                 if has_complete_account_info:
                     self.logger.info("[_extract_dropbox_account_app_files_info] ✅ Complete account information found from app files")
                     self.report_logger.info("[_extract_dropbox_account_app_files_info] ✅ Complete account information found from app files")
+                    self.summary_logger.info("[_extract_dropbox_account_app_files_info] ✅ Complete account information found from app files")
                 else:
                     self.logger.info("[_extract_dropbox_account_app_files_info] ⚠️ Incomplete account information from app files")
                     self.report_logger.info("[_extract_dropbox_account_app_files_info] ⚠️ Incomplete account information from app files")
+                    self.summary_logger.info("[_extract_dropbox_account_app_files_info] ⚠️ Incomplete account information from app files")
                     
                     # If we don't have complete account info, process the 0-length files
                     if summary_data and 'skipped_zero_length_files' in summary_data and summary_data['skipped_zero_length_files'] > 0:
                         self.logger.info(f"[_extract_dropbox_account_app_files_info] Processing {summary_data['skipped_zero_length_files']} zero-length files to try to get complete account info")
                         self.report_logger.info(f"[_extract_dropbox_account_app_files_info] Processing {summary_data['skipped_zero_length_files']} zero-length files to try to get complete account info")
+                        self.summary_logger.info(f"[_extract_dropbox_account_app_files_info] Processing {summary_data['skipped_zero_length_files']} zero-length files to try to get complete account info")
                         
                         # Second pass: Process 0-length files to try to get complete account info
                         zero_length_summary = dropbox_client.extract_app_files_info(
@@ -798,19 +814,32 @@ class CommandRunner:
                             self.logger.info(f"[_extract_dropbox_account_app_files_info] Files with partial info: {updated_aggregated_info.get('files_with_partial_info', 0)}")
                             self.logger.info(f"[_extract_dropbox_account_app_files_info] Files with no info: {updated_aggregated_info.get('files_with_no_info', 0)}")
                             
+                            # Also log to summary_logger
+                            self.summary_logger.info(f"[_extract_dropbox_account_app_files_info] ✅ After processing zero-length files: {len(combined_files)} total files processed")
+                            self.summary_logger.info(f"[_extract_dropbox_account_app_files_info] Files with complete info: {updated_aggregated_info.get('files_with_complete_info', 0)}")
+                            self.summary_logger.info(f"[_extract_dropbox_account_app_files_info] Files with partial info: {updated_aggregated_info.get('files_with_partial_info', 0)}")
+                            self.summary_logger.info(f"[_extract_dropbox_account_app_files_info] Files with no info: {updated_aggregated_info.get('files_with_no_info', 0)}")
+                            
                             if updated_aggregated_info.get('has_complete_account_info', False):
                                 self.logger.info("[_extract_dropbox_account_app_files_info] ✅ Complete account information now found after processing zero-length files")
                                 self.report_logger.info("[_extract_dropbox_account_app_files_info] ✅ Complete account information now found after processing zero-length files")
+                                self.summary_logger.info("[_extract_dropbox_account_app_files_info] ✅ Complete account information now found after processing zero-length files")
                             else:
                                 self.logger.info("[_extract_dropbox_account_app_files_info] ⚠️ Still incomplete account information after processing zero-length files")
                                 self.report_logger.info("[_extract_dropbox_account_app_files_info] ⚠️ Still incomplete account information after processing zero-length files")
+                                self.summary_logger.info("[_extract_dropbox_account_app_files_info] ⚠️ Still incomplete account information after processing zero-length files")
                 
                 # Store the summary data for reporting
                 self.set_data('app_files_extraction_summary', summary_data)
                 
+                # Create individual account report file
+                self._create_account_report_file(dropbox_account_folder_name, aggregated_info, summary_data)
+                
             else:
-                self.logger.warning("❌ No summary data returned from app files extraction")
-                self.report_logger.warning("❌ No summary data returned from app files extraction")
+                no_summary_msg = "❌ No summary data returned from app files extraction"
+                self.logger.warning(no_summary_msg)
+                self.report_logger.warning(no_summary_msg)
+                self.summary_logger.warning(no_summary_msg)
                 
                 # Set empty app files data since extraction failed
                 self.set_data('account_info_from_app_files', {
@@ -828,9 +857,23 @@ class CommandRunner:
                     'notes': ['App files extraction failed - no summary data returned']
                 })
                 
+                # Create individual account report file even for failed extraction
+                self._create_account_report_file(dropbox_account_folder_name, {
+                    'total_files_processed': 0,
+                    'files_with_complete_info': 0,
+                    'files_with_partial_info': 0,
+                    'files_with_no_info': 0,
+                    'best_available_info': {},
+                    'file_details': {},
+                    'has_complete_account_info': False,
+                    'status': 'Failed - No summary data returned'
+                }, {})
+                
         except Exception as e:
-            self.logger.error(f"❌ Error extracting app files info: {str(e)}")
-            self.report_logger.error(f"❌ Error extracting app files info: {str(e)}")
+            error_msg = f"❌ Error extracting app files info: {str(e)}"
+            self.logger.error(error_msg)
+            self.report_logger.error(error_msg)
+            self.summary_logger.error(error_msg)
             
             # Set empty app files data since extraction failed with exception
             self.set_data('account_info_from_app_files', {
@@ -847,6 +890,19 @@ class CommandRunner:
                 'status': f'Failed - Exception: {str(e)}',
                 'notes': [f'App files extraction failed with exception: {str(e)}']
             })
+            
+            # Create individual account report file even for failed extraction
+            self._create_account_report_file(dropbox_account_folder_name, {
+                'total_files_processed': 0,
+                'files_with_complete_info': 0,
+                'files_with_partial_info': 0,
+                'files_with_no_info': 0,
+                'best_available_info': {},
+                'file_details': {},
+                'has_complete_account_info': False,
+                'status': f'Failed - Exception: {str(e)}'
+            }, {})
+            
             raise
         
         total_time = time.time() - start_time
@@ -1408,3 +1464,199 @@ class CommandRunner:
             error_msg = f"Analysis failed: {result.get('message', 'Unknown error')}"
             self.logger.error(error_msg)
             raise Exception(error_msg) 
+
+    def _create_account_report_file(self, dropbox_account_folder_name: str, aggregated_info: Dict[str, Any], summary_data: Dict[str, Any]) -> None:
+        """Create a report file for the extracted account information.
+        
+        Args:
+            dropbox_account_folder_name: The name of the Dropbox account folder
+            aggregated_info: The aggregated account information
+            summary_data: The summary data from app file extraction
+        """
+        try:
+            # Create reports subdirectory
+            reports_dir = os.path.join(self.log_dir, 'reports')
+            os.makedirs(reports_dir, exist_ok=True)
+            
+            # Sanitize the folder name for use as a filename
+            safe_filename = dropbox_account_folder_name.replace('/', '_').replace('\\', '_').replace(':', '_').replace('*', '_').replace('?', '_').replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_')
+            account_file_path = os.path.join(reports_dir, f"{safe_filename}_app_files_extraction.txt")
+            
+            # Get additional search results from command runner data
+            dropbox_search_result = None
+            salesforce_search_result = None
+            try:
+                dropbox_search_result = self.get_data('dropbox_account_info')
+            except KeyError:
+                pass
+            
+            try:
+                salesforce_search_result = self.get_data('result')  # This contains the Salesforce search result
+            except KeyError:
+                pass
+            
+            # Write the report to the account-specific file
+            with open(account_file_path, "w", encoding="utf-8") as f:
+                f.write("=" * 80 + "\n")
+                f.write("📄 COMPREHENSIVE ACCOUNT SEARCH REPORT\n")
+                f.write("=" * 80 + "\n")
+                f.write(f"📁 Dropbox Account Folder: {dropbox_account_folder_name}\n")
+                f.write(f"📅 Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write("=" * 80 + "\n\n")
+                
+                # Search Results Summary
+                f.write("🔍 **SEARCH RESULTS SUMMARY**\n")
+                f.write("-" * 40 + "\n")
+                
+                # Dropbox Client List Search
+                if dropbox_search_result:
+                    dropbox_status = dropbox_search_result.get('search_info', {}).get('match_info', {}).get('match_status', 'Unknown')
+                    dropbox_matches = len(dropbox_search_result.get('search_info', {}).get('matches', []))
+                    f.write(f"📦 Dropbox Client List Search: {'✅ Match Found' if dropbox_status == 'Match found' else '❌ No Match Found'}\n")
+                    f.write(f"   📊 Matches Found: {dropbox_matches}\n")
+                    f.write(f"   📋 Status: {dropbox_status}\n")
+                else:
+                    f.write("📦 Dropbox Client List Search: ⚠️ Not Available\n")
+                
+                # Salesforce Search
+                if salesforce_search_result:
+                    salesforce_status = salesforce_search_result.get('match_info', {}).get('match_status', 'Unknown')
+                    salesforce_matches = len(salesforce_search_result.get('matches', []))
+                    salesforce_view = salesforce_search_result.get('view', 'Unknown')
+                    f.write(f"⚡ Salesforce Search: {'✅ Match Found' if salesforce_status == 'Match found' else '❌ No Match Found'}\n")
+                    f.write(f"   📊 Matches Found: {salesforce_matches}\n")
+                    f.write(f"   📋 Status: {salesforce_status}\n")
+                    f.write(f"   👁️ View Searched: {salesforce_view}\n")
+                else:
+                    f.write("⚡ Salesforce Search: ⚠️ Not Available\n")
+                
+                # Application Files Search
+                total_files = aggregated_info.get('total_files_processed', 0)
+                complete_files = aggregated_info.get('files_with_complete_info', 0)
+                partial_files = aggregated_info.get('files_with_partial_info', 0)
+                no_info_files = aggregated_info.get('files_with_no_info', 0)
+                
+                if total_files > 0:
+                    f.write(f"📄 Application Files Search: {'✅ Files Found' if complete_files > 0 or partial_files > 0 else '❌ No Useful Files Found'}\n")
+                    f.write(f"   📊 Total Files: {total_files}\n")
+                    f.write(f"   ✅ Complete Info: {complete_files}\n")
+                    f.write(f"   ⚠️ Partial Info: {partial_files}\n")
+                    f.write(f"   ❌ No Info: {no_info_files}\n")
+                else:
+                    f.write("📄 Application Files Search: ❌ No Application Files Found\n")
+                    f.write(f"   📊 Total Files: {total_files}\n")
+                
+                f.write("\n")
+                
+                # Overall Status
+                f.write("📊 **OVERALL STATUS**\n")
+                f.write("-" * 40 + "\n")
+                
+                # Determine overall status
+                has_dropbox_match = dropbox_search_result and dropbox_search_result.get('search_info', {}).get('match_info', {}).get('match_status') == 'Match found'
+                has_salesforce_match = salesforce_search_result and salesforce_search_result.get('match_info', {}).get('match_status') == 'Match found'
+                has_app_files = total_files > 0 and (complete_files > 0 or partial_files > 0)
+                
+                if has_dropbox_match and has_salesforce_match and has_app_files:
+                    overall_status = "✅ Complete - All sources have data"
+                elif has_dropbox_match or has_salesforce_match or has_app_files:
+                    overall_status = "⚠️ Partial - Some sources have data"
+                else:
+                    overall_status = "❌ Incomplete - No data found in any source"
+                
+                f.write(f"🎯 Overall Status: {overall_status}\n")
+                f.write(f"📦 Dropbox Match: {'✅ Yes' if has_dropbox_match else '❌ No'}\n")
+                f.write(f"⚡ Salesforce Match: {'✅ Yes' if has_salesforce_match else '❌ No'}\n")
+                f.write(f"📄 Application Files: {'✅ Yes' if has_app_files else '❌ No'}\n")
+                f.write("\n")
+                
+                # File processing statistics
+                f.write("📊 **FILE PROCESSING STATISTICS**\n")
+                f.write("-" * 40 + "\n")
+                f.write(f"📄 Total Files Processed: {total_files}\n")
+                f.write(f"✅ Files with Complete Info: {complete_files}\n")
+                f.write(f"⚠️ Files with Partial Info: {partial_files}\n")
+                f.write(f"❌ Files with No Info: {no_info_files}\n")
+                f.write(f"📊 Account Info Status: {'✅ Complete' if aggregated_info.get('has_complete_account_info', False) else '❌ Incomplete'}\n\n")
+                
+                # Status information
+                f.write("📋 **STATUS INFORMATION**\n")
+                f.write("-" * 40 + "\n")
+                f.write(f"Status: {aggregated_info.get('status', 'Unknown')}\n")
+                f.write(f"Application Type: {aggregated_info.get('application_type', 'N/A')}\n\n")
+                
+                # Best available information
+                best_info = aggregated_info.get('best_available_info', {})
+                if best_info:
+                    f.write("👤 **BEST AVAILABLE INFORMATION**\n")
+                    f.write("-" * 40 + "\n")
+                    
+                    # Owner information
+                    owner = best_info.get('owner', {})
+                    if owner:
+                        f.write("📋 **Primary Account Holder**\n")
+                        f.write(f"   First Name: {owner.get('firstName', 'N/A')}\n")
+                        f.write(f"   Last Name: {owner.get('lastName', 'N/A')}\n")
+                        f.write(f"   Date of Birth: {owner.get('dateOfBirth', 'N/A')}\n")
+                        f.write(f"   Gender: {owner.get('gender', 'N/A')}\n")
+                        f.write(f"   Address: {owner.get('address', 'N/A')}\n")
+                        f.write(f"   Phone: {owner.get('phone', 'N/A')}\n")
+                        f.write(f"   Email: {owner.get('email', 'N/A')}\n")
+                        f.write(f"   SSN/Tax ID: {owner.get('ssn', 'N/A')}\n\n")
+                    
+                    # Joint owner information
+                    joint_owner = best_info.get('jointOwner', {})
+                    if joint_owner:
+                        f.write("👥 **Joint Account Holder**\n")
+                        f.write(f"   First Name: {joint_owner.get('firstName', 'N/A')}\n")
+                        f.write(f"   Last Name: {joint_owner.get('lastName', 'N/A')}\n")
+                        f.write(f"   Date of Birth: {joint_owner.get('dateOfBirth', 'N/A')}\n")
+                        f.write(f"   Gender: {joint_owner.get('gender', 'N/A')}\n")
+                        f.write(f"   Address: {joint_owner.get('address', 'N/A')}\n")
+                        f.write(f"   Phone: {joint_owner.get('phone', 'N/A')}\n")
+                        f.write(f"   Email: {joint_owner.get('email', 'N/A')}\n")
+                        f.write(f"   SSN/Tax ID: {joint_owner.get('ssn', 'N/A')}\n\n")
+                
+                # File details
+                file_details = aggregated_info.get('file_details', {})
+                if file_details:
+                    f.write("📄 **FILE DETAILS**\n")
+                    f.write("-" * 40 + "\n")
+                    for file_path, detail in file_details.items():
+                        f.write(f"📁 {file_path}\n")
+                        f.write(f"   Status: {detail.get('status', 'Unknown')}\n")
+                        f.write(f"   Info Quality: {detail.get('info_quality', 'Unknown')}\n")
+                        if detail.get('notes'):
+                            f.write(f"   Notes: {', '.join(detail['notes'])}\n")
+                        f.write("\n")
+                
+                # Notes
+                notes = aggregated_info.get('notes', [])
+                if notes:
+                    f.write("📝 **PROCESSING NOTES**\n")
+                    f.write("-" * 40 + "\n")
+                    for note in notes:
+                        f.write(f"   • {note}\n")
+                    f.write("\n")
+                
+                # Summary data (if available)
+                if summary_data:
+                    f.write("📊 **SUMMARY DATA**\n")
+                    f.write("-" * 40 + "\n")
+                    f.write(f"Total App Files: {summary_data.get('total_app_files', 0)}\n")
+                    f.write(f"Processed Folders: {len(summary_data.get('processed_folders', set()))}\n")
+                    f.write(f"Files with Birthdate: {len(summary_data.get('files_with_birthdate', set()))}\n")
+                    f.write(f"Files with Name: {len(summary_data.get('files_with_name', []))}\n")
+                    f.write(f"Skipped Zero-Length Files: {summary_data.get('skipped_zero_length_files', 0)}\n")
+                
+                f.write("\n" + "=" * 80 + "\n")
+                f.write("📄 END OF COMPREHENSIVE ACCOUNT SEARCH REPORT\n")
+                f.write("=" * 80 + "\n")
+            
+            self.logger.info(f"✅ Account comprehensive search report written to: {account_file_path}")
+            self.summary_logger.info(f"✅ Account comprehensive search report written to: {account_file_path}")
+            
+        except Exception as e:
+            error_msg = f"❌ Error creating account report file: {str(e)}"
+            self.logger.error(error_msg)
+            self.summary_logger.error(error_msg) 

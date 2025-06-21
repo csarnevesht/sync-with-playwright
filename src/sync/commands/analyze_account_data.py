@@ -45,12 +45,27 @@ def analyze_account_data(command_runner) -> Dict[str, Any]:
     analyzer = AccountAnalyzer()
     
     # Get account information from command runner
-    salesforce_account_information = command_runner.get_data('salesforce_account_information')
-    dropbox_account_information = command_runner.get_data('dropbox_account_information')
-    dropbox_account_folder_name = command_runner.get_data('dropbox_account_folder_name')
+    try:
+        salesforce_account_information = command_runner.get_data('salesforce_account_information')
+        logger.info("✅ Found Salesforce account information")
+    except KeyError:
+        logger.warning("⚠️ No Salesforce account information found - proceeding with Dropbox-only analysis")
+        salesforce_account_information = None
     
-    if not dropbox_account_folder_name:
-        logger.error("No dropbox_account_folder_name found in command runner data")
+    try:
+        dropbox_account_information = command_runner.get_data('dropbox_account_information')
+        logger.info("✅ Found Dropbox account information")
+    except KeyError:
+        logger.error("❌ No Dropbox account information found - analysis cannot proceed")
+        return {
+            'status': 'error',
+            'message': 'No Dropbox account information available'
+        }
+    
+    try:
+        dropbox_account_folder_name = command_runner.get_data('dropbox_account_folder_name')
+    except KeyError:
+        logger.error("❌ No dropbox_account_folder_name found in command runner data")
         return {
             'status': 'error',
             'message': 'No dropbox account folder name available'
