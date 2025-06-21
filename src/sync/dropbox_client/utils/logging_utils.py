@@ -815,7 +815,7 @@ Additional Account Information:
 
 
 class DropboxAccountLogger:
-    """Utility class for logging Dropbox Account Information with beautiful formatting."""
+    """Utility class for logging Dropbox Account Information with analysis formatting."""
     
     def __init__(self, logger: Optional[logging.Logger] = None):
         """
@@ -899,7 +899,7 @@ class DropboxAccountLogger:
             self._log_application_files_data(application_data, summary_logger, report_logger)
     
     def _log_application_files_data(self, application_data: Dict[str, Any], summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None) -> None:
-        """Log raw application files data in a beautiful format."""
+        """Log raw application files data in a analysis format."""
         self._log("[_log_application_files_data]", summary_logger, report_logger)
         best_info = application_data.get('best_available_info', {})
         if not best_info:
@@ -1099,7 +1099,7 @@ def log_dropbox_account_information(dropbox_account_information: Dict[str, Any],
                                   summary_logger: Optional[logging.Logger] = None,
                                   report_logger: Optional[logging.Logger] = None) -> None:
     """
-    Log comprehensive Dropbox Account Information with beautiful formatting.
+    Log comprehensive Dropbox Account Information with analysis formatting.
     
     Args:
         dropbox_account_information: The structured account information

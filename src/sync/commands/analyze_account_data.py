@@ -30,7 +30,7 @@ def analyze_account_data(command_runner) -> Dict[str, Any]:
     3. Identifies data gaps, inconsistencies, and migration needs
     4. Generates detailed reports with recommendations
     5. Creates migration plans for data synchronization
-    6. Automatically generates a beautiful summary report
+    6. Automatically generates a analysis summary report
     
     Args:
         command_runner: The command runner instance with access to data
@@ -72,7 +72,7 @@ def analyze_account_data(command_runner) -> Dict[str, Any]:
         # Generate detailed reports
         reports = _generate_detailed_reports(analysis_report)
         
-        # Generate beautiful comprehensive summary and write to summary.log
+        # Generate analysis comprehensive summary and write to summary.log
         beautiful_summary = _generate_beautiful_summary(analysis_report)
         _write_summary_to_log(beautiful_summary, command_runner)
         
@@ -97,25 +97,21 @@ def analyze_account_data(command_runner) -> Dict[str, Any]:
 
 
 def _write_summary_to_log(beautiful_summary: str, command_runner) -> None:
-    """Append the beautiful summary to the end of the summary.log file, after all logger output."""
+    """Write the analysis summary to both the summary.log file and a separate account-specific file."""
     try:
-        # Get the summary log file path from the command runner
-        summary_log_path = None
-        
-        # Try to get the log directory from command runner
+        # Get the log directory from command runner
+        log_dir = None
         if hasattr(command_runner, 'log_dir') and command_runner.log_dir:
-            summary_log_path = os.path.join(command_runner.log_dir, 'summary.log')
-        elif hasattr(command_runner, 'summary_log_path') and command_runner.summary_log_path:
-            summary_log_path = command_runner.summary_log_path
+            log_dir = command_runner.log_dir
         elif hasattr(command_runner, 'summary_logger') and hasattr(command_runner.summary_logger, 'handlers'):
             # Try to get the file path from the logger handler
             for handler in command_runner.summary_logger.handlers:
                 if hasattr(handler, 'baseFilename'):
-                    summary_log_path = handler.baseFilename
+                    log_dir = os.path.dirname(handler.baseFilename)
                     break
         
-        # If still no path found, try to find the most recent summary.log in logs directory
-        if not summary_log_path:
+        # If still no path found, try to find the most recent log directory
+        if not log_dir:
             logs_dir = 'logs'
             if os.path.exists(logs_dir):
                 # Find the most recent log directory
@@ -124,23 +120,44 @@ def _write_summary_to_log(beautiful_summary: str, command_runner) -> None:
                     # Sort by creation time (most recent first)
                     log_dirs.sort(key=lambda x: os.path.getctime(os.path.join(logs_dir, x)), reverse=True)
                     latest_log_dir = log_dirs[0]
-                    summary_log_path = os.path.join(logs_dir, latest_log_dir, 'summary.log')
+                    log_dir = os.path.join(logs_dir, latest_log_dir)
         
-        if summary_log_path and os.path.exists(summary_log_path):
-            separator = "\n" + "="*80 + "\n"
-            separator += "🎯 ACCOUNT ANALYSIS SUMMARY REPORT\n"
-            separator += "="*80 + "\n"
-            with open(summary_log_path, "a", encoding="utf-8") as f:
-                f.write(separator + beautiful_summary + "\n")
-            logger.info(f"✅ Beautiful analysis summary appended to end of {summary_log_path}")
+        if log_dir and os.path.exists(log_dir):
+            # Get the Dropbox account folder name from the command runner data
+            dropbox_account_folder = None
+            if hasattr(command_runner, 'get_data'):
+                dropbox_account_folder = command_runner.get_data('dropbox_account_folder_name')
+            
+            # If we have the folder name, create a separate file for this account
+            if dropbox_account_folder:
+                # Sanitize the folder name for use as a filename
+                safe_filename = dropbox_account_folder.replace('/', '_').replace('\\', '_').replace(':', '_').replace('*', '_').replace('?', '_').replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_')
+                account_file_path = os.path.join(log_dir, f"{safe_filename}.txt")
+                
+                # Write the analysis to the account-specific file
+                with open(account_file_path, "w", encoding="utf-8") as f:
+                    f.write(beautiful_summary + "\n")
+                logger.info(f"✅ Account analysis written to: {account_file_path}")
+            
+            # Also append to the summary.log file as before
+            summary_log_path = os.path.join(log_dir, 'summary.log')
+            if os.path.exists(summary_log_path):
+                separator = "\n" + "="*80 + "\n"
+                separator += "🎯 ACCOUNT ANALYSIS SUMMARY REPORT\n"
+                separator += "="*80 + "\n"
+                with open(summary_log_path, "a", encoding="utf-8") as f:
+                    f.write(separator + beautiful_summary + "\n")
+                logger.info(f"✅ Beautiful analysis summary appended to end of {summary_log_path}")
+            else:
+                logger.warning(f"⚠️ Could not find summary.log file at: {summary_log_path}")
         else:
-            logger.warning(f"⚠️ Could not determine summary.log file path, beautiful summary not appended. Tried: {summary_log_path}")
+            logger.warning(f"⚠️ Could not determine log directory, analysis not written to file. Tried: {log_dir}")
     except Exception as e:
-        logger.error(f"❌ Error writing beautiful summary to log: {str(e)}")
+        logger.error(f"❌ Error writing analysis summary to log: {str(e)}")
 
 
 def _generate_beautiful_summary(report: AccountAnalysisReport) -> str:
-    """Generate a beautiful, comprehensive analysis summary."""
+    """Generate a analysis, comprehensive analysis summary."""
     
     # Extract account names for better display
     primary_account_name = report.dropbox_account_folder.split(', ')[-1] if ', ' in report.dropbox_account_folder else report.dropbox_account_folder
@@ -148,20 +165,22 @@ def _generate_beautiful_summary(report: AccountAnalysisReport) -> str:
     # Use the original Dropbox account folder name for display
     full_display_name = report.dropbox_account_folder
     
-    # Calculate box width and spacing
-    box_width = 70  # Total width of the box
-    content_width = box_width - 2  # Width available for content (minus the side bars)
-    
-    # Center the name in the available space - simple approach
-    name_line = full_display_name.center(content_width)
-    
-    # Format timestamp to fit in the box
+    # Format timestamp
     timestamp = datetime.now().strftime('%B %d, %Y %H:%M:%S')
-    if len(timestamp) > content_width:
-        timestamp = datetime.now().strftime('%b %d, %Y %H:%M')
     
-    # Center the timestamp in the available space - simple approach
-    timestamp_line = timestamp.center(content_width)
+    # Create the new header format with asterisks and centered text
+    header_width = 80
+    asterisk_line = "*" * header_width
+    
+    # Center the title and account name
+    title = "ACCOUNT ANALYSIS SUMMARY REPORT"
+    title_centered = title.center(header_width)
+    
+    # Center the account name
+    name_centered = full_display_name.center(header_width)
+    
+    # Center the timestamp
+    timestamp_centered = timestamp.center(header_width)
     
     # Get household name
     household_name = "Unknown Household"
@@ -193,11 +212,15 @@ def _generate_beautiful_summary(report: AccountAnalysisReport) -> str:
     # Generate account details
     account_details = _generate_account_details_section(report)
     
-    summary = f"""╔══════════════════════════════════════════════════════════════════════════════╗
-║                    📊 ACCOUNT ANALYSIS SUMMARY REPORT                        ║
-║{name_line}║
-║{timestamp_line}║
-╚══════════════════════════════════════════════════════════════════════════════╝
+    summary = f"""{asterisk_line}
+{asterisk_line}
+{asterisk_line}
+{title_centered}
+{name_centered}
+{timestamp_centered}
+{asterisk_line}
+{asterisk_line}
+{asterisk_line}
 
 🎯 **EXECUTIVE SUMMARY**
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -284,10 +307,14 @@ def _generate_beautiful_summary(report: AccountAnalysisReport) -> str:
 3. **Medium-term**: Improve data completeness
 4. **Long-term**: Establish data synchronization processes
 
-╔══════════════════════════════════════════════════════════════════════════════╗
-║                              END OF REPORT                                   ║
-║                        Analysis completed successfully                       ║
-╚══════════════════════════════════════════════════════════════════════════════╝"""
+{asterisk_line}
+{asterisk_line}
+{asterisk_line}
+                              END OF REPORT
+                        Analysis completed successfully
+{asterisk_line}
+{asterisk_line}
+{asterisk_line}"""
     
     return summary
 

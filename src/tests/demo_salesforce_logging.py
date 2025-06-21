@@ -1,7 +1,7 @@
 """
 Demo Salesforce Account Information Logging
 
-This script demonstrates the new beautiful logging format for Salesforce Account Information
+This script demonstrates the new analysis logging format for Salesforce Account Information
 with icons, better formatting, and visual appeal.
 """
 
@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from sync.salesforce_client.utils.logging_utils import log_command_analysis
 
-# Configure logging to show the beautiful format
+# Configure logging to show the analysis format
 logging.basicConfig(
     level=logging.INFO,
     format='%(message)s',
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 def demo_salesforce_logging():
-    """Demonstrate the new beautiful Salesforce Account Information logging format."""
+    """Demonstrate the new analysis Salesforce Account Information logging format."""
     
     # Mock salesforce_account_information data
     salesforce_account_information = {
@@ -103,10 +103,10 @@ def demo_salesforce_logging():
         ]
     }
     
-    # Demo the beautiful logging format using the new utility
+    # Demo the analysis logging format using the new utility
     log_command_analysis(salesforce_account_information, logger)
     
-    logger.info("\n🎉 Demo completed! This shows the new beautiful logging format.")
+    logger.info("\n🎉 Demo completed! This shows the new analysis logging format.")
 
 
 if __name__ == "__main__":

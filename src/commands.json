@@ -116,7 +116,7 @@
     "command": "python -m sync.cmd_runner --commands=list-dropbox-account-app-files --dropbox-accounts --dropbox-account-name='Account Name'"
   },
   {
-    "description": "Log Dropbox account information in beautiful format for a specific account",
+    "description": "Log Dropbox account information in analysis format for a specific account",
     "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-info --commands=log-dropbox-account-information --dropbox-account-name='Account Name'"
   },
   {
