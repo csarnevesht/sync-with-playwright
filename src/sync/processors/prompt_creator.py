@@ -86,6 +86,14 @@ For gender field:
 - Look for "Gender:" followed by "X Male Female" or similar patterns
 - If "X" appears next to "Male", extract "Male"
 - If "X" appears next to "Female", extract "Female"
+- Look for gender options with "X" or "£X" indicating the selected option
+- The "X" or "£X" indicates which option is SELECTED
+- Examples:
+  - "£ Male £X Female" → gender: "Female" (X is next to Female)
+  - "£X Male £ Female" → gender: "Male" (X is next to Male)
+  - "Male X Female" → gender: "Female" (X is next to Female)
+  - "X Male Female" → gender: "Male" (X is next to Male)
+  - "Male Female X" → gender: "Female" (X is next to Female)
 - Look in both Annuitant and Owner sections
 
 For address fields (CRITICAL):
@@ -109,7 +117,7 @@ EXAMPLES OF WHAT TO EXTRACT:
   * mailingAddressCity: "West Palm Beach"
   * mailingAddressState: "FL" 
   * mailingAddressZip: "33411"
-- If you see: "Gender: X Male Female" → gender: "Male"
+- If you see: "£ Male £X Female" → gender: "Female"
 - If you see: "Birth Date (mm/dd/yyyy) 04/05/1946" → dateOfBirth: "1946-04-05"
 
 REQUIRED: You MUST extract ALL available information including addresses. Do not leave address fields as null if the information is present in the text.
@@ -177,6 +185,10 @@ Rules:
     - "Gender: Male X Female" → gender: "F" (X is between Male and Female, next to Female)
     - "Gender: Male Female X" → gender: "F" (X is after Female, next to Female)
   * IMPORTANT: Return ONLY "M" or "F", not the full pattern
+  * Also look for gender options with "X" or "£X" indicating the selected option
+  * Examples with £ symbol:
+    - "£ Male £X Female" → gender: "Female" (X is next to Female)
+    - "£X Male £ Female" → gender: "Male" (X is next to Male)
 - For name fields: If you see a line labeled 'Owner Name', 'First MI Last', 'Name:', 'Name/Trust', or 'Name/Trust**', extract the first word as firstName, the last word as lastName, and the middle word (if present) as middleInitial.
   * Example: 'Jane Q Public' under 'Owner Name' → firstName: "Jane", middleInitial: "Q", lastName: "Public"
   * Example: 'Jane Public' under 'Name:' → firstName: "Jane", lastName: "Public"
