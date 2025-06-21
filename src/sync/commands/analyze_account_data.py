@@ -317,27 +317,57 @@ def _get_household_head_name(report: AccountAnalysisReport) -> str:
 def _generate_field_comparison_tables(report: AccountAnalysisReport) -> str:
     """Generate field comparison tables for the summary."""
     if not report.account_comparisons:
-        return "📊 **FIELD-BY-FIELD COMPARISON**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nNo account comparisons available."
+        return "📊 **ACCOUNT COMPARISONS**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n✅ No account comparisons found."
     
-    tables = ["📊 **FIELD-BY-FIELD COMPARISON**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"]
+    tables = ["📊 **ACCOUNT COMPARISONS**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"]
     
     for comparison in report.account_comparisons:
-        # Get the actual values for first and last name from dropbox (prefer client list file data)
-        first_name_value = comparison.first_name.dropbox_value or comparison.first_name.salesforce_value or "Not specified"
-        last_name_value = comparison.last_name.dropbox_value or comparison.last_name.salesforce_value or "Not specified"
+        # Check if this is a Dropbox account that has already been matched with existing Salesforce accounts
+        # This happens when the expected accounts logic creates an account with the same name as the Dropbox folder
+        if (comparison.source.value == 'salesforce' and 
+            comparison.account_name == report.dropbox_account_folder and
+            not any(field_comparison.dropbox_value for field_name in ['first_name', 'last_name', 'email', 'phone', 'address', 'birthdate', 'gender', 'ssn_tax_id'] 
+                   for field_comparison in [getattr(comparison, field_name)])):
+            
+            # This is a Dropbox account that was already matched with existing Salesforce accounts
+            # Show a simple message instead of a comparison table
+            matched_accounts = []
+            if report.salesforce_account_information and report.salesforce_account_information.get('accounts'):
+                for account in report.salesforce_account_information['accounts']:
+                    matched_accounts.append(account.get('account_name', 'Unknown'))
+            
+            if matched_accounts:
+                table = f"\n**Account: {comparison.account_name}** (Dropbox Account)\n"
+                table += f"**Status:** ✅ Already matched with existing Salesforce accounts: {', '.join(matched_accounts)}\n"
+                table += f"**Note:** This Dropbox account has been processed and merged with the corresponding Salesforce accounts above.\n"
+            else:
+                table = f"\n**Account: {comparison.account_name}** (Dropbox Account)\n"
+                table += f"**Status:** ✅ Already matched with existing Salesforce accounts\n"
+                table += f"**Note:** This Dropbox account has been processed and merged with the corresponding Salesforce accounts above.\n"
+            
+            tables.append(table)
+            continue
         
-        # Use the source value directly from the comparison (account analyzer now provides correct source)
+        # Get field values for display
+        first_name_value = comparison.first_name.salesforce_value or comparison.first_name.dropbox_value or "Not specified"
+        last_name_value = comparison.last_name.salesforce_value or comparison.last_name.dropbox_value or "Not specified"
+        
+        # Determine source information
         source_info = comparison.source.value
-        
-        # Find the original source for merged accounts
         original_source = None
+        
+        # For merged accounts, try to get the original source
         if comparison.source.value == 'dropbox_merged':
-            # Look for the original source in the dropbox account information
-            if report.dropbox_account_information and report.dropbox_account_information.get('accounts'):
-                for account in report.dropbox_account_information['accounts']:
-                    if account.get('account_name') == comparison.account_name:
-                        original_source = account.get('source', 'Unknown')
-                        break
+            if hasattr(comparison, 'merged_from') and comparison.merged_from:
+                # Get the first source from merged accounts
+                original_source = comparison.merged_from[0].get('source', 'Unknown')
+            else:
+                # Fallback: try to find the source in dropbox account information
+                if report.dropbox_account_information and report.dropbox_account_information.get('accounts'):
+                    for account in report.dropbox_account_information['accounts']:
+                        if account.get('account_name') == comparison.account_name:
+                            original_source = account.get('source', 'Unknown')
+                            break
         
         # Create enhanced account header with original source and current source
         if comparison.source.value == 'dropbox_merged' and original_source:
@@ -481,67 +511,47 @@ def _generate_account_details_section(report: AccountAnalysisReport) -> str:
             # Show match status for client list accounts
             if account.get('source') == 'client_list_file':
                 details.append(f"   - Match Status: {account.get('match_status', 'Not specified')}")
+                # Add note if matched with Salesforce accounts
+                if account.get('match_status', '').lower() == 'match found' and report.salesforce_account_information and report.salesforce_account_information.get('accounts'):
+                    sf_names = [sf_acc.get('account_name', 'Unknown') for sf_acc in report.salesforce_account_information['accounts']]
+                    details.append(f"   - Note: This Dropbox account was matched with Salesforce account(s): {', '.join(sf_names)}")
             
             # Show contributing application files for application_files accounts
             if account.get('source') == 'application_files':
                 # Get the file information from the app_files_extraction_summary
                 app_files_extraction_summary = report.dropbox_account_information.get('app_files_extraction_summary', {})
                 if app_files_extraction_summary and 'all_folder_app_files' in app_files_extraction_summary and 'file_info' in app_files_extraction_summary:
-                    # Debug logging
-                    print(f"DEBUG: Processing account {account.get('account_name')} with first_name='{account.get('first_name')}' last_name='{account.get('last_name')}'")
-                    print(f"DEBUG: app_files_extraction_summary keys: {list(app_files_extraction_summary.keys())}")
-                    print(f"DEBUG: all_folder_app_files keys: {list(app_files_extraction_summary['all_folder_app_files'].keys())}")
-                    print(f"DEBUG: file_info keys: {list(app_files_extraction_summary['file_info'].keys())}")
-                    
                     matching_files = []
                     for folder_files in app_files_extraction_summary['all_folder_app_files'].values():
                         for file in folder_files:
                             file_path = getattr(file, 'path_display', None)
                             file_info = app_files_extraction_summary['file_info'].get(file_path, {})
-                            print(f"DEBUG: Checking file {file.name} with path {file_path}")
-                            print(f"DEBUG: file_info: {file_info}")
-                            
-                            # Check owner information
                             owner = file_info.get('owner', {})
                             account_first = account.get('first_name', '')
                             account_last = account.get('last_name', '')
                             if owner.get('firstName') and owner.get('lastName'):
                                 file_first = owner.get('firstName', '')
                                 file_last = owner.get('lastName', '')
-                                print(f"DEBUG: Comparing OWNER file_first='{file_first}' vs account_first='{account_first}'")
-                                print(f"DEBUG: Comparing OWNER file_last='{file_last}' vs account_last='{account_last}'")
                                 if (
                                     file_first.strip().lower() == account_first.strip().lower() and
                                     file_last.strip().lower() == account_last.strip().lower()
                                 ):
-                                    print(f"DEBUG: MATCH FOUND for OWNER in file {file.name}")
                                     matching_files.append(file)
-                            # Check joint owner information
                             joint_owner = file_info.get('jointOwner', {})
                             if joint_owner.get('firstName') and joint_owner.get('lastName'):
                                 joint_first = joint_owner.get('firstName', '')
                                 joint_last = joint_owner.get('lastName', '')
-                                print(f"DEBUG: Comparing JOINT file_first='{joint_first}' vs account_first='{account_first}'")
-                                print(f"DEBUG: Comparing JOINT file_last='{joint_last}' vs account_last='{account_last}'")
                                 if (
                                     joint_first.strip().lower() == account_first.strip().lower() and
                                     joint_last.strip().lower() == account_last.strip().lower()
                                 ):
-                                    print(f"DEBUG: MATCH FOUND for JOINT OWNER in file {file.name}")
                                     matching_files.append(file)
-                    
-                    print(f"DEBUG: Total matching files found: {len(matching_files)}")
                     if matching_files:
                         details.append(f"   - **Contributing Application Files:**")
                         for file in matching_files:
                             details.append(f"     📄 {file.name}")
                     else:
                         details.append(f"   - **Contributing Application Files:** None found")
-                else:
-                    print(f"DEBUG: Missing required data for account {account.get('account_name')}")
-                    print(f"DEBUG: app_files_extraction_summary exists: {app_files_extraction_summary is not None}")
-                    print(f"DEBUG: all_folder_app_files exists: {'all_folder_app_files' in app_files_extraction_summary if app_files_extraction_summary else False}")
-                    print(f"DEBUG: file_info exists: {'file_info' in app_files_extraction_summary if app_files_extraction_summary else False}")
             
             details.append("")  # Empty line for spacing
     

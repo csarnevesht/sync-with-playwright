@@ -1308,9 +1308,17 @@ class AccountAnalyzer:
             if last_name:
                 household_name = f"{last_name} Household"
                 mapping['household']['name'] = household_name
-                mapping['accounts'] = [
-                    {'name': primary_name, 'type': 'Household Head', 'role': 'Household Head'}
-                ]
+                
+                # Only create expected account if it's not the same as the Dropbox folder name
+                # This prevents creating expected accounts for Dropbox accounts that have already been matched
+                if primary_name != folder_analysis['original_name']:
+                    mapping['accounts'] = [
+                        {'name': primary_name, 'type': 'Household Head', 'role': 'Household Head'}
+                    ]
+                else:
+                    # If the primary name is the same as the Dropbox folder name, 
+                    # don't create an expected account since it's already a Dropbox account
+                    self.logger.debug(f"Skipping expected account creation for '{primary_name}' - same as Dropbox folder name")
         
         # Generate field mappings based on Dropbox data
         if dropbox_info and dropbox_info.get('account_data'):
