@@ -31,43 +31,43 @@ class AccountAnalyzer:
             'first_name': {
                 'salesforce': 'first_name',
                 'dropbox_client_list': 'first_name',
-                'dropbox_application_files': 'firstName',
+                'dropbox_application_files': 'first_name',
                 'dropbox_merged': 'first_name'
             },
             'last_name': {
                 'salesforce': 'last_name',
                 'dropbox_client_list': 'last_name',
-                'dropbox_application_files': 'lastName',
+                'dropbox_application_files': 'last_name',
                 'dropbox_merged': 'last_name'
             },
             'middle_name': {
                 'salesforce': 'middle_name',
                 'dropbox_client_list': 'middle_name',
-                'dropbox_application_files': 'middleName',
+                'dropbox_application_files': 'middle_name',
                 'dropbox_merged': 'middle_name'
             },
             'email': {
                 'salesforce': 'email',
                 'dropbox_client_list': 'email',
-                'dropbox_application_files': 'emailAddress',
+                'dropbox_application_files': 'email',
                 'dropbox_merged': 'email'
             },
             'phone': {
                 'salesforce': 'phone',
                 'dropbox_client_list': 'phone',
-                'dropbox_application_files': 'phoneNumber',
+                'dropbox_application_files': 'phone',
                 'dropbox_merged': 'phone'
             },
             'address': {
-                'salesforce': 'mailing_address',
+                'salesforce': 'address',
                 'dropbox_client_list': 'address',
-                'dropbox_application_files': 'mailingAddressStreet',
+                'dropbox_application_files': 'address',
                 'dropbox_merged': 'address'
             },
             'birthdate': {
                 'salesforce': 'birthdate',
                 'dropbox_client_list': 'birthdate',
-                'dropbox_application_files': 'dateOfBirth',
+                'dropbox_application_files': 'birthdate',
                 'dropbox_merged': 'birthdate'
             },
             'gender': {
@@ -77,9 +77,9 @@ class AccountAnalyzer:
                 'dropbox_merged': 'gender'
             },
             'ssn_tax_id': {
-                'salesforce': 'ssn/tax_id',
-                'dropbox_client_list': 'ssn',
-                'dropbox_application_files': 'ssn',
+                'salesforce': 'ssn_tax_id',
+                'dropbox_client_list': 'ssn_tax_id',
+                'dropbox_application_files': 'ssn_tax_id',
                 'dropbox_merged': 'ssn_tax_id'
             }
         }
@@ -318,9 +318,9 @@ class AccountAnalyzer:
         
         # Determine the correct source - only use DROPBOX_MERGED if it actually came from multiple sources
         original_source = account.get('source', '')
-        if original_source == 'client_list_file':
+        if original_source == 'dropbox_client_list':
             source = DataSource.DROPBOX_CLIENT_LIST
-        elif original_source == 'application_files':
+        elif original_source == 'dropbox_application_files':
             source = DataSource.DROPBOX_APPLICATION_FILES
         else:
             source = DataSource.DROPBOX_MERGED
@@ -386,9 +386,9 @@ class AccountAnalyzer:
         else:
             # Single account, use the original source
             original_source = base_account.get('source', '')
-            if original_source == 'client_list_file':
+            if original_source == 'dropbox_client_list':
                 source = DataSource.DROPBOX_CLIENT_LIST
-            elif original_source == 'application_files':
+            elif original_source == 'dropbox_application_files':
                 source = DataSource.DROPBOX_APPLICATION_FILES
             else:
                 source = DataSource.DROPBOX_MERGED
@@ -436,42 +436,42 @@ class AccountAnalyzer:
             source = account.get('source', '')
             
             # Update data sources
-            if source == 'client_list_file':
+            if source == 'dropbox_client_list':
                 merged_data['data_sources']['client_list'] = True
-            elif source == 'application_files':
+            elif source == 'dropbox_application_files':
                 merged_data['data_sources']['application_files'] = True
             
             # Merge fields with proper precedence:
-            # - client_list_file takes precedence for basic contact info (name, phone, address, email)
-            # - application_files takes precedence for detailed personal info (birthdate, gender, ssn)
+            # - dropbox_client_list takes precedence for basic contact info (name, phone, address, email)
+            # - dropbox_application_files takes precedence for detailed personal info (birthdate, gender, ssn)
             
-            # Basic contact info - prefer client_list_file
-            if not merged_data['first_name'] or source == 'client_list_file':
+            # Basic contact info - prefer dropbox_client_list
+            if not merged_data['first_name'] or source == 'dropbox_client_list':
                 merged_data['first_name'] = self._get_best_value(merged_data['first_name'], account.get('first_name', ''))
             
-            if not merged_data['last_name'] or source == 'client_list_file':
+            if not merged_data['last_name'] or source == 'dropbox_client_list':
                 merged_data['last_name'] = self._get_best_value(merged_data['last_name'], account.get('last_name', ''))
             
-            if not merged_data['middle_name'] or source == 'client_list_file':
+            if not merged_data['middle_name'] or source == 'dropbox_client_list':
                 merged_data['middle_name'] = self._get_best_value(merged_data['middle_name'], account.get('middle_name', ''))
             
-            if not merged_data['phone'] or source == 'client_list_file':
+            if not merged_data['phone'] or source == 'dropbox_client_list':
                 merged_data['phone'] = self._get_best_value(merged_data['phone'], account.get('phone', ''))
             
-            if not merged_data['address'] or source == 'client_list_file':
+            if not merged_data['address'] or source == 'dropbox_client_list':
                 merged_data['address'] = self._get_best_value(merged_data['address'], account.get('address', ''))
             
-            if not merged_data['email'] or source == 'client_list_file':
+            if not merged_data['email'] or source == 'dropbox_client_list':
                 merged_data['email'] = self._get_best_value(merged_data['email'], account.get('email', ''))
             
-            # Detailed personal info - prefer application_files
-            if not merged_data['birthdate'] or source == 'application_files':
+            # Detailed personal info - prefer dropbox_application_files
+            if not merged_data['birthdate'] or source == 'dropbox_application_files':
                 merged_data['birthdate'] = self._get_best_value(merged_data['birthdate'], account.get('birthdate', ''))
             
-            if not merged_data['gender'] or source == 'application_files':
+            if not merged_data['gender'] or source == 'dropbox_application_files':
                 merged_data['gender'] = self._get_best_value(merged_data['gender'], account.get('gender', ''))
             
-            if not merged_data['ssn_tax_id'] or source == 'application_files':
+            if not merged_data['ssn_tax_id'] or source == 'dropbox_application_files':
                 merged_data['ssn_tax_id'] = self._get_best_value(merged_data['ssn_tax_id'], account.get('ssn_tax_id', ''))
             
             # Merge drivers license if available
