@@ -15,10 +15,39 @@ def read_accounts_folders(file_path: str) -> List[str]:
         
     Returns:
         List of account folder names
+        
+    Notes:
+        - Lines starting with # are treated as comments and ignored
+        - Comments can also appear after account names (e.g., "Account Name # comment")
+        - Empty lines are ignored
+        - Leading/trailing whitespace is stripped
     """
     try:
         with open(file_path, 'r') as f:
-            return [line.strip() for line in f if line.strip()]
+            account_folders = []
+            for line in f:
+                # Strip whitespace
+                line = line.strip()
+                
+                # Skip empty lines
+                if not line:
+                    continue
+                    
+                # Skip comment lines (lines starting with #)
+                if line.startswith('#'):
+                    continue
+                    
+                # Remove inline comments (everything after #)
+                if '#' in line:
+                    line = line.split('#')[0].strip()
+                    
+                # Skip if line is empty after removing comments
+                if not line:
+                    continue
+                    
+                account_folders.append(line)
+                
+            return account_folders
     except FileNotFoundError:
         logger.error(f"Accounts file not found: {file_path}")
         return []
