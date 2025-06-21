@@ -130,9 +130,13 @@ def _write_summary_to_log(beautiful_summary: str, command_runner) -> None:
             
             # If we have the folder name, create a separate file for this account
             if dropbox_account_folder:
+                # Create reports subdirectory
+                reports_dir = os.path.join(log_dir, 'reports')
+                os.makedirs(reports_dir, exist_ok=True)
+                
                 # Sanitize the folder name for use as a filename
                 safe_filename = dropbox_account_folder.replace('/', '_').replace('\\', '_').replace(':', '_').replace('*', '_').replace('?', '_').replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_')
-                account_file_path = os.path.join(log_dir, f"{safe_filename}.txt")
+                account_file_path = os.path.join(reports_dir, f"{safe_filename}.txt")
                 
                 # Write the analysis to the account-specific file
                 with open(account_file_path, "w", encoding="utf-8") as f:
@@ -541,41 +545,23 @@ def _generate_account_details_section(report: AccountAnalysisReport) -> str:
                     details.append(f"   - Note: This Dropbox account was matched with Salesforce account(s): {', '.join(sf_names)}")
             
             # Show contributing application files for application_files accounts
-            if account.get('source') == 'application_files':
+            if account.get('source') in ['application_files', 'dropbox_application_files']:
                 # Get the file information from the app_files_extraction_summary
                 app_files_extraction_summary = report.dropbox_account_information.get('app_files_extraction_summary', {})
-                if app_files_extraction_summary and 'all_folder_app_files' in app_files_extraction_summary and 'file_info' in app_files_extraction_summary:
-                    matching_files = []
+                if app_files_extraction_summary and 'all_folder_app_files' in app_files_extraction_summary:
+                    # Show all application files that were processed for this account
+                    all_files = []
                     for folder_files in app_files_extraction_summary['all_folder_app_files'].values():
-                        for file in folder_files:
-                            file_path = getattr(file, 'path_display', None)
-                            file_info = app_files_extraction_summary['file_info'].get(file_path, {})
-                            owner = file_info.get('owner', {})
-                            account_first = account.get('first_name', '')
-                            account_last = account.get('last_name', '')
-                            if owner.get('firstName') and owner.get('lastName'):
-                                file_first = owner.get('firstName', '')
-                                file_last = owner.get('lastName', '')
-                                if (
-                                    file_first.strip().lower() == account_first.strip().lower() and
-                                    file_last.strip().lower() == account_last.strip().lower()
-                                ):
-                                    matching_files.append(file)
-                            joint_owner = file_info.get('jointOwner', {})
-                            if joint_owner.get('firstName') and joint_owner.get('lastName'):
-                                joint_first = joint_owner.get('firstName', '')
-                                joint_last = joint_owner.get('lastName', '')
-                                if (
-                                    joint_first.strip().lower() == account_first.strip().lower() and
-                                    joint_last.strip().lower() == account_last.strip().lower()
-                                ):
-                                    matching_files.append(file)
-                    if matching_files:
+                        all_files.extend(folder_files)
+                    
+                    if all_files:
                         details.append(f"   - **Contributing Application Files:**")
-                        for file in matching_files:
+                        for file in all_files:
                             details.append(f"     📄 {file.name}")
                     else:
                         details.append(f"   - **Contributing Application Files:** None found")
+                else:
+                    details.append(f"   - **Contributing Application Files:** No file data available")
             
             details.append("")  # Empty line for spacing
     
@@ -726,53 +712,20 @@ def _generate_account_details_section(report: AccountAnalysisReport) -> str:
                 if account.get('source') == 'application_files':
                     # Get the file information from the app_files_extraction_summary
                     app_files_extraction_summary = report.dropbox_account_information.get('app_files_extraction_summary', {})
-                    if app_files_extraction_summary and 'all_folder_app_files' in app_files_extraction_summary and 'file_info' in app_files_extraction_summary:
-                        matching_files = []
+                    if app_files_extraction_summary and 'all_folder_app_files' in app_files_extraction_summary:
+                        # Show all application files that were processed for this account
+                        all_files = []
                         for folder_files in app_files_extraction_summary['all_folder_app_files'].values():
-                            for file in folder_files:
-                                file_path = getattr(file, 'path_display', None)
-                                file_info = app_files_extraction_summary['file_info'].get(file_path, {})
-                                
-                                # Check owner information
-                                owner = file_info.get('owner', {})
-                                account_first = account.get('first_name', '')
-                                account_last = account.get('last_name', '')
-                                if owner.get('firstName') and owner.get('lastName'):
-                                    file_first = owner.get('firstName', '')
-                                    file_last = owner.get('lastName', '')
-                                    print(f"DEBUG: Comparing OWNER file_first='{file_first}' vs account_first='{account_first}'")
-                                    print(f"DEBUG: Comparing OWNER file_last='{file_last}' vs account_last='{account_last}'")
-                                    if (
-                                        file_first.strip().lower() == account_first.strip().lower() and
-                                        file_last.strip().lower() == account_last.strip().lower()
-                                    ):
-                                        print(f"DEBUG: MATCH FOUND for OWNER in file {file.name}")
-                                        matching_files.append(file)
-                                # Check joint owner information
-                                joint_owner = file_info.get('jointOwner', {})
-                                if joint_owner.get('firstName') and joint_owner.get('lastName'):
-                                    joint_first = joint_owner.get('firstName', '')
-                                    joint_last = joint_owner.get('lastName', '')
-                                    print(f"DEBUG: Comparing JOINT file_first='{joint_first}' vs account_first='{account_first}'")
-                                    print(f"DEBUG: Comparing JOINT file_last='{joint_last}' vs account_last='{account_last}'")
-                                    if (
-                                        joint_first.strip().lower() == account_first.strip().lower() and
-                                        joint_last.strip().lower() == account_last.strip().lower()
-                                    ):
-                                        print(f"DEBUG: MATCH FOUND for JOINT OWNER in file {file.name}")
-                                        matching_files.append(file)
-                                
-                                if (
-                                    file_first.strip().lower() == account.get('first_name', '').strip().lower() and
-                                    file_last.strip().lower() == account.get('last_name', '').strip().lower()
-                                ):
-                                    matching_files.append(file)
-                        if matching_files:
+                            all_files.extend(folder_files)
+                        
+                        if all_files:
                             details.append(f"   - **Contributing Application Files:**")
-                            for file in matching_files:
+                            for file in all_files:
                                 details.append(f"     📄 {file.name}")
                         else:
                             details.append(f"   - **Contributing Application Files:** None found")
+                    else:
+                        details.append(f"   - **Contributing Application Files:** No file data available")
                 
                 details.append("")  # Empty line for spacing
             
