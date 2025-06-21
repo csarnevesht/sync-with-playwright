@@ -51,7 +51,7 @@ class SalesforceAccountLogger:
         self._log(f"{'*'*80}", summary_logger, report_logger)
         
         # Summary section
-        self._log_summary_section(salesforce_account_information, summary_logger, report_logger)
+        self._log_salesforce_summary_section(salesforce_account_information, summary_logger, report_logger)
         
         # Detailed account information
         self._log_detailed_account_information(salesforce_account_information, summary_logger, report_logger)
@@ -59,7 +59,7 @@ class SalesforceAccountLogger:
         # Statistics summary
         self._log_statistics_summary(salesforce_account_information, summary_logger, report_logger)
     
-    def _log_summary_section(self, salesforce_account_information: Dict[str, Any], summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None) -> None:
+    def _log_salesforce_summary_section(self, salesforce_account_information: Dict[str, Any], summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None) -> None:
         """Log the summary section with key information."""
         self._log(f"\n📋 **SUMMARY**", summary_logger, report_logger)
         
