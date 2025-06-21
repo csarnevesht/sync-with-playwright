@@ -145,13 +145,8 @@ def _generate_beautiful_summary(report: AccountAnalysisReport) -> str:
     # Extract account names for better display
     primary_account_name = report.dropbox_account_folder.split(', ')[-1] if ', ' in report.dropbox_account_folder else report.dropbox_account_folder
     
-    # Get the full name for display (first and last name)
+    # Use the original Dropbox account folder name for display
     full_display_name = report.dropbox_account_folder
-    if ', ' in report.dropbox_account_folder:
-        # If it's in "Last, First" format, convert to "First Last"
-        parts = report.dropbox_account_folder.split(', ')
-        if len(parts) >= 2:
-            full_display_name = f"{parts[1]} {parts[0]}"
     
     # Calculate box width and spacing
     box_width = 70  # Total width of the box
