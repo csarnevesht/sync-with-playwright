@@ -833,6 +833,10 @@ class DropboxAccountLogger:
         if report_logger:
             report_logger.info(message)  # report.log
     
+    def _log_debug(self, message: str, summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None):
+        """Log debug messages only to the main logger, not to summary or report loggers."""
+        self.logger.info(message)  # analyzer.log only
+    
     def log_dropbox_account_information(self, 
                                       dropbox_account_information: Dict[str, Any], 
                                       dropbox_account_folder_name: str,
@@ -852,6 +856,9 @@ class DropboxAccountLogger:
         # Log detailed account information
         self._log_detailed_account_information(dropbox_account_information, summary_logger, report_logger)
         
+        # Log comprehensive application files information
+        self._log_comprehensive_application_files_info(dropbox_account_information, summary_logger, report_logger)
+        
         # Log statistics summary
         self._log_statistics_summary(dropbox_account_information, summary_logger, report_logger)
     
@@ -869,15 +876,29 @@ class DropboxAccountLogger:
         
         # Client list file data availability
         client_list_data = dropbox_account_information.get('client_list_data')
-        if client_list_data:
+        if client_list_data and client_list_data.get('account_data'):
             self._log(f"📄 Client List File Information: Available", summary_logger, report_logger)
         else:
             self._log(f"📄 Client List File Information: Not available", summary_logger, report_logger)
         
-        # Application files data availability
+        # Application files data availability - check if we actually have meaningful data
         application_data = dropbox_account_information.get('application_data')
-        if application_data and application_data.get('best_available_info') is not None:
-            self._log(f"📄 Application Files Data: Available", summary_logger, report_logger)
+        if application_data:
+            best_available_info = application_data.get('best_available_info', {})
+            total_files = application_data.get('total_files_processed', 0)
+            
+            # Check if we have meaningful application files data
+            has_meaningful_data = (
+                total_files > 0 or 
+                (best_available_info and any(best_available_info.values())) or
+                application_data.get('files_with_complete_info', 0) > 0 or
+                application_data.get('files_with_partial_info', 0) > 0
+            )
+            
+            if has_meaningful_data:
+                self._log(f"📄 Application Files Data: Available", summary_logger, report_logger)
+            else:
+                self._log(f"📄 Application Files Data: Not available", summary_logger, report_logger)
         else:
             self._log(f"📄 Application Files Data: Not available", summary_logger, report_logger)
     
@@ -1006,6 +1027,160 @@ class DropboxAccountLogger:
             self._log(f"⚠️ Files with Partial Info: {partial_files}", summary_logger, report_logger)
             self._log(f"❌ Files with No Info: {no_info_files}", summary_logger, report_logger)
     
+    def _log_comprehensive_application_files_info(self, dropbox_account_information: Dict[str, Any], summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None) -> None:
+        """Log comprehensive application files information including file details and processing notes."""
+        self._log("[_log_comprehensive_application_files_info]", summary_logger, report_logger)
+        application_data = dropbox_account_information.get('application_data')
+        
+        if not application_data:
+            self._log(f"\n📄 **Application Files Information**", summary_logger, report_logger)
+            self._log(f"{'─'*60}", summary_logger, report_logger)
+            self._log(f"❌ No application files data available", summary_logger, report_logger)
+            return
+        
+        self._log(f"\n📄 **COMPREHENSIVE APPLICATION FILES INFORMATION**", summary_logger, report_logger)
+        self._log(f"{'─'*60}", summary_logger, report_logger)
+        
+        # Application type and status
+        application_type = application_data.get('application_type', 'N/A')
+        status = application_data.get('status', 'Not available')
+        self._log(f"📋 Application Type: {application_type}", summary_logger, report_logger)
+        self._log(f"📊 Status: {status}", summary_logger, report_logger)
+        
+        # File processing statistics
+        total_files = application_data.get('total_files_processed', 0)
+        complete_files = application_data.get('files_with_complete_info', 0)
+        partial_files = application_data.get('files_with_partial_info', 0)
+        no_info_files = application_data.get('files_with_no_info', 0)
+        has_complete_account_info = application_data.get('has_complete_account_info', False)
+        
+        self._log(f"\n📊 **File Processing Statistics**", summary_logger, report_logger)
+        self._log(f"{'─'*40}", summary_logger, report_logger)
+        self._log(f"📄 Total Files Processed: {total_files}", summary_logger, report_logger)
+        self._log(f"✅ Files with Complete Info: {complete_files}", summary_logger, report_logger)
+        self._log(f"⚠️ Files with Partial Info: {partial_files}", summary_logger, report_logger)
+        self._log(f"❌ Files with No Info: {no_info_files}", summary_logger, report_logger)
+        self._log(f"🎯 Has Complete Account Info: {'✅ Yes' if has_complete_account_info else '❌ No'}", summary_logger, report_logger)
+        
+        # File details
+        file_details = application_data.get('file_details', {})
+        if file_details:
+            self._log(f"\n📁 **Individual File Details**", summary_logger, report_logger)
+            self._log(f"{'─'*40}", summary_logger, report_logger)
+            
+            for file_path, details in file_details.items():
+                file_name = file_path.split('/')[-1] if '/' in file_path else file_path
+                has_owner = details.get('has_owner_info', False)
+                has_joint_owner = details.get('has_joint_owner_info', False)
+                completeness_score = details.get('completeness_score', 0)
+                
+                self._log(f"\n📄 **File: {file_name}**", summary_logger, report_logger)
+                self._log(f"   📍 Path: {file_path}", summary_logger, report_logger)
+                self._log(f"   👤 Owner Info: {'✅ Available' if has_owner else '❌ Not Available'}", summary_logger, report_logger)
+                self._log(f"   👥 Joint Owner Info: {'✅ Available' if has_joint_owner else '❌ Not Available'}", summary_logger, report_logger)
+                self._log(f"   📊 Completeness Score: {completeness_score}", summary_logger, report_logger)
+        
+        # Best available information summary
+        best_available_info = application_data.get('best_available_info', {})
+        if best_available_info:
+            self._log(f"\n🏆 **Best Available Information Summary**", summary_logger, report_logger)
+            self._log(f"{'─'*40}", summary_logger, report_logger)
+            
+            owner = best_available_info.get('owner', {})
+            joint_owner = best_available_info.get('jointOwner', {})
+            
+            if owner:
+                owner_name = f"{owner.get('firstName', '')} {owner.get('lastName', '')}".strip()
+                if owner_name:
+                    self._log(f"👤 Primary Owner: {owner_name}", summary_logger, report_logger)
+                if owner.get('dateOfBirth'):
+                    self._log(f"🎂 Primary Owner DOB: {owner['dateOfBirth']}", summary_logger, report_logger)
+                if owner.get('phoneNumber'):
+                    self._log(f"📞 Primary Owner Phone: {owner['phoneNumber']}", summary_logger, report_logger)
+                if owner.get('emailAddress'):
+                    self._log(f"📧 Primary Owner Email: {owner['emailAddress']}", summary_logger, report_logger)
+            
+            if joint_owner:
+                joint_owner_name = f"{joint_owner.get('firstName', '')} {joint_owner.get('lastName', '')}".strip()
+                if joint_owner_name:
+                    self._log(f"👥 Joint Owner: {joint_owner_name}", summary_logger, report_logger)
+                if joint_owner.get('dateOfBirth'):
+                    self._log(f"🎂 Joint Owner DOB: {joint_owner['dateOfBirth']}", summary_logger, report_logger)
+                if joint_owner.get('phoneNumber'):
+                    self._log(f"📞 Joint Owner Phone: {joint_owner['phoneNumber']}", summary_logger, report_logger)
+                if joint_owner.get('emailAddress'):
+                    self._log(f"📧 Joint Owner Email: {joint_owner['emailAddress']}", summary_logger, report_logger)
+        
+        # Processing notes
+        notes = application_data.get('notes', [])
+        if notes:
+            self._log(f"\n📝 **Processing Notes**", summary_logger, report_logger)
+            self._log(f"{'─'*40}", summary_logger, report_logger)
+            for note in notes:
+                self._log(f"   • {note}", summary_logger, report_logger)
+        
+        # App files extraction summary
+        app_files_extraction_summary = dropbox_account_information.get('app_files_extraction_summary')
+        if app_files_extraction_summary:
+            self._log(f"\n📋 **App Files Extraction Summary**", summary_logger, report_logger)
+            self._log(f"{'─'*40}", summary_logger, report_logger)
+            self._log(f"📄 Summary Data Available: ✅", summary_logger, report_logger)
+            
+            # Format the summary data in a more readable way
+            if isinstance(app_files_extraction_summary, dict):
+                # Total app files
+                total_app_files = app_files_extraction_summary.get('total_app_files', 0)
+                self._log(f"📊 Total Application Files Found: {total_app_files}", summary_logger, report_logger)
+                
+                # Processed folders
+                processed_folders = app_files_extraction_summary.get('processed_folders', [])
+                if processed_folders:
+                    self._log(f"📁 Processed Folders: {len(processed_folders)}", summary_logger, report_logger)
+                    for folder in processed_folders:
+                        folder_name = folder.split('/')[-1] if '/' in folder else folder
+                        self._log(f"   📂 {folder_name}", summary_logger, report_logger)
+                
+                # Files with birthdate
+                files_with_birthdate = app_files_extraction_summary.get('files_with_birthdate', [])
+                self._log(f"🎂 Files with Birthdate: {len(files_with_birthdate)}", summary_logger, report_logger)
+                
+                # Files with name
+                files_with_name = app_files_extraction_summary.get('files_with_name', [])
+                self._log(f"👤 Files with Name: {len(files_with_name)}", summary_logger, report_logger)
+                
+                # Skipped files
+                skipped_files = app_files_extraction_summary.get('skipped_zero_length_files', 0)
+                if skipped_files > 0:
+                    self._log(f"⏭️ Skipped Zero-Length Files: {skipped_files}", summary_logger, report_logger)
+                
+                # Timing information
+                timing_info = app_files_extraction_summary.get('timing_info', {})
+                if timing_info:
+                    total_time = timing_info.get('total_time', 0)
+                    if total_time > 0:
+                        self._log(f"⏱️ Total Processing Time: {total_time:.2f} seconds", summary_logger, report_logger)
+                    
+                    start_time = timing_info.get('start_time', '')
+                    if start_time:
+                        # Convert to readable format
+                        try:
+                            from datetime import datetime
+                            dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                            readable_time = dt.strftime('%Y-%m-%d %H:%M:%S')
+                            self._log(f"🕐 Processing Started: {readable_time}", summary_logger, report_logger)
+                        except:
+                            self._log(f"🕐 Processing Started: {start_time}", summary_logger, report_logger)
+                
+                # File details summary
+                all_folder_app_files = app_files_extraction_summary.get('all_folder_app_files', {})
+                if all_folder_app_files:
+                    total_files_in_folders = sum(len(files) for files in all_folder_app_files.values())
+                    self._log(f"📄 Total Files in Folders: {total_files_in_folders}", summary_logger, report_logger)
+                    
+                    for folder_path, files in all_folder_app_files.items():
+                        folder_name = folder_path.split('/')[-1] if '/' in folder_path else folder_path
+                        self._log(f"   📂 {folder_name}: {len(files)} files", summary_logger, report_logger)
+    
     def _log_single_account(self, account: Dict[str, Any], account_number: int, summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None) -> None:
         """Log information for a single account."""
         self._log("[_log_single_account]", summary_logger, report_logger)
@@ -1079,8 +1254,22 @@ class DropboxAccountLogger:
         """Log the final statistics summary."""
         self._log("[_log_statistics_summary]", summary_logger, report_logger)
         total_accounts = len(dropbox_account_information.get('accounts', []))
-        client_list_data_available = dropbox_account_information.get('client_list_data') is not None
-        application_data_available = dropbox_account_information.get('application_data') is not None
+        
+        # Check for meaningful client list data (not just if structure exists)
+        client_list_data = dropbox_account_information.get('client_list_data', {})
+        client_list_data_available = (
+            client_list_data is not None and 
+            client_list_data.get('account_data') and 
+            len(client_list_data.get('account_data', {})) > 0
+        )
+        
+        # Check for meaningful application data (not just if structure exists)
+        application_data = dropbox_account_information.get('application_data', {})
+        application_data_available = (
+            application_data is not None and 
+            application_data.get('total_files_processed', 0) > 0
+        )
+        
         total_matches = sum(1 for account in dropbox_account_information.get('accounts', []) if account.get('match_status') == 'Match found')
         total_drivers_licenses = sum(1 for account in dropbox_account_information.get('accounts', []) if account.get('drivers_license'))
         
