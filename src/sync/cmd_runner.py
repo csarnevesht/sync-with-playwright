@@ -1615,6 +1615,23 @@ def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox
         else:
             summary += f", {salesforce_icon} Salesforce Account: --, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
     
+    # Add Application Files info if available
+    app_files_info = result.get('account_info_from_app_files', {})
+    if app_files_info:
+        total_files = app_files_info.get('total_files_processed', 0)
+        complete_files = app_files_info.get('files_with_complete_info', 0)
+        partial_files = app_files_info.get('files_with_partial_info', 0)
+        no_info_files = app_files_info.get('files_with_no_info', 0)
+        
+        if total_files > 0:
+            app_files_icon = '📄'
+            app_files_status = f"Files: {total_files} (Complete: {complete_files}, Partial: {partial_files}, None: {no_info_files})"
+        else:
+            app_files_icon = '🚫'
+            app_files_status = "No files found"
+        
+        summary += f", {app_files_icon} App Files: {app_files_status}"
+    
     return summary
 
 def prepare_flatfile_from_template(template_path, logger, report_logger):
