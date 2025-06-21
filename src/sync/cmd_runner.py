@@ -1472,7 +1472,7 @@ def build_and_log_final_summary_line(result, report_logger, summary_logger, red_
     #     log_dropbox_account_info(dropbox_info, summary_logger, args, report_logger)
     
     # Format the summary line
-    summary = format_summary_line(result.get('dropbox_name', '--'), salesforce_info, dropbox_info, args)
+    summary = format_summary_line(result.get('dropbox_name', '--'), salesforce_info, dropbox_info, args, result)
     
     # Log the summary line to both report and summary logs
     report_logger.info(summary)
@@ -1486,13 +1486,14 @@ def build_and_log_final_summary_line(result, report_logger, summary_logger, red_
     
     return summary
 
-def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox_info: dict, args=None):
+def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox_info: dict, args=None, result=None):
     """
     Returns a formatted summary line for the report log.
     dropbox_folder_name: str
     salesforce_info: dict with keys 'matches' (list of all matching accounts), 'match', 'view'
     dropbox_info: dict with keys 'account_data', 'search_info', 'match_info'
     args: argparse.Namespace (optional, to check for salesforce_accounts flag)
+    result: dict (optional, to include additional information)
     """
     # Build the base summary with just the folder name
     summary = f"📁 **Dropbox Folder** Name: {dropbox_folder_name}"
