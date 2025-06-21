@@ -1573,6 +1573,34 @@ def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox
             if account_data.get('tax_id'):
                 summary += f", 🔒 Tax ID: ***-**-{account_data['tax_id'][-4:]}" if len(account_data['tax_id']) >= 4 else f", 🔒 Tax ID: {account_data['tax_id']}"
     
+    # Add Application Files info - always show this information
+    if app_files_info and isinstance(app_files_info, dict) and app_files_info:
+        # Use the passed app_files_info if it has data
+        app_files_info_source = 'passed_in_app_files_info'
+    else:
+        # Fall back to result or dropbox_info
+        app_files_info = result.get('account_info_from_app_files', {}) if result else {}
+        app_files_info_source = 'result.account_info_from_app_files'
+        if not app_files_info and dropbox_info:
+            app_files_info = dropbox_info.get('application_data', {})
+            app_files_info_source = 'dropbox_info.application_data'
+    
+    debug_msg = f"[DEBUG] app_files_info source: {app_files_info_source}, value: {app_files_info}"
+    logger.info(debug_msg)
+    if 'summary_logger' in globals() and summary_logger:
+        summary_logger.info(debug_msg)
+    total_files = app_files_info.get('total_files_processed', 0)
+    complete_files = app_files_info.get('files_with_complete_info', 0)
+    partial_files = app_files_info.get('files_with_partial_info', 0)
+    no_info_files = app_files_info.get('files_with_no_info', 0)
+    if total_files > 0:
+        app_files_icon = '📄'
+        app_files_status = f"Files: {total_files} (Complete: {complete_files}, Partial: {partial_files}, None: {no_info_files})"
+    else:
+        app_files_icon = '🚫'
+        app_files_status = "No files found"
+    summary += f", {app_files_icon} App Files: {app_files_status}"
+    
     # Add Salesforce info if available
     if args.salesforce_accounts:
         salesforce_matches = salesforce_info.get('matches', [])
@@ -1621,34 +1649,6 @@ def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox
                     summary += f"\n                                                  👤 Additional Account: {rel['name']}{relationship_info}"
         else:
             summary += f", {salesforce_icon} Salesforce Account: --, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
-    
-    # Add Application Files info - always show this information
-    if app_files_info and isinstance(app_files_info, dict) and app_files_info:
-        # Use the passed app_files_info if it has data
-        app_files_info_source = 'passed_in_app_files_info'
-    else:
-        # Fall back to result or dropbox_info
-        app_files_info = result.get('account_info_from_app_files', {}) if result else {}
-        app_files_info_source = 'result.account_info_from_app_files'
-        if not app_files_info and dropbox_info:
-            app_files_info = dropbox_info.get('application_data', {})
-            app_files_info_source = 'dropbox_info.application_data'
-    
-    debug_msg = f"[DEBUG] app_files_info source: {app_files_info_source}, value: {app_files_info}"
-    logger.info(debug_msg)
-    if 'summary_logger' in globals() and summary_logger:
-        summary_logger.info(debug_msg)
-    total_files = app_files_info.get('total_files_processed', 0)
-    complete_files = app_files_info.get('files_with_complete_info', 0)
-    partial_files = app_files_info.get('files_with_partial_info', 0)
-    no_info_files = app_files_info.get('files_with_no_info', 0)
-    if total_files > 0:
-        app_files_icon = '📄'
-        app_files_status = f"Files: {total_files} (Complete: {complete_files}, Partial: {partial_files}, None: {no_info_files})"
-    else:
-        app_files_icon = '🚫'
-        app_files_status = "No files found"
-    summary += f", {app_files_icon} App Files: {app_files_status}"
     
     return summary
 
