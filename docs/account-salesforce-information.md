@@ -52,7 +52,7 @@ if salesforce_account_information:
 
 ### Using the Logging Utilities
 
-The beautiful logging functionality is now available through the `logging_utils.py` module:
+The analysis logging functionality is now available through the `logging_utils.py` module:
 
 ```python
 from sync.salesforce_client.utils.logging_utils import (
@@ -201,7 +201,7 @@ logger.log_json_format(salesforce_account_information)
 
 ## Example Output
 
-When using the `--salesforce_account_info` flag, you'll see beautiful, formatted output like this:
+When using the `--salesforce_account_info` flag, you'll see analysis, formatted output like this:
 
 ```
 ================================================================================

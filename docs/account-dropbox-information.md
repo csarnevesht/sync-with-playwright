@@ -86,7 +86,7 @@ if dropbox_account_information:
 
 ### Using the Logging Utilities
 
-The beautiful logging functionality is available through the `logging_utils.py` module:
+The analysis logging functionality is available through the `logging_utils.py` module:
 
 ```python
 from sync.dropbox_client.utils.logging_utils import (
@@ -244,7 +244,7 @@ logger.log_json_format(dropbox_account_information)
 
 ## Example Output
 
-When using the `--dropbox_account_info` flag, you'll see beautiful, formatted output like this:
+When using the `--dropbox_account_info` flag, you'll see analysis, formatted output like this:
 
 ```
 ================================================================================

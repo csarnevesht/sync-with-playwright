@@ -1,7 +1,7 @@
 """
 Salesforce Account Information Logging Utilities
 
-This module provides beautiful, formatted logging utilities for Salesforce Account Information
+This module provides analysis, formatted logging utilities for Salesforce Account Information
 with icons, better formatting, and visual appeal.
 """
 
@@ -10,7 +10,7 @@ from typing import Dict, List, Any, Optional
 
 
 class SalesforceAccountLogger:
-    """Utility class for logging Salesforce Account Information with beautiful formatting."""
+    """Utility class for logging Salesforce Account Information with analysis formatting."""
     
     def __init__(self, logger: Optional[logging.Logger] = None):
         """
@@ -34,7 +34,7 @@ class SalesforceAccountLogger:
                                          summary_logger: Optional[logging.Logger] = None,
                                          report_logger: Optional[logging.Logger] = None) -> None:
         """
-        Log comprehensive Salesforce Account Information with beautiful formatting.
+        Log comprehensive Salesforce Account Information with analysis formatting.
         
         Args:
             salesforce_account_information: The structured account information
