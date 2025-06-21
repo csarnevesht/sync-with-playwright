@@ -731,11 +731,10 @@ class CommandRunner:
                 files = summary_data.get('all_folder_app_files', {}).get(folder_path_key, [])
                 
                 # Log if no application files were found
-                if not files:
-                    no_files_msg = f"  ❌ No application files found for {folder_path}"
-                    self.logger.info(no_files_msg)
-                    self.report_logger.info(no_files_msg)
-                    self.summary_logger.info(no_files_msg)
+                no_files_msg = f"  🚫 No application files found for {folder_path}"
+                self.logger.info(no_files_msg)
+                self.report_logger.info(no_files_msg)
+                self.summary_logger.info(no_files_msg)
                 
                 # Aggregate the account info
                 aggregated_info = self._aggregate_account_info_from_app_files(summary_data, files, dropbox_account_folder_name)
@@ -1433,7 +1432,7 @@ class CommandRunner:
                     self.summary_logger.info(f"    📅 Modified: {file.server_modified}")
                     self.summary_logger.info(f"    📦 Size: {file.size:,} bytes")
             else:
-                self.summary_logger.info(f"  ❌ No application files found for {dropbox_account_folder_name}")
+                self.summary_logger.info(f"  🚫 No application files found for {dropbox_account_folder_name}")
 
             self.logger.info("\nSuccessfully completed list-dropbox-account-app-files operation")
             
@@ -1543,7 +1542,7 @@ class CommandRunner:
                     f.write(f"   ⚠️ Partial Info: {partial_files}\n")
                     f.write(f"   ❌ No Info: {no_info_files}\n")
                 else:
-                    f.write("📄 Application Files Search: ❌ No Application Files Found\n")
+                    f.write("📄 Application Files Search: 🚫 No Application Files Found\n")
                     f.write(f"   📊 Total Files: {total_files}\n")
                 
                 f.write("\n")

@@ -167,9 +167,9 @@ class AppFileExtractor:
                     logger.info(f"  ⏭️ Skipped {summary_data['skipped_zero_length_files']} zero-length files (account info already exists)")
             else:
                 if file_filter:
-                    logger.info(f"  ❌ No application files found matching filter '{file_filter}' for {folder_path}")
+                    logger.info(f"  🚫 No application files found matching filter '{file_filter}' for {folder_path}")
                 else:
-                    logger.info(f"  ❌ No application files found for {folder_path}")
+                    logger.info(f"  🚫 No application files found for {folder_path}")
 
             return app_file_info_summary
 
@@ -581,7 +581,7 @@ class AppFileExtractor:
             # Extract information from the account folder
             app_file_info = self.extract_info(account_folder, file_filter=file_filter)
             if not app_file_info:
-                logger.error(f"No application files found for {account_name}")
+                logger.error(f"🚫 No application files found for {account_name}")
                 return {}
 
             # Convert sets to lists for JSON serialization

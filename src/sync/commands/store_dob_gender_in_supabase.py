@@ -119,11 +119,11 @@ def parse_log_file(file_path: str, logger, report_logger) -> Dict[str, Dict]:
                     continue
                 
                 # Check if this is a "no applications found" line
-                if line.startswith('❌ No application files found for'):
+                if line.startswith('🚫 No application files found for'):
                     if current_folder:
                         parsed_data[current_folder]['no_applications_found'] = True
                         # logger.info(f"No applications found for {current_folder}")
-                        report_logger.info(f"No applications found for {current_folder}")
+                        report_logger.info(f"🚫 No application files found for {current_folder}")
                     continue
                 
                 # Check if this is an application line
@@ -266,7 +266,7 @@ def generate_database_summary(supabase, logger, report_logger, summary_logger) -
             
             summary_logger.info(f"Dropbox Account Folder: {folder}")
             if not apps:
-                summary_logger.info(f"  ❌ No application files found for {folder}")
+                summary_logger.info(f"  🚫 No application files found for {folder}")
             else:
                 for app in apps:
                     # Format date as MM/DD/YYYY

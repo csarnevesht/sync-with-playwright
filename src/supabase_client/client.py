@@ -226,7 +226,7 @@ class SupabaseClient:
             # Add applications summary
             summary_lines.append(f"\nApplications ({len(apps)}):")
             if not apps:
-                summary_lines.append(f"  ❌ No application files found")
+                summary_lines.append(f"  🚫 No application files found")
             else:
                 for app in apps:
                     # Format date as MM/DD/YYYY
@@ -342,7 +342,7 @@ class SupabaseClient:
             # Add applications summary
             summary_lines.append(f"\n✅ Applications ({len(apps)}):")
             if not apps:
-                summary_lines.append(f"  ❌ No application files found")
+                summary_lines.append(f"  🚫 No application files found")
             else:
                 for app in apps:
                     # Format date as MM/DD/YYYY
