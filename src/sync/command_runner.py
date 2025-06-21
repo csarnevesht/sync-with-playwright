@@ -987,7 +987,7 @@ class CommandRunner:
                 
                 client_list_account = {
                     'account_name': dropbox_account_folder_name,
-                    'source': 'client_list_file',
+                    'source': 'dropbox_client_list',
                     'account_type': 'Primary',
                     'first_name': account_data.get('first_name', ''),
                     'middle_name': account_data.get('middle_name', ''),
@@ -1074,7 +1074,7 @@ class CommandRunner:
             
             owner_account = {
                 'account_name': account_name,
-                'source': 'application_files',
+                'source': 'dropbox_application_files',
                 'account_type': 'Primary',
                 'first_name': first_name,
                 'middle_name': '',  # Not typically available in app files
@@ -1121,7 +1121,7 @@ class CommandRunner:
             
             joint_account = {
                 'account_name': account_name,
-                'source': 'application_files',
+                'source': 'dropbox_application_files',
                 'account_type': 'Joint',
                 'first_name': first_name,
                 'middle_name': '',  # Not typically available in app files

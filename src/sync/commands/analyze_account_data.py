@@ -157,18 +157,16 @@ def _generate_beautiful_summary(report: AccountAnalysisReport) -> str:
     box_width = 70  # Total width of the box
     content_width = box_width - 2  # Width available for content (minus the side bars)
     
-    # Center the name in the available space
-    name_padding = max(0, (content_width - len(full_display_name)) // 2)
-    name_line = " " * name_padding + full_display_name + " " * (content_width - len(full_display_name) - name_padding)
+    # Center the name in the available space - simple approach
+    name_line = full_display_name.center(content_width)
     
     # Format timestamp to fit in the box
     timestamp = datetime.now().strftime('%B %d, %Y %H:%M:%S')
     if len(timestamp) > content_width:
         timestamp = datetime.now().strftime('%b %d, %Y %H:%M')
     
-    # Center the timestamp in the available space
-    timestamp_padding = max(0, (content_width - len(timestamp)) // 2)
-    timestamp_line = " " * timestamp_padding + timestamp + " " * (content_width - len(timestamp) - timestamp_padding)
+    # Center the timestamp in the available space - simple approach
+    timestamp_line = timestamp.center(content_width)
     
     # Get household name
     household_name = "Unknown Household"
