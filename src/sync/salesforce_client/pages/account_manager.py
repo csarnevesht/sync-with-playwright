@@ -2464,24 +2464,50 @@ class AccountManager(BasePage):
                 # Use normalized names from the search term, or just the dropbox name
                 expected_names = [result['folder_name'].lower()]
             
-            
             # Determine match status
             match_status = "No match found"
             if matches != "--" and matches:
                 if isinstance(matches, list):
+                    # First check for exact matches against expected names
                     for name in matches:
                         if name.lower() in expected_names:
                             match_status = "Match Found"
                             break
-                    if result['status'] == 'match':
-                        match_status = "Match Found"
+                    
+                    # If no exact match found, check for partial matches
                     if match_status != "Match Found":
+                        # Check if any match contains the last name from the folder
+                        folder_name = result['folder_name']
+                        # Extract last name from folder name (e.g., "McNabb, Frances daughter Pam Murphy" -> "McNabb")
+                        last_name = folder_name.split(',')[0].strip().lower()
+                        
+                        for name in matches:
+                            name_lower = name.lower()
+                            # Check if the last name appears in the Salesforce match
+                            if last_name in name_lower:
+                                match_status = "Match Found"
+                                logging.info(f"Found partial match: '{name}' contains last name '{last_name}' from folder '{folder_name}'")
+                                break
+                    
+                    # If still no match, check if result status indicates a match
+                    if match_status != "Match Found" and result['status'] == 'match':
+                        match_status = "Match Found"
+                    
+                    # If still no match, but we have matches, it's a partial match
+                    if match_status != "Match Found" and matches:
                         match_status = "Partial Match"
                 else:
+                    # Handle single match case
                     if matches.lower() in expected_names:
                         match_status = "Match Found"
                     else:
-                        match_status = "Partial Match"
+                        # Check for partial match with last name
+                        folder_name = result['folder_name']
+                        last_name = folder_name.split(',')[0].strip().lower()
+                        if last_name in matches.lower():
+                            match_status = "Match Found"
+                        else:
+                            match_status = "Partial Match"
             
             # Update counters based on match status
             if match_status == "Match Found":

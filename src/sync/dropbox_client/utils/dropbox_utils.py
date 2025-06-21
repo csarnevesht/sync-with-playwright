@@ -310,14 +310,17 @@ class DropboxClient:
             logger.info(f"Found expected Dropbox matches for {account_name}")
             dropbox_account_info['search_info']['status'] = 'found'
             dropbox_account_info['search_info']['match_info']['match_status'] = "Match found in expected matches"
+            dropbox_account_info['search_info']['match_info']['total_matches'] = 1
         else:
             if len(expected_matches) > 0:
                 logger.warning(f"Found {match_type} name match {match_name} but not in expected matches [{expected_matches}] for {account_name}")
                 dropbox_account_info['search_info']['status'] = 'unexpected_matches'
                 dropbox_account_info['search_info']['match_info']['match_status'] = f"Match found in {match_type} names but not in expected matches"
+                dropbox_account_info['search_info']['match_info']['total_matches'] = 1
             else:
                 dropbox_account_info['search_info']['status'] = 'found'
                 dropbox_account_info['search_info']['match_info']['match_status'] = f"Match found in {match_type} names"
+                dropbox_account_info['search_info']['match_info']['total_matches'] = 1
 
     def _store_matching_rows(self, dropbox_account_info: Dict[str, Any], matching_rows: pd.DataFrame, sheet_name: str, last_name: str) -> None:
         """
