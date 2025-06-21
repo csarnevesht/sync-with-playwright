@@ -665,10 +665,23 @@ class AccountAnalyzer:
                 
                 for expected_account in expected_mapping.get('accounts', []):
                     expected_name = expected_account['name']
-                    # Only create expected account comparison if:
-                    # 1. It's not already in the comparisons list
-                    # 2. It's not already in the actual Salesforce accounts
-                    if expected_name not in existing_names and expected_name not in existing_salesforce_names:
+                    
+                    # Additional validation to prevent creating phantom accounts
+                    # Skip expected accounts that:
+                    # 1. Are already in the comparisons list
+                    # 2. Are already in the actual Salesforce accounts
+                    # 3. Contain descriptive text that indicates they're not real accounts
+                    # 4. Are just fragments or variations of existing names
+                    
+                    if (expected_name not in existing_names and 
+                        expected_name not in existing_salesforce_names and
+                        # Validate that the expected name doesn't contain descriptive text
+                        not any(word in expected_name.lower() for word in ['daughter', 'son', 'children', 'family']) and
+                        # Validate that it's not just a fragment
+                        len(expected_name.split()) >= 2 and
+                        # Validate that it doesn't contain special characters that indicate it's not a real name
+                        not any(char in expected_name for char in ['(', ')', '&'])):
+                        
                         self.logger.debug(f"Creating expected account comparison for: {expected_name}")
                         comparison = self._create_account_comparison_with_mapping(
                             None, None, expected_mapping, DataSource.SALESFORCE,
@@ -676,7 +689,7 @@ class AccountAnalyzer:
                         )
                         comparisons.append(comparison)
                     else:
-                        self.logger.debug(f"Skipping expected account {expected_name} - already exists in actual data")
+                        self.logger.debug(f"Skipping expected account {expected_name} - validation failed or already exists in actual data")
             except Exception as e:
                 self.logger.error(f"Error creating expected account comparisons: {e}")
                 raise
@@ -1379,7 +1392,11 @@ class AccountAnalyzer:
                 if (primary_name != original_name and 
                     len(primary_name.split()) >= 2 and  # At least first and last name
                     not any(char in primary_name for char in ['(', ')', '&']) and  # No special characters
-                    primary_name.strip()):
+                    primary_name.strip() and
+                    # Additional validation: ensure the parsed name doesn't contain descriptive text
+                    not any(word in primary_name.lower() for word in ['daughter', 'son', 'children', 'family', 'household']) and
+                    # Ensure it's not just a fragment of the original name
+                    not (len(primary_name) < len(original_name) * 0.7)):
                     
                     last_name = self._extract_name_part(primary_name, 'last')
                     if last_name:
@@ -1389,7 +1406,7 @@ class AccountAnalyzer:
                         
                         # Create both household and contact accounts
                         mapping['accounts'] = [
-                            {'name': f"{primary_name} Household", 'type': 'Household', 'role': 'Primary'},
+                            {'name': f"{primary_name} Household", 'type': 'Household', 'role': 'Household Head'},
                             {'name': primary_name, 'type': 'Contact', 'role': 'Household Head'}
                         ]
                     else:

@@ -1510,7 +1510,8 @@ class CommandRunner:
                 # Dropbox Client List Search
                 if dropbox_search_result:
                     dropbox_status = dropbox_search_result.get('search_info', {}).get('match_info', {}).get('match_status', 'Unknown')
-                    dropbox_matches = len(dropbox_search_result.get('search_info', {}).get('matches', []))
+                    # Use total_matches from match_info instead of length of matches array
+                    dropbox_matches = dropbox_search_result.get('search_info', {}).get('match_info', {}).get('total_matches', 0)
                     f.write(f"📦 Dropbox Client List Search: {'✅ Match Found' if dropbox_status == 'Match found' else '❌ No Match Found'}\n")
                     f.write(f"   📊 Matches Found: {dropbox_matches}\n")
                     f.write(f"   📋 Status: {dropbox_status}\n")
@@ -1522,7 +1523,7 @@ class CommandRunner:
                     salesforce_status = salesforce_search_result.get('match_info', {}).get('match_status', 'Unknown')
                     salesforce_matches = len(salesforce_search_result.get('matches', []))
                     salesforce_view = salesforce_search_result.get('view', 'Unknown')
-                    f.write(f"⚡ Salesforce Search: {'✅ Match Found' if salesforce_status == 'Match found' else '❌ No Match Found'}\n")
+                    f.write(f"⚡ Salesforce Search: {'✅ Match Found' if salesforce_status == 'Match Found' else '❌ No Match Found'}\n")
                     f.write(f"   📊 Matches Found: {salesforce_matches}\n")
                     f.write(f"   📋 Status: {salesforce_status}\n")
                     f.write(f"   👁️ View Searched: {salesforce_view}\n")
@@ -1553,7 +1554,7 @@ class CommandRunner:
                 
                 # Determine overall status
                 has_dropbox_match = dropbox_search_result and dropbox_search_result.get('search_info', {}).get('match_info', {}).get('match_status') == 'Match found'
-                has_salesforce_match = salesforce_search_result and salesforce_search_result.get('match_info', {}).get('match_status') == 'Match found'
+                has_salesforce_match = salesforce_search_result and salesforce_search_result.get('match_info', {}).get('match_status') == 'Match Found'
                 has_app_files = total_files > 0 and (complete_files > 0 or partial_files > 0)
                 
                 if has_dropbox_match and has_salesforce_match and has_app_files:
