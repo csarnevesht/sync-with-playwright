@@ -597,7 +597,7 @@ class AccountAnalyzer:
                             if db_key not in matched_db_accounts or self._should_allow_multiple_matches(sf_account, db_account):
                                 self.logger.debug(f"Creating comparison for Salesforce '{sf_name}' ({sf_type}) and Dropbox '{db_name}' ({db_type})")
                                 comparison = self._create_account_comparison_with_mapping(
-                                    sf_account, db_account, expected_mapping, db_account.get('source')
+                                    sf_account, db_account, expected_mapping, DataSource.SALESFORCE
                                 )
                                 comparisons.append(comparison)
                                 matched_sf_accounts.add(sf_key)

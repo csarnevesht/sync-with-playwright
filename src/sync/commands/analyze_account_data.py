@@ -155,22 +155,20 @@ def _generate_beautiful_summary(report: AccountAnalysisReport) -> str:
     
     # Calculate box width and spacing
     box_width = 70  # Total width of the box
-    name_line_width = box_width - 2  # Width available for content (minus the side bars)
+    content_width = box_width - 2  # Width available for content (minus the side bars)
     
     # Center the name in the available space
-    name_padding = max(0, (name_line_width - len(full_display_name)) // 2)
-    name_line = " " * name_line_width
-    name_line = name_line[:name_padding] + full_display_name + name_line[name_padding + len(full_display_name):]
+    name_padding = max(0, (content_width - len(full_display_name)) // 2)
+    name_line = " " * name_padding + full_display_name + " " * (content_width - len(full_display_name) - name_padding)
     
     # Format timestamp to fit in the box
     timestamp = datetime.now().strftime('%B %d, %Y %H:%M:%S')
-    if len(timestamp) > name_line_width:
+    if len(timestamp) > content_width:
         timestamp = datetime.now().strftime('%b %d, %Y %H:%M')
     
     # Center the timestamp in the available space
-    timestamp_padding = max(0, (name_line_width - len(timestamp)) // 2)
-    timestamp_line = " " * name_line_width
-    timestamp_line = timestamp_line[:timestamp_padding] + timestamp + timestamp_line[timestamp_padding + len(timestamp):]
+    timestamp_padding = max(0, (content_width - len(timestamp)) // 2)
+    timestamp_line = " " * timestamp_padding + timestamp + " " * (content_width - len(timestamp) - timestamp_padding)
     
     # Get household name
     household_name = "Unknown Household"
@@ -368,11 +366,17 @@ def _generate_field_comparison_tables(report: AccountAnalysisReport) -> str:
                         if account.get('account_name') == comparison.account_name:
                             original_source = account.get('source', 'Unknown')
                             break
+        elif comparison.source.value == 'salesforce':
+            # For Salesforce accounts, the original source is salesforce
+            original_source = 'salesforce'
         
         # Create enhanced account header with original source and current source
         if comparison.source.value == 'dropbox_merged' and original_source:
             # For merged accounts, show both original source and current source
             table = f"\n**Account: {comparison.account_name}** Original Source: {original_source}, Source: {source_info}, Account Type: {comparison.account_type.value}, Name Found: First Name: {first_name_value}, Last Name: {last_name_value}\n"
+        elif comparison.source.value == 'salesforce':
+            # For Salesforce accounts, show that it's a Salesforce account
+            table = f"\n**Account: {comparison.account_name}** Source: {source_info}, Account Type: {comparison.account_type.value}, Name Found: First Name: {first_name_value}, Last Name: {last_name_value}\n"
         else:
             # For other sources, use the original format
             table = f"\n**Account: {comparison.account_name}** Source: {source_info}, Account Type: {comparison.account_type.value}, Name Found: {comparison.account_name}, First Name: {first_name_value}, Last Name: {last_name_value}\n"
