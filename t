@@ -25,9 +25,10 @@ show_menu() {
     echo "6) (f) Account Filter Test (get 5 accounts which contain one or more files)"
     echo "7) (r) Account File Retrieval Test (and Scrolling)"
     echo "8) (x) Account File Deletion Test"
-    echo "9) (t) Toggle Debug Mode (Currently: ${DEBUG_MODE:-OFF})"
-    echo "10) (l) Run Last Command"
-    echo "11) (q) Quit"
+    echo "9) (n) Folder Name Analysis Test (analyze all 359 Dropbox folder names)"
+    echo "10) (t) Toggle Debug Mode (Currently: ${DEBUG_MODE:-OFF})"
+    echo "11) (l) Run Last Command"
+    echo "12) (q) Quit"
     echo "====================================="
     echo -n "Enter your choice (number or shortcut): "
 }
@@ -63,6 +64,44 @@ run_test() {
         echo -e "\n${GREEN}Test completed successfully!${NC}"
     else
         echo -e "\n${RED}Test failed!${NC}"
+    fi
+    
+    # Show the command again at the end
+    echo -e "\n${YELLOW}Command that was executed:${NC} $cmd"
+    echo "-------------------------------------"
+    echo -n "Press Enter to continue..."
+    read
+}
+
+# Function to run folder name analysis test
+run_folder_analysis_test() {
+    echo -e "\n${YELLOW}Running Folder Name Analysis Test${NC}"
+    echo "-------------------------------------"
+    
+    # Create logs directory if it doesn't exist
+    mkdir -p logs
+    
+    # Build the command
+    local cmd="python3 src/tests/test_folder_name_analysis.py 2>&1 | tee logs/folder_analysis.log"
+    
+    # Store the command
+    LAST_COMMAND="$cmd"
+    
+    # Show the command being executed
+    echo -e "${YELLOW}Executing command:${NC} $cmd"
+    echo "-------------------------------------"
+    
+    # Run the test
+    eval $cmd
+    exit_code=$?
+    
+    # Check the exit code
+    if [ $exit_code -eq 0 ]; then
+        echo -e "\n${GREEN}Folder name analysis completed successfully!${NC}"
+        echo -e "${GREEN}Results saved to: folder_analysis_results.txt${NC}"
+        echo -e "${GREEN}Log saved to: logs/folder_analysis.log${NC}"
+    else
+        echo -e "\n${RED}Folder name analysis failed!${NC}"
     fi
     
     # Show the command again at the end
@@ -144,13 +183,16 @@ while true; do
         8|x)
             run_test "account-file-deletion"
             ;;
-        9|t)
+        9|n)
+            run_folder_analysis_test
+            ;;
+        10|t)
             toggle_debug
             ;;
-        10|l)
+        11|l)
             run_last_command
             ;;
-        11|q)
+        12|q)
             echo -e "\n${GREEN}Goodbye!${NC}"
             exit 0
             ;;

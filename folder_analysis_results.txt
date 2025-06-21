@@ -1,0 +1,4752 @@
+Dropbox Folder Name Analysis Results
+==================================================
+
+SUMMARY
+--------------------
+Total Folder Names Analyzed: 359
+Successful Analyses: 359
+Errors: 0
+
+simple_names: 179
+nicknames: 96
+joint_accounts: 39
+children_info: 42
+complex_names: 3
+errors: 0
+
+==================================================
+DETAILED RESULTS
+==================================================
+
+📁 Montesino, Maria
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Maria Montesino', 'Montesino, Maria']
+   🏠 Expected Household: Maria Montesino Household or Montesino Household
+   👥 Expected Accounts (2):
+     1. Maria Montesino Household (Household, Primary)
+     2. Maria Montesino (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Montesino, Maria
+     2. Maria Montesino
+     3. Maria Montesino Household
+
+📁 Matalon, Dennis
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Dennis Matalon', 'Matalon, Dennis']
+   🏠 Expected Household: Dennis Matalon Household or Matalon Household
+   👥 Expected Accounts (2):
+     1. Dennis Matalon Household (Household, Primary)
+     2. Dennis Matalon (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Dennis Matalon Household
+     2. Matalon, Dennis
+     3. Dennis Matalon
+
+📁 Andrews, Kathleen
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Kathleen Andrews', 'Andrews, Kathleen']
+   🏠 Expected Household: Kathleen Andrews Household or Andrews Household
+   👥 Expected Accounts (2):
+     1. Kathleen Andrews Household (Household, Primary)
+     2. Kathleen Andrews (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Kathleen Andrews
+     2. Andrews, Kathleen
+     3. Kathleen Andrews Household
+
+📁 McNabb, Frances daughter Pam Murphy
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Frances daughter Pam Murphy McNabb', 'McNabb, Frances daughter Pam Murphy']
+     • Children: ['Pam Murphy']
+   🏠 Expected Household: Frances daughter Pam Murphy McNabb Household or McNabb Household
+   👥 Expected Accounts (2):
+     1. Frances daughter Pam Murphy McNabb Household (Household, Primary)
+     2. Frances daughter Pam Murphy McNabb (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. McNabb, Frances daughter Pam Murphy
+     2. Frances daughter Pam Murphy McNabb Household
+     3. Frances daughter Pam Murphy McNabb
+
+📁 Kazakian, George (Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['George Kazakian', 'Kazakian, George (Mike)']
+   🏠 Expected Household: George Kazakian Household or Kazakian Household
+   👥 Expected Accounts (2):
+     1. George Kazakian Household (Household, Primary)
+     2. George Kazakian (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. George Kazakian
+     2. Kazakian, George (Mike)
+     3. George Kazakian Household
+
+📁 Campos, Maria
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Maria Campos', 'Campos, Maria']
+   🏠 Expected Household: Maria Campos Household or Campos Household
+   👥 Expected Accounts (2):
+     1. Maria Campos Household (Household, Primary)
+     2. Maria Campos (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Maria Campos
+     2. Campos, Maria
+     3. Maria Campos Household
+
+📁 Whitfield, Paul  daughter Musibay
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Paul  daughter Musibay Whitfield', 'Whitfield, Paul  daughter Musibay']
+     • Children: ['Musibay']
+   🏠 Expected Household: Paul  daughter Musibay Whitfield Household or Whitfield Household
+   👥 Expected Accounts (2):
+     1. Paul  daughter Musibay Whitfield Household (Household, Primary)
+     2. Paul  daughter Musibay Whitfield (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Whitfield, Paul  daughter Musibay
+     2. Paul  daughter Musibay Whitfield
+     3. Paul  daughter Musibay Whitfield Household
+
+📁 Strinko Mary sons Greg and Steve
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Strinko Mary sons Greg and Steve']
+     • Primary: strinko mary sons greg
+     • Joint: steve
+   🏠 Expected Household: greg Household
+   👥 Expected Accounts (2):
+     1. strinko mary sons greg (Contact, Household Head)
+     2. steve (Contact, Member)
+   🔄 Name Variations (3):
+     1. Strinko Mary Household
+     2. Strinko Mary sons Greg and Steve
+     3. Mary, Strinko
+
+📁 Brundage, Arnold (Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Arnold Brundage', 'Brundage, Arnold (Mike)']
+   🏠 Expected Household: Arnold Brundage Household or Brundage Household
+   👥 Expected Accounts (2):
+     1. Arnold Brundage Household (Household, Primary)
+     2. Arnold Brundage (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Arnold Brundage
+     2. Arnold Brundage Household
+     3. Brundage, Arnold (Mike)
+
+📁 Dilts, Suetta
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Suetta Dilts', 'Dilts, Suetta']
+   🏠 Expected Household: Suetta Dilts Household or Dilts Household
+   👥 Expected Accounts (2):
+     1. Suetta Dilts Household (Household, Primary)
+     2. Suetta Dilts (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Dilts, Suetta
+     2. Suetta Dilts Household
+     3. Suetta Dilts
+
+📁 Cohen, Beverly
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Beverly Cohen', 'Cohen, Beverly']
+   🏠 Expected Household: Beverly Cohen Household or Cohen Household
+   👥 Expected Accounts (2):
+     1. Beverly Cohen Household (Household, Primary)
+     2. Beverly Cohen (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Beverly Cohen Household
+     2. Cohen, Beverly
+     3. Beverly Cohen
+
+📁 Bauer Glenn and Brenda
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Bauer Glenn and Brenda']
+     • Primary: bauer glenn
+     • Joint: brenda
+   🏠 Expected Household: glenn Household
+   👥 Expected Accounts (2):
+     1. bauer glenn (Contact, Household Head)
+     2. brenda (Contact, Member)
+   🔄 Name Variations (3):
+     1. Bauer Glenn and Brenda
+     2. Glenn, Bauer
+     3. Bauer Glenn Household
+
+📁 Frost, Theresia (Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Theresia Frost', 'Frost, Theresia (Mike)']
+   🏠 Expected Household: Theresia Frost Household or Frost Household
+   👥 Expected Accounts (2):
+     1. Theresia Frost Household (Household, Primary)
+     2. Theresia Frost (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Theresia Frost Household
+     2. Frost, Theresia (Mike)
+     3. Theresia Frost
+
+📁 Velazquez, Gizelle
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Gizelle Velazquez', 'Velazquez, Gizelle']
+   🏠 Expected Household: Gizelle Velazquez Household or Velazquez Household
+   👥 Expected Accounts (2):
+     1. Gizelle Velazquez Household (Household, Primary)
+     2. Gizelle Velazquez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Gizelle Velazquez Household
+     2. Velazquez, Gizelle
+     3. Gizelle Velazquez
+
+📁 Lewis, Donald
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Donald Lewis', 'Lewis, Donald']
+   🏠 Expected Household: Donald Lewis Household or Lewis Household
+   👥 Expected Accounts (2):
+     1. Donald Lewis Household (Household, Primary)
+     2. Donald Lewis (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Donald Lewis Household
+     2. Donald Lewis
+     3. Lewis, Donald
+
+📁 Aspillaga, Jose
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Jose Aspillaga', 'Aspillaga, Jose']
+   🏠 Expected Household: Jose Aspillaga Household or Aspillaga Household
+   👥 Expected Accounts (2):
+     1. Jose Aspillaga Household (Household, Primary)
+     2. Jose Aspillaga (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Aspillaga, Jose
+     2. Jose Aspillaga Household
+     3. Jose Aspillaga
+
+📁 David, Bobbie (Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Bobbie David', 'David, Bobbie (Mike)']
+   🏠 Expected Household: Bobbie David Household or David Household
+   👥 Expected Accounts (2):
+     1. Bobbie David Household (Household, Primary)
+     2. Bobbie David (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. David, Bobbie (Mike)
+     2. Bobbie David Household
+     3. Bobbie David
+
+📁 Frost, Daniel and Son Kevin White
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Daniel and Son Kevin White Frost', 'Frost, Daniel and Son Kevin White']
+     • Primary: frost, daniel
+     • Joint: son kevin white
+     • Children: ['Kevin White']
+   🏠 Expected Household: daniel Household
+   👥 Expected Accounts (2):
+     1. frost, daniel (Contact, Household Head)
+     2. son kevin white (Contact, Member)
+   🔄 Name Variations (3):
+     1. Daniel and Son Kevin White Frost Household
+     2. Daniel and Son Kevin White Frost
+     3. Frost, Daniel and Son Kevin White
+
+📁 Stephens, Jeanette
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Jeanette Stephens', 'Stephens, Jeanette']
+   🏠 Expected Household: Jeanette Stephens Household or Stephens Household
+   👥 Expected Accounts (2):
+     1. Jeanette Stephens Household (Household, Primary)
+     2. Jeanette Stephens (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Jeanette Stephens Household
+     2. Stephens, Jeanette
+     3. Jeanette Stephens
+
+📁 Rubino, Salvatore & Maria
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Salvatore & Maria Rubino', 'Rubino, Salvatore & Maria']
+     • Primary: Rubino, Salvatore
+     • Joint: Maria
+   🏠 Expected Household: Salvatore Household
+   👥 Expected Accounts (2):
+     1. Rubino, Salvatore (Contact, Household Head)
+     2. Maria (Contact, Member)
+   🔄 Name Variations (3):
+     1. Salvatore & Maria Rubino
+     2. Rubino, Salvatore & Maria
+     3. Salvatore & Maria Rubino Household
+
+📁 Fernandez, Luis (Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Luis Fernandez', 'Fernandez, Luis (Mike)']
+   🏠 Expected Household: Luis Fernandez Household or Fernandez Household
+   👥 Expected Accounts (2):
+     1. Luis Fernandez Household (Household, Primary)
+     2. Luis Fernandez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Luis Fernandez
+     2. Fernandez, Luis (Mike)
+     3. Luis Fernandez Household
+
+📁 Coello, Patricia daughter Lourdes Day
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Patricia daughter Lourdes Day Coello', 'Coello, Patricia daughter Lourdes Day']
+     • Children: ['Lourdes Day']
+   🏠 Expected Household: Patricia daughter Lourdes Day Coello Household or Coello Household
+   👥 Expected Accounts (2):
+     1. Patricia daughter Lourdes Day Coello Household (Household, Primary)
+     2. Patricia daughter Lourdes Day Coello (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Patricia daughter Lourdes Day Coello Household
+     2. Coello, Patricia daughter Lourdes Day
+     3. Patricia daughter Lourdes Day Coello
+
+📁 Sanchez Manny and Kathleen
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Sanchez Manny and Kathleen']
+     • Primary: sanchez manny
+     • Joint: kathleen
+   🏠 Expected Household: manny Household
+   👥 Expected Accounts (2):
+     1. sanchez manny (Contact, Household Head)
+     2. kathleen (Contact, Member)
+   🔄 Name Variations (3):
+     1. Sanchez Manny Household
+     2. Sanchez Manny and Kathleen
+     3. Manny, Sanchez
+
+📁 Arango, Rudy
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Rudy Arango', 'Arango, Rudy']
+   🏠 Expected Household: Rudy Arango Household or Arango Household
+   👥 Expected Accounts (2):
+     1. Rudy Arango Household (Household, Primary)
+     2. Rudy Arango (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Arango, Rudy
+     2. Rudy Arango
+     3. Rudy Arango Household
+
+📁 Mason Patricia daughter Cheryl and Donna
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Mason Patricia daughter Cheryl and Donna']
+     • Primary: mason patricia daughter cheryl
+     • Joint: donna
+     • Children: ['Patricia daughter Cheryl and Donna', 'Cheryl and Donna']
+   🏠 Expected Household: cheryl Household
+   👥 Expected Accounts (2):
+     1. mason patricia daughter cheryl (Contact, Household Head)
+     2. donna (Contact, Member)
+   🔄 Name Variations (3):
+     1. Mason Patricia Household
+     2. Patricia, Mason
+     3. Mason Patricia daughter Cheryl and Donna
+
+📁 Jennifer Gelet (Nagy girlfriend)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Jennifer Gelet (Nagy girlfriend)']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (3):
+     1. Jennifer Gelet Household
+     2. Jennifer Gelet (Nagy girlfriend)
+     3. Gelet, Jennifer
+
+📁 Reho, Cheryl
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Cheryl Reho', 'Reho, Cheryl']
+   🏠 Expected Household: Cheryl Reho Household or Reho Household
+   👥 Expected Accounts (2):
+     1. Cheryl Reho Household (Household, Primary)
+     2. Cheryl Reho (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Reho, Cheryl
+     2. Cheryl Reho
+     3. Cheryl Reho Household
+
+📁 Bravo, Miriam
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Miriam Bravo', 'Bravo, Miriam']
+   🏠 Expected Household: Miriam Bravo Household or Bravo Household
+   👥 Expected Accounts (2):
+     1. Miriam Bravo Household (Household, Primary)
+     2. Miriam Bravo (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Miriam Bravo
+     2. Miriam Bravo Household
+     3. Bravo, Miriam
+
+📁 Jackson, Leah
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Leah Jackson', 'Jackson, Leah']
+   🏠 Expected Household: Leah Jackson Household or Jackson Household
+   👥 Expected Accounts (2):
+     1. Leah Jackson Household (Household, Primary)
+     2. Leah Jackson (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Leah Jackson
+     2. Jackson, Leah
+     3. Leah Jackson Household
+
+📁 Smith, Mike
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Mike Smith', 'Smith, Mike']
+   🏠 Expected Household: Mike Smith Household or Smith Household
+   👥 Expected Accounts (2):
+     1. Mike Smith Household (Household, Primary)
+     2. Mike Smith (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Mike Smith Household
+     2. Smith, Mike
+     3. Mike Smith
+
+📁 Millan, Cruz
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Cruz Millan', 'Millan, Cruz']
+   🏠 Expected Household: Cruz Millan Household or Millan Household
+   👥 Expected Accounts (2):
+     1. Cruz Millan Household (Household, Primary)
+     2. Cruz Millan (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Millan, Cruz
+     2. Cruz Millan Household
+     3. Cruz Millan
+
+📁 Lagace, Rita
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Rita Lagace', 'Lagace, Rita']
+   🏠 Expected Household: Rita Lagace Household or Lagace Household
+   👥 Expected Accounts (2):
+     1. Rita Lagace Household (Household, Primary)
+     2. Rita Lagace (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Rita Lagace Household
+     2. Lagace, Rita
+     3. Rita Lagace
+
+📁 Orinstein, Brenda
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Brenda Orinstein', 'Orinstein, Brenda']
+   🏠 Expected Household: Brenda Orinstein Household or Orinstein Household
+   👥 Expected Accounts (2):
+     1. Brenda Orinstein Household (Household, Primary)
+     2. Brenda Orinstein (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Orinstein, Brenda
+     2. Brenda Orinstein Household
+     3. Brenda Orinstein
+
+📁 White, Kevin
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Kevin White', 'White, Kevin']
+   🏠 Expected Household: Kevin White Household or White Household
+   👥 Expected Accounts (2):
+     1. Kevin White Household (Household, Primary)
+     2. Kevin White (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Kevin White
+     2. White, Kevin
+     3. Kevin White Household
+
+📁 Peters, Raymond (Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Raymond Peters', 'Peters, Raymond (Mike)']
+   🏠 Expected Household: Raymond Peters Household or Peters Household
+   👥 Expected Accounts (2):
+     1. Raymond Peters Household (Household, Primary)
+     2. Raymond Peters (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Peters, Raymond (Mike)
+     2. Raymond Peters
+     3. Raymond Peters Household
+
+📁 Vanik, Patricia (Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Patricia Vanik', 'Vanik, Patricia (Mike)']
+   🏠 Expected Household: Patricia Vanik Household or Vanik Household
+   👥 Expected Accounts (2):
+     1. Patricia Vanik Household (Household, Primary)
+     2. Patricia Vanik (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Patricia Vanik Household
+     2. Vanik, Patricia (Mike)
+     3. Patricia Vanik
+
+📁 Englert, Alicia daughter Leslie Roza
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Alicia daughter Leslie Roza Englert', 'Englert, Alicia daughter Leslie Roza']
+     • Children: ['Leslie Roza']
+   🏠 Expected Household: Alicia daughter Leslie Roza Englert Household or Englert Household
+   👥 Expected Accounts (2):
+     1. Alicia daughter Leslie Roza Englert Household (Household, Primary)
+     2. Alicia daughter Leslie Roza Englert (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Alicia daughter Leslie Roza Englert
+     2. Alicia daughter Leslie Roza Englert Household
+     3. Englert, Alicia daughter Leslie Roza
+
+📁 Suleman, Christopher
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Christopher Suleman', 'Suleman, Christopher']
+   🏠 Expected Household: Christopher Suleman Household or Suleman Household
+   👥 Expected Accounts (2):
+     1. Christopher Suleman Household (Household, Primary)
+     2. Christopher Suleman (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Christopher Suleman Household
+     2. Christopher Suleman
+     3. Suleman, Christopher
+
+📁 Mendoza, Rafael
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Rafael Mendoza', 'Mendoza, Rafael']
+   🏠 Expected Household: Rafael Mendoza Household or Mendoza Household
+   👥 Expected Accounts (2):
+     1. Rafael Mendoza Household (Household, Primary)
+     2. Rafael Mendoza (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Mendoza, Rafael
+     2. Rafael Mendoza
+     3. Rafael Mendoza Household
+
+📁 Dell Aglio, Elena (Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Elena Dell Aglio', 'Dell Aglio, Elena (Mike)']
+   🏠 Expected Household: Elena Dell Aglio Household or Aglio Household
+   👥 Expected Accounts (2):
+     1. Elena Dell Aglio Household (Household, Primary)
+     2. Elena Dell Aglio (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Elena Dell Aglio
+     2. Dell Aglio, Elena (Mike)
+     3. Elena Dell Aglio Household
+
+📁 Herreria, Roberto
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Roberto Herreria', 'Herreria, Roberto']
+   🏠 Expected Household: Roberto Herreria Household or Herreria Household
+   👥 Expected Accounts (2):
+     1. Roberto Herreria Household (Household, Primary)
+     2. Roberto Herreria (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Roberto Herreria
+     2. Roberto Herreria Household
+     3. Herreria, Roberto
+
+📁 Clews, Elsie
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Elsie Clews', 'Clews, Elsie']
+   🏠 Expected Household: Elsie Clews Household or Clews Household
+   👥 Expected Accounts (2):
+     1. Elsie Clews Household (Household, Primary)
+     2. Elsie Clews (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Elsie Clews
+     2. Elsie Clews Household
+     3. Clews, Elsie
+
+📁 Gabriel Armand and son Dave
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Gabriel Armand and son Dave']
+     • Primary: gabriel arm
+     • Children: ['Dave']
+   🏠 Expected Household: arm Household
+   👥 Expected Accounts (2):
+     1. gabriel arm (Contact, Household Head)
+     2.  (Contact, Member)
+   🔄 Name Variations (3):
+     1. Gabriel Armand Household
+     2. Gabriel Armand and son Dave
+     3. Armand, Gabriel
+
+📁 Woods Georgia
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Woods Georgia']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (3):
+     1. Woods Georgia Household
+     2. Woods Georgia
+     3. Georgia, Woods
+
+📁 Dobson, Earle
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Earle Dobson', 'Dobson, Earle']
+   🏠 Expected Household: Earle Dobson Household or Dobson Household
+   👥 Expected Accounts (2):
+     1. Earle Dobson Household (Household, Primary)
+     2. Earle Dobson (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Earle Dobson
+     2. Earle Dobson Household
+     3. Dobson, Earle
+
+📁 Nelson Caroline  Cheri (Mindy) Nelson daughter
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Nelson Caroline  Cheri (Mindy) Nelson daughter']
+     • Children: ['Caroline  Cheri (Mindy) Nelson daughter']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (3):
+     1. Caroline, Nelson
+     2. Nelson Caroline  Cheri (Mindy) Nelson daughter
+     3. Nelson Caroline Household
+
+📁 West, Timmy (Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Timmy West', 'West, Timmy (Mike)']
+   🏠 Expected Household: Timmy West Household or West Household
+   👥 Expected Accounts (2):
+     1. Timmy West Household (Household, Primary)
+     2. Timmy West (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. West, Timmy (Mike)
+     2. Timmy West Household
+     3. Timmy West
+
+📁 Wallen, Sharon
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Sharon Wallen', 'Wallen, Sharon']
+   🏠 Expected Household: Sharon Wallen Household or Wallen Household
+   👥 Expected Accounts (2):
+     1. Sharon Wallen Household (Household, Primary)
+     2. Sharon Wallen (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Sharon Wallen Household
+     2. Sharon Wallen
+     3. Wallen, Sharon
+
+📁 Vaislaman, Irasis
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Irasis Vaislaman', 'Vaislaman, Irasis']
+   🏠 Expected Household: Irasis Vaislaman Household or Vaislaman Household
+   👥 Expected Accounts (2):
+     1. Irasis Vaislaman Household (Household, Primary)
+     2. Irasis Vaislaman (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Irasis Vaislaman
+     2. Irasis Vaislaman Household
+     3. Vaislaman, Irasis
+
+📁 Dunn, Linda
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Linda Dunn', 'Dunn, Linda']
+   🏠 Expected Household: Linda Dunn Household or Dunn Household
+   👥 Expected Accounts (2):
+     1. Linda Dunn Household (Household, Primary)
+     2. Linda Dunn (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Linda Dunn
+     2. Linda Dunn Household
+     3. Dunn, Linda
+
+📁 Edler, Gary
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Gary Edler', 'Edler, Gary']
+   🏠 Expected Household: Gary Edler Household or Edler Household
+   👥 Expected Accounts (2):
+     1. Gary Edler Household (Household, Primary)
+     2. Gary Edler (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Edler, Gary
+     2. Gary Edler Household
+     3. Gary Edler
+
+📁 Forte, Julio
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Julio Forte', 'Forte, Julio']
+   🏠 Expected Household: Julio Forte Household or Forte Household
+   👥 Expected Accounts (2):
+     1. Julio Forte Household (Household, Primary)
+     2. Julio Forte (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Julio Forte
+     2. Forte, Julio
+     3. Julio Forte Household
+
+📁 Halperin, Herzl son Ronnie Halperin
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Herzl son Ronnie Halperin Halperin', 'Halperin, Herzl son Ronnie Halperin']
+     • Children: ['Ronnie Halperin']
+   🏠 Expected Household: Herzl son Ronnie Halperin Halperin Household or Halperin Household
+   👥 Expected Accounts (2):
+     1. Herzl son Ronnie Halperin Halperin Household (Household, Primary)
+     2. Herzl son Ronnie Halperin Halperin (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Halperin, Herzl son Ronnie Halperin
+     2. Herzl son Ronnie Halperin Halperin
+     3. Herzl son Ronnie Halperin Halperin Household
+
+📁 Saladrigas, William
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['William Saladrigas', 'Saladrigas, William']
+   🏠 Expected Household: William Saladrigas Household or Saladrigas Household
+   👥 Expected Accounts (2):
+     1. William Saladrigas Household (Household, Primary)
+     2. William Saladrigas (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. William Saladrigas Household
+     2. William Saladrigas
+     3. Saladrigas, William
+
+📁 Dreeson, Lynne
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Lynne Dreeson', 'Dreeson, Lynne']
+   🏠 Expected Household: Lynne Dreeson Household or Dreeson Household
+   👥 Expected Accounts (2):
+     1. Lynne Dreeson Household (Household, Primary)
+     2. Lynne Dreeson (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Lynne Dreeson Household
+     2. Lynne Dreeson
+     3. Dreeson, Lynne
+
+📁 Frucci, Anthony
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Anthony Frucci', 'Frucci, Anthony']
+   🏠 Expected Household: Anthony Frucci Household or Frucci Household
+   👥 Expected Accounts (2):
+     1. Anthony Frucci Household (Household, Primary)
+     2. Anthony Frucci (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Anthony Frucci Household
+     2. Anthony Frucci
+     3. Frucci, Anthony
+
+📁 Kaufman Jack poa Jack Ellman, Paula Chiz
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Paula Chiz Kaufman Jack poa Jack Ellman', 'Kaufman Jack poa Jack Ellman, Paula Chiz']
+   🏠 Expected Household: Paula Chiz Kaufman Jack poa Jack Ellman Household or Ellman Household
+   👥 Expected Accounts (2):
+     1. Paula Chiz Kaufman Jack poa Jack Ellman Household (Household, Primary)
+     2. Paula Chiz Kaufman Jack poa Jack Ellman (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Paula Chiz Kaufman Jack poa Jack Ellman
+     2. Kaufman Jack poa Jack Ellman, Paula Chiz
+     3. Paula Chiz Kaufman Jack poa Jack Ellman Household
+
+📁 Lastra, Paula
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Paula Lastra', 'Lastra, Paula']
+   🏠 Expected Household: Paula Lastra Household or Lastra Household
+   👥 Expected Accounts (2):
+     1. Paula Lastra Household (Household, Primary)
+     2. Paula Lastra (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Paula Lastra
+     2. Paula Lastra Household
+     3. Lastra, Paula
+
+📁 Stewart, Donald
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Donald Stewart', 'Stewart, Donald']
+   🏠 Expected Household: Donald Stewart Household or Stewart Household
+   👥 Expected Accounts (2):
+     1. Donald Stewart Household (Household, Primary)
+     2. Donald Stewart (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Stewart, Donald
+     2. Donald Stewart
+     3. Donald Stewart Household
+
+📁 Albert, Ethel son Howard
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Ethel son Howard Albert', 'Albert, Ethel son Howard']
+     • Children: ['Howard']
+   🏠 Expected Household: Ethel son Howard Albert Household or Albert Household
+   👥 Expected Accounts (2):
+     1. Ethel son Howard Albert Household (Household, Primary)
+     2. Ethel son Howard Albert (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Ethel son Howard Albert Household
+     2. Ethel son Howard Albert
+     3. Albert, Ethel son Howard
+
+📁 Respaldiza, Susana
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Susana Respaldiza', 'Respaldiza, Susana']
+   🏠 Expected Household: Susana Respaldiza Household or Respaldiza Household
+   👥 Expected Accounts (2):
+     1. Susana Respaldiza Household (Household, Primary)
+     2. Susana Respaldiza (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Respaldiza, Susana
+     2. Susana Respaldiza
+     3. Susana Respaldiza Household
+
+📁 Reyes, Dan & Iliana
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Dan & Iliana Reyes', 'Reyes, Dan & Iliana']
+     • Primary: Reyes, Dan
+     • Joint: Iliana
+   🏠 Expected Household: Dan Household
+   👥 Expected Accounts (2):
+     1. Reyes, Dan (Contact, Household Head)
+     2. Iliana (Contact, Member)
+   🔄 Name Variations (3):
+     1. Dan & Iliana Reyes
+     2. Reyes, Dan & Iliana
+     3. Dan & Iliana Reyes Household
+
+📁 Torron, Randy Mom Rosenfeld, Shirley
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Randy Mom Rosenfeld, Shirley Torron', 'Torron, Randy Mom Rosenfeld, Shirley']
+   🏠 Expected Household: Randy Mom Rosenfeld, Shirley Torron Household or Torron Household
+   👥 Expected Accounts (2):
+     1. Randy Mom Rosenfeld, Shirley Torron Household (Household, Primary)
+     2. Randy Mom Rosenfeld, Shirley Torron (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Randy Mom Rosenfeld Torron Household
+     2. Torron, Randy Mom Rosenfeld, Shirley
+     3. Randy Mom Rosenfeld Torron
+
+📁 Luces, Ricardo
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Ricardo Luces', 'Luces, Ricardo']
+   🏠 Expected Household: Ricardo Luces Household or Luces Household
+   👥 Expected Accounts (2):
+     1. Ricardo Luces Household (Household, Primary)
+     2. Ricardo Luces (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Ricardo Luces Household
+     2. Ricardo Luces
+     3. Luces, Ricardo
+
+📁 Mendez, Onelio daughter Iliana Hambleton
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Onelio daughter Iliana Hambleton Mendez', 'Mendez, Onelio daughter Iliana Hambleton']
+     • Children: ['Iliana Hambleton']
+   🏠 Expected Household: Onelio daughter Iliana Hambleton Mendez Household or Mendez Household
+   👥 Expected Accounts (2):
+     1. Onelio daughter Iliana Hambleton Mendez Household (Household, Primary)
+     2. Onelio daughter Iliana Hambleton Mendez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Onelio daughter Iliana Hambleton Mendez Household
+     2. Mendez, Onelio daughter Iliana Hambleton
+     3. Onelio daughter Iliana Hambleton Mendez
+
+📁 Barnett, Audrey daughter Susan Stewart
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Audrey daughter Susan Stewart Barnett', 'Barnett, Audrey daughter Susan Stewart']
+     • Children: ['Susan Stewart']
+   🏠 Expected Household: Audrey daughter Susan Stewart Barnett Household or Barnett Household
+   👥 Expected Accounts (2):
+     1. Audrey daughter Susan Stewart Barnett Household (Household, Primary)
+     2. Audrey daughter Susan Stewart Barnett (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Barnett, Audrey daughter Susan Stewart
+     2. Audrey daughter Susan Stewart Barnett
+     3. Audrey daughter Susan Stewart Barnett Household
+
+📁 Parlatore, Vince
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Vince Parlatore', 'Parlatore, Vince']
+   🏠 Expected Household: Vince Parlatore Household or Parlatore Household
+   👥 Expected Accounts (2):
+     1. Vince Parlatore Household (Household, Primary)
+     2. Vince Parlatore (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Parlatore, Vince
+     2. Vince Parlatore
+     3. Vince Parlatore Household
+
+📁 Leventhal Doris son Wayne
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Leventhal Doris son Wayne']
+     • Children: ['Wayne']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (3):
+     1. Leventhal Doris son Wayne
+     2. Leventhal Doris Household
+     3. Doris, Leventhal
+
+📁 Sisler, Gary
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Gary Sisler', 'Sisler, Gary']
+   🏠 Expected Household: Gary Sisler Household or Sisler Household
+   👥 Expected Accounts (2):
+     1. Gary Sisler Household (Household, Primary)
+     2. Gary Sisler (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Sisler, Gary
+     2. Gary Sisler
+     3. Gary Sisler Household
+
+📁 Sanchez, Betty
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Betty Sanchez', 'Sanchez, Betty']
+   🏠 Expected Household: Betty Sanchez Household or Sanchez Household
+   👥 Expected Accounts (2):
+     1. Betty Sanchez Household (Household, Primary)
+     2. Betty Sanchez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Betty Sanchez
+     2. Betty Sanchez Household
+     3. Sanchez, Betty
+
+📁 Arana, Ada son Luis Arana
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Ada son Luis Arana Arana', 'Arana, Ada son Luis Arana']
+     • Children: ['Luis Arana']
+   🏠 Expected Household: Ada son Luis Arana Arana Household or Arana Household
+   👥 Expected Accounts (2):
+     1. Ada son Luis Arana Arana Household (Household, Primary)
+     2. Ada son Luis Arana Arana (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Arana, Ada son Luis Arana
+     2. Ada son Luis Arana Arana Household
+     3. Ada son Luis Arana Arana
+
+📁 Jones, Elisa son Gregory Jones
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Elisa son Gregory Jones Jones', 'Jones, Elisa son Gregory Jones']
+     • Children: ['Gregory Jones']
+   🏠 Expected Household: Elisa son Gregory Jones Jones Household or Jones Household
+   👥 Expected Accounts (2):
+     1. Elisa son Gregory Jones Jones Household (Household, Primary)
+     2. Elisa son Gregory Jones Jones (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Jones, Elisa son Gregory Jones
+     2. Elisa son Gregory Jones Jones
+     3. Elisa son Gregory Jones Jones Household
+
+📁 Leventhal Wayne
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Leventhal Wayne']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (3):
+     1. Wayne, Leventhal
+     2. Leventhal Wayne Household
+     3. Leventhal Wayne
+
+📁 Lorenzo, Rudy
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Rudy Lorenzo', 'Lorenzo, Rudy']
+   🏠 Expected Household: Rudy Lorenzo Household or Lorenzo Household
+   👥 Expected Accounts (2):
+     1. Rudy Lorenzo Household (Household, Primary)
+     2. Rudy Lorenzo (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Lorenzo, Rudy
+     2. Rudy Lorenzo Household
+     3. Rudy Lorenzo
+
+📁 Dejunco, Joseph & Norma
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Joseph & Norma Dejunco', 'Dejunco, Joseph & Norma']
+     • Primary: Dejunco, Joseph
+     • Joint: Norma
+   🏠 Expected Household: Joseph Household
+   👥 Expected Accounts (2):
+     1. Dejunco, Joseph (Contact, Household Head)
+     2. Norma (Contact, Member)
+   🔄 Name Variations (3):
+     1. Dejunco, Joseph & Norma
+     2. Joseph & Norma Dejunco
+     3. Joseph & Norma Dejunco Household
+
+📁 Frucci, Joseph  Daughter Karina
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Joseph  Daughter Karina Frucci', 'Frucci, Joseph  Daughter Karina']
+     • Children: ['Karina']
+   🏠 Expected Household: Joseph  Daughter Karina Frucci Household or Frucci Household
+   👥 Expected Accounts (2):
+     1. Joseph  Daughter Karina Frucci Household (Household, Primary)
+     2. Joseph  Daughter Karina Frucci (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Joseph  Daughter Karina Frucci
+     2. Joseph  Daughter Karina Frucci Household
+     3. Frucci, Joseph  Daughter Karina
+
+📁 Baker, Kenneth (Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Kenneth Baker', 'Baker, Kenneth (Mike)']
+   🏠 Expected Household: Kenneth Baker Household or Baker Household
+   👥 Expected Accounts (2):
+     1. Kenneth Baker Household (Household, Primary)
+     2. Kenneth Baker (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Kenneth Baker Household
+     2. Kenneth Baker
+     3. Baker, Kenneth (Mike)
+
+📁 Albert, Ron
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Ron Albert', 'Albert, Ron']
+   🏠 Expected Household: Ron Albert Household or Albert Household
+   👥 Expected Accounts (2):
+     1. Ron Albert Household (Household, Primary)
+     2. Ron Albert (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Albert, Ron
+     2. Ron Albert Household
+     3. Ron Albert
+
+📁 Skinner, Richard & Barbara Son Kevin
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Richard & Barbara Son Kevin Skinner', 'Skinner, Richard & Barbara Son Kevin']
+     • Primary: Skinner, Richard
+     • Joint: Barbara Son Kevin
+     • Children: ['Kevin']
+   🏠 Expected Household: Richard Household
+   👥 Expected Accounts (2):
+     1. Skinner, Richard (Contact, Household Head)
+     2. Barbara Son Kevin (Contact, Member)
+   🔄 Name Variations (3):
+     1. Skinner, Richard & Barbara Son Kevin
+     2. Richard & Barbara Son Kevin Skinner Household
+     3. Richard & Barbara Son Kevin Skinner
+
+📁 Valle, Ricardo
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Ricardo Valle', 'Valle, Ricardo']
+   🏠 Expected Household: Ricardo Valle Household or Valle Household
+   👥 Expected Accounts (2):
+     1. Ricardo Valle Household (Household, Primary)
+     2. Ricardo Valle (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Ricardo Valle
+     2. Valle, Ricardo
+     3. Ricardo Valle Household
+
+📁 Lewis, Gwen
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Gwen Lewis', 'Lewis, Gwen']
+   🏠 Expected Household: Gwen Lewis Household or Lewis Household
+   👥 Expected Accounts (2):
+     1. Gwen Lewis Household (Household, Primary)
+     2. Gwen Lewis (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Gwen Lewis
+     2. Gwen Lewis Household
+     3. Lewis, Gwen
+
+📁 Robinson, Miles
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Miles Robinson', 'Robinson, Miles']
+   🏠 Expected Household: Miles Robinson Household or Robinson Household
+   👥 Expected Accounts (2):
+     1. Miles Robinson Household (Household, Primary)
+     2. Miles Robinson (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Miles Robinson Household
+     2. Miles Robinson
+     3. Robinson, Miles
+
+📁 Govantes, Miriam daughters Ileana & Julie
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Miriam daughters Ileana & Julie Govantes', 'Govantes, Miriam daughters Ileana & Julie']
+     • Primary: Govantes, Miriam daughters Ileana
+     • Joint: Julie
+   🏠 Expected Household: Ileana Household
+   👥 Expected Accounts (2):
+     1. Govantes, Miriam daughters Ileana (Contact, Household Head)
+     2. Julie (Contact, Member)
+   🔄 Name Variations (3):
+     1. Miriam daughters Ileana & Julie Govantes
+     2. Miriam daughters Ileana & Julie Govantes Household
+     3. Govantes, Miriam daughters Ileana & Julie
+
+📁 Sierra, Alicia (Mike Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Alicia Sierra', 'Sierra, Alicia (Mike Medicaid)']
+   🏠 Expected Household: Alicia Sierra Household or Sierra Household
+   👥 Expected Accounts (2):
+     1. Alicia Sierra Household (Household, Primary)
+     2. Alicia Sierra (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Alicia Sierra Household
+     2. Sierra, Alicia (Mike Medicaid)
+     3. Alicia Sierra
+
+📁 Seitzler
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Seitzler']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (1):
+     1. Seitzler
+
+📁 Albert, Beth
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Beth Albert', 'Albert, Beth']
+   🏠 Expected Household: Beth Albert Household or Albert Household
+   👥 Expected Accounts (2):
+     1. Beth Albert Household (Household, Primary)
+     2. Beth Albert (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Beth Albert
+     2. Beth Albert Household
+     3. Albert, Beth
+
+📁 Garcia, Ana (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Ana Garcia', 'Garcia, Ana (Medicaid Mike)']
+   🏠 Expected Household: Ana Garcia Household or Garcia Household
+   👥 Expected Accounts (2):
+     1. Ana Garcia Household (Household, Primary)
+     2. Ana Garcia (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Ana Garcia
+     2. Ana Garcia Household
+     3. Garcia, Ana (Medicaid Mike)
+
+📁 Freiman, Michael
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Michael Freiman', 'Freiman, Michael']
+   🏠 Expected Household: Michael Freiman Household or Freiman Household
+   👥 Expected Accounts (2):
+     1. Michael Freiman Household (Household, Primary)
+     2. Michael Freiman (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Freiman, Michael
+     2. Michael Freiman Household
+     3. Michael Freiman
+
+📁 Rivero, Orlando
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Orlando Rivero', 'Rivero, Orlando']
+   🏠 Expected Household: Orlando Rivero Household or Rivero Household
+   👥 Expected Accounts (2):
+     1. Orlando Rivero Household (Household, Primary)
+     2. Orlando Rivero (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Orlando Rivero Household
+     2. Orlando Rivero
+     3. Rivero, Orlando
+
+📁 Taubman, Joseph
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Joseph Taubman', 'Taubman, Joseph']
+   🏠 Expected Household: Joseph Taubman Household or Taubman Household
+   👥 Expected Accounts (2):
+     1. Joseph Taubman Household (Household, Primary)
+     2. Joseph Taubman (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Taubman, Joseph
+     2. Joseph Taubman Household
+     3. Joseph Taubman
+
+📁 Noble,Charles
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Noble,Charles']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (1):
+     1. Noble,Charles
+
+📁 Light, David
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['David Light', 'Light, David']
+   🏠 Expected Household: David Light Household or Light Household
+   👥 Expected Accounts (2):
+     1. David Light Household (Household, Primary)
+     2. David Light (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Light, David
+     2. David Light Household
+     3. David Light
+
+📁 Amaran Martin & Teresita
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Amaran Martin & Teresita']
+     • Primary: Amaran Martin
+     • Joint: Teresita
+   🏠 Expected Household: Martin Household
+   👥 Expected Accounts (2):
+     1. Amaran Martin (Contact, Household Head)
+     2. Teresita (Contact, Member)
+   🔄 Name Variations (3):
+     1. Amaran Martin & Teresita
+     2. Martin, Amaran
+     3. Amaran Martin Household
+
+📁 Pecker, Lawrence and Gaye
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Lawrence and Gaye Pecker', 'Pecker, Lawrence and Gaye']
+     • Primary: pecker, lawrence
+     • Joint: gaye
+   🏠 Expected Household: lawrence Household
+   👥 Expected Accounts (2):
+     1. pecker, lawrence (Contact, Household Head)
+     2. gaye (Contact, Member)
+   🔄 Name Variations (3):
+     1. Lawrence and Gaye Pecker
+     2. Lawrence and Gaye Pecker Household
+     3. Pecker, Lawrence and Gaye
+
+📁 Gantar, Ljiljana
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Ljiljana Gantar', 'Gantar, Ljiljana']
+   🏠 Expected Household: Ljiljana Gantar Household or Gantar Household
+   👥 Expected Accounts (2):
+     1. Ljiljana Gantar Household (Household, Primary)
+     2. Ljiljana Gantar (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Gantar, Ljiljana
+     2. Ljiljana Gantar Household
+     3. Ljiljana Gantar
+
+📁 Reyes, Albert
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Albert Reyes', 'Reyes, Albert']
+   🏠 Expected Household: Albert Reyes Household or Reyes Household
+   👥 Expected Accounts (2):
+     1. Albert Reyes Household (Household, Primary)
+     2. Albert Reyes (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Reyes, Albert
+     2. Albert Reyes
+     3. Albert Reyes Household
+
+📁 Afanador, Isabel
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Isabel Afanador', 'Afanador, Isabel']
+   🏠 Expected Household: Isabel Afanador Household or Afanador Household
+   👥 Expected Accounts (2):
+     1. Isabel Afanador Household (Household, Primary)
+     2. Isabel Afanador (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Isabel Afanador Household
+     2. Afanador, Isabel
+     3. Isabel Afanador
+
+📁 Hartman, Estelle daughter Marsha Newman
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Estelle daughter Marsha Newman Hartman', 'Hartman, Estelle daughter Marsha Newman']
+     • Children: ['Marsha Newman']
+   🏠 Expected Household: Estelle daughter Marsha Newman Hartman Household or Hartman Household
+   👥 Expected Accounts (2):
+     1. Estelle daughter Marsha Newman Hartman Household (Household, Primary)
+     2. Estelle daughter Marsha Newman Hartman (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Hartman, Estelle daughter Marsha Newman
+     2. Estelle daughter Marsha Newman Hartman
+     3. Estelle daughter Marsha Newman Hartman Household
+
+📁 Hernandez, Norma (Daughter Caridad Martinez)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Norma Hernandez', 'Hernandez, Norma (Daughter Caridad Martinez)']
+     • Children: ['Caridad Martinez)']
+   🏠 Expected Household: Norma Hernandez Household or Hernandez Household
+   👥 Expected Accounts (2):
+     1. Norma Hernandez Household (Household, Primary)
+     2. Norma Hernandez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Hernandez, Norma (Daughter Caridad Martinez)
+     2. Norma Hernandez
+     3. Norma Hernandez Household
+
+📁 Whittington, Bob and Maria
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Bob and Maria Whittington', 'Whittington, Bob and Maria']
+     • Primary: whittington, bob
+     • Joint: maria
+   🏠 Expected Household: bob Household
+   👥 Expected Accounts (2):
+     1. whittington, bob (Contact, Household Head)
+     2. maria (Contact, Member)
+   🔄 Name Variations (3):
+     1. Whittington, Bob and Maria
+     2. Bob and Maria Whittington
+     3. Bob and Maria Whittington Household
+
+📁 Kraft, Robert
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Robert Kraft', 'Kraft, Robert']
+   🏠 Expected Household: Robert Kraft Household or Kraft Household
+   👥 Expected Accounts (2):
+     1. Robert Kraft Household (Household, Primary)
+     2. Robert Kraft (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Robert Kraft
+     2. Robert Kraft Household
+     3. Kraft, Robert
+
+📁 Porter, Ralph daughter Debbie Williamson
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Ralph daughter Debbie Williamson Porter', 'Porter, Ralph daughter Debbie Williamson']
+     • Children: ['Debbie Williamson']
+   🏠 Expected Household: Ralph daughter Debbie Williamson Porter Household or Porter Household
+   👥 Expected Accounts (2):
+     1. Ralph daughter Debbie Williamson Porter Household (Household, Primary)
+     2. Ralph daughter Debbie Williamson Porter (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Ralph daughter Debbie Williamson Porter
+     2. Ralph daughter Debbie Williamson Porter Household
+     3. Porter, Ralph daughter Debbie Williamson
+
+📁 Greenberg, Martin
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Martin Greenberg', 'Greenberg, Martin']
+   🏠 Expected Household: Martin Greenberg Household or Greenberg Household
+   👥 Expected Accounts (2):
+     1. Martin Greenberg Household (Household, Primary)
+     2. Martin Greenberg (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Martin Greenberg
+     2. Martin Greenberg Household
+     3. Greenberg, Martin
+
+📁 Falcon, Errol
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Errol Falcon', 'Falcon, Errol']
+   🏠 Expected Household: Errol Falcon Household or Falcon Household
+   👥 Expected Accounts (2):
+     1. Errol Falcon Household (Household, Primary)
+     2. Errol Falcon (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Falcon, Errol
+     2. Errol Falcon Household
+     3. Errol Falcon
+
+📁 Cohen George son Kenny
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Cohen George son Kenny']
+     • Children: ['Kenny']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (3):
+     1. Cohen George son Kenny
+     2. George, Cohen
+     3. Cohen George Household
+
+📁 Clark, Jeannine
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Jeannine Clark', 'Clark, Jeannine']
+   🏠 Expected Household: Jeannine Clark Household or Clark Household
+   👥 Expected Accounts (2):
+     1. Jeannine Clark Household (Household, Primary)
+     2. Jeannine Clark (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Clark, Jeannine
+     2. Jeannine Clark
+     3. Jeannine Clark Household
+
+📁 Marrale, Bill
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Bill Marrale', 'Marrale, Bill']
+   🏠 Expected Household: Bill Marrale Household or Marrale Household
+   👥 Expected Accounts (2):
+     1. Bill Marrale Household (Household, Primary)
+     2. Bill Marrale (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Marrale, Bill
+     2. Bill Marrale
+     3. Bill Marrale Household
+
+📁 Weintraub Sydell  son David Weintraub
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Weintraub Sydell  son David Weintraub']
+     • Children: ['David Weintraub']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (3):
+     1. Weintraub Sydell  son David Weintraub
+     2. Weintraub Sydell Household
+     3. Sydell, Weintraub
+
+📁 Stewart, Judith
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Judith Stewart', 'Stewart, Judith']
+   🏠 Expected Household: Judith Stewart Household or Stewart Household
+   👥 Expected Accounts (2):
+     1. Judith Stewart Household (Household, Primary)
+     2. Judith Stewart (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Stewart, Judith
+     2. Judith Stewart Household
+     3. Judith Stewart
+
+📁 Mello, Kimberly
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Kimberly Mello', 'Mello, Kimberly']
+   🏠 Expected Household: Kimberly Mello Household or Mello Household
+   👥 Expected Accounts (2):
+     1. Kimberly Mello Household (Household, Primary)
+     2. Kimberly Mello (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Mello, Kimberly
+     2. Kimberly Mello Household
+     3. Kimberly Mello
+
+📁 Bernal, Antonio
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Antonio Bernal', 'Bernal, Antonio']
+   🏠 Expected Household: Antonio Bernal Household or Bernal Household
+   👥 Expected Accounts (2):
+     1. Antonio Bernal Household (Household, Primary)
+     2. Antonio Bernal (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Antonio Bernal Household
+     2. Bernal, Antonio
+     3. Antonio Bernal
+
+📁 Benitez, Ivonne
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Ivonne Benitez', 'Benitez, Ivonne']
+   🏠 Expected Household: Ivonne Benitez Household or Benitez Household
+   👥 Expected Accounts (2):
+     1. Ivonne Benitez Household (Household, Primary)
+     2. Ivonne Benitez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Ivonne Benitez
+     2. Benitez, Ivonne
+     3. Ivonne Benitez Household
+
+📁 Tate, Amy
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Amy Tate', 'Tate, Amy']
+   🏠 Expected Household: Amy Tate Household or Tate Household
+   👥 Expected Accounts (2):
+     1. Amy Tate Household (Household, Primary)
+     2. Amy Tate (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Amy Tate
+     2. Tate, Amy
+     3. Amy Tate Household
+
+📁 Ayers, Charles nephew Wes Myers
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Charles nephew Wes Myers Ayers', 'Ayers, Charles nephew Wes Myers']
+   🏠 Expected Household: Charles nephew Wes Myers Ayers Household or Ayers Household
+   👥 Expected Accounts (2):
+     1. Charles nephew Wes Myers Ayers Household (Household, Primary)
+     2. Charles nephew Wes Myers Ayers (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Charles nephew Wes Myers Ayers Household
+     2. Ayers, Charles nephew Wes Myers
+     3. Charles nephew Wes Myers Ayers
+
+📁 Colsa, Amada
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Amada Colsa', 'Colsa, Amada']
+   🏠 Expected Household: Amada Colsa Household or Colsa Household
+   👥 Expected Accounts (2):
+     1. Amada Colsa Household (Household, Primary)
+     2. Amada Colsa (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Amada Colsa Household
+     2. Amada Colsa
+     3. Colsa, Amada
+
+📁 Gondolfo Garbiel Jr  son is Gabriel III
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Gondolfo Garbiel Jr  son is Gabriel III']
+     • Children: ['is Gabriel III']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (3):
+     1. Garbiel, Gondolfo
+     2. Gondolfo Garbiel Household
+     3. Gondolfo Garbiel Jr  son is Gabriel III
+
+📁 Richardson Vera and daughter Sandra
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Richardson Vera and daughter Sandra']
+     • Primary: richardson vera
+     • Joint: daughter s
+     • Children: ['Vera and daughter Sandra', 'Sandra']
+   🏠 Expected Household: vera Household
+   👥 Expected Accounts (2):
+     1. richardson vera (Contact, Household Head)
+     2. daughter s (Contact, Member)
+   🔄 Name Variations (3):
+     1. Richardson Vera Household
+     2. Vera, Richardson
+     3. Richardson Vera and daughter Sandra
+
+📁 Zucker, Warren
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Warren Zucker', 'Zucker, Warren']
+   🏠 Expected Household: Warren Zucker Household or Zucker Household
+   👥 Expected Accounts (2):
+     1. Warren Zucker Household (Household, Primary)
+     2. Warren Zucker (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Warren Zucker Household
+     2. Zucker, Warren
+     3. Warren Zucker
+
+📁 LaChapelle Louis daughters  Lynn Rito & gloria Suit
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['LaChapelle Louis daughters  Lynn Rito & gloria Suit']
+     • Primary: LaChapelle Louis daughters  Lynn Rito
+     • Joint: gloria Suit
+   🏠 Expected Household: Rito Household
+   👥 Expected Accounts (2):
+     1. LaChapelle Louis daughters  Lynn Rito (Contact, Household Head)
+     2. gloria Suit (Contact, Member)
+   🔄 Name Variations (3):
+     1. LaChapelle Louis Household
+     2. Louis, LaChapelle
+     3. LaChapelle Louis daughters  Lynn Rito & gloria Suit
+
+📁 Heydemann, Paul (Nationwide)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Paul Heydemann', 'Heydemann, Paul (Nationwide)']
+   🏠 Expected Household: Paul Heydemann Household or Heydemann Household
+   👥 Expected Accounts (2):
+     1. Paul Heydemann Household (Household, Primary)
+     2. Paul Heydemann (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Paul Heydemann Household
+     2. Heydemann, Paul (Nationwide)
+     3. Paul Heydemann
+
+📁 Stouffer, Leona son Barry Stouffer
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Leona son Barry Stouffer Stouffer', 'Stouffer, Leona son Barry Stouffer']
+     • Children: ['Barry Stouffer']
+   🏠 Expected Household: Leona son Barry Stouffer Stouffer Household or Stouffer Household
+   👥 Expected Accounts (2):
+     1. Leona son Barry Stouffer Stouffer Household (Household, Primary)
+     2. Leona son Barry Stouffer Stouffer (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Leona son Barry Stouffer Stouffer
+     2. Stouffer, Leona son Barry Stouffer
+     3. Leona son Barry Stouffer Stouffer Household
+
+📁 Goldberg, Lynn
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Lynn Goldberg', 'Goldberg, Lynn']
+   🏠 Expected Household: Lynn Goldberg Household or Goldberg Household
+   👥 Expected Accounts (2):
+     1. Lynn Goldberg Household (Household, Primary)
+     2. Lynn Goldberg (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Lynn Goldberg
+     2. Lynn Goldberg Household
+     3. Goldberg, Lynn
+
+📁 Crespin, Raquel (Son Vick)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Raquel Crespin', 'Crespin, Raquel (Son Vick)']
+     • Children: ['Vick)']
+   🏠 Expected Household: Raquel Crespin Household or Crespin Household
+   👥 Expected Accounts (2):
+     1. Raquel Crespin Household (Household, Primary)
+     2. Raquel Crespin (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Crespin, Raquel (Son Vick)
+     2. Raquel Crespin Household
+     3. Raquel Crespin
+
+📁 Wilkes, Ron
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Ron Wilkes', 'Wilkes, Ron']
+   🏠 Expected Household: Ron Wilkes Household or Wilkes Household
+   👥 Expected Accounts (2):
+     1. Ron Wilkes Household (Household, Primary)
+     2. Ron Wilkes (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Ron Wilkes Household
+     2. Ron Wilkes
+     3. Wilkes, Ron
+
+📁 Ramjattan, Radha
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Radha Ramjattan', 'Ramjattan, Radha']
+   🏠 Expected Household: Radha Ramjattan Household or Ramjattan Household
+   👥 Expected Accounts (2):
+     1. Radha Ramjattan Household (Household, Primary)
+     2. Radha Ramjattan (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Ramjattan, Radha
+     2. Radha Ramjattan
+     3. Radha Ramjattan Household
+
+📁 Brass, Robert
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Robert Brass', 'Brass, Robert']
+   🏠 Expected Household: Robert Brass Household or Brass Household
+   👥 Expected Accounts (2):
+     1. Robert Brass Household (Household, Primary)
+     2. Robert Brass (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Brass, Robert
+     2. Robert Brass Household
+     3. Robert Brass
+
+📁 Novak, Michael and Liz
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Michael and Liz Novak', 'Novak, Michael and Liz']
+     • Primary: novak, michael
+     • Joint: liz
+   🏠 Expected Household: michael Household
+   👥 Expected Accounts (2):
+     1. novak, michael (Contact, Household Head)
+     2. liz (Contact, Member)
+   🔄 Name Variations (3):
+     1. Michael and Liz Novak Household
+     2. Novak, Michael and Liz
+     3. Michael and Liz Novak
+
+📁 Hodge, Wanda  Son in law Jim Trice
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Wanda  Son in law Jim Trice Hodge', 'Hodge, Wanda  Son in law Jim Trice']
+     • Children: ['in law Jim Trice']
+   🏠 Expected Household: Wanda  Son in law Jim Trice Hodge Household or Hodge Household
+   👥 Expected Accounts (2):
+     1. Wanda  Son in law Jim Trice Hodge Household (Household, Primary)
+     2. Wanda  Son in law Jim Trice Hodge (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Hodge, Wanda  Son in law Jim Trice
+     2. Wanda  Son in law Jim Trice Hodge Household
+     3. Wanda  Son in law Jim Trice Hodge
+
+📁 Forjan Alex
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Forjan Alex']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (3):
+     1. Forjan Alex
+     2. Forjan Alex Household
+     3. Alex, Forjan
+
+📁 Pecker, Elliot
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Elliot Pecker', 'Pecker, Elliot']
+   🏠 Expected Household: Elliot Pecker Household or Pecker Household
+   👥 Expected Accounts (2):
+     1. Elliot Pecker Household (Household, Primary)
+     2. Elliot Pecker (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Pecker, Elliot
+     2. Elliot Pecker Household
+     3. Elliot Pecker
+
+📁 Martinez, Hector and Margarita
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Hector and Margarita Martinez', 'Martinez, Hector and Margarita']
+     • Primary: martinez, hector
+     • Joint: margarita
+   🏠 Expected Household: hector Household
+   👥 Expected Accounts (2):
+     1. martinez, hector (Contact, Household Head)
+     2. margarita (Contact, Member)
+   🔄 Name Variations (3):
+     1. Hector and Margarita Martinez
+     2. Martinez, Hector and Margarita
+     3. Hector and Margarita Martinez Household
+
+📁 Richards, Carl
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Carl Richards', 'Richards, Carl']
+   🏠 Expected Household: Carl Richards Household or Richards Household
+   👥 Expected Accounts (2):
+     1. Carl Richards Household (Household, Primary)
+     2. Carl Richards (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Carl Richards Household
+     2. Richards, Carl
+     3. Carl Richards
+
+📁 Sarduy, Emma duaghters Iliana and Leticia
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Emma duaghters Iliana and Leticia Sarduy', 'Sarduy, Emma duaghters Iliana and Leticia']
+     • Primary: sarduy, emma duaghters iliana
+     • Joint: leticia
+   🏠 Expected Household: iliana Household
+   👥 Expected Accounts (2):
+     1. sarduy, emma duaghters iliana (Contact, Household Head)
+     2. leticia (Contact, Member)
+   🔄 Name Variations (3):
+     1. Emma duaghters Iliana and Leticia Sarduy
+     2. Sarduy, Emma duaghters Iliana and Leticia
+     3. Emma duaghters Iliana and Leticia Sarduy Household
+
+📁 Welsch, Mary Heydeman daughter
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Mary Heydeman daughter Welsch', 'Welsch, Mary Heydeman daughter']
+   🏠 Expected Household: Mary Heydeman daughter Welsch Household or Welsch Household
+   👥 Expected Accounts (2):
+     1. Mary Heydeman daughter Welsch Household (Household, Primary)
+     2. Mary Heydeman daughter Welsch (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Welsch, Mary Heydeman daughter
+     2. Mary Heydeman daughter Welsch
+     3. Mary Heydeman daughter Welsch Household
+
+📁 Martin, Dean
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Dean Martin', 'Martin, Dean']
+   🏠 Expected Household: Dean Martin Household or Martin Household
+   👥 Expected Accounts (2):
+     1. Dean Martin Household (Household, Primary)
+     2. Dean Martin (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Dean Martin Household
+     2. Dean Martin
+     3. Martin, Dean
+
+📁 Smith, Darel John
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Darel John Smith', 'Smith, Darel John']
+   🏠 Expected Household: Darel John Smith Household or Smith Household
+   👥 Expected Accounts (2):
+     1. Darel John Smith Household (Household, Primary)
+     2. Darel John Smith (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Smith, Darel John
+     2. Darel John Smith
+     3. Darel John Smith Household
+
+📁 Burney, Pamela
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Pamela Burney', 'Burney, Pamela']
+   🏠 Expected Household: Pamela Burney Household or Burney Household
+   👥 Expected Accounts (2):
+     1. Pamela Burney Household (Household, Primary)
+     2. Pamela Burney (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Pamela Burney
+     2. Burney, Pamela
+     3. Pamela Burney Household
+
+📁 Freiman, David
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['David Freiman', 'Freiman, David']
+   🏠 Expected Household: David Freiman Household or Freiman Household
+   👥 Expected Accounts (2):
+     1. David Freiman Household (Household, Primary)
+     2. David Freiman (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. David Freiman
+     2. Freiman, David
+     3. David Freiman Household
+
+📁 Salinas, Maria
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Maria Salinas', 'Salinas, Maria']
+   🏠 Expected Household: Maria Salinas Household or Salinas Household
+   👥 Expected Accounts (2):
+     1. Maria Salinas Household (Household, Primary)
+     2. Maria Salinas (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Salinas, Maria
+     2. Maria Salinas
+     3. Maria Salinas Household
+
+📁 Rodriguez, Susan
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Susan Rodriguez', 'Rodriguez, Susan']
+   🏠 Expected Household: Susan Rodriguez Household or Rodriguez Household
+   👥 Expected Accounts (2):
+     1. Susan Rodriguez Household (Household, Primary)
+     2. Susan Rodriguez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Susan Rodriguez Household
+     2. Rodriguez, Susan
+     3. Susan Rodriguez
+
+📁 Guo Tie and Susan
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Guo Tie and Susan']
+     • Primary: guo tie
+     • Joint: susan
+   🏠 Expected Household: tie Household
+   👥 Expected Accounts (2):
+     1. guo tie (Contact, Household Head)
+     2. susan (Contact, Member)
+   🔄 Name Variations (3):
+     1. Guo Tie and Susan
+     2. Tie, Guo
+     3. Guo Tie Household
+
+📁 Wolmer, Mona
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Mona Wolmer', 'Wolmer, Mona']
+   🏠 Expected Household: Mona Wolmer Household or Wolmer Household
+   👥 Expected Accounts (2):
+     1. Mona Wolmer Household (Household, Primary)
+     2. Mona Wolmer (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Mona Wolmer Household
+     2. Mona Wolmer
+     3. Wolmer, Mona
+
+📁 Heydemann, Paul (Global Atlantic)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Paul Heydemann', 'Heydemann, Paul (Global Atlantic)']
+   🏠 Expected Household: Paul Heydemann Household or Heydemann Household
+   👥 Expected Accounts (2):
+     1. Paul Heydemann Household (Household, Primary)
+     2. Paul Heydemann (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Paul Heydemann Household
+     2. Heydemann, Paul (Global Atlantic)
+     3. Paul Heydemann
+
+📁 Concina, Renata
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Renata Concina', 'Concina, Renata']
+   🏠 Expected Household: Renata Concina Household or Concina Household
+   👥 Expected Accounts (2):
+     1. Renata Concina Household (Household, Primary)
+     2. Renata Concina (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Renata Concina Household
+     2. Concina, Renata
+     3. Renata Concina
+
+📁 De Vietto, Diana daughter Natalia Vietto
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Diana daughter Natalia Vietto De Vietto', 'De Vietto, Diana daughter Natalia Vietto']
+     • Children: ['Natalia Vietto']
+   🏠 Expected Household: Diana daughter Natalia Vietto De Vietto Household or Vietto Household
+   👥 Expected Accounts (2):
+     1. Diana daughter Natalia Vietto De Vietto Household (Household, Primary)
+     2. Diana daughter Natalia Vietto De Vietto (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Diana daughter Natalia Vietto De Vietto
+     2. De Vietto, Diana daughter Natalia Vietto
+     3. Diana daughter Natalia Vietto De Vietto Household
+
+📁 Zoob, Alex
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Alex Zoob', 'Zoob, Alex']
+   🏠 Expected Household: Alex Zoob Household or Zoob Household
+   👥 Expected Accounts (2):
+     1. Alex Zoob Household (Household, Primary)
+     2. Alex Zoob (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Zoob, Alex
+     2. Alex Zoob
+     3. Alex Zoob Household
+
+📁 Bustillo, Jorge (Mike Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Jorge Bustillo', 'Bustillo, Jorge (Mike Medicaid)']
+   🏠 Expected Household: Jorge Bustillo Household or Bustillo Household
+   👥 Expected Accounts (2):
+     1. Jorge Bustillo Household (Household, Primary)
+     2. Jorge Bustillo (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Jorge Bustillo Household
+     2. Bustillo, Jorge (Mike Medicaid)
+     3. Jorge Bustillo
+
+📁 Perez, Lazara
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Lazara Perez', 'Perez, Lazara']
+   🏠 Expected Household: Lazara Perez Household or Perez Household
+   👥 Expected Accounts (2):
+     1. Lazara Perez Household (Household, Primary)
+     2. Lazara Perez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Lazara Perez
+     2. Perez, Lazara
+     3. Lazara Perez Household
+
+📁 Espinoza Michael
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Espinoza Michael']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (3):
+     1. Michael, Espinoza
+     2. Espinoza Michael
+     3. Espinoza Michael Household
+
+📁 Smith, Gordon
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Gordon Smith', 'Smith, Gordon']
+   🏠 Expected Household: Gordon Smith Household or Smith Household
+   👥 Expected Accounts (2):
+     1. Gordon Smith Household (Household, Primary)
+     2. Gordon Smith (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Gordon Smith Household
+     2. Smith, Gordon
+     3. Gordon Smith
+
+📁 Hopta, Glenn
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Glenn Hopta', 'Hopta, Glenn']
+   🏠 Expected Household: Glenn Hopta Household or Hopta Household
+   👥 Expected Accounts (2):
+     1. Glenn Hopta Household (Household, Primary)
+     2. Glenn Hopta (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Glenn Hopta Household
+     2. Glenn Hopta
+     3. Hopta, Glenn
+
+📁 Clark, Phillip (Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Phillip Clark', 'Clark, Phillip (Mike)']
+   🏠 Expected Household: Phillip Clark Household or Clark Household
+   👥 Expected Accounts (2):
+     1. Phillip Clark Household (Household, Primary)
+     2. Phillip Clark (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Phillip Clark
+     2. Phillip Clark Household
+     3. Clark, Phillip (Mike)
+
+📁 Nitsche Olga and Thomas daughter Carol Carlson
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Nitsche Olga and Thomas daughter Carol Carlson']
+     • Primary: nitsche olga
+     • Joint: thomas daughter carol carlson
+     • Children: ['Carol Carlson']
+   🏠 Expected Household: olga Household
+   👥 Expected Accounts (2):
+     1. nitsche olga (Contact, Household Head)
+     2. thomas daughter carol carlson (Contact, Member)
+   🔄 Name Variations (3):
+     1. Nitsche Olga Household
+     2. Olga, Nitsche
+     3. Nitsche Olga and Thomas daughter Carol Carlson
+
+📁 Pearce Richard and daughter Jeannine
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Pearce Richard and daughter Jeannine']
+     • Primary: pearce richard
+     • Joint: daughter jeannine
+     • Children: ['Jeannine']
+   🏠 Expected Household: richard Household
+   👥 Expected Accounts (2):
+     1. pearce richard (Contact, Household Head)
+     2. daughter jeannine (Contact, Member)
+   🔄 Name Variations (3):
+     1. Pearce Richard Household
+     2. Richard, Pearce
+     3. Pearce Richard and daughter Jeannine
+
+📁 Girard, Paul
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Paul Girard', 'Girard, Paul']
+   🏠 Expected Household: Paul Girard Household or Girard Household
+   👥 Expected Accounts (2):
+     1. Paul Girard Household (Household, Primary)
+     2. Paul Girard (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Girard, Paul
+     2. Paul Girard
+     3. Paul Girard Household
+
+📁 Baker, Joan
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Joan Baker', 'Baker, Joan']
+   🏠 Expected Household: Joan Baker Household or Baker Household
+   👥 Expected Accounts (2):
+     1. Joan Baker Household (Household, Primary)
+     2. Joan Baker (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Baker, Joan
+     2. Joan Baker
+     3. Joan Baker Household
+
+📁 Cortes Jesse Daughters Betty & Gina
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Cortes Jesse Daughters Betty & Gina']
+     • Primary: Cortes Jesse Daughters Betty
+     • Joint: Gina
+   🏠 Expected Household: Betty Household
+   👥 Expected Accounts (2):
+     1. Cortes Jesse Daughters Betty (Contact, Household Head)
+     2. Gina (Contact, Member)
+   🔄 Name Variations (3):
+     1. Cortes Jesse Household
+     2. Jesse, Cortes
+     3. Cortes Jesse Daughters Betty & Gina
+
+📁 Rowell, Jim (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Jim Rowell', 'Rowell, Jim (Medicaid Mike)']
+   🏠 Expected Household: Jim Rowell Household or Rowell Household
+   👥 Expected Accounts (2):
+     1. Jim Rowell Household (Household, Primary)
+     2. Jim Rowell (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Jim Rowell Household
+     2. Rowell, Jim (Medicaid Mike)
+     3. Jim Rowell
+
+📁 Heydeman Richard
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Heydeman Richard']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (3):
+     1. Heydeman Richard
+     2. Richard, Heydeman
+     3. Heydeman Richard Household
+
+📁 Santiago, Evelyn Ines
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Evelyn Ines Santiago', 'Santiago, Evelyn Ines']
+   🏠 Expected Household: Evelyn Ines Santiago Household or Santiago Household
+   👥 Expected Accounts (2):
+     1. Evelyn Ines Santiago Household (Household, Primary)
+     2. Evelyn Ines Santiago (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Evelyn Ines Santiago
+     2. Santiago, Evelyn Ines
+     3. Evelyn Ines Santiago Household
+
+📁 Monte, Rolando
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Rolando Monte', 'Monte, Rolando']
+   🏠 Expected Household: Rolando Monte Household or Monte Household
+   👥 Expected Accounts (2):
+     1. Rolando Monte Household (Household, Primary)
+     2. Rolando Monte (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Rolando Monte Household
+     2. Monte, Rolando
+     3. Rolando Monte
+
+📁 Kafka, Jeanne
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Jeanne Kafka', 'Kafka, Jeanne']
+   🏠 Expected Household: Jeanne Kafka Household or Kafka Household
+   👥 Expected Accounts (2):
+     1. Jeanne Kafka Household (Household, Primary)
+     2. Jeanne Kafka (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Kafka, Jeanne
+     2. Jeanne Kafka Household
+     3. Jeanne Kafka
+
+📁 Smith, Gregory
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Gregory Smith', 'Smith, Gregory']
+   🏠 Expected Household: Gregory Smith Household or Smith Household
+   👥 Expected Accounts (2):
+     1. Gregory Smith Household (Household, Primary)
+     2. Gregory Smith (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Smith, Gregory
+     2. Gregory Smith
+     3. Gregory Smith Household
+
+📁 Cohan, Andrew
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Andrew Cohan', 'Cohan, Andrew']
+   🏠 Expected Household: Andrew Cohan Household or Cohan Household
+   👥 Expected Accounts (2):
+     1. Andrew Cohan Household (Household, Primary)
+     2. Andrew Cohan (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Cohan, Andrew
+     2. Andrew Cohan
+     3. Andrew Cohan Household
+
+📁 Badia, Jerry
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Jerry Badia', 'Badia, Jerry']
+   🏠 Expected Household: Jerry Badia Household or Badia Household
+   👥 Expected Accounts (2):
+     1. Jerry Badia Household (Household, Primary)
+     2. Jerry Badia (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Jerry Badia
+     2. Badia, Jerry
+     3. Jerry Badia Household
+
+📁 Kent, Audrey (Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Audrey Kent', 'Kent, Audrey (Mike)']
+   🏠 Expected Household: Audrey Kent Household or Kent Household
+   👥 Expected Accounts (2):
+     1. Audrey Kent Household (Household, Primary)
+     2. Audrey Kent (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Audrey Kent Household
+     2. Audrey Kent
+     3. Kent, Audrey (Mike)
+
+📁 Ortega, Georgina
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Georgina Ortega', 'Ortega, Georgina']
+   🏠 Expected Household: Georgina Ortega Household or Ortega Household
+   👥 Expected Accounts (2):
+     1. Georgina Ortega Household (Household, Primary)
+     2. Georgina Ortega (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Georgina Ortega Household
+     2. Ortega, Georgina
+     3. Georgina Ortega
+
+📁 Heydemann Mary
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Heydemann Mary']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (3):
+     1. Mary, Heydemann
+     2. Heydemann Mary
+     3. Heydemann Mary Household
+
+📁 Karbin Henry & Marion daughter Breann Shultz
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Karbin Henry & Marion daughter Breann Shultz']
+     • Primary: Karbin Henry
+     • Joint: Marion daughter Breann Shultz
+     • Children: ['Breann Shultz']
+   🏠 Expected Household: Henry Household
+   👥 Expected Accounts (2):
+     1. Karbin Henry (Contact, Household Head)
+     2. Marion daughter Breann Shultz (Contact, Member)
+   🔄 Name Variations (3):
+     1. Henry, Karbin
+     2. Karbin Henry Household
+     3. Karbin Henry & Marion daughter Breann Shultz
+
+📁 Garcia, lilliam nephew Bill Garcia
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['lilliam nephew Bill Garcia Garcia', 'Garcia, lilliam nephew Bill Garcia']
+   🏠 Expected Household: lilliam nephew Bill Garcia Garcia Household or Garcia Household
+   👥 Expected Accounts (2):
+     1. lilliam nephew Bill Garcia Garcia Household (Household, Primary)
+     2. lilliam nephew Bill Garcia Garcia (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. lilliam nephew Bill Garcia Garcia
+     2. Garcia, lilliam nephew Bill Garcia
+     3. lilliam nephew Bill Garcia Garcia Household
+
+📁 Rosado, Joaquin & Elena
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Joaquin & Elena Rosado', 'Rosado, Joaquin & Elena']
+     • Primary: Rosado, Joaquin
+     • Joint: Elena
+   🏠 Expected Household: Joaquin Household
+   👥 Expected Accounts (2):
+     1. Rosado, Joaquin (Contact, Household Head)
+     2. Elena (Contact, Member)
+   🔄 Name Variations (3):
+     1. Joaquin & Elena Rosado Household
+     2. Rosado, Joaquin & Elena
+     3. Joaquin & Elena Rosado
+
+📁 Leben, Joyce daughter Aimee Diskin
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Joyce daughter Aimee Diskin Leben', 'Leben, Joyce daughter Aimee Diskin']
+     • Children: ['Aimee Diskin']
+   🏠 Expected Household: Joyce daughter Aimee Diskin Leben Household or Leben Household
+   👥 Expected Accounts (2):
+     1. Joyce daughter Aimee Diskin Leben Household (Household, Primary)
+     2. Joyce daughter Aimee Diskin Leben (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Joyce daughter Aimee Diskin Leben Household
+     2. Joyce daughter Aimee Diskin Leben
+     3. Leben, Joyce daughter Aimee Diskin
+
+📁 Sheftall, Ruby
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Ruby Sheftall', 'Sheftall, Ruby']
+   🏠 Expected Household: Ruby Sheftall Household or Sheftall Household
+   👥 Expected Accounts (2):
+     1. Ruby Sheftall Household (Household, Primary)
+     2. Ruby Sheftall (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Ruby Sheftall
+     2. Sheftall, Ruby
+     3. Ruby Sheftall Household
+
+📁 Lenz, Ursula
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Ursula Lenz', 'Lenz, Ursula']
+   🏠 Expected Household: Ursula Lenz Household or Lenz Household
+   👥 Expected Accounts (2):
+     1. Ursula Lenz Household (Household, Primary)
+     2. Ursula Lenz (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Ursula Lenz
+     2. Lenz, Ursula
+     3. Ursula Lenz Household
+
+📁 Waknine, Henri
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Henri Waknine', 'Waknine, Henri']
+   🏠 Expected Household: Henri Waknine Household or Waknine Household
+   👥 Expected Accounts (2):
+     1. Henri Waknine Household (Household, Primary)
+     2. Henri Waknine (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Waknine, Henri
+     2. Henri Waknine Household
+     3. Henri Waknine
+
+📁 Lippincott, Joan
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Joan Lippincott', 'Lippincott, Joan']
+   🏠 Expected Household: Joan Lippincott Household or Lippincott Household
+   👥 Expected Accounts (2):
+     1. Joan Lippincott Household (Household, Primary)
+     2. Joan Lippincott (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Joan Lippincott Household
+     2. Lippincott, Joan
+     3. Joan Lippincott
+
+📁 Klepac Florence daughter Barbara Socarraz
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Klepac Florence daughter Barbara Socarraz']
+     • Children: ['Barbara Socarraz']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (3):
+     1. Klepac Florence Household
+     2. Florence, Klepac
+     3. Klepac Florence daughter Barbara Socarraz
+
+📁 Rodriguez, Priscilla
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Priscilla Rodriguez', 'Rodriguez, Priscilla']
+   🏠 Expected Household: Priscilla Rodriguez Household or Rodriguez Household
+   👥 Expected Accounts (2):
+     1. Priscilla Rodriguez Household (Household, Primary)
+     2. Priscilla Rodriguez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Priscilla Rodriguez
+     2. Priscilla Rodriguez Household
+     3. Rodriguez, Priscilla
+
+📁 Geier, Ira and Joy
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Ira and Joy Geier', 'Geier, Ira and Joy']
+     • Primary: geier, ira
+     • Joint: joy
+   🏠 Expected Household: ira Household
+   👥 Expected Accounts (2):
+     1. geier, ira (Contact, Household Head)
+     2. joy (Contact, Member)
+   🔄 Name Variations (3):
+     1. Geier, Ira and Joy
+     2. Ira and Joy Geier Household
+     3. Ira and Joy Geier
+
+📁 Weinstein, Dellas son Larry and Ed Nercess
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Dellas son Larry and Ed Nercess Weinstein', 'Weinstein, Dellas son Larry and Ed Nercess']
+     • Primary: weinstein, dellas son larry
+     • Joint: ed nercess
+     • Children: ['Larry and Ed Nercess']
+   🏠 Expected Household: larry Household
+   👥 Expected Accounts (2):
+     1. weinstein, dellas son larry (Contact, Household Head)
+     2. ed nercess (Contact, Member)
+   🔄 Name Variations (3):
+     1. Weinstein, Dellas son Larry and Ed Nercess
+     2. Dellas son Larry and Ed Nercess Weinstein
+     3. Dellas son Larry and Ed Nercess Weinstein Household
+
+📁 Price, Scott and Paula
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Scott and Paula Price', 'Price, Scott and Paula']
+     • Primary: price, scott
+     • Joint: paula
+   🏠 Expected Household: scott Household
+   👥 Expected Accounts (2):
+     1. price, scott (Contact, Household Head)
+     2. paula (Contact, Member)
+   🔄 Name Variations (3):
+     1. Scott and Paula Price
+     2. Scott and Paula Price Household
+     3. Price, Scott and Paula
+
+📁 Anglada, Desiree
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Desiree Anglada', 'Anglada, Desiree']
+   🏠 Expected Household: Desiree Anglada Household or Anglada Household
+   👥 Expected Accounts (2):
+     1. Desiree Anglada Household (Household, Primary)
+     2. Desiree Anglada (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Desiree Anglada Household
+     2. Desiree Anglada
+     3. Anglada, Desiree
+
+📁 Cardozo, Danny
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Danny Cardozo', 'Cardozo, Danny']
+   🏠 Expected Household: Danny Cardozo Household or Cardozo Household
+   👥 Expected Accounts (2):
+     1. Danny Cardozo Household (Household, Primary)
+     2. Danny Cardozo (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Cardozo, Danny
+     2. Danny Cardozo
+     3. Danny Cardozo Household
+
+📁 Diaz, Juan
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Juan Diaz', 'Diaz, Juan']
+   🏠 Expected Household: Juan Diaz Household or Diaz Household
+   👥 Expected Accounts (2):
+     1. Juan Diaz Household (Household, Primary)
+     2. Juan Diaz (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Juan Diaz
+     2. Juan Diaz Household
+     3. Diaz, Juan
+
+📁 Drosdowech, Laura
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Laura Drosdowech', 'Drosdowech, Laura']
+   🏠 Expected Household: Laura Drosdowech Household or Drosdowech Household
+   👥 Expected Accounts (2):
+     1. Laura Drosdowech Household (Household, Primary)
+     2. Laura Drosdowech (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Laura Drosdowech Household
+     2. Drosdowech, Laura
+     3. Laura Drosdowech
+
+📁 Ryan, Tom & Maggie
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Tom & Maggie Ryan', 'Ryan, Tom & Maggie']
+     • Primary: Ryan, Tom
+     • Joint: Maggie
+   🏠 Expected Household: Tom Household
+   👥 Expected Accounts (2):
+     1. Ryan, Tom (Contact, Household Head)
+     2. Maggie (Contact, Member)
+   🔄 Name Variations (3):
+     1. Tom & Maggie Ryan Household
+     2. Tom & Maggie Ryan
+     3. Ryan, Tom & Maggie
+
+📁 Pagella, Anthony
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Anthony Pagella', 'Pagella, Anthony']
+   🏠 Expected Household: Anthony Pagella Household or Pagella Household
+   👥 Expected Accounts (2):
+     1. Anthony Pagella Household (Household, Primary)
+     2. Anthony Pagella (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Anthony Pagella Household
+     2. Pagella, Anthony
+     3. Anthony Pagella
+
+📁 Bishop, Sonia (Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Sonia Bishop', 'Bishop, Sonia (Mike)']
+   🏠 Expected Household: Sonia Bishop Household or Bishop Household
+   👥 Expected Accounts (2):
+     1. Sonia Bishop Household (Household, Primary)
+     2. Sonia Bishop (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Sonia Bishop
+     2. Bishop, Sonia (Mike)
+     3. Sonia Bishop Household
+
+📁 Bottfeld,Bram
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Bottfeld,Bram']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (1):
+     1. Bottfeld,Bram
+
+📁 Bibliowicz, Vanessa
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Vanessa Bibliowicz', 'Bibliowicz, Vanessa']
+   🏠 Expected Household: Vanessa Bibliowicz Household or Bibliowicz Household
+   👥 Expected Accounts (2):
+     1. Vanessa Bibliowicz Household (Household, Primary)
+     2. Vanessa Bibliowicz (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Bibliowicz, Vanessa
+     2. Vanessa Bibliowicz
+     3. Vanessa Bibliowicz Household
+
+📁 Calatayud Zeneida
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Calatayud Zeneida']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (3):
+     1. Calatayud Zeneida Household
+     2. Calatayud Zeneida
+     3. Zeneida, Calatayud
+
+📁 Casimir, Willy (Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Willy Casimir', 'Casimir, Willy (Mike)']
+   🏠 Expected Household: Willy Casimir Household or Casimir Household
+   👥 Expected Accounts (2):
+     1. Willy Casimir Household (Household, Primary)
+     2. Willy Casimir (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Willy Casimir Household
+     2. Casimir, Willy (Mike)
+     3. Willy Casimir
+
+📁 Cervantes Trust (Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Cervantes Trust (Medicaid)']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (3):
+     1. Cervantes Trust (Medicaid)
+     2. Cervantes Trust Household
+     3. Trust, Cervantes
+
+📁 Cruz, Rolando
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Rolando Cruz', 'Cruz, Rolando']
+   🏠 Expected Household: Rolando Cruz Household or Cruz Household
+   👥 Expected Accounts (2):
+     1. Rolando Cruz Household (Household, Primary)
+     2. Rolando Cruz (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Rolando Cruz Household
+     2. Cruz, Rolando
+     3. Rolando Cruz
+
+📁 Cupido, Claris
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Claris Cupido', 'Cupido, Claris']
+   🏠 Expected Household: Claris Cupido Household or Cupido Household
+   👥 Expected Accounts (2):
+     1. Claris Cupido Household (Household, Primary)
+     2. Claris Cupido (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Claris Cupido
+     2. Cupido, Claris
+     3. Claris Cupido Household
+
+📁 Cruz, Mayra
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Mayra Cruz', 'Cruz, Mayra']
+   🏠 Expected Household: Mayra Cruz Household or Cruz Household
+   👥 Expected Accounts (2):
+     1. Mayra Cruz Household (Household, Primary)
+     2. Mayra Cruz (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Mayra Cruz Household
+     2. Mayra Cruz
+     3. Cruz, Mayra
+
+📁 Davidoff, Gail
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Gail Davidoff', 'Davidoff, Gail']
+   🏠 Expected Household: Gail Davidoff Household or Davidoff Household
+   👥 Expected Accounts (2):
+     1. Gail Davidoff Household (Household, Primary)
+     2. Gail Davidoff (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Gail Davidoff Household
+     2. Davidoff, Gail
+     3. Gail Davidoff
+
+📁 Dishkin, Aimee
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Aimee Dishkin', 'Dishkin, Aimee']
+   🏠 Expected Household: Aimee Dishkin Household or Dishkin Household
+   👥 Expected Accounts (2):
+     1. Aimee Dishkin Household (Household, Primary)
+     2. Aimee Dishkin (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Aimee Dishkin Household
+     2. Dishkin, Aimee
+     3. Aimee Dishkin
+
+📁 Esquivel, Marie
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Marie Esquivel', 'Esquivel, Marie']
+   🏠 Expected Household: Marie Esquivel Household or Esquivel Household
+   👥 Expected Accounts (2):
+     1. Marie Esquivel Household (Household, Primary)
+     2. Marie Esquivel (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Esquivel, Marie
+     2. Marie Esquivel Household
+     3. Marie Esquivel
+
+📁 Fink, Anthony
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Anthony Fink', 'Fink, Anthony']
+   🏠 Expected Household: Anthony Fink Household or Fink Household
+   👥 Expected Accounts (2):
+     1. Anthony Fink Household (Household, Primary)
+     2. Anthony Fink (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Anthony Fink Household
+     2. Fink, Anthony
+     3. Anthony Fink
+
+📁 Fontana, Leonard
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Leonard Fontana', 'Fontana, Leonard']
+   🏠 Expected Household: Leonard Fontana Household or Fontana Household
+   👥 Expected Accounts (2):
+     1. Leonard Fontana Household (Household, Primary)
+     2. Leonard Fontana (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Fontana, Leonard
+     2. Leonard Fontana Household
+     3. Leonard Fontana
+
+📁 Goldstein, Bernard
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Bernard Goldstein', 'Goldstein, Bernard']
+   🏠 Expected Household: Bernard Goldstein Household or Goldstein Household
+   👥 Expected Accounts (2):
+     1. Bernard Goldstein Household (Household, Primary)
+     2. Bernard Goldstein (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Goldstein, Bernard
+     2. Bernard Goldstein
+     3. Bernard Goldstein Household
+
+📁 Guinea, Angel
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Angel Guinea', 'Guinea, Angel']
+   🏠 Expected Household: Angel Guinea Household or Guinea Household
+   👥 Expected Accounts (2):
+     1. Angel Guinea Household (Household, Primary)
+     2. Angel Guinea (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Angel Guinea
+     2. Guinea, Angel
+     3. Angel Guinea Household
+
+📁 Hagley, Rosalind
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Rosalind Hagley', 'Hagley, Rosalind']
+   🏠 Expected Household: Rosalind Hagley Household or Hagley Household
+   👥 Expected Accounts (2):
+     1. Rosalind Hagley Household (Household, Primary)
+     2. Rosalind Hagley (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Hagley, Rosalind
+     2. Rosalind Hagley Household
+     3. Rosalind Hagley
+
+📁 Hamil, Catherine
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Catherine Hamil', 'Hamil, Catherine']
+   🏠 Expected Household: Catherine Hamil Household or Hamil Household
+   👥 Expected Accounts (2):
+     1. Catherine Hamil Household (Household, Primary)
+     2. Catherine Hamil (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Hamil, Catherine
+     2. Catherine Hamil Household
+     3. Catherine Hamil
+
+📁 Juliet & Avril III
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Juliet & Avril III']
+     • Primary: Juliet
+     • Joint: Avril III
+   🏠 Expected Household: None
+   👥 Expected Accounts (2):
+     1. Juliet (Contact, Household Head)
+     2. Avril III (Contact, Member)
+   🔄 Name Variations (3):
+     1. Juliet & Household
+     2. &, Juliet
+     3. Juliet & Avril III
+
+📁 Kakkar, Yash Pal
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Yash Pal Kakkar', 'Kakkar, Yash Pal']
+   🏠 Expected Household: Yash Pal Kakkar Household or Kakkar Household
+   👥 Expected Accounts (2):
+     1. Yash Pal Kakkar Household (Household, Primary)
+     2. Yash Pal Kakkar (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Kakkar, Yash Pal
+     2. Yash Pal Kakkar
+     3. Yash Pal Kakkar Household
+
+📁 Jimenez, Marina daughter Monica Rodda
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Marina daughter Monica Rodda Jimenez', 'Jimenez, Marina daughter Monica Rodda']
+     • Children: ['Monica Rodda']
+   🏠 Expected Household: Marina daughter Monica Rodda Jimenez Household or Jimenez Household
+   👥 Expected Accounts (2):
+     1. Marina daughter Monica Rodda Jimenez Household (Household, Primary)
+     2. Marina daughter Monica Rodda Jimenez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Marina daughter Monica Rodda Jimenez Household
+     2. Marina daughter Monica Rodda Jimenez
+     3. Jimenez, Marina daughter Monica Rodda
+
+📁 Kearney, Sean
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Sean Kearney', 'Kearney, Sean']
+   🏠 Expected Household: Sean Kearney Household or Kearney Household
+   👥 Expected Accounts (2):
+     1. Sean Kearney Household (Household, Primary)
+     2. Sean Kearney (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Sean Kearney Household
+     2. Kearney, Sean
+     3. Sean Kearney
+
+📁 Jones, Elisa son Charles Byron Jones IIIII
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Elisa son Charles Byron Jones IIIII Jones', 'Jones, Elisa son Charles Byron Jones IIIII']
+     • Children: ['Charles Byron Jones IIIII']
+   🏠 Expected Household: Elisa son Charles Byron Jones IIIII Jones Household or Jones Household
+   👥 Expected Accounts (2):
+     1. Elisa son Charles Byron Jones IIIII Jones Household (Household, Primary)
+     2. Elisa son Charles Byron Jones IIIII Jones (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Elisa son Charles Byron Jones IIIII Jones Household
+     2. Elisa son Charles Byron Jones IIIII Jones
+     3. Jones, Elisa son Charles Byron Jones IIIII
+
+📁 Lara, Jose (Mike) IIII
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Jose Lara', 'Lara, Jose (Mike)']
+   🏠 Expected Household: Jose Lara Household or Lara Household
+   👥 Expected Accounts (2):
+     1. Jose Lara Household (Household, Primary)
+     2. Jose Lara (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Jose IIII Lara
+     2. Jose IIII Lara Household
+     3. Lara, Jose (Mike) IIII
+
+📁 Lawrence, Boris (Mike) III
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Boris Lawrence', 'Lawrence, Boris (Mike)']
+   🏠 Expected Household: Boris Lawrence Household or Lawrence Household
+   👥 Expected Accounts (2):
+     1. Boris Lawrence Household (Household, Primary)
+     2. Boris Lawrence (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Boris III Lawrence
+     2. Lawrence, Boris (Mike) III
+     3. Boris III Lawrence Household
+
+📁 Lopez, Ines (Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Ines Lopez', 'Lopez, Ines (Mike)']
+   🏠 Expected Household: Ines Lopez Household or Lopez Household
+   👥 Expected Accounts (2):
+     1. Ines Lopez Household (Household, Primary)
+     2. Ines Lopez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Lopez, Ines (Mike)
+     2. Ines Lopez Household
+     3. Ines Lopez
+
+📁 Romani Yong, Lisette
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Lisette Romani Yong', 'Romani Yong, Lisette']
+   🏠 Expected Household: Lisette Romani Yong Household or Yong Household
+   👥 Expected Accounts (2):
+     1. Lisette Romani Yong Household (Household, Primary)
+     2. Lisette Romani Yong (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Romani Yong, Lisette
+     2. Lisette Romani Yong Household
+     3. Lisette Romani Yong
+
+📁 Little, Fester (Mike) IIIIIII
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Fester Little', 'Little, Fester (Mike)']
+   🏠 Expected Household: Fester Little Household or Little Household
+   👥 Expected Accounts (2):
+     1. Fester Little Household (Household, Primary)
+     2. Fester Little (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Fester IIIIIII Little Household
+     2. Fester IIIIIII Little
+     3. Little, Fester (Mike) IIIIIII
+
+📁 Markelson, Jacqueline
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Jacqueline Markelson', 'Markelson, Jacqueline']
+   🏠 Expected Household: Jacqueline Markelson Household or Markelson Household
+   👥 Expected Accounts (2):
+     1. Jacqueline Markelson Household (Household, Primary)
+     2. Jacqueline Markelson (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Jacqueline Markelson
+     2. Markelson, Jacqueline
+     3. Jacqueline Markelson Household
+
+📁 Martinez, Maria
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Maria Martinez', 'Martinez, Maria']
+   🏠 Expected Household: Maria Martinez Household or Martinez Household
+   👥 Expected Accounts (2):
+     1. Maria Martinez Household (Household, Primary)
+     2. Maria Martinez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Martinez, Maria
+     2. Maria Martinez Household
+     3. Maria Martinez
+
+📁 Mcrea, Richard
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Richard Mcrea', 'Mcrea, Richard']
+   🏠 Expected Household: Richard Mcrea Household or Mcrea Household
+   👥 Expected Accounts (2):
+     1. Richard Mcrea Household (Household, Primary)
+     2. Richard Mcrea (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Mcrea, Richard
+     2. Richard Mcrea Household
+     3. Richard Mcrea
+
+📁 Zucker, Megan
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Megan Zucker', 'Zucker, Megan']
+   🏠 Expected Household: Megan Zucker Household or Zucker Household
+   👥 Expected Accounts (2):
+     1. Megan Zucker Household (Household, Primary)
+     2. Megan Zucker (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Megan Zucker
+     2. Zucker, Megan
+     3. Megan Zucker Household
+
+📁 Michot, Walter
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Walter Michot', 'Michot, Walter']
+   🏠 Expected Household: Walter Michot Household or Michot Household
+   👥 Expected Accounts (2):
+     1. Walter Michot Household (Household, Primary)
+     2. Walter Michot (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Walter Michot
+     2. Walter Michot Household
+     3. Michot, Walter
+
+📁 Musibay, Brenda
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Brenda Musibay', 'Musibay, Brenda']
+   🏠 Expected Household: Brenda Musibay Household or Musibay Household
+   👥 Expected Accounts (2):
+     1. Brenda Musibay Household (Household, Primary)
+     2. Brenda Musibay (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Musibay, Brenda
+     2. Brenda Musibay Household
+     3. Brenda Musibay
+
+📁 Nagy, Thomas
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Thomas Nagy', 'Nagy, Thomas']
+   🏠 Expected Household: Thomas Nagy Household or Nagy Household
+   👥 Expected Accounts (2):
+     1. Thomas Nagy Household (Household, Primary)
+     2. Thomas Nagy (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Nagy, Thomas
+     2. Thomas Nagy
+     3. Thomas Nagy Household
+
+📁 Perez, Lucila (Mike) III
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Lucila Perez', 'Perez, Lucila (Mike)']
+   🏠 Expected Household: Lucila Perez Household or Perez Household
+   👥 Expected Accounts (2):
+     1. Lucila Perez Household (Household, Primary)
+     2. Lucila Perez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Perez, Lucila (Mike) III
+     2. Lucila III Perez
+     3. Lucila III Perez Household
+
+📁 Peterson, Thomas
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Thomas Peterson', 'Peterson, Thomas']
+   🏠 Expected Household: Thomas Peterson Household or Peterson Household
+   👥 Expected Accounts (2):
+     1. Thomas Peterson Household (Household, Primary)
+     2. Thomas Peterson (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Thomas Peterson Household
+     2. Peterson, Thomas
+     3. Thomas Peterson
+
+📁 Pierre, Shirlene (Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Shirlene Pierre', 'Pierre, Shirlene (Mike)']
+   🏠 Expected Household: Shirlene Pierre Household or Pierre Household
+   👥 Expected Accounts (2):
+     1. Shirlene Pierre Household (Household, Primary)
+     2. Shirlene Pierre (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Shirlene Pierre Household
+     2. Shirlene Pierre
+     3. Pierre, Shirlene (Mike)
+
+📁 Pierre, Gladys (Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Gladys Pierre', 'Pierre, Gladys (Mike)']
+   🏠 Expected Household: Gladys Pierre Household or Pierre Household
+   👥 Expected Accounts (2):
+     1. Gladys Pierre Household (Household, Primary)
+     2. Gladys Pierre (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Pierre, Gladys (Mike)
+     2. Gladys Pierre
+     3. Gladys Pierre Household
+
+📁 Picarello, John (Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['John Picarello', 'Picarello, John (Mike)']
+   🏠 Expected Household: John Picarello Household or Picarello Household
+   👥 Expected Accounts (2):
+     1. John Picarello Household (Household, Primary)
+     2. John Picarello (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Picarello, John (Mike)
+     2. John Picarello
+     3. John Picarello Household
+
+📁 Pitman, Merrilee
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Merrilee Pitman', 'Pitman, Merrilee']
+   🏠 Expected Household: Merrilee Pitman Household or Pitman Household
+   👥 Expected Accounts (2):
+     1. Merrilee Pitman Household (Household, Primary)
+     2. Merrilee Pitman (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Merrilee Pitman Household
+     2. Merrilee Pitman
+     3. Pitman, Merrilee
+
+📁 Prudent, Lesly
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Lesly Prudent', 'Prudent, Lesly']
+   🏠 Expected Household: Lesly Prudent Household or Prudent Household
+   👥 Expected Accounts (2):
+     1. Lesly Prudent Household (Household, Primary)
+     2. Lesly Prudent (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Lesly Prudent
+     2. Prudent, Lesly
+     3. Lesly Prudent Household
+
+📁 Rito, Lynn
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Lynn Rito', 'Rito, Lynn']
+   🏠 Expected Household: Lynn Rito Household or Rito Household
+   👥 Expected Accounts (2):
+     1. Lynn Rito Household (Household, Primary)
+     2. Lynn Rito (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Lynn Rito Household
+     2. Lynn Rito
+     3. Rito, Lynn
+
+📁 Rodriguez, Angela (Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Angela Rodriguez', 'Rodriguez, Angela (Mike)']
+   🏠 Expected Household: Angela Rodriguez Household or Rodriguez Household
+   👥 Expected Accounts (2):
+     1. Angela Rodriguez Household (Household, Primary)
+     2. Angela Rodriguez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Angela Rodriguez Household
+     2. Rodriguez, Angela (Mike)
+     3. Angela Rodriguez
+
+📁 Rosado, Julio
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Julio Rosado', 'Rosado, Julio']
+   🏠 Expected Household: Julio Rosado Household or Rosado Household
+   👥 Expected Accounts (2):
+     1. Julio Rosado Household (Household, Primary)
+     2. Julio Rosado (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Rosado, Julio
+     2. Julio Rosado Household
+     3. Julio Rosado
+
+📁 Rodriguez, Cesar & Angela III
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Cesar & Angela III Rodriguez', 'Rodriguez, Cesar & Angela III']
+     • Primary: Rodriguez, Cesar
+     • Joint: Angela III
+   🏠 Expected Household: Cesar Household
+   👥 Expected Accounts (2):
+     1. Rodriguez, Cesar (Contact, Household Head)
+     2. Angela III (Contact, Member)
+   🔄 Name Variations (3):
+     1. Rodriguez, Cesar & Angela III
+     2. Cesar & Angela III Rodriguez Household
+     3. Cesar & Angela III Rodriguez
+
+📁 Richtmyer, Glenn Daughter Jamie Rowan
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Glenn Daughter Jamie Rowan Richtmyer', 'Richtmyer, Glenn Daughter Jamie Rowan']
+     • Children: ['Jamie Rowan']
+   🏠 Expected Household: Glenn Daughter Jamie Rowan Richtmyer Household or Richtmyer Household
+   👥 Expected Accounts (2):
+     1. Glenn Daughter Jamie Rowan Richtmyer Household (Household, Primary)
+     2. Glenn Daughter Jamie Rowan Richtmyer (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Glenn Daughter Jamie Rowan Richtmyer Household
+     2. Richtmyer, Glenn Daughter Jamie Rowan
+     3. Glenn Daughter Jamie Rowan Richtmyer
+
+📁 Shmerlin, Zhanna
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Zhanna Shmerlin', 'Shmerlin, Zhanna']
+   🏠 Expected Household: Zhanna Shmerlin Household or Shmerlin Household
+   👥 Expected Accounts (2):
+     1. Zhanna Shmerlin Household (Household, Primary)
+     2. Zhanna Shmerlin (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Zhanna Shmerlin
+     2. Zhanna Shmerlin Household
+     3. Shmerlin, Zhanna
+
+📁 Serrano, Harrison
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Harrison Serrano', 'Serrano, Harrison']
+   🏠 Expected Household: Harrison Serrano Household or Serrano Household
+   👥 Expected Accounts (2):
+     1. Harrison Serrano Household (Household, Primary)
+     2. Harrison Serrano (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Harrison Serrano
+     2. Harrison Serrano Household
+     3. Serrano, Harrison
+
+📁 Sanson, Francisco
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Francisco Sanson', 'Sanson, Francisco']
+   🏠 Expected Household: Francisco Sanson Household or Sanson Household
+   👥 Expected Accounts (2):
+     1. Francisco Sanson Household (Household, Primary)
+     2. Francisco Sanson (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Francisco Sanson Household
+     2. Francisco Sanson
+     3. Sanson, Francisco
+
+📁 Samuel, Selma
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Selma Samuel', 'Samuel, Selma']
+   🏠 Expected Household: Selma Samuel Household or Samuel Household
+   👥 Expected Accounts (2):
+     1. Selma Samuel Household (Household, Primary)
+     2. Selma Samuel (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Selma Samuel Household
+     2. Samuel, Selma
+     3. Selma Samuel
+
+📁 Sherman, Stanley wife Hilary Lupa
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Stanley wife Hilary Lupa Sherman', 'Sherman, Stanley wife Hilary Lupa']
+   🏠 Expected Household: Stanley wife Hilary Lupa Sherman Household or Sherman Household
+   👥 Expected Accounts (2):
+     1. Stanley wife Hilary Lupa Sherman Household (Household, Primary)
+     2. Stanley wife Hilary Lupa Sherman (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Sherman, Stanley wife Hilary Lupa
+     2. Stanley wife Hilary Lupa Sherman Household
+     3. Stanley wife Hilary Lupa Sherman
+
+📁 Velez, Mirta
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Mirta Velez', 'Velez, Mirta']
+   🏠 Expected Household: Mirta Velez Household or Velez Household
+   👥 Expected Accounts (2):
+     1. Mirta Velez Household (Household, Primary)
+     2. Mirta Velez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Velez, Mirta
+     2. Mirta Velez
+     3. Mirta Velez Household
+
+📁 Villaverde, Olga (Medicaid) IIII
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Olga Villaverde', 'Villaverde, Olga (Medicaid)']
+   🏠 Expected Household: Olga Villaverde Household or Villaverde Household
+   👥 Expected Accounts (2):
+     1. Olga Villaverde Household (Household, Primary)
+     2. Olga Villaverde (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Olga IIII Villaverde Household
+     2. Villaverde, Olga (Medicaid) IIII
+     3. Olga IIII Villaverde
+
+📁 Puig, Teresa daughter Hilda Perez
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Teresa daughter Hilda Perez Puig', 'Puig, Teresa daughter Hilda Perez']
+     • Children: ['Hilda Perez']
+   🏠 Expected Household: Teresa daughter Hilda Perez Puig Household or Puig Household
+   👥 Expected Accounts (2):
+     1. Teresa daughter Hilda Perez Puig Household (Household, Primary)
+     2. Teresa daughter Hilda Perez Puig (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Puig, Teresa daughter Hilda Perez
+     2. Teresa daughter Hilda Perez Puig Household
+     3. Teresa daughter Hilda Perez Puig
+
+📁 Boorman
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Boorman']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (1):
+     1. Boorman
+
+📁 Blanco, Myriam (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Myriam Blanco', 'Blanco, Myriam (Medicaid Mike)']
+   🏠 Expected Household: Myriam Blanco Household or Blanco Household
+   👥 Expected Accounts (2):
+     1. Myriam Blanco Household (Household, Primary)
+     2. Myriam Blanco (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Blanco, Myriam (Medicaid Mike)
+     2. Myriam Blanco Household
+     3. Myriam Blanco
+
+📁 Dalfin, Aron
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Aron Dalfin', 'Dalfin, Aron']
+   🏠 Expected Household: Aron Dalfin Household or Dalfin Household
+   👥 Expected Accounts (2):
+     1. Aron Dalfin Household (Household, Primary)
+     2. Aron Dalfin (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Aron Dalfin Household
+     2. Aron Dalfin
+     3. Dalfin, Aron
+
+📁 Etzler Jack son Jay
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Etzler Jack son Jay']
+     • Children: ['Jay']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (3):
+     1. Etzler Jack son Jay
+     2. Etzler Jack Household
+     3. Jack, Etzler
+
+📁 Krause, Isabel (Son Price)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Isabel Krause', 'Krause, Isabel (Son Price)']
+     • Children: ['Price)']
+   🏠 Expected Household: Isabel Krause Household or Krause Household
+   👥 Expected Accounts (2):
+     1. Isabel Krause Household (Household, Primary)
+     2. Isabel Krause (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Isabel Krause
+     2. Krause, Isabel (Son Price)
+     3. Isabel Krause Household
+
+📁 Miller, George
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['George Miller', 'Miller, George']
+   🏠 Expected Household: George Miller Household or Miller Household
+   👥 Expected Accounts (2):
+     1. George Miller Household (Household, Primary)
+     2. George Miller (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. George Miller
+     2. Miller, George
+     3. George Miller Household
+
+📁 Ragin, Sondra
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Sondra Ragin', 'Ragin, Sondra']
+   🏠 Expected Household: Sondra Ragin Household or Ragin Household
+   👥 Expected Accounts (2):
+     1. Sondra Ragin Household (Household, Primary)
+     2. Sondra Ragin (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Ragin, Sondra
+     2. Sondra Ragin
+     3. Sondra Ragin Household
+
+📁 Wallace Evelyn & Gary son
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Wallace Evelyn & Gary son']
+     • Primary: Wallace Evelyn
+     • Joint: Gary son
+   🏠 Expected Household: Evelyn Household
+   👥 Expected Accounts (2):
+     1. Wallace Evelyn (Contact, Household Head)
+     2. Gary son (Contact, Member)
+   🔄 Name Variations (3):
+     1. Wallace Evelyn Household
+     2. Wallace Evelyn & Gary son
+     3. Evelyn, Wallace
+
+📁 Kerge
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Kerge']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (1):
+     1. Kerge
+
+📁 Morrill, Nancy
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Nancy Morrill', 'Morrill, Nancy']
+   🏠 Expected Household: Nancy Morrill Household or Morrill Household
+   👥 Expected Accounts (2):
+     1. Nancy Morrill Household (Household, Primary)
+     2. Nancy Morrill (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Nancy Morrill Household
+     2. Morrill, Nancy
+     3. Nancy Morrill
+
+📁 Simon, Fred
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Fred Simon', 'Simon, Fred']
+   🏠 Expected Household: Fred Simon Household or Simon Household
+   👥 Expected Accounts (2):
+     1. Fred Simon Household (Household, Primary)
+     2. Fred Simon (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Fred Simon
+     2. Fred Simon Household
+     3. Simon, Fred
+
+📁 Sarduy, Leticia
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Leticia Sarduy', 'Sarduy, Leticia']
+   🏠 Expected Household: Leticia Sarduy Household or Sarduy Household
+   👥 Expected Accounts (2):
+     1. Leticia Sarduy Household (Household, Primary)
+     2. Leticia Sarduy (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Sarduy, Leticia
+     2. Leticia Sarduy Household
+     3. Leticia Sarduy
+
+📁 Gallardo, Esther (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Esther Gallardo', 'Gallardo, Esther (Medicaid Mike)']
+   🏠 Expected Household: Esther Gallardo Household or Gallardo Household
+   👥 Expected Accounts (2):
+     1. Esther Gallardo Household (Household, Primary)
+     2. Esther Gallardo (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Esther Gallardo Household
+     2. Gallardo, Esther (Medicaid Mike)
+     3. Esther Gallardo
+
+📁 Fitzgerald Bridget daughter Elizabeth Robbert
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Fitzgerald Bridget daughter Elizabeth Robbert']
+     • Children: ['Elizabeth Robbert']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (3):
+     1. Fitzgerald Bridget Household
+     2. Bridget, Fitzgerald
+     3. Fitzgerald Bridget daughter Elizabeth Robbert
+
+📁 Ewen, Robert (Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Robert Ewen', 'Ewen, Robert (Medicaid)']
+   🏠 Expected Household: Robert Ewen Household or Ewen Household
+   👥 Expected Accounts (2):
+     1. Robert Ewen Household (Household, Primary)
+     2. Robert Ewen (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Robert Ewen
+     2. Robert Ewen Household
+     3. Ewen, Robert (Medicaid)
+
+📁 Dejunco, Maria
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Maria Dejunco', 'Dejunco, Maria']
+   🏠 Expected Household: Maria Dejunco Household or Dejunco Household
+   👥 Expected Accounts (2):
+     1. Maria Dejunco Household (Household, Primary)
+     2. Maria Dejunco (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Dejunco, Maria
+     2. Maria Dejunco Household
+     3. Maria Dejunco
+
+📁 Russell, George
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['George Russell', 'Russell, George']
+   🏠 Expected Household: George Russell Household or Russell Household
+   👥 Expected Accounts (2):
+     1. George Russell Household (Household, Primary)
+     2. George Russell (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. George Russell
+     2. Russell, George
+     3. George Russell Household
+
+📁 Rojas, Rilde (Daughter Lisette Torres) Mike Medicaid
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Rilde Rojas', 'Rojas, Rilde (Daughter Lisette Torres)']
+     • Children: ['Lisette Torres) Mike Medicaid']
+   🏠 Expected Household: Rilde Rojas Household or Rojas Household
+   👥 Expected Accounts (2):
+     1. Rilde Rojas Household (Household, Primary)
+     2. Rilde Rojas (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Rilde Mike Medicaid Rojas
+     2. Rojas, Rilde (Daughter Lisette Torres) Mike Medicaid
+     3. Rilde Mike Medicaid Rojas Household
+
+📁 Cardinal, Anthony (Sandra. Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Anthony Cardinal', 'Cardinal, Anthony (Sandra. Medicaid Mike)']
+   🏠 Expected Household: Anthony Cardinal Household or Cardinal Household
+   👥 Expected Accounts (2):
+     1. Anthony Cardinal Household (Household, Primary)
+     2. Anthony Cardinal (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Cardinal, Anthony (Sandra. Medicaid Mike)
+     2. Anthony Cardinal
+     3. Anthony Cardinal Household
+
+📁 Rodriguez, Olga (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Olga Rodriguez', 'Rodriguez, Olga (Medicaid Mike)']
+   🏠 Expected Household: Olga Rodriguez Household or Rodriguez Household
+   👥 Expected Accounts (2):
+     1. Olga Rodriguez Household (Household, Primary)
+     2. Olga Rodriguez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Rodriguez, Olga (Medicaid Mike)
+     2. Olga Rodriguez Household
+     3. Olga Rodriguez
+
+📁 Elejalde, Norma (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Norma Elejalde', 'Elejalde, Norma (Medicaid Mike)']
+   🏠 Expected Household: Norma Elejalde Household or Elejalde Household
+   👥 Expected Accounts (2):
+     1. Norma Elejalde Household (Household, Primary)
+     2. Norma Elejalde (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Norma Elejalde
+     2. Elejalde, Norma (Medicaid Mike)
+     3. Norma Elejalde Household
+
+📁 Corchado, Nancy (Daughter Natosha) (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Nancy Corchado', 'Corchado, Nancy (Daughter Natosha)']
+     • Children: ['Natosha) (Medicaid Mike)']
+   🏠 Expected Household: Nancy Corchado Household or Corchado Household
+   👥 Expected Accounts (2):
+     1. Nancy Corchado Household (Household, Primary)
+     2. Nancy Corchado (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Nancy (Medicaid Mike) Corchado
+     2. Nancy (Medicaid Mike) Corchado Household
+     3. Corchado, Nancy (Daughter Natosha) (Medicaid Mike)
+
+📁 Miguel, Ramon (Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Ramon Miguel', 'Miguel, Ramon (Medicaid)']
+   🏠 Expected Household: Ramon Miguel Household or Miguel Household
+   👥 Expected Accounts (2):
+     1. Ramon Miguel Household (Household, Primary)
+     2. Ramon Miguel (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Ramon Miguel Household
+     2. Ramon Miguel
+     3. Miguel, Ramon (Medicaid)
+
+📁 Shrieves, Wayne (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Wayne Shrieves', 'Shrieves, Wayne (Medicaid Mike)']
+   🏠 Expected Household: Wayne Shrieves Household or Shrieves Household
+   👥 Expected Accounts (2):
+     1. Wayne Shrieves Household (Household, Primary)
+     2. Wayne Shrieves (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Wayne Shrieves Household
+     2. Shrieves, Wayne (Medicaid Mike)
+     3. Wayne Shrieves
+
+📁 Lachance, Albert
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Albert Lachance', 'Lachance, Albert']
+   🏠 Expected Household: Albert Lachance Household or Lachance Household
+   👥 Expected Accounts (2):
+     1. Albert Lachance Household (Household, Primary)
+     2. Albert Lachance (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Albert Lachance
+     2. Albert Lachance Household
+     3. Lachance, Albert
+
+📁 Ruiz, Maria (Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Maria Ruiz', 'Ruiz, Maria (Medicaid)']
+   🏠 Expected Household: Maria Ruiz Household or Ruiz Household
+   👥 Expected Accounts (2):
+     1. Maria Ruiz Household (Household, Primary)
+     2. Maria Ruiz (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Maria Ruiz
+     2. Ruiz, Maria (Medicaid)
+     3. Maria Ruiz Household
+
+📁 Mcnamee, Glenis (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Glenis Mcnamee', 'Mcnamee, Glenis (Medicaid Mike)']
+   🏠 Expected Household: Glenis Mcnamee Household or Mcnamee Household
+   👥 Expected Accounts (2):
+     1. Glenis Mcnamee Household (Household, Primary)
+     2. Glenis Mcnamee (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Glenis Mcnamee Household
+     2. Mcnamee, Glenis (Medicaid Mike)
+     3. Glenis Mcnamee
+
+📁 Wensing, Rosemary (Son Kevin)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Rosemary Wensing', 'Wensing, Rosemary (Son Kevin)']
+     • Children: ['Kevin)']
+   🏠 Expected Household: Rosemary Wensing Household or Wensing Household
+   👥 Expected Accounts (2):
+     1. Rosemary Wensing Household (Household, Primary)
+     2. Rosemary Wensing (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Wensing, Rosemary (Son Kevin)
+     2. Rosemary Wensing Household
+     3. Rosemary Wensing
+
+📁 Kendrick, Marlene (Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Marlene Kendrick', 'Kendrick, Marlene (Medicaid)']
+   🏠 Expected Household: Marlene Kendrick Household or Kendrick Household
+   👥 Expected Accounts (2):
+     1. Marlene Kendrick Household (Household, Primary)
+     2. Marlene Kendrick (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Kendrick, Marlene (Medicaid)
+     2. Marlene Kendrick Household
+     3. Marlene Kendrick
+
+📁 Luaces, Lourdes (Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Lourdes Luaces', 'Luaces, Lourdes (Medicaid)']
+   🏠 Expected Household: Lourdes Luaces Household or Luaces Household
+   👥 Expected Accounts (2):
+     1. Lourdes Luaces Household (Household, Primary)
+     2. Lourdes Luaces (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Luaces, Lourdes (Medicaid)
+     2. Lourdes Luaces Household
+     3. Lourdes Luaces
+
+📁 Ruiz, Mercedes (Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Mercedes Ruiz', 'Ruiz, Mercedes (Medicaid)']
+   🏠 Expected Household: Mercedes Ruiz Household or Ruiz Household
+   👥 Expected Accounts (2):
+     1. Mercedes Ruiz Household (Household, Primary)
+     2. Mercedes Ruiz (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Mercedes Ruiz
+     2. Mercedes Ruiz Household
+     3. Ruiz, Mercedes (Medicaid)
+
+📁 Fernandez, Carlos (Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Carlos Fernandez', 'Fernandez, Carlos (Medicaid)']
+   🏠 Expected Household: Carlos Fernandez Household or Fernandez Household
+   👥 Expected Accounts (2):
+     1. Carlos Fernandez Household (Household, Primary)
+     2. Carlos Fernandez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Fernandez, Carlos (Medicaid)
+     2. Carlos Fernandez Household
+     3. Carlos Fernandez
+
+📁 Davila, Beatriz
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Beatriz Davila', 'Davila, Beatriz']
+   🏠 Expected Household: Beatriz Davila Household or Davila Household
+   👥 Expected Accounts (2):
+     1. Beatriz Davila Household (Household, Primary)
+     2. Beatriz Davila (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Davila, Beatriz
+     2. Beatriz Davila Household
+     3. Beatriz Davila
+
+📁 Lopez, Yenixey
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Yenixey Lopez', 'Lopez, Yenixey']
+   🏠 Expected Household: Yenixey Lopez Household or Lopez Household
+   👥 Expected Accounts (2):
+     1. Yenixey Lopez Household (Household, Primary)
+     2. Yenixey Lopez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Lopez, Yenixey
+     2. Yenixey Lopez
+     3. Yenixey Lopez Household
+
+📁 Arean, Ivonne (Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Ivonne Arean', 'Arean, Ivonne (Medicaid)']
+   🏠 Expected Household: Ivonne Arean Household or Arean Household
+   👥 Expected Accounts (2):
+     1. Ivonne Arean Household (Household, Primary)
+     2. Ivonne Arean (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Ivonne Arean Household
+     2. Ivonne Arean
+     3. Arean, Ivonne (Medicaid)
+
+📁 Degard, Donald (Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Donald Degard', 'Degard, Donald (Medicaid)']
+   🏠 Expected Household: Donald Degard Household or Degard Household
+   👥 Expected Accounts (2):
+     1. Donald Degard Household (Household, Primary)
+     2. Donald Degard (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Donald Degard Household
+     2. Donald Degard
+     3. Degard, Donald (Medicaid)
+
+📁 Johnson, Gloria
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Gloria Johnson', 'Johnson, Gloria']
+   🏠 Expected Household: Gloria Johnson Household or Johnson Household
+   👥 Expected Accounts (2):
+     1. Gloria Johnson Household (Household, Primary)
+     2. Gloria Johnson (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Gloria Johnson Household
+     2. Gloria Johnson
+     3. Johnson, Gloria
+
+📁 Nethersole, Charles
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Charles Nethersole', 'Nethersole, Charles']
+   🏠 Expected Household: Charles Nethersole Household or Nethersole Household
+   👥 Expected Accounts (2):
+     1. Charles Nethersole Household (Household, Primary)
+     2. Charles Nethersole (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Charles Nethersole Household
+     2. Charles Nethersole
+     3. Nethersole, Charles
+
+📁 Stanley Odishoo
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Stanley Odishoo']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (3):
+     1. Odishoo, Stanley
+     2. Stanley Odishoo
+     3. Stanley Odishoo Household
+
+📁 Janosky, Michael (Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Michael Janosky', 'Janosky, Michael (Medicaid)']
+   🏠 Expected Household: Michael Janosky Household or Janosky Household
+   👥 Expected Accounts (2):
+     1. Michael Janosky Household (Household, Primary)
+     2. Michael Janosky (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Janosky, Michael (Medicaid)
+     2. Michael Janosky Household
+     3. Michael Janosky
+
+📁 Gonzalez, Amizadday
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Amizadday Gonzalez', 'Gonzalez, Amizadday']
+   🏠 Expected Household: Amizadday Gonzalez Household or Gonzalez Household
+   👥 Expected Accounts (2):
+     1. Amizadday Gonzalez Household (Household, Primary)
+     2. Amizadday Gonzalez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Amizadday Gonzalez Household
+     2. Gonzalez, Amizadday
+     3. Amizadday Gonzalez
+
+📁 Asenjo, Irma (Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Irma Asenjo', 'Asenjo, Irma (Medicaid)']
+   🏠 Expected Household: Irma Asenjo Household or Asenjo Household
+   👥 Expected Accounts (2):
+     1. Irma Asenjo Household (Household, Primary)
+     2. Irma Asenjo (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Irma Asenjo Household
+     2. Asenjo, Irma (Medicaid)
+     3. Irma Asenjo
+
+📁 Janosky, Jeanette (Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Jeanette Janosky', 'Janosky, Jeanette (Medicaid)']
+   🏠 Expected Household: Jeanette Janosky Household or Janosky Household
+   👥 Expected Accounts (2):
+     1. Jeanette Janosky Household (Household, Primary)
+     2. Jeanette Janosky (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Janosky, Jeanette (Medicaid)
+     2. Jeanette Janosky Household
+     3. Jeanette Janosky
+
+📁 Liranzo, Emelyn
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Emelyn Liranzo', 'Liranzo, Emelyn']
+   🏠 Expected Household: Emelyn Liranzo Household or Liranzo Household
+   👥 Expected Accounts (2):
+     1. Emelyn Liranzo Household (Household, Primary)
+     2. Emelyn Liranzo (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Emelyn Liranzo Household
+     2. Emelyn Liranzo
+     3. Liranzo, Emelyn
+
+📁 Montgomery, Darrah (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Darrah Montgomery', 'Montgomery, Darrah (Medicaid Mike)']
+   🏠 Expected Household: Darrah Montgomery Household or Montgomery Household
+   👥 Expected Accounts (2):
+     1. Darrah Montgomery Household (Household, Primary)
+     2. Darrah Montgomery (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Darrah Montgomery
+     2. Montgomery, Darrah (Medicaid Mike)
+     3. Darrah Montgomery Household
+
+📁 Roe, Esther (Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Esther Roe', 'Roe, Esther (Medicaid)']
+   🏠 Expected Household: Esther Roe Household or Roe Household
+   👥 Expected Accounts (2):
+     1. Esther Roe Household (Household, Primary)
+     2. Esther Roe (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Esther Roe Household
+     2. Esther Roe
+     3. Roe, Esther (Medicaid)
+
+📁 Bisono, Fernando (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Fernando Bisono', 'Bisono, Fernando (Medicaid Mike)']
+   🏠 Expected Household: Fernando Bisono Household or Bisono Household
+   👥 Expected Accounts (2):
+     1. Fernando Bisono Household (Household, Primary)
+     2. Fernando Bisono (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Fernando Bisono
+     2. Fernando Bisono Household
+     3. Bisono, Fernando (Medicaid Mike)
+
+📁 Goldman, Sharon (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Sharon Goldman', 'Goldman, Sharon (Medicaid Mike)']
+   🏠 Expected Household: Sharon Goldman Household or Goldman Household
+   👥 Expected Accounts (2):
+     1. Sharon Goldman Household (Household, Primary)
+     2. Sharon Goldman (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Sharon Goldman Household
+     2. Sharon Goldman
+     3. Goldman, Sharon (Medicaid Mike)
+
+📁 Martin, John B (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['John B Martin', 'Martin, John B (Medicaid Mike)']
+   🏠 Expected Household: John B Martin Household or Martin Household
+   👥 Expected Accounts (2):
+     1. John B Martin Household (Household, Primary)
+     2. John B Martin (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. John B Martin Household
+     2. Martin, John B (Medicaid Mike)
+     3. John B Martin
+
+📁 Docal, Luisa (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Luisa Docal', 'Docal, Luisa (Medicaid Mike)']
+   🏠 Expected Household: Luisa Docal Household or Docal Household
+   👥 Expected Accounts (2):
+     1. Luisa Docal Household (Household, Primary)
+     2. Luisa Docal (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Docal, Luisa (Medicaid Mike)
+     2. Luisa Docal Household
+     3. Luisa Docal
+
+📁 Flores, Consuelo (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Consuelo Flores', 'Flores, Consuelo (Medicaid Mike)']
+   🏠 Expected Household: Consuelo Flores Household or Flores Household
+   👥 Expected Accounts (2):
+     1. Consuelo Flores Household (Household, Primary)
+     2. Consuelo Flores (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Consuelo Flores
+     2. Flores, Consuelo (Medicaid Mike)
+     3. Consuelo Flores Household
+
+📁 Irigoyen, Sarah (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Sarah Irigoyen', 'Irigoyen, Sarah (Medicaid Mike)']
+   🏠 Expected Household: Sarah Irigoyen Household or Irigoyen Household
+   👥 Expected Accounts (2):
+     1. Sarah Irigoyen Household (Household, Primary)
+     2. Sarah Irigoyen (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Sarah Irigoyen Household
+     2. Sarah Irigoyen
+     3. Irigoyen, Sarah (Medicaid Mike)
+
+📁 Patterson, Michele
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Michele Patterson', 'Patterson, Michele']
+   🏠 Expected Household: Michele Patterson Household or Patterson Household
+   👥 Expected Accounts (2):
+     1. Michele Patterson Household (Household, Primary)
+     2. Michele Patterson (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Michele Patterson
+     2. Patterson, Michele
+     3. Michele Patterson Household
+
+📁 Velazquez, Adriana (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Adriana Velazquez', 'Velazquez, Adriana (Medicaid Mike)']
+   🏠 Expected Household: Adriana Velazquez Household or Velazquez Household
+   👥 Expected Accounts (2):
+     1. Adriana Velazquez Household (Household, Primary)
+     2. Adriana Velazquez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Adriana Velazquez Household
+     2. Velazquez, Adriana (Medicaid Mike)
+     3. Adriana Velazquez
+
+📁 Ray, Mandi (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Mandi Ray', 'Ray, Mandi (Medicaid Mike)']
+   🏠 Expected Household: Mandi Ray Household or Ray Household
+   👥 Expected Accounts (2):
+     1. Mandi Ray Household (Household, Primary)
+     2. Mandi Ray (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Ray, Mandi (Medicaid Mike)
+     2. Mandi Ray Household
+     3. Mandi Ray
+
+📁 Navarrete, Viola (Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Viola Navarrete', 'Navarrete, Viola (Medicaid)']
+   🏠 Expected Household: Viola Navarrete Household or Navarrete Household
+   👥 Expected Accounts (2):
+     1. Viola Navarrete Household (Household, Primary)
+     2. Viola Navarrete (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Viola Navarrete
+     2. Navarrete, Viola (Medicaid)
+     3. Viola Navarrete Household
+
+📁 Asha Emil daughter Cristina
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Asha Emil daughter Cristina']
+     • Children: ['Cristina']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (3):
+     1. Asha Emil Household
+     2. Emil, Asha
+     3. Asha Emil daughter Cristina
+
+📁 Proenza, Olga son Alberto
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Olga son Alberto Proenza', 'Proenza, Olga son Alberto']
+     • Children: ['Alberto']
+   🏠 Expected Household: Olga son Alberto Proenza Household or Proenza Household
+   👥 Expected Accounts (2):
+     1. Olga son Alberto Proenza Household (Household, Primary)
+     2. Olga son Alberto Proenza (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Olga son Alberto Proenza Household
+     2. Proenza, Olga son Alberto
+     3. Olga son Alberto Proenza
+
+📁 Gross, Larry
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Larry Gross', 'Gross, Larry']
+   🏠 Expected Household: Larry Gross Household or Gross Household
+   👥 Expected Accounts (2):
+     1. Larry Gross Household (Household, Primary)
+     2. Larry Gross (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Larry Gross
+     2. Gross, Larry
+     3. Larry Gross Household
+
+📁 Garica, Nicolas & Daughter Marie Chavarri (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Nicolas & Daughter Marie Chavarri Garica', 'Garica, Nicolas & Daughter Marie Chavarri (Medicaid Mike)']
+     • Primary: Garica, Nicolas
+     • Joint: Daughter Marie Chavarri (Medicaid Mike)
+     • Children: ['Marie Chavarri (Medicaid Mike)']
+   🏠 Expected Household: Nicolas Household
+   👥 Expected Accounts (2):
+     1. Garica, Nicolas (Contact, Household Head)
+     2. Daughter Marie Chavarri (Medicaid Mike) (Contact, Member)
+   🔄 Name Variations (3):
+     1. Nicolas & Daughter Marie Chavarri Garica
+     2. Nicolas & Daughter Marie Chavarri Garica Household
+     3. Garica, Nicolas & Daughter Marie Chavarri (Medicaid Mike)
+
+📁 Castaner, Hector & Niece Gipsy Ramos (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Hector & Niece Gipsy Ramos Castaner', 'Castaner, Hector & Niece Gipsy Ramos (Medicaid Mike)']
+     • Primary: Castaner, Hector
+     • Joint: Niece Gipsy Ramos (Medicaid Mike)
+   🏠 Expected Household: Hector Household
+   👥 Expected Accounts (2):
+     1. Castaner, Hector (Contact, Household Head)
+     2. Niece Gipsy Ramos (Medicaid Mike) (Contact, Member)
+   🔄 Name Variations (3):
+     1. Castaner, Hector & Niece Gipsy Ramos (Medicaid Mike)
+     2. Hector & Niece Gipsy Ramos Castaner
+     3. Hector & Niece Gipsy Ramos Castaner Household
+
+📁 Busto Pina, Rosa Daughter Carolina (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Rosa Daughter Carolina Busto Pina', 'Busto Pina, Rosa Daughter Carolina (Medicaid Mike)']
+     • Children: ['Carolina (Medicaid Mike)']
+   🏠 Expected Household: Rosa Daughter Carolina Busto Pina Household or Pina Household
+   👥 Expected Accounts (2):
+     1. Rosa Daughter Carolina Busto Pina Household (Household, Primary)
+     2. Rosa Daughter Carolina Busto Pina (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Rosa Daughter Carolina Busto Pina
+     2. Rosa Daughter Carolina Busto Pina Household
+     3. Busto Pina, Rosa Daughter Carolina (Medicaid Mike)
+
+📁 Fux, Clarissa & Daughter Devanna (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Clarissa & Daughter Devanna Fux', 'Fux, Clarissa & Daughter Devanna (Medicaid Mike)']
+     • Primary: Fux, Clarissa
+     • Joint: Daughter Devanna (Medicaid Mike)
+     • Children: ['Devanna (Medicaid Mike)']
+   🏠 Expected Household: Clarissa Household
+   👥 Expected Accounts (2):
+     1. Fux, Clarissa (Contact, Household Head)
+     2. Daughter Devanna (Medicaid Mike) (Contact, Member)
+   🔄 Name Variations (3):
+     1. Clarissa & Daughter Devanna Fux
+     2. Fux, Clarissa & Daughter Devanna (Medicaid Mike)
+     3. Clarissa & Daughter Devanna Fux Household
+
+📁 Goosen, Gloria
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Gloria Goosen', 'Goosen, Gloria']
+   🏠 Expected Household: Gloria Goosen Household or Goosen Household
+   👥 Expected Accounts (2):
+     1. Gloria Goosen Household (Household, Primary)
+     2. Gloria Goosen (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Gloria Goosen
+     2. Gloria Goosen Household
+     3. Goosen, Gloria
+
+📁 Navarro, Daniel
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Daniel Navarro', 'Navarro, Daniel']
+   🏠 Expected Household: Daniel Navarro Household or Navarro Household
+   👥 Expected Accounts (2):
+     1. Daniel Navarro Household (Household, Primary)
+     2. Daniel Navarro (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Daniel Navarro
+     2. Navarro, Daniel
+     3. Daniel Navarro Household
+
+📁 Alvarez, Vilma (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Vilma Alvarez', 'Alvarez, Vilma (Medicaid Mike)']
+   🏠 Expected Household: Vilma Alvarez Household or Alvarez Household
+   👥 Expected Accounts (2):
+     1. Vilma Alvarez Household (Household, Primary)
+     2. Vilma Alvarez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Vilma Alvarez Household
+     2. Alvarez, Vilma (Medicaid Mike)
+     3. Vilma Alvarez
+
+📁 Fernandez, Barbara (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Barbara Fernandez', 'Fernandez, Barbara (Medicaid Mike)']
+   🏠 Expected Household: Barbara Fernandez Household or Fernandez Household
+   👥 Expected Accounts (2):
+     1. Barbara Fernandez Household (Household, Primary)
+     2. Barbara Fernandez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Barbara Fernandez
+     2. Barbara Fernandez Household
+     3. Fernandez, Barbara (Medicaid Mike)
+
+📁 Nigro, Josephine (Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Josephine Nigro', 'Nigro, Josephine (Medicaid)']
+   🏠 Expected Household: Josephine Nigro Household or Nigro Household
+   👥 Expected Accounts (2):
+     1. Josephine Nigro Household (Household, Primary)
+     2. Josephine Nigro (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Nigro, Josephine (Medicaid)
+     2. Josephine Nigro Household
+     3. Josephine Nigro
+
+📁 James, Edwards
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Edwards James', 'James, Edwards']
+   🏠 Expected Household: Edwards James Household or James Household
+   👥 Expected Accounts (2):
+     1. Edwards James Household (Household, Primary)
+     2. Edwards James (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. James, Edwards
+     2. Edwards James Household
+     3. Edwards James
+
+📁 Pertierra, Lily
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Lily Pertierra', 'Pertierra, Lily']
+   🏠 Expected Household: Lily Pertierra Household or Pertierra Household
+   👥 Expected Accounts (2):
+     1. Lily Pertierra Household (Household, Primary)
+     2. Lily Pertierra (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Lily Pertierra Household
+     2. Lily Pertierra
+     3. Pertierra, Lily
+
+📁 Pichel, Zulima Daughter Krystal (Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Zulima Daughter Krystal Pichel', 'Pichel, Zulima Daughter Krystal (Medicaid)']
+     • Children: ['Krystal (Medicaid)']
+   🏠 Expected Household: Zulima Daughter Krystal Pichel Household or Pichel Household
+   👥 Expected Accounts (2):
+     1. Zulima Daughter Krystal Pichel Household (Household, Primary)
+     2. Zulima Daughter Krystal Pichel (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Pichel, Zulima Daughter Krystal (Medicaid)
+     2. Zulima Daughter Krystal Pichel Household
+     3. Zulima Daughter Krystal Pichel
+
+📁 Atwood, Charles (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Charles Atwood', 'Atwood, Charles (Medicaid Mike)']
+   🏠 Expected Household: Charles Atwood Household or Atwood Household
+   👥 Expected Accounts (2):
+     1. Charles Atwood Household (Household, Primary)
+     2. Charles Atwood (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Atwood, Charles (Medicaid Mike)
+     2. Charles Atwood Household
+     3. Charles Atwood
+
+📁 Barreto Tejedo, Julieta
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Julieta Barreto Tejedo', 'Barreto Tejedo, Julieta']
+   🏠 Expected Household: Julieta Barreto Tejedo Household or Tejedo Household
+   👥 Expected Accounts (2):
+     1. Julieta Barreto Tejedo Household (Household, Primary)
+     2. Julieta Barreto Tejedo (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Julieta Barreto Tejedo
+     2. Julieta Barreto Tejedo Household
+     3. Barreto Tejedo, Julieta
+
+📁 Coello, Ignacio and Lourdes
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Ignacio and Lourdes Coello', 'Coello, Ignacio and Lourdes']
+     • Primary: coello, ignacio
+     • Joint: lourdes
+   🏠 Expected Household: ignacio Household
+   👥 Expected Accounts (2):
+     1. coello, ignacio (Contact, Household Head)
+     2. lourdes (Contact, Member)
+   🔄 Name Variations (3):
+     1. Ignacio and Lourdes Coello Household
+     2. Coello, Ignacio and Lourdes
+     3. Ignacio and Lourdes Coello
+
+📁 Avalos, Julio (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Julio Avalos', 'Avalos, Julio (Medicaid Mike)']
+   🏠 Expected Household: Julio Avalos Household or Avalos Household
+   👥 Expected Accounts (2):
+     1. Julio Avalos Household (Household, Primary)
+     2. Julio Avalos (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Avalos, Julio (Medicaid Mike)
+     2. Julio Avalos
+     3. Julio Avalos Household
+
+📁 Yi, Francisco (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Francisco Yi', 'Yi, Francisco (Medicaid Mike)']
+   🏠 Expected Household: Francisco Yi Household or Yi Household
+   👥 Expected Accounts (2):
+     1. Francisco Yi Household (Household, Primary)
+     2. Francisco Yi (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Francisco Yi Household
+     2. Francisco Yi
+     3. Yi, Francisco (Medicaid Mike)
+
+📁 Benitez, Edna (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Edna Benitez', 'Benitez, Edna (Medicaid Mike)']
+   🏠 Expected Household: Edna Benitez Household or Benitez Household
+   👥 Expected Accounts (2):
+     1. Edna Benitez Household (Household, Primary)
+     2. Edna Benitez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Edna Benitez Household
+     2. Edna Benitez
+     3. Benitez, Edna (Medicaid Mike)
+
+📁 Heilman, Sally
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Sally Heilman', 'Heilman, Sally']
+   🏠 Expected Household: Sally Heilman Household or Heilman Household
+   👥 Expected Accounts (2):
+     1. Sally Heilman Household (Household, Primary)
+     2. Sally Heilman (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Heilman, Sally
+     2. Sally Heilman Household
+     3. Sally Heilman
+
+📁 Morejon, Elizabeth (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Elizabeth Morejon', 'Morejon, Elizabeth (Medicaid Mike)']
+   🏠 Expected Household: Elizabeth Morejon Household or Morejon Household
+   👥 Expected Accounts (2):
+     1. Elizabeth Morejon Household (Household, Primary)
+     2. Elizabeth Morejon (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Elizabeth Morejon
+     2. Morejon, Elizabeth (Medicaid Mike)
+     3. Elizabeth Morejon Household
+
+📁 Paez, Maria (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Maria Paez', 'Paez, Maria (Medicaid Mike)']
+   🏠 Expected Household: Maria Paez Household or Paez Household
+   👥 Expected Accounts (2):
+     1. Maria Paez Household (Household, Primary)
+     2. Maria Paez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Paez, Maria (Medicaid Mike)
+     2. Maria Paez
+     3. Maria Paez Household
+
+📁 Otero, Yoel
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Yoel Otero', 'Otero, Yoel']
+   🏠 Expected Household: Yoel Otero Household or Otero Household
+   👥 Expected Accounts (2):
+     1. Yoel Otero Household (Household, Primary)
+     2. Yoel Otero (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Yoel Otero Household
+     2. Yoel Otero
+     3. Otero, Yoel
+
+📁 Lastra, Beatriz
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Beatriz Lastra', 'Lastra, Beatriz']
+   🏠 Expected Household: Beatriz Lastra Household or Lastra Household
+   👥 Expected Accounts (2):
+     1. Beatriz Lastra Household (Household, Primary)
+     2. Beatriz Lastra (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Lastra, Beatriz
+     2. Beatriz Lastra
+     3. Beatriz Lastra Household
+
+📁 Lastra, Rene
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Rene Lastra', 'Lastra, Rene']
+   🏠 Expected Household: Rene Lastra Household or Lastra Household
+   👥 Expected Accounts (2):
+     1. Rene Lastra Household (Household, Primary)
+     2. Rene Lastra (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Rene Lastra
+     2. Lastra, Rene
+     3. Rene Lastra Household
+
+📁 New folder (2)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['New folder (2)']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (3):
+     1. New folder (2)
+     2. folder, New
+     3. New folder Household
+
+📁 Rivero Rengel, Pedro
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Pedro Rivero Rengel', 'Rivero Rengel, Pedro']
+   🏠 Expected Household: Pedro Rivero Rengel Household or Rengel Household
+   👥 Expected Accounts (2):
+     1. Pedro Rivero Rengel Household (Household, Primary)
+     2. Pedro Rivero Rengel (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Rivero Rengel, Pedro
+     2. Pedro Rivero Rengel
+     3. Pedro Rivero Rengel Household
+
+📁 Ramos, Luis (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Luis Ramos', 'Ramos, Luis (Medicaid Mike)']
+   🏠 Expected Household: Luis Ramos Household or Ramos Household
+   👥 Expected Accounts (2):
+     1. Luis Ramos Household (Household, Primary)
+     2. Luis Ramos (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Ramos, Luis (Medicaid Mike)
+     2. Luis Ramos
+     3. Luis Ramos Household
+
+📁 Ulrich, Jeanet
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Jeanet Ulrich', 'Ulrich, Jeanet']
+   🏠 Expected Household: Jeanet Ulrich Household or Ulrich Household
+   👥 Expected Accounts (2):
+     1. Jeanet Ulrich Household (Household, Primary)
+     2. Jeanet Ulrich (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Jeanet Ulrich
+     2. Jeanet Ulrich Household
+     3. Ulrich, Jeanet
+
+📁 Ragusa, Monica
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Monica Ragusa', 'Ragusa, Monica']
+   🏠 Expected Household: Monica Ragusa Household or Ragusa Household
+   👥 Expected Accounts (2):
+     1. Monica Ragusa Household (Household, Primary)
+     2. Monica Ragusa (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Ragusa, Monica
+     2. Monica Ragusa
+     3. Monica Ragusa Household
+
+📁 Ahrens, Sandra (Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Sandra Ahrens', 'Ahrens, Sandra (Medicaid)']
+   🏠 Expected Household: Sandra Ahrens Household or Ahrens Household
+   👥 Expected Accounts (2):
+     1. Sandra Ahrens Household (Household, Primary)
+     2. Sandra Ahrens (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Sandra Ahrens
+     2. Ahrens, Sandra (Medicaid)
+     3. Sandra Ahrens Household
+
+📁 Enderica, Ana Maria
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Ana Maria Enderica', 'Enderica, Ana Maria']
+   🏠 Expected Household: Ana Maria Enderica Household or Enderica Household
+   👥 Expected Accounts (2):
+     1. Ana Maria Enderica Household (Household, Primary)
+     2. Ana Maria Enderica (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Ana Maria Enderica Household
+     2. Ana Maria Enderica
+     3. Enderica, Ana Maria
+
+📁 Perdomo, Cecilia (Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Cecilia Perdomo', 'Perdomo, Cecilia (Medicaid)']
+   🏠 Expected Household: Cecilia Perdomo Household or Perdomo Household
+   👥 Expected Accounts (2):
+     1. Cecilia Perdomo Household (Household, Primary)
+     2. Cecilia Perdomo (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Cecilia Perdomo
+     2. Cecilia Perdomo Household
+     3. Perdomo, Cecilia (Medicaid)
+
+📁 Perez, Julian
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Julian Perez', 'Perez, Julian']
+   🏠 Expected Household: Julian Perez Household or Perez Household
+   👥 Expected Accounts (2):
+     1. Julian Perez Household (Household, Primary)
+     2. Julian Perez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Perez, Julian
+     2. Julian Perez
+     3. Julian Perez Household
+
+📁 Rey, Alberto
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Alberto Rey', 'Rey, Alberto']
+   🏠 Expected Household: Alberto Rey Household or Rey Household
+   👥 Expected Accounts (2):
+     1. Alberto Rey Household (Household, Primary)
+     2. Alberto Rey (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Alberto Rey Household
+     2. Alberto Rey
+     3. Rey, Alberto
+
+📁 Fonner, Brent
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Brent Fonner', 'Fonner, Brent']
+   🏠 Expected Household: Brent Fonner Household or Fonner Household
+   👥 Expected Accounts (2):
+     1. Brent Fonner Household (Household, Primary)
+     2. Brent Fonner (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Fonner, Brent
+     2. Brent Fonner Household
+     3. Brent Fonner
+
+📁 Silva, Neva (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Neva Silva', 'Silva, Neva (Medicaid Mike)']
+   🏠 Expected Household: Neva Silva Household or Silva Household
+   👥 Expected Accounts (2):
+     1. Neva Silva Household (Household, Primary)
+     2. Neva Silva (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Neva Silva Household
+     2. Silva, Neva (Medicaid Mike)
+     3. Neva Silva
+
+📁 Holch, Maria (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Maria Holch', 'Holch, Maria (Medicaid Mike)']
+   🏠 Expected Household: Maria Holch Household or Holch Household
+   👥 Expected Accounts (2):
+     1. Maria Holch Household (Household, Primary)
+     2. Maria Holch (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Holch, Maria (Medicaid Mike)
+     2. Maria Holch Household
+     3. Maria Holch
+
+📁 Fredrickson, Barbara (Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Barbara Fredrickson', 'Fredrickson, Barbara (Medicaid)']
+   🏠 Expected Household: Barbara Fredrickson Household or Fredrickson Household
+   👥 Expected Accounts (2):
+     1. Barbara Fredrickson Household (Household, Primary)
+     2. Barbara Fredrickson (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Barbara Fredrickson Household
+     2. Fredrickson, Barbara (Medicaid)
+     3. Barbara Fredrickson
+
+📁 Avalos, Carmen
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Carmen Avalos', 'Avalos, Carmen']
+   🏠 Expected Household: Carmen Avalos Household or Avalos Household
+   👥 Expected Accounts (2):
+     1. Carmen Avalos Household (Household, Primary)
+     2. Carmen Avalos (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Carmen Avalos Household
+     2. Avalos, Carmen
+     3. Carmen Avalos
+
+📁 Tenenbaum, Jessica
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Jessica Tenenbaum', 'Tenenbaum, Jessica']
+   🏠 Expected Household: Jessica Tenenbaum Household or Tenenbaum Household
+   👥 Expected Accounts (2):
+     1. Jessica Tenenbaum Household (Household, Primary)
+     2. Jessica Tenenbaum (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Jessica Tenenbaum Household
+     2. Tenenbaum, Jessica
+     3. Jessica Tenenbaum
+
+📁 Julia Howett
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Julia Howett']
+   🏠 Expected Household: None
+   👥 Expected Accounts: None
+   🔄 Name Variations (3):
+     1. Julia Howett Household
+     2. Julia Howett
+     3. Howett, Julia
+
+📁 Colon, Noel (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Noel Colon', 'Colon, Noel (Medicaid Mike)']
+   🏠 Expected Household: Noel Colon Household or Colon Household
+   👥 Expected Accounts (2):
+     1. Noel Colon Household (Household, Primary)
+     2. Noel Colon (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Colon, Noel (Medicaid Mike)
+     2. Noel Colon Household
+     3. Noel Colon
+
+📁 Friedman, Morton (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Morton Friedman', 'Friedman, Morton (Medicaid Mike)']
+   🏠 Expected Household: Morton Friedman Household or Friedman Household
+   👥 Expected Accounts (2):
+     1. Morton Friedman Household (Household, Primary)
+     2. Morton Friedman (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Morton Friedman Household
+     2. Morton Friedman
+     3. Friedman, Morton (Medicaid Mike)
+
+📁 Carozza, Lucio and Elizabeth
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Lucio and Elizabeth Carozza', 'Carozza, Lucio and Elizabeth']
+     • Primary: carozza, lucio
+     • Joint: elizabeth
+   🏠 Expected Household: lucio Household
+   👥 Expected Accounts (2):
+     1. carozza, lucio (Contact, Household Head)
+     2. elizabeth (Contact, Member)
+   🔄 Name Variations (3):
+     1. Lucio and Elizabeth Carozza Household
+     2. Lucio and Elizabeth Carozza
+     3. Carozza, Lucio and Elizabeth
+
+📁 Sheehan, Kaarina
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Kaarina Sheehan', 'Sheehan, Kaarina']
+   🏠 Expected Household: Kaarina Sheehan Household or Sheehan Household
+   👥 Expected Accounts (2):
+     1. Kaarina Sheehan Household (Household, Primary)
+     2. Kaarina Sheehan (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Kaarina Sheehan Household
+     2. Sheehan, Kaarina
+     3. Kaarina Sheehan
+
+📁 Alexander & Armelia Rolle
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Alexander & Armelia Rolle']
+     • Primary: Alexander
+     • Joint: Armelia Rolle
+   🏠 Expected Household: None
+   👥 Expected Accounts (2):
+     1. Alexander (Contact, Household Head)
+     2. Armelia Rolle (Contact, Member)
+   🔄 Name Variations (3):
+     1. Alexander & Armelia Rolle
+     2. Alexander & Household
+     3. &, Alexander
+
+📁 Garcia, Kenia (Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Kenia Garcia', 'Garcia, Kenia (Medicaid)']
+   🏠 Expected Household: Kenia Garcia Household or Garcia Household
+   👥 Expected Accounts (2):
+     1. Kenia Garcia Household (Household, Primary)
+     2. Kenia Garcia (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Garcia, Kenia (Medicaid)
+     2. Kenia Garcia Household
+     3. Kenia Garcia
+
+📁 Wallace, Ernestina (Medicaid)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Ernestina Wallace', 'Wallace, Ernestina (Medicaid)']
+   🏠 Expected Household: Ernestina Wallace Household or Wallace Household
+   👥 Expected Accounts (2):
+     1. Ernestina Wallace Household (Household, Primary)
+     2. Ernestina Wallace (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Ernestina Wallace
+     2. Ernestina Wallace Household
+     3. Wallace, Ernestina (Medicaid)
+
+📁 Mazon, Gladys CPA
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Gladys CPA Mazon', 'Mazon, Gladys CPA']
+   🏠 Expected Household: Gladys CPA Mazon Household or Mazon Household
+   👥 Expected Accounts (2):
+     1. Gladys CPA Mazon Household (Household, Primary)
+     2. Gladys CPA Mazon (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Mazon, Gladys CPA
+     2. Gladys CPA Mazon Household
+     3. Gladys CPA Mazon
+
+📁 Cedeno, Paula (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Paula Cedeno', 'Cedeno, Paula (Medicaid Mike)']
+   🏠 Expected Household: Paula Cedeno Household or Cedeno Household
+   👥 Expected Accounts (2):
+     1. Paula Cedeno Household (Household, Primary)
+     2. Paula Cedeno (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Paula Cedeno Household
+     2. Cedeno, Paula (Medicaid Mike)
+     3. Paula Cedeno
+
+📁 Tudela, De Virginia
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['De Virginia Tudela', 'Tudela, De Virginia']
+   🏠 Expected Household: De Virginia Tudela Household or Tudela Household
+   👥 Expected Accounts (2):
+     1. De Virginia Tudela Household (Household, Primary)
+     2. De Virginia Tudela (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. De Virginia Tudela Household
+     2. Tudela, De Virginia
+     3. De Virginia Tudela
+
+📁 Nunez, Aurelia (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Aurelia Nunez', 'Nunez, Aurelia (Medicaid Mike)']
+   🏠 Expected Household: Aurelia Nunez Household or Nunez Household
+   👥 Expected Accounts (2):
+     1. Aurelia Nunez Household (Household, Primary)
+     2. Aurelia Nunez (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Aurelia Nunez
+     2. Aurelia Nunez Household
+     3. Nunez, Aurelia (Medicaid Mike)
+
+📁 Wuerstlin, Martin (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Martin Wuerstlin', 'Wuerstlin, Martin (Medicaid Mike)']
+   🏠 Expected Household: Martin Wuerstlin Household or Wuerstlin Household
+   👥 Expected Accounts (2):
+     1. Martin Wuerstlin Household (Household, Primary)
+     2. Martin Wuerstlin (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Martin Wuerstlin
+     2. Wuerstlin, Martin (Medicaid Mike)
+     3. Martin Wuerstlin Household
+
+📁 Alfonso, Velia (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Velia Alfonso', 'Alfonso, Velia (Medicaid Mike)']
+   🏠 Expected Household: Velia Alfonso Household or Alfonso Household
+   👥 Expected Accounts (2):
+     1. Velia Alfonso Household (Household, Primary)
+     2. Velia Alfonso (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Alfonso, Velia (Medicaid Mike)
+     2. Velia Alfonso Household
+     3. Velia Alfonso
+
+📁 Handal, Samar
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Samar Handal', 'Handal, Samar']
+   🏠 Expected Household: Samar Handal Household or Handal Household
+   👥 Expected Accounts (2):
+     1. Samar Handal Household (Household, Primary)
+     2. Samar Handal (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Samar Handal Household
+     2. Handal, Samar
+     3. Samar Handal
+
+📁 Ozuna, Miguel and Jennifer
+   📋 Analysis:
+     • Joint Account: ✅ Yes
+     • Parsed Names: ['Miguel and Jennifer Ozuna', 'Ozuna, Miguel and Jennifer']
+     • Primary: ozuna, miguel
+     • Joint: jennifer
+   🏠 Expected Household: miguel Household
+   👥 Expected Accounts (2):
+     1. ozuna, miguel (Contact, Household Head)
+     2. jennifer (Contact, Member)
+   🔄 Name Variations (3):
+     1. Miguel and Jennifer Ozuna
+     2. Ozuna, Miguel and Jennifer
+     3. Miguel and Jennifer Ozuna Household
+
+📁 Ferro, Julio (Medicaid Mike)
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Julio Ferro', 'Ferro, Julio (Medicaid Mike)']
+   🏠 Expected Household: Julio Ferro Household or Ferro Household
+   👥 Expected Accounts (2):
+     1. Julio Ferro Household (Household, Primary)
+     2. Julio Ferro (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Ferro, Julio (Medicaid Mike)
+     2. Julio Ferro Household
+     3. Julio Ferro
+
+📁 Wu, Qingyun
+   📋 Analysis:
+     • Joint Account: ❌ No
+     • Parsed Names: ['Qingyun Wu', 'Wu, Qingyun']
+   🏠 Expected Household: Qingyun Wu Household or Wu Household
+   👥 Expected Accounts (2):
+     1. Qingyun Wu Household (Household, Primary)
+     2. Qingyun Wu (Contact, Household Head)
+   🔄 Name Variations (3):
+     1. Qingyun Wu
+     2. Qingyun Wu Household
+     3. Wu, Qingyun
+

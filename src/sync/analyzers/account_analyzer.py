@@ -735,9 +735,21 @@ class AccountAnalyzer:
         variations = set()  # Use set to avoid duplicates
         variations.add(name)  # Add original name
         
-        if ', ' in name:
+        # Clean the name first - remove parentheses and nicknames for matching
+        clean_name = name
+        if '(' in name and ')' in name:
+            # Remove nickname in parentheses
+            start = name.find('(')
+            end = name.find(')')
+            if start < end:
+                clean_name = (name[:start] + name[end+1:]).strip()
+                # Remove any extra spaces or commas
+                clean_name = re.sub(r'\s+', ' ', clean_name).strip()
+                clean_name = clean_name.rstrip(',').strip()
+        
+        if ', ' in clean_name:
             # Handle "Last, First" format
-            parts = name.split(', ')
+            parts = clean_name.split(', ')
             if len(parts) >= 2:
                 last_name = parts[0].strip()
                 first_name = parts[1].strip()
@@ -747,7 +759,7 @@ class AccountAnalyzer:
                 variations.add(f"{first_name} {last_name} Household")
         else:
             # Handle "First Last" format
-            parts = name.split()
+            parts = clean_name.split()
             if len(parts) >= 2:
                 first_name = parts[0].strip()
                 last_name = parts[1].strip()
@@ -1238,8 +1250,29 @@ class AccountAnalyzer:
             'expected_accounts': []
         }
         
-        # Check for joint account indicators
-        if '&' in folder_name or 'and' in folder_name.lower():
+        # Check for joint account indicators - but be more careful about parentheses
+        # Don't treat names with parentheses as joint accounts unless they clearly contain "&" or "and"
+        has_joint_indicator = False
+        
+        # First, check if there's a clear "&" or "and" separator
+        if '&' in folder_name:
+            has_joint_indicator = True
+        elif ' and ' in folder_name.lower():
+            # Only treat as joint if "and" is clearly separating two names
+            # Check if "and" is between two name-like parts
+            and_parts = folder_name.lower().split(' and ')
+            if len(and_parts) >= 2:
+                # Check if both parts look like names (not just fragments)
+                part1 = and_parts[0].strip()
+                part2 = and_parts[1].strip()
+                
+                # Both parts should have at least one word and not be just fragments
+                if (len(part1.split()) >= 1 and len(part2.split()) >= 1 and
+                    not part1.startswith('(') and not part2.startswith('(') and
+                    not part1.endswith(')') and not part2.endswith(')')):
+                    has_joint_indicator = True
+        
+        if has_joint_indicator:
             analysis['is_joint_account'] = True
             
             # Split by common joint account separators
@@ -1262,7 +1295,7 @@ class AccountAnalyzer:
                 
                 # Generate expected accounts
                 analysis['expected_accounts'] = [
-                    {'name': primary, 'type': 'Household Head', 'role': 'Household Head'},
+                    {'name': primary, 'type': 'Contact', 'role': 'Household Head'},
                     {'name': joint, 'type': 'Contact', 'role': 'Member'}
                 ]
         
@@ -1277,9 +1310,35 @@ class AccountAnalyzer:
             matches = re.findall(pattern, folder_name, re.IGNORECASE)
             analysis['children_info'].extend(matches)
         
-        # Parse all names in the folder
-        name_parts = re.split(r'[,&\s]+', folder_name)
-        analysis['parsed_names'] = [name.strip() for name in name_parts if name.strip()]
+        # Parse all names in the folder - improved to handle parentheses and complex names
+        # First, handle the case where we have "Last, First (Nickname)" format
+        if ', ' in folder_name:
+            # Split on comma first to separate last and first names
+            parts = folder_name.split(', ', 1)  # Split only on first comma
+            if len(parts) == 2:
+                last_name = parts[0].strip()
+                first_part = parts[1].strip()
+                
+                # Check if first part contains parentheses (nickname)
+                if '(' in first_part and ')' in first_part:
+                    # Extract the main name and nickname
+                    main_name = first_part.split('(')[0].strip()
+                    nickname = first_part[first_part.find('(')+1:first_part.find(')')].strip()
+                    
+                    # Create the full name without nickname for parsing
+                    full_name_without_nickname = f"{main_name} {last_name}"
+                    full_name_with_nickname = f"{last_name}, {main_name} ({nickname})"
+                    
+                    analysis['parsed_names'] = [full_name_without_nickname, full_name_with_nickname]
+                else:
+                    # Simple "Last, First" format
+                    full_name = f"{first_part} {last_name}"
+                    analysis['parsed_names'] = [full_name, folder_name]
+            else:
+                analysis['parsed_names'] = [folder_name]
+        else:
+            # No comma, treat as single name
+            analysis['parsed_names'] = [folder_name]
         
         return analysis
     
@@ -1296,29 +1355,49 @@ class AccountAnalyzer:
             'field_mappings': {}
         }
         
-        # Add expected accounts
+        # Add expected accounts from joint account analysis
         for expected_account in folder_analysis.get('expected_accounts', []):
             mapping['accounts'].append(expected_account)
         
         # If no joint account, create single account mapping
         if not folder_analysis.get('is_joint_account'):
-            primary_name = folder_analysis.get('primary_account_holder') or folder_analysis['original_name']
-            last_name = self._extract_name_part(primary_name, 'last')
+            # For single accounts, we should be more conservative about creating expected accounts
+            # Only create expected accounts if we have clear evidence they should exist
             
-            if last_name:
-                household_name = f"{last_name} Household"
-                mapping['household']['name'] = household_name
+            # Check if we have any parsed names that are different from the original folder name
+            parsed_names = folder_analysis.get('parsed_names', [])
+            original_name = folder_analysis['original_name']
+            
+            # Only create expected accounts if we have meaningful parsed names
+            # and they're different from the original folder name
+            if parsed_names and len(parsed_names) > 0:
+                # Use the first parsed name as the primary name (without nickname)
+                primary_name = parsed_names[0]
                 
-                # Only create expected account if it's not the same as the Dropbox folder name
-                # This prevents creating expected accounts for Dropbox accounts that have already been matched
-                if primary_name != folder_analysis['original_name']:
-                    mapping['accounts'] = [
-                        {'name': primary_name, 'type': 'Household Head', 'role': 'Household Head'}
-                    ]
+                # Only create expected account if it's meaningfully different from the folder name
+                # and it looks like a proper name (not just fragments)
+                if (primary_name != original_name and 
+                    len(primary_name.split()) >= 2 and  # At least first and last name
+                    not any(char in primary_name for char in ['(', ')', '&']) and  # No special characters
+                    primary_name.strip()):
+                    
+                    last_name = self._extract_name_part(primary_name, 'last')
+                    if last_name:
+                        # For simple cases, show both options: "First Last Household" OR "Last Household"
+                        household_name = f"{primary_name} Household or {last_name} Household"
+                        mapping['household']['name'] = household_name
+                        
+                        # Create both household and contact accounts
+                        mapping['accounts'] = [
+                            {'name': f"{primary_name} Household", 'type': 'Household', 'role': 'Primary'},
+                            {'name': primary_name, 'type': 'Contact', 'role': 'Household Head'}
+                        ]
+                    else:
+                        self.logger.debug(f"Skipping expected account creation - could not extract last name from '{primary_name}'")
                 else:
-                    # If the primary name is the same as the Dropbox folder name, 
-                    # don't create an expected account since it's already a Dropbox account
-                    self.logger.debug(f"Skipping expected account creation for '{primary_name}' - same as Dropbox folder name")
+                    self.logger.debug(f"Skipping expected account creation - parsed name '{primary_name}' is not suitable or same as folder name")
+            else:
+                self.logger.debug(f"No parsed names available for expected account creation")
         
         # Generate field mappings based on Dropbox data
         if dropbox_info and dropbox_info.get('account_data'):
