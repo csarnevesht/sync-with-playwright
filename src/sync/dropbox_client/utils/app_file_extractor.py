@@ -36,15 +36,17 @@ class SetEncoder(json.JSONEncoder):
         return super().default(obj)
 
 class AppFileExtractor:
-    def __init__(self, dbx: dropbox.Dropbox, report_logger: Any = None):
+    def __init__(self, dbx: dropbox.Dropbox, report_logger: Any = None, log_dir: str = None):
         """Initialize the AppFileExtractor.
         
         Args:
             dbx: Dropbox client instance
             report_logger: Optional report logger instance for additional logging
+            log_dir: Optional log directory path for saving prompt files
         """
         self.dbx = dbx
         self.report_logger = report_logger
+        self.log_dir = log_dir
         self.name_parts = None
         self.timing_info = {}
 
@@ -215,7 +217,7 @@ class AppFileExtractor:
 
             # Initialize processor
             from sync.processors.lm_studio_processor import LMStudioProcessor
-            processor = LMStudioProcessor(model_name="qwen2-vl-7b-instruct")
+            processor = LMStudioProcessor(model_name="qwen2-vl-7b-instruct", log_dir=self.log_dir)
             
             # Try to auto-load a model if none is loaded
             try:

@@ -1497,7 +1497,7 @@ class DropboxClient:
             logger.error(f"Error extracting driver's license info: {str(e)}")
             return {}
 
-    def extract_app_files_info(self, folder_path: str, extract_fields: set = None, name_parts: Dict[str, Any] = None, file_filter: str = None, skip_zero_length_if_account_info_exists: bool = False, report_logger: Any = None) -> Dict[str, Any]:
+    def extract_app_files_info(self, folder_path: str, extract_fields: set = None, name_parts: Dict[str, Any] = None, file_filter: str = None, skip_zero_length_if_account_info_exists: bool = False, report_logger: Any = None, log_dir: str = None) -> Dict[str, Any]:
         """Extract information from application files in a Dropbox folder.
         
         Args:
@@ -1508,6 +1508,7 @@ class DropboxClient:
             file_filter: Optional pattern to filter files by name (e.g. "*Life*")
             skip_zero_length_if_account_info_exists: If True, skip processing files with 0 extracted text when account info already exists
             report_logger: Optional report logger instance for additional logging
+            log_dir: Optional log directory path for saving prompt files
             
         Returns:
             Dict containing extracted information with the following structure:
@@ -1522,7 +1523,7 @@ class DropboxClient:
                 'skipped_zero_length_files': int
             }
         """
-        extractor = AppFileExtractor(self.dbx, report_logger)
+        extractor = AppFileExtractor(self.dbx, report_logger, log_dir)
         return extractor.extract_info(folder_path, extract_fields, name_parts, file_filter, skip_zero_length_if_account_info_exists, report_logger)
 
     def get_dropbox_salesforce_folder(self) -> Optional[str]:

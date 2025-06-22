@@ -1,10 +1,12 @@
 import logging
+import os
 from typing import Dict, Any, Optional
+import datetime
 
 class PromptCreator:
     """A unified class for creating prompts across different LLM processors."""
     
-    def __init__(self):
+    def __init__(self, log_dir: Optional[str] = None):
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
         if not self.logger.hasHandlers():
@@ -12,6 +14,45 @@ class PromptCreator:
             formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
+        self.log_dir = log_dir
+
+    def _write_prompt_to_file(self, prompt: str, owner_type: str, filename: str = None) -> None:
+        """Write the prompt content to a file in the log directory.
+        
+        Args:
+            prompt: The prompt content to write
+            owner_type: The type of owner (owner, joint_owner, etc.)
+            filename: Optional filename being processed
+        """
+        if not self.log_dir:
+            self.logger.warning("No log directory available, skipping prompt file write")
+            return
+            
+        try:
+            # Create prompts directory if it doesn't exist
+            prompts_dir = os.path.join(self.log_dir, 'prompts')
+            os.makedirs(prompts_dir, exist_ok=True)
+            
+            # Create timestamp for filename
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]  # Include milliseconds
+            
+            # Create filename with owner type and timestamp
+            prompt_filename = f"prompt_{owner_type}_{timestamp}.txt"
+            prompt_path = os.path.join(prompts_dir, prompt_filename)
+            
+            # Add filename information to the prompt content
+            enhanced_prompt = prompt
+            if filename:
+                enhanced_prompt = f"Processing file: {filename}\n\n{enhanced_prompt}"
+            
+            # Write the prompt to file
+            with open(prompt_path, 'w', encoding='utf-8') as f:
+                f.write(enhanced_prompt)
+            
+            self.logger.info(f"Prompt written to file: {prompt_path}")
+            
+        except Exception as e:
+            self.logger.error(f"Error writing prompt to file: {str(e)}")
 
     def _create_extraction_prompt(self, text: str, owner_type: str = "owner", processor_type: str = "default") -> str:
         """
@@ -139,7 +180,7 @@ Return ONLY the JSON object. Use null for missing fields."""
 
         return final_prompt
 
-    def _create_short_extraction_prompt(self, text: str, owner_type: str) -> str:
+    def _create_short_extraction_prompt(self, text: str, owner_type: str, processor_type: str = "lm_studio", filename: str = None) -> str:
         """Create a short extraction prompt for LM Studio to avoid context overflow."""
         self.logger.info(f"_create_short_extraction_prompt: {owner_type}")
         
@@ -204,9 +245,13 @@ Return ONLY the JSON object."""
         self.logger.info(f"_create_short_extraction_prompt: Prompt length: {len(prompt)} characters")
         self.logger.info(f"_create_short_extraction_prompt: Final Prompt BEGIN PROMPT: \n{prompt}\nEND OF PROMPT")
         self.logger.info(f"\n{'='*80}\n{'='*80}\n{'='*80}\n{'='*80}")
+        
+        # Write prompt to file in log directory
+        self._write_prompt_to_file(prompt, owner_type, filename)
+        
         return prompt
 
-    def create_owner_extraction_prompt(self, text: str, processor_type: str = "default") -> str:
+    def create_owner_extraction_prompt(self, text: str, processor_type: str = "default", filename: str = None) -> str:
         """Create a prompt for extracting owner information."""
         self.logger.info(f"create_owner_extraction_prompt: Creating owner extraction prompt")
         self.logger.info(f"=== [PROMPT CREATION START] ===")
@@ -217,17 +262,17 @@ Return ONLY the JSON object."""
         
         # For LM Studio, create a shorter prompt to avoid context overflow
         if processor_type == "lm_studio":
-            return self._create_short_extraction_prompt(text, "owner")
+            return self._create_short_extraction_prompt(text, "owner", processor_type, filename)
         else:
             return self._create_extraction_prompt(text, "owner", processor_type)
 
-    def create_joint_owner_extraction_prompt(self, text: str, processor_type: str = "default") -> str:
+    def create_joint_owner_extraction_prompt(self, text: str, processor_type: str = "default", filename: str = None) -> str:
         """Create a prompt for extracting joint owner information."""
         self.logger.info(f"create_joint_owner_extraction_prompt: Creating joint owner extraction prompt")
         
         # For LM Studio, create a shorter prompt to avoid context overflow
         if processor_type == "lm_studio":
-            return self._create_short_extraction_prompt(text, "jointOwner")
+            return self._create_short_extraction_prompt(text, "jointOwner", processor_type, filename)
         else:
             return self._create_extraction_prompt(text, "jointOwner", processor_type)
 

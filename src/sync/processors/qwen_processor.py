@@ -25,9 +25,9 @@ import numpy as np
 from .base_processor import BaseProcessor, SetEncoder
 
 class QwenProcessor(BaseProcessor):
-    def __init__(self, model_name: str = "Qwen/Qwen2-VL", base_url: str = None):
+    def __init__(self, model_name: str = "Qwen/Qwen2-VL", base_url: str = None, log_dir: str = None):
         """Initialize the Qwen processor."""
-        super().__init__(model_name, base_url)
+        super().__init__(model_name, base_url, log_dir)
         self.max_chunk_size = 2000
         self.max_retries = 5
         self.retry_delay = 1

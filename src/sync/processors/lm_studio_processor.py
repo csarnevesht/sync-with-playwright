@@ -19,11 +19,11 @@ from .prompt_creator import PromptCreator
 from .base_processor import BaseProcessor, SetEncoder
 
 class LMStudioProcessor(BaseProcessor):
-    def __init__(self, model_name: str = "local-model", base_url: str = "http://localhost:1234/v1"):
+    def __init__(self, model_name: str = "local-model", base_url: str = "http://localhost:1234/v1", log_dir: str = None):
         """Initialize the LM Studio processor."""
-        super().__init__(model_name, base_url)
+        super().__init__(model_name, base_url, log_dir)
         self._check_server_availability()
-        self.prompt_creator = PromptCreator()
+        self.prompt_creator = PromptCreator(log_dir=self.log_dir)
 
     def _check_server_availability(self) -> None:
         """Check if the LM Studio server is available."""
