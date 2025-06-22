@@ -230,7 +230,8 @@ class CommandRunner:
             'list-dropbox-account-app-files': self._list_dropbox_account_app_files,
             'log-dropbox-account-information': self._handle_log_dropbox_account_information,
             'log-dropbox-account-information-json': self._handle_log_dropbox_account_information_json,
-            'analyze-account-data': self._handle_analyze_account_data
+            'analyze-account-data': self._handle_analyze_account_data,
+            'copy-dropbox-account-files-preserve-dates': self._copy_dropbox_account_files_preserve_dates
         }
         
         if command not in command_map:
@@ -1720,3 +1721,165 @@ class CommandRunner:
             error_msg = f"❌ Error creating account report file: {str(e)}"
             self.logger.error(error_msg)
             self.summary_logger.error(error_msg) 
+
+    def _copy_dropbox_account_files_preserve_dates(self) -> None:
+        """Copy files in Dropbox account folder to another location while preserving original modification dates."""
+        self.logger.info("Starting copy-dropbox-account-files-preserve-dates operation")
+        self.report_logger.info("\n=== COPYING DROPBOX ACCOUNT FILES WITH PRESERVED DATES ===")
+        
+        try:
+            # Get required context
+            dropbox_client = self.get_context('dropbox_client')
+            dropbox_root_folder = self.get_context('dropbox_root_folder')
+            dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
+            dropbox_salesforce_folder = dropbox_client.get_dropbox_salesforce_folder()
+
+            self.logger.info(f"dropbox_client: {dropbox_client}")
+            self.logger.info(f"dropbox_account_folder_name: {dropbox_account_folder_name}")
+            self.logger.info(f"dropbox_salesforce_folder: {dropbox_salesforce_folder}")
+
+            # Verify account folder exists in Dropbox
+            account_folders = dropbox_client.get_dropbox_account_names()
+            if dropbox_account_folder_name not in account_folders:
+                error_msg = f"Account folder '{dropbox_account_folder_name}' not found in Dropbox"
+                self.logger.error(error_msg)
+                self.report_logger.error(f"\n{error_msg}")
+                return
+
+            # Construct source and destination paths
+            source_path = f"/{dropbox_root_folder}/{dropbox_account_folder_name}"
+            dest_path = f"/{dropbox_salesforce_folder}/{dropbox_account_folder_name}"
+
+            # Clean paths for Dropbox API
+            source_path = source_path.replace('//', '/')
+            dest_path = dest_path.replace('//', '/')
+
+            self.logger.info(f"Source path: {source_path}")
+            self.logger.info(f"Destination path: {dest_path}")
+
+            # Check if destination folder already exists
+            try:
+                dropbox_client.dbx.files_get_metadata(dest_path)
+                # Folder exists, prompt for deletion
+                self.logger.info(f"Destination folder already exists: {dest_path}")
+                self.report_logger.info(f"\nDestination folder already exists: {dest_path}")
+                
+                response = input(f"\nDo you want to delete the existing folder at {dest_path}? (y/N): ").strip().lower()
+                if response != 'y':
+                    self.logger.info("Operation cancelled by user")
+                    self.report_logger.info("\nOperation cancelled by user")
+                    return
+                
+                # Delete existing folder
+                self.logger.info(f"Deleting existing folder: {dest_path}")
+                self.report_logger.info(f"\nDeleting existing folder: {dest_path}")
+                dropbox_client.dbx.files_delete_v2(dest_path)
+                
+            except dropbox.exceptions.ApiError as e:
+                if not e.error.is_path() or not e.error.get_path().is_not_found():
+                    # Re-raise if it's not a "not found" error
+                    raise
+
+            # Create destination folder
+            self.logger.info(f"Creating destination folder: {dest_path}")
+            self.report_logger.info(f"\nCreating destination folder: {dest_path}")
+            dropbox_client.dbx.files_create_folder_v2(dest_path)
+
+            # List all files in the source folder
+            source_files = list_dropbox_folder_contents(dropbox_client.dbx, source_path)
+            
+            if not source_files:
+                self.logger.info("No files found in source folder")
+                self.report_logger.info("\nNo files found in source folder")
+                return
+            
+            # Create a temporary directory for downloads
+            temp_dir = os.path.join(os.getcwd(), 'temp_preserve_dates')
+            os.makedirs(temp_dir, exist_ok=True)
+            
+            copied_files = 0
+            failed_files = 0
+            
+            try:
+                # Process each file
+                for file in source_files:
+                    if isinstance(file, dropbox.files.FileMetadata):
+                        try:
+                            self.logger.info(f"Processing file: {file.name}")
+                            self.report_logger.info(f"\nProcessing file: {file.name}")
+                            
+                            # Get original metadata
+                            original_modified = file.server_modified
+                            self.logger.info(f"Original modification date: {original_modified}")
+                            
+                            # Download file to temporary location
+                            temp_file_path = os.path.join(temp_dir, file.name)
+                            self.logger.info(f"Downloading to temporary location: {temp_file_path}")
+                            
+                            dropbox_client.dbx.files_download_to_file(temp_file_path, file.path_display)
+                            
+                            # Upload to destination with preserved modification date
+                            dest_file_path = f"{dest_path}/{file.name}"
+                            dest_file_path = dest_file_path.replace('//', '/')
+                            
+                            self.logger.info(f"Uploading to destination: {dest_file_path}")
+                            
+                            with open(temp_file_path, 'rb') as f:
+                                file_content = f.read()
+                                
+                                # Upload with original modification date
+                                dropbox_client.dbx.files_upload(
+                                    file_content,
+                                    dest_file_path,
+                                    mode=dropbox.files.WriteMode.overwrite,
+                                    client_modified=original_modified
+                                )
+                            
+                            # Clean up temporary file
+                            os.remove(temp_file_path)
+                            
+                            copied_files += 1
+                            self.logger.info(f"Successfully copied {file.name} with preserved date")
+                            self.report_logger.info(f"Successfully copied {file.name} with preserved date: {original_modified}")
+                            
+                        except Exception as e:
+                            failed_files += 1
+                            error_msg = f"Error copying file {file.name}: {str(e)}"
+                            self.logger.error(error_msg)
+                            self.report_logger.error(f"\n{error_msg}")
+                            
+                            # Clean up temporary file if it exists
+                            temp_file_path = os.path.join(temp_dir, file.name)
+                            if os.path.exists(temp_file_path):
+                                try:
+                                    os.remove(temp_file_path)
+                                except:
+                                    pass
+                            
+                            if not self.args.continue_on_error:
+                                raise
+                
+            finally:
+                # Clean up temporary directory
+                try:
+                    os.rmdir(temp_dir)
+                    self.logger.info(f"Cleaned up temporary directory: {temp_dir}")
+                except Exception as e:
+                    self.logger.warning(f"Could not remove temporary directory {temp_dir}: {str(e)}")
+            
+            # Log summary
+            self.logger.info(f"Copy operation completed. Files copied: {copied_files}, Failed: {failed_files}")
+            self.report_logger.info(f"\nCopy operation completed. Files copied: {copied_files}, Failed: {failed_files}")
+            
+            if copied_files > 0:
+                self.logger.info("Successfully completed copy-dropbox-account-files-preserve-dates operation")
+                self.report_logger.info("\nSuccessfully completed copy-dropbox-account-files-preserve-dates operation")
+            else:
+                self.logger.warning("No files were successfully copied")
+                self.report_logger.warning("\nNo files were successfully copied")
+
+        except Exception as e:
+            error_msg = f"Error in copy-dropbox-account-files-preserve-dates operation: {str(e)}"
+            self.logger.error(error_msg)
+            self.report_logger.error(f"\n{error_msg}")
+            raise
