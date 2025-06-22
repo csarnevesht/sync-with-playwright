@@ -1602,9 +1602,22 @@ class CommandRunner:
                         f.write(f"   Last Name: {owner.get('lastName', 'N/A')}\n")
                         f.write(f"   Date of Birth: {owner.get('dateOfBirth', 'N/A')}\n")
                         f.write(f"   Gender: {owner.get('gender', 'N/A')}\n")
-                        f.write(f"   Address: {owner.get('address', 'N/A')}\n")
-                        f.write(f"   Phone: {owner.get('phone', 'N/A')}\n")
-                        f.write(f"   Email: {owner.get('email', 'N/A')}\n")
+                        
+                        # Build address from components
+                        if owner.get('mailingAddressStreet'):
+                            address = f"{owner.get('mailingAddressStreet')}"
+                            if owner.get('mailingAddressCity'):
+                                address += f", {owner.get('mailingAddressCity')}"
+                            if owner.get('mailingAddressState'):
+                                address += f", {owner.get('mailingAddressState')}"
+                            if owner.get('mailingAddressZip'):
+                                address += f" {owner.get('mailingAddressZip')}"
+                            f.write(f"   Address: {address}\n")
+                        else:
+                            f.write(f"   Address: N/A\n")
+                        
+                        f.write(f"   Phone: {owner.get('phoneNumber', 'N/A')}\n")
+                        f.write(f"   Email: {owner.get('emailAddress', 'N/A')}\n")
                         f.write(f"   SSN/Tax ID: {owner.get('ssn', 'N/A')}\n\n")
                     
                     # Joint owner information
@@ -1615,9 +1628,22 @@ class CommandRunner:
                         f.write(f"   Last Name: {joint_owner.get('lastName', 'N/A')}\n")
                         f.write(f"   Date of Birth: {joint_owner.get('dateOfBirth', 'N/A')}\n")
                         f.write(f"   Gender: {joint_owner.get('gender', 'N/A')}\n")
-                        f.write(f"   Address: {joint_owner.get('address', 'N/A')}\n")
-                        f.write(f"   Phone: {joint_owner.get('phone', 'N/A')}\n")
-                        f.write(f"   Email: {joint_owner.get('email', 'N/A')}\n")
+                        
+                        # Build address from components
+                        if joint_owner.get('mailingAddressStreet'):
+                            address = f"{joint_owner.get('mailingAddressStreet')}"
+                            if joint_owner.get('mailingAddressCity'):
+                                address += f", {joint_owner.get('mailingAddressCity')}"
+                            if joint_owner.get('mailingAddressState'):
+                                address += f", {joint_owner.get('mailingAddressState')}"
+                            if joint_owner.get('mailingAddressZip'):
+                                address += f" {joint_owner.get('mailingAddressZip')}"
+                            f.write(f"   Address: {address}\n")
+                        else:
+                            f.write(f"   Address: N/A\n")
+                        
+                        f.write(f"   Phone: {joint_owner.get('phoneNumber', 'N/A')}\n")
+                        f.write(f"   Email: {joint_owner.get('emailAddress', 'N/A')}\n")
                         f.write(f"   SSN/Tax ID: {joint_owner.get('ssn', 'N/A')}\n\n")
                 
                 # File details
