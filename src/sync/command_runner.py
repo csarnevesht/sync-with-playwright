@@ -715,7 +715,8 @@ class CommandRunner:
                 file_filter=file_filter,
                 skip_zero_length_if_account_info_exists=True,  # Always skip 0-length files initially
                 report_logger=self.report_logger,
-                log_dir=self.log_dir
+                log_dir=self.log_dir,
+                dropbox_account_folder_name=dropbox_account_folder_name
             )
             extract_time = time.time() - extract_start
             self.logger.info(f"Extraction completed in {extract_time:.2f} seconds")
@@ -788,7 +789,8 @@ class CommandRunner:
                             file_filter=file_filter,
                             skip_zero_length_if_account_info_exists=False,  # Process 0-length files
                             report_logger=self.report_logger,
-                            log_dir=self.log_dir
+                            log_dir=self.log_dir,
+                            dropbox_account_folder_name=dropbox_account_folder_name
                         )
                         
                         if zero_length_summary:
