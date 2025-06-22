@@ -22,10 +22,11 @@ class SetEncoder(json.JSONEncoder):
         return super().default(obj)
 
 class BaseProcessor(ABC):
-    def __init__(self, model_name: str, base_url: str = None):
+    def __init__(self, model_name: str, base_url: str = None, log_dir: str = None):
         """Initialize the base processor."""
         self.model_name = model_name
         self.base_url = base_url
+        self.log_dir = log_dir
         self.max_chunk_size = 2000
         self.max_retries = 5
         self.retry_delay = 1
@@ -36,7 +37,7 @@ class BaseProcessor(ABC):
         # Common logging setup
         self._setup_logging()
         self._initialize_cache()
-        self.prompt_creator = PromptCreator()
+        self.prompt_creator = PromptCreator(log_dir=self.log_dir)
 
     def _setup_logging(self):
         """Common logging setup for all processors."""
@@ -216,6 +217,8 @@ class BaseProcessor(ABC):
             
             application_patterns = [
                 r'^PARTIES\s+TO\s+THE\s+CONTRACT',  # Parties to the Contract
+                r'^ANNUITANT\s+INFORMATION',  # Annuitant Information   
+                r'\nANNUITANT\s+INFORMATION',  # Annuitant Information on new line
                 r'^APPLICATION\s+FORM',  # Application Form
                 r'^OWNER\s+INFORMATION',  # Owner Information
                 r'\nOWNER\s+INFORMATION',  # Owner Information on new line
@@ -536,7 +539,7 @@ class BaseProcessor(ABC):
         try:
             self.logger.info(f"_process_text: Processing text to extract owner and joint owner information")
             # Extract owner information first
-            owner_info = self._process_owner(text)
+            owner_info = self._process_owner(text, filename)
             
             # Check if this is a joint application based on filename
             is_joint_application = filename and 'joint' in filename.lower()
@@ -549,7 +552,7 @@ class BaseProcessor(ABC):
             
             # For joint applications, always include both owner and jointOwner
             if is_joint_application:
-                joint_owner_info = self._process_joint_owner(text)
+                joint_owner_info = self._process_joint_owner(text, filename)
                 result["jointOwner"] = joint_owner_info
             
             return result
@@ -582,7 +585,7 @@ class BaseProcessor(ABC):
             return line
         return '\n'.join(clean_line(line) for line in text.splitlines())
 
-    def _process_owner(self, text: str) -> Dict[str, Any]:
+    def _process_owner(self, text: str, filename: str = None) -> Dict[str, Any]:
         """Process text to extract owner information."""
         try:
             self.logger.info(f"_process_owner: Processing owner information")
@@ -597,7 +600,7 @@ class BaseProcessor(ABC):
                 processor_type = "qwen"
             elif "Ollama" in self.__class__.__name__:
                 processor_type = "ollama"
-            owner_prompt = self.prompt_creator.create_owner_extraction_prompt(text, processor_type)
+            owner_prompt = self.prompt_creator.create_owner_extraction_prompt(text, processor_type, filename)
             self.logger.info(f"owner_prompt: {owner_prompt}")
             owner_response = self._make_request(owner_prompt)
             self.logger.info(f"owner_response: {owner_response}")
@@ -635,7 +638,7 @@ class BaseProcessor(ABC):
             'emailAddress': None
         }
 
-    def _process_joint_owner(self, text: str) -> Dict[str, Any]:
+    def _process_joint_owner(self, text: str, filename: str = None) -> Dict[str, Any]:
         """Process text to extract joint owner information."""
         try:
             self.logger.info(f"_process_joint_owner: Processing joint owner information")
@@ -650,7 +653,7 @@ class BaseProcessor(ABC):
                 processor_type = "qwen"
             elif "Ollama" in self.__class__.__name__:
                 processor_type = "ollama"
-            joint_owner_prompt = self.prompt_creator.create_joint_owner_extraction_prompt(text, processor_type)
+            joint_owner_prompt = self.prompt_creator.create_joint_owner_extraction_prompt(text, processor_type, filename)
             self.logger.info(f"joint_owner_prompt: {joint_owner_prompt}")
             joint_owner_response = self._make_request(joint_owner_prompt)
             self.logger.info(f"joint_owner_response: {joint_owner_response}")
@@ -695,6 +698,8 @@ class BaseProcessor(ABC):
             r'^PARTIES\s+TO\s+THE\s+CONTRACT',  # Parties to the Contract
             r'^APPLICATION\s+FOR',  # Application for Individual...
             r'^APPLICATION\s+FORM',  # Application Form
+            r'^ANNUITANT\s+INFORMATION',  # Owner Information
+            r'\nANNUITANT\s+INFORMATION',  # Owner Information on new line
             r'^OWNER\s+INFORMATION',  # Owner Information
             r'^APPLICANT\s+INFORMATION',  # Applicant Information
             r'APPLICATION\s+FOR\s+INDIVIDUAL',  # Application for Individual
