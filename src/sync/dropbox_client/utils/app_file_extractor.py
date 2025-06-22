@@ -51,7 +51,7 @@ class AppFileExtractor:
         self.timing_info = {}
 
 
-    def extract_info(self, folder_path: str, extract_fields: set = None, name_parts: Dict[str, Any] = None, file_filter: str = None, skip_zero_length_if_account_info_exists: bool = False, report_logger: Any = None) -> Dict[str, Any]:
+    def extract_info(self, folder_path: str, extract_fields: set = None, name_parts: Dict[str, Any] = None, file_filter: str = None, skip_zero_length_if_account_info_exists: bool = False, report_logger: Any = None, dropbox_account_folder_name: str = None) -> Dict[str, Any]:
         """Extract information from application files in a Dropbox folder.
         
         Args:
@@ -62,6 +62,7 @@ class AppFileExtractor:
             file_filter: Optional pattern to filter files by name (e.g. "*Joint*")
             skip_zero_length_if_account_info_exists: If True, skip processing files with 0 extracted text when account info already exists
             report_logger: Optional report logger instance for additional logging
+            dropbox_account_folder_name: Optional account folder name for organizing logs
             
         Returns:
             Dict containing extracted information
@@ -115,7 +116,7 @@ class AppFileExtractor:
                             
                 summary_data['total_app_files'] += 1
                 app_files.append(file)
-                file_info = self._process_file(file)
+                file_info = self._process_file(file, dropbox_account_folder_name)
                 if file_info:
                     # Store file info in the summary data
                     summary_data['file_info'][file.path_display] = file_info
@@ -160,8 +161,8 @@ class AppFileExtractor:
                     # Log any additional information found in the file
                     if file.path_display in summary_data.get('file_info', {}):
                         info = summary_data['file_info'][file.path_display]
-                        # Extract folder name from file path
-                        folder_name = file.path_display.split('/')[-2] if '/' in file.path_display else None
+                        # Use the provided dropbox_account_folder_name for logging
+                        folder_name = dropbox_account_folder_name or (file.path_display.split('/')[-2] if '/' in file.path_display else None)
                         log_dropbox_app_file_info(info, logger, self.report_logger, file.name, folder_name)
                 
                 # Log skipped files info
@@ -188,7 +189,7 @@ class AppFileExtractor:
             logger.error(f"Error listing folder contents: {str(e)}")
             return []
 
-    def _process_file(self, file: FileMetadata) -> Optional[Dict[str, Any]]:
+    def _process_file(self, file: FileMetadata, dropbox_account_folder_name: str = None) -> Optional[Dict[str, Any]]:
         """Process a single file and extract relevant information using OCR and Qwen model."""
         try:
             logger.info(f"Processing file: {file.name}")
@@ -345,7 +346,9 @@ class AppFileExtractor:
                                 break
             
             logger.info(f"process extracted_text: {extracted_text}")
-            processor_data = processor.process_text(extracted_text, file.name)
+            
+            # Use the provided dropbox_account_folder_name for logging organization
+            processor_data = processor.process_text(extracted_text, file.name, dropbox_account_folder_name)
             logger.info(f"processor extraction results: {json.dumps(processor_data, indent=2)}")
             
             # Check if processor returned a fallback response (no models loaded)

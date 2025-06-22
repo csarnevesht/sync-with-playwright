@@ -217,8 +217,8 @@ class BaseProcessor(ABC):
             
             application_patterns = [
                 r'^PARTIES\s+TO\s+THE\s+CONTRACT',  # Parties to the Contract
-                r'^ANNUITANT\s+INFORMATION',  # Annuitant Information   
-                r'\nANNUITANT\s+INFORMATION',  # Annuitant Information on new line
+                # r'^ANNUITANT\s+INFORMATION',  # Annuitant Information   
+                # r'\nANNUITANT\s+INFORMATION',  # Annuitant Information on new line
                 r'^APPLICATION\s+FORM',  # Application Form
                 r'^OWNER\s+INFORMATION',  # Owner Information
                 r'\nOWNER\s+INFORMATION',  # Owner Information on new line
@@ -534,44 +534,33 @@ class BaseProcessor(ABC):
         """Make a request to the model API."""
         pass
 
-    def process_text(self, text: str, filename: str = None) -> Dict[str, Any]:
+    def process_text(self, text: str, filename: str = None, dropbox_folder_name: str = None) -> Dict[str, Any]:
         """Process text to extract both owner and joint owner information."""
         try:
             self.logger.info(f"_process_text: Processing text to extract owner and joint owner information")
             # Extract owner information first
-            owner_info = self._process_owner(text, filename)
+            owner_info = self._process_owner(text, filename, dropbox_folder_name)
             
             # Check if this is a joint application based on filename
             is_joint_application = filename and 'joint' in filename.lower()
-            self.logger.info(f"File {filename} is {'a joint' if is_joint_application else 'not a joint'} application")
             
-            # Initialize result with owner info
+            # Initialize result with owner information
             result = {
                 "owner": owner_info
             }
             
             # For joint applications, always include both owner and jointOwner
             if is_joint_application:
-                joint_owner_info = self._process_joint_owner(text, filename)
+                joint_owner_info = self._process_joint_owner(text, filename, dropbox_folder_name)
                 result["jointOwner"] = joint_owner_info
             
             return result
-                
+            
         except Exception as e:
-            self.logger.error(f"Error processing text: {str(e)}")
+            self.logger.error(f"Error in process_text: {str(e)}")
             return {
-                "owner": {
-                    'firstName': None,
-                    'lastName': None,
-                    'dateOfBirth': None,
-                    'gender': None,
-                    'mailingAddressStreet': None,
-                    'mailingAddressCity': None,
-                    'mailingAddressState': None,
-                    'mailingAddressZip': None,
-                    'phoneNumber': None,
-                    'emailAddress': None
-                }
+                "owner": self._get_default_owner_info(),
+                "jointOwner": self._get_default_joint_owner_info()
             }
 
     def _clean_name_lines(self, text):
@@ -585,14 +574,12 @@ class BaseProcessor(ABC):
             return line
         return '\n'.join(clean_line(line) for line in text.splitlines())
 
-    def _process_owner(self, text: str, filename: str = None) -> Dict[str, Any]:
+    def _process_owner(self, text: str, filename: str = None, dropbox_folder_name: str = None) -> Dict[str, Any]:
         """Process text to extract owner information."""
         try:
             self.logger.info(f"_process_owner: Processing owner information")
-            # Clean up name lines before prompt creation
-            text = self._clean_name_lines(text)
-            # Use the model to extract owner information
-            # Determine processor type based on the class name
+            
+            # Determine processor type for prompt creation
             processor_type = "default"
             if "LMStudio" in self.__class__.__name__:
                 processor_type = "lm_studio"
@@ -600,27 +587,46 @@ class BaseProcessor(ABC):
                 processor_type = "qwen"
             elif "Ollama" in self.__class__.__name__:
                 processor_type = "ollama"
-            owner_prompt = self.prompt_creator.create_owner_extraction_prompt(text, processor_type, filename)
+            owner_prompt = self.prompt_creator.create_owner_extraction_prompt(text, processor_type, filename, dropbox_folder_name)
             self.logger.info(f"owner_prompt: {owner_prompt}")
             owner_response = self._make_request(owner_prompt)
             self.logger.info(f"owner_response: {owner_response}")
+            
+            # Save the response to file
+            if owner_response and "response" in owner_response:
+                self.prompt_creator._write_response_to_file(
+                    owner_response["response"], 
+                    "owner", 
+                    filename,
+                    dropbox_folder_name
+                )
+            
             if not owner_response or "response" not in owner_response:
                 self.logger.error("No response from model for owner")
                 return self._get_default_owner_info()
+            
+            # Parse the response
             try:
-                owner_model_info = json.loads(owner_response["response"])
-                if not isinstance(owner_model_info, dict):
-                    self.logger.error("Model response is not a dictionary")
+                response_text = owner_response["response"]
+                # Try to extract JSON from the response
+                json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(0)
+                    parsed_response = json.loads(json_str)
+                    if "owner" in parsed_response:
+                        return parsed_response["owner"]
+                    else:
+                        self.logger.warning("No 'owner' key found in parsed response")
+                        return self._get_default_owner_info()
+                else:
+                    self.logger.warning("No JSON found in response")
                     return self._get_default_owner_info()
-                if not owner_model_info.get('owner'):
-                    self.logger.error("Model response does not contain owner information")
-                    return self._get_default_owner_info()
-                return owner_model_info['owner']
             except json.JSONDecodeError as e:
-                self.logger.error(f"Failed to parse owner model response as JSON: {str(e)}")
+                self.logger.error(f"Error parsing JSON response: {str(e)}")
                 return self._get_default_owner_info()
+                
         except Exception as e:
-            self.logger.error(f"Error processing owner text: {str(e)}")
+            self.logger.error(f"Error in _process_owner: {str(e)}")
             return self._get_default_owner_info()
 
     def _get_default_owner_info(self) -> Dict[str, Any]:
@@ -638,14 +644,12 @@ class BaseProcessor(ABC):
             'emailAddress': None
         }
 
-    def _process_joint_owner(self, text: str, filename: str = None) -> Dict[str, Any]:
+    def _process_joint_owner(self, text: str, filename: str = None, dropbox_folder_name: str = None) -> Dict[str, Any]:
         """Process text to extract joint owner information."""
         try:
             self.logger.info(f"_process_joint_owner: Processing joint owner information")
-            # Clean up name lines before prompt creation
-            text = self._clean_name_lines(text)
-            # Use the model to extract joint owner information
-            # Determine processor type based on the class name
+            
+            # Determine processor type for prompt creation
             processor_type = "default"
             if "LMStudio" in self.__class__.__name__:
                 processor_type = "lm_studio"
@@ -653,27 +657,48 @@ class BaseProcessor(ABC):
                 processor_type = "qwen"
             elif "Ollama" in self.__class__.__name__:
                 processor_type = "ollama"
-            joint_owner_prompt = self.prompt_creator.create_joint_owner_extraction_prompt(text, processor_type, filename)
+            joint_owner_prompt = self.prompt_creator.create_joint_owner_extraction_prompt(text, processor_type, filename, dropbox_folder_name)
             self.logger.info(f"joint_owner_prompt: {joint_owner_prompt}")
             joint_owner_response = self._make_request(joint_owner_prompt)
             self.logger.info(f"joint_owner_response: {joint_owner_response}")
+            
+            # Save the response to file
+            if joint_owner_response and "response" in joint_owner_response:
+                self.prompt_creator._write_response_to_file(
+                    joint_owner_response["response"], 
+                    "jointOwner", 
+                    filename,
+                    dropbox_folder_name
+                )
+            else:
+                self.logger.warning(f"Joint owner response not saved - response: {joint_owner_response}")
+            
             if not joint_owner_response or "response" not in joint_owner_response:
                 self.logger.error("No response from model for joint owner")
                 return self._get_default_joint_owner_info()
+            
+            # Parse the response
             try:
-                joint_owner_model_info = json.loads(joint_owner_response["response"])
-                if not isinstance(joint_owner_model_info, dict):
-                    self.logger.error("Model response is not a dictionary")
+                response_text = joint_owner_response["response"]
+                # Try to extract JSON from the response
+                json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(0)
+                    parsed_response = json.loads(json_str)
+                    if "jointOwner" in parsed_response:
+                        return parsed_response["jointOwner"]
+                    else:
+                        self.logger.warning("No 'jointOwner' key found in parsed response")
+                        return self._get_default_joint_owner_info()
+                else:
+                    self.logger.warning("No JSON found in response")
                     return self._get_default_joint_owner_info()
-                if not joint_owner_model_info.get('jointOwner'):
-                    self.logger.error("Model response does not contain joint owner information")
-                    return self._get_default_joint_owner_info()
-                return joint_owner_model_info['jointOwner']
             except json.JSONDecodeError as e:
-                self.logger.error(f"Failed to parse joint owner model response as JSON: {str(e)}")
+                self.logger.error(f"Error parsing JSON response: {str(e)}")
                 return self._get_default_joint_owner_info()
+                
         except Exception as e:
-            self.logger.error(f"Error processing joint owner text: {str(e)}")
+            self.logger.error(f"Error in _process_joint_owner: {str(e)}")
             return self._get_default_joint_owner_info()
 
     def _get_default_joint_owner_info(self) -> Dict[str, Any]:

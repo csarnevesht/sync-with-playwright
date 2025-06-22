@@ -1497,7 +1497,7 @@ class DropboxClient:
             logger.error(f"Error extracting driver's license info: {str(e)}")
             return {}
 
-    def extract_app_files_info(self, folder_path: str, extract_fields: set = None, name_parts: Dict[str, Any] = None, file_filter: str = None, skip_zero_length_if_account_info_exists: bool = False, report_logger: Any = None, log_dir: str = None) -> Dict[str, Any]:
+    def extract_app_files_info(self, folder_path: str, extract_fields: set = None, name_parts: Dict[str, Any] = None, file_filter: str = None, skip_zero_length_if_account_info_exists: bool = False, report_logger: Any = None, log_dir: str = None, dropbox_account_folder_name: str = None) -> Dict[str, Any]:
         """Extract information from application files in a Dropbox folder.
         
         Args:
@@ -1508,23 +1508,32 @@ class DropboxClient:
             file_filter: Optional pattern to filter files by name (e.g. "*Life*")
             skip_zero_length_if_account_info_exists: If True, skip processing files with 0 extracted text when account info already exists
             report_logger: Optional report logger instance for additional logging
-            log_dir: Optional log directory path for saving prompt files
+            log_dir: Optional log directory for storing logs
+            dropbox_account_folder_name: Optional account folder name for organizing logs
             
         Returns:
-            Dict containing extracted information with the following structure:
-            {
-                'total_app_files': int,
-                'processed_folders': set,
-                'files_with_birthdate': set,
-                'file_birthdates': dict,
-                'file_sexes': dict,
-                'file_info': dict,
-                'all_folder_app_files': dict,
-                'skipped_zero_length_files': int
-            }
+            Dict containing extracted information
         """
-        extractor = AppFileExtractor(self.dbx, report_logger, log_dir)
-        return extractor.extract_info(folder_path, extract_fields, name_parts, file_filter, skip_zero_length_if_account_info_exists, report_logger)
+        try:
+            # Create AppFileExtractor instance
+            extractor = AppFileExtractor(self.dbx, report_logger, log_dir)
+            
+            # Extract information from the folder
+            result = extractor.extract_info(
+                folder_path, 
+                extract_fields=extract_fields, 
+                name_parts=name_parts, 
+                file_filter=file_filter, 
+                skip_zero_length_if_account_info_exists=skip_zero_length_if_account_info_exists,
+                report_logger=report_logger,
+                dropbox_account_folder_name=dropbox_account_folder_name
+            )
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error in extract_app_files_info: {str(e)}")
+            return {}
 
     def get_dropbox_salesforce_folder(self) -> Optional[str]:
         """Get the configured Dropbox Salesforce folder path."""
