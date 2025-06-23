@@ -206,17 +206,23 @@ For dateOfBirth field:
 - If no date is found, use null
 
 For gender field:
-- Look for "Gender:" followed by "X Male Female" or similar patterns
-- If "X" appears next to "Male", extract "Male"
-- If "X" appears next to "Female", extract "Female"
-- Look for gender options with "X" or "£X" indicating the selected option
-- The "X" or "£X" indicates which option is SELECTED
+- Look for "Gender:" or "Sex:" followed by gender options with "X" indicating the selected option
+- The "X" indicates which option is SELECTED
+- Look for both full words ("Male", "Female") and abbreviated forms ("M", "F")
+- CRITICAL: When you see "M X F", the "X" is BETWEEN "M" and "F", which means it's marking the "F" (Female)
+- CRITICAL: When you see "X M F", the "X" is BEFORE "M", which means it's marking the "M" (Male)
 - Examples:
   - "£ Male £X Female" → gender: "Female" (X is next to Female)
   - "£X Male £ Female" → gender: "Male" (X is next to Male)
   - "Male X Female" → gender: "Female" (X is next to Female)
   - "X Male Female" → gender: "Male" (X is next to Male)
   - "Male Female X" → gender: "Female" (X is next to Female)
+  - "M X F" → gender: "Female" (X is BETWEEN M and F, marking F)
+  - "M F X" → gender: "Female" (X is AFTER F, marking F)
+  - "X M F" → gender: "Male" (X is BEFORE M, marking M)
+  - "Sex: M X F" → gender: "Female" (X is BETWEEN M and F, marking F)
+  - "Sex: X M F" → gender: "Male" (X is BEFORE M, marking M)
+  - "Sex: M F X" → gender: "Female" (X is AFTER F, marking F)
 - Look in both Annuitant and Owner sections
 
 For address fields (CRITICAL):

@@ -57,6 +57,8 @@ class QwenProcessor(BaseProcessor):
 
         self._initialize_cache()
         self._initialize_model()
+        # Clear cache to ensure updated prompts take effect
+        self.clear_cache()
 
     def _initialize_model(self) -> None:
         """Initialize the Qwen model and tokenizer."""
