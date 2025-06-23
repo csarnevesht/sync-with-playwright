@@ -291,6 +291,22 @@ JSON structure:
   }}
 }}
 
+IMPORTANT EXTRACTION GUIDELINES:
+
+For gender field:
+- Look for "Gender:" followed by "X Male Female" or similar patterns
+- If "X" appears next to "Male", extract "Male"
+- If "X" appears next to "Female", extract "Female"
+- Look for gender options with "X" or "£X" indicating the selected option
+- The "X" or "£X" indicates which option is SELECTED
+- Examples:
+  - "£ Male £X Female" → gender: "Female" (X is next to Female)
+  - "£X Male £ Female" → gender: "Male" (X is next to Male)
+  - "Male X Female" → gender: "Female" (X is next to Female)
+  - "X Male Female" → gender: "Male" (X is next to Male)
+  - "Male Female X" → gender: "Female" (X is next to Female)
+- Look in both Annuitant and Owner sections
+
 Text to analyze:
 {text}
 
