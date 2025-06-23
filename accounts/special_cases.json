@@ -1,0 +1,534 @@
+{
+    "description": "Special cases for name parsing and account information. Each case can include: folder_name, last_name, first_name, additional_info, expected_salesforce_matches, expected_dropbox_matches, handwritten_app_files, account_info (which can contain name, first_name, last_name, phone, address, city, state, zip, birthdate, etc.), and skip_commands (array of command names to skip for this special case).",
+    "special_cases": [
+        {
+            "folder_name": "Amaran Martin & Teresita",
+            "last_name": "Amaran",
+            "first_name": "Martin",
+            "additional_info": "Martin and Teresita",
+            "expected_salesforce_matches": [
+                "Martin Amaran",
+                "Teresita Amaran"
+            ],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Alexander & Armelia Rolle",
+            "last_name": "Rolle",
+            "first_name": "Alexander",
+            "additional_info": "Alexander and Armelia",
+            "expected_salesforce_matches": [
+                "Alexander Rolle",
+                "Armelia Rolle"
+            ],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Garica, Nicolas & Daughter Marie Chavarri (Medicaid Mike)",
+            "last_name": "Garica",
+            "first_name": "Nicolas",
+            "additional_info": "Daughter Marie Chavarri (Medicaid Mike)",
+            "expected_salesforce_matches": [
+                "Maria De Pilar Garcia"
+            ],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Strinko Mary sons Greg and Steve",
+            "last_name": "Strinko",
+            "first_name": "Mary",
+            "additional_info": "sons Greg and Steve",
+            "expected_salesforce_matches": [
+                "Strinko, Mary",
+                "Mary Strinko",
+                "Gregory Strinko"
+            ],
+            "expected_dropbox_matches": ["strinko gregory"]
+        },
+        {
+            "folder_name": "Bauer Glenn and Brenda",
+            "last_name": "Bauer",
+            "first_name": "Glenn",
+            "additional_info": "Glenn and Brenda",
+            "expected_salesforce_matches": [
+                "Bauer Household",
+                "Bauer, Glenn",
+                "Bauer, Brenda"
+            ],
+            "expected_dropbox_matches": ["bauer family"]
+        },
+        {
+            "folder_name": "Bravo, Miriam",
+            "last_name": "Bravo",
+            "first_name": "Miriam",
+            "additional_info": "",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [
+                "Miriam & Jorge Bravo/Padron",
+                "Miriam Bravo/Padron"
+            ]
+        },
+        {
+            "folder_name": "Gabriel Armand and son Dave",
+            "last_name": "Gabriel",
+            "first_name": "Armand",
+            "additional_info": "son Dave",
+            "expected_salesforce_matches": [
+                "Gabriel Household",
+                "Gabriel Armand",
+                "Gabriel David"
+            ],
+            "expected_dropbox_matches": [
+                "Gabriel, David"
+            ]
+        },
+        {
+            "folder_name": "Sanchez Manny and Kathleen",
+            "last_name": "Sanchez",
+            "first_name": "Manny",
+            "additional_info": "Manny and Kathleen",
+            "expected_salesforce_matches": [
+                "Sanchez Household",
+                "Manny Sanchez",
+                "Kathleen Sanchez"
+            ],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Mason Patricia daughter Cheryl and Donna",
+            "last_name": "Mason",
+            "first_name": "Patricia",
+            "additional_info": "daughter Cheryl and Donna",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [],
+            "handwritten_app_files": [
+                "Mason Integrity App.PDF"
+            ]
+        },
+        {
+            "folder_name": "Dell Aglio, Elena (Mike)",
+            "last_name": "Dell Aglio",
+            "first_name": "Elena",
+            "additional_info": "",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [
+                "Dellaglio (M)"
+            ]
+        },
+        {
+            "folder_name": "Woods Georgia",
+            "last_name": "Woods",
+            "first_name": "Georgia",
+            "additional_info": "",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Nelson Caroline Cheri (Mindy) Nelson daughter",
+            "last_name": "Nelson",
+            "first_name": "Caroline",
+            "additional_info": "Cheri (Mindy) Nelson daughter",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Kaufman Jack poa Jack Ellman, Paula Chiz",
+            "last_name": "Kaufman",
+            "first_name": "Jack",
+            "additional_info": "poa Jack Ellman, Paula Chiz",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [
+                "Paula Chiz"
+            ]
+        },
+        {
+            "folder_name": "Leventhal Doris son Wayne",
+            "last_name": "Leventhal",
+            "first_name": "Doris",
+            "additional_info": "son Wayne",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Cohen George son Kenny",
+            "last_name": "Cohen",
+            "first_name": "George",
+            "additional_info": "son Kenny",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Weintraub Sydell son David Weintraub",
+            "last_name": "Weintraub",
+            "first_name": "Sydell",
+            "additional_info": "son David Weintraub",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Gondolfo Garbiel Jr son is Gabriel III",
+            "last_name": "Gondolfo",
+            "first_name": "Garbiel",
+            "additional_info": "son is Gabriel III",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [
+                "Family Gondolfo"
+            ]
+        },
+        {
+            "folder_name": "Richardson Vera and daughter Sandra",
+            "last_name": "Richardson",
+            "first_name": "Vera",
+            "additional_info": "daughter Sandra",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "LaChapelle Louis daughters Lynn Rito & gloria Suit",
+            "last_name": "LaChapelle",
+            "first_name": "Louis",
+            "additional_info": "",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [
+                "Rito Lynn"
+            ]
+        },
+        {
+            "folder_name": "Forjan Alex",
+            "last_name": "Alex",
+            "first_name": "Forjan",
+            "additional_info": "",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Guo Tie and Susan",
+            "last_name": "Guo",
+            "first_name": "Xiaohui",
+            "additional_info": "Xiaohui is Female and is Susan, Tie is Male",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Espinoza Michael",
+            "last_name": "Espinoza",
+            "first_name": "Michael",
+            "additional_info": "",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Nitsche Olga and Thomas daughter Carol Carlson",
+            "last_name": "Nitsche",
+            "first_name": "Olga",
+            "additional_info": "daughter Carol Carlson",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Pearce Richard and daughter Jeannine",
+            "last_name": "Pearce",
+            "first_name": "Richard",
+            "additional_info": "daughter Jeannine",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Cortes Jesse Daughters Betty & Gina",
+            "last_name": "Cortes",
+            "first_name": "Jesse",
+            "additional_info": "Daughters Betty & Gina",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Heydemann Mary",
+            "last_name": "Heydemann",
+            "first_name": "Mary",
+            "additional_info": "",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Karbin Henry & Marion daughter Breann Shultz",
+            "last_name": "Karbin",
+            "first_name": "Henry",
+            "additional_info": "Marion wife and daughter Breann Shultz",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [
+                "Breann Shultz"
+            ]
+        },
+        {
+            "folder_name": "Klepac Florence daughter Barbara Socarraz",
+            "last_name": "Klepac",
+            "first_name": "Florence",
+            "additional_info": "daughter Barbara",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [
+                "Barbara Socarraz"
+            ]
+        },
+        {
+            "folder_name": "Calatayud Zeneida",
+            "last_name": "Calatayud",
+            "first_name": "Zeneida",
+            "additional_info": "",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Cervantes Trust (Medicaid)",
+            "last_name": "Cervantes",
+            "first_name": "",
+            "additional_info": "Trust (Medicaid)",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Juliet & Avril III",
+            "last_name": "Avril",
+            "first_name": "Juliet",
+            "additional_info": "",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Romani Yong, Lisette",
+            "last_name": "Romani Yong",
+            "first_name": "Lisette",
+            "additional_info": "",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Etzler Jack son Jay",
+            "last_name": "Etzler",
+            "first_name": "Jack",
+            "additional_info": "son Jay",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Wallace Evelyn & Gary son",
+            "last_name": "Evelyn",
+            "first_name": "Wallace",
+            "additional_info": "son Gary",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Fitzgerald Bridget daughter Elizabeth Robbert",
+            "last_name": "Fitzgerald",
+            "first_name": "Bridget",
+            "additional_info": "daughter Elizabeth Robbert",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Asha Emil daughter Cristina",
+            "last_name": "Asha",
+            "first_name": "Emil",
+            "additional_info": "daughter Cristina",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Tudela, De Virginia",
+            "last_name": "Tudela",
+            "first_name": "De",
+            "additional_info": "Virginia",
+            "expected_salesforce_matches": [
+                "De Virginia Tudela"
+            ],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Vaislaman, Irasis",
+            "last_name": "Irasis",
+            "first_name": "Vaislaman",
+            "additional_info": "Irasis Abislaiman-Saade",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [
+                "Irasis"
+            ]
+        },
+        {
+            "folder_name": "Mendez, Onelio daughter Iliana Hambleton",
+            "last_name": "Mendez",
+            "first_name": "Onelio",
+            "additional_info": "Mendez, Onelio",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [
+                "Illiana Hambleton"
+            ]
+        },
+        {
+            "folder_name": "Hartman, Estelle daughter Marsha Newman",
+            "last_name": "Hartman",
+            "first_name": "Estelle",
+            "additional_info": "Hartman, Estelle",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [
+                "Marcia Newman"
+            ]
+        },
+        {
+            "folder_name": "Hernandez, Norma (Daughter Caridad Martinez)",
+            "last_name": "Martinez",
+            "first_name": "Norma",
+            "additional_info": "Hernandez, Norma",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [
+                "Caridad Martinez"
+            ]
+        },
+        {
+            "folder_name": "Porter, Ralph daughter Debbie Williamson",
+            "last_name": "Porter",
+            "first_name": "Ralph",
+            "additional_info": "Porter, Ralph",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [
+                "Williamson Family"
+            ]
+        },
+        {
+            "folder_name": "Hodge, Wanda  Son in law Jim Trice",
+            "last_name": "Hodge",
+            "first_name": "Wanda",
+            "additional_info": "Hodge, Wanda",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [
+                "Trice Family"
+            ]
+        },
+        {
+            "folder_name": "Welsch, Mary Heydeman daughter",
+            "last_name": "Heydemann",
+            "first_name": "Mary",
+            "additional_info": "Mary Heydeman daughter",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [
+                "Mary Heydemann"
+            ]
+        },
+        {
+            "folder_name": "De Vietto, Diana daughter Natalia Vietto",
+            "last_name": "Vietto",
+            "first_name": "Natalia",
+            "additional_info": "De Vietto, Diana",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [
+                "Natalia Vietto"
+            ]
+        },
+        {
+            "folder_name": "Bustillo, Jorge (Mike Medicaid)",
+            "last_name": "Bustillo",
+            "first_name": "Jorge",
+            "additional_info": "Mike Medicaid",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [
+                "Bustillo Family"
+            ]
+        },
+        {
+            "folder_name": "Jimenez, Marina daughter Monica Rodda",
+            "last_name": "Jimenez",
+            "first_name": "Marina",
+            "additional_info": "daughter Monica Rodda",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [
+                "Monica Rodda"
+            ]
+        },
+        {
+            "folder_name": "Lara, Jose (Mike) IIII",
+            "last_name": "Lara",
+            "first_name": "Jose",
+            "additional_info": "Mike IIII",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [
+                "Lara Family"
+            ]
+        },
+        {
+            "folder_name": "Richtmyer, Glenn Daughter Jamie Rowan",
+            "last_name": "Richtmyer",
+            "first_name": "Glenn",
+            "additional_info": "Daughter Jamie Rowan",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": []
+        },
+        {
+            "folder_name": "Whitfield, Paul daughter Musibay",
+            "last_name": "Whitfield",
+            "first_name": "Paul",
+            "additional_info": "Karen Werner Whitfield, DCD, FBO Brenda Musibay Beneficiary",
+            "expected_salesforce_matches": [
+                "Karen Werner Whitfield, DCD, FBO Brenda Musibay Beneficiary"
+            ],
+            "expected_dropbox_matches": [
+                "Musibay Family"
+            ],
+            "account_info": {
+                "name": "Brenda Musibay",
+                "first_name": "Brenda",
+                "last_name": "Musibay",
+                "gender": "Female",
+                "birthdate": "07/26/1965",
+                "additional_info": "Karen Werner Whitfield, DCD, FBO Brenda Musibay Beneficiary"
+            },
+            "skip_commands": [
+                "extract-dropbox-account-app-files-info"
+            ]
+        },
+        {
+            "folder_name": "Vanik, Patricia (Mike)",
+            "last_name": "Vanik",
+            "first_name": "Patricia",
+            "additional_info": "",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [
+                "Vanik Patty"
+            ]
+        },
+        {
+            "folder_name": "Halperin, Herzl son Ronnie Halperin",
+            "last_name": "Halperin",
+            "first_name": "Herzl",
+            "additional_info": "",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [
+                "Halperin Ronny"
+            ]
+        },
+        {
+            "folder_name": "Sherman, Stanley wife Hilary Lupa",
+            "last_name": "Sherman",
+            "first_name": "Stanley",
+            "additional_info": "",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [],
+            "handwritten_app_files": [
+                "*App*"
+            ]
+        },
+        {
+            "folder_name": "Andrews, Kathleen",
+            "last_name": "Andrews",
+            "first_name": "Kathleen",
+            "additional_info": "",
+            "expected_salesforce_matches": [],
+            "expected_dropbox_matches": [],
+            "account_info": {
+                "gender": "Female",
+                "birthdate": "10/31/1944"
+            },
+            "skip_commands": [
+                "extract-dropbox-account-app-files-info"
+            ]
+        }
+    ]
+} 

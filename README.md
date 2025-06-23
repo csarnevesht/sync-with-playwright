@@ -6,10 +6,12 @@ This project includes a Chrome extension and a Python script to automatically in
 
 1. Python 3.7 or higher
 2. Google Chrome browser
-3. Required system dependencies:
+3. Docker (for Supabase)
+4. Required system dependencies:
    - poppler (for PDF processing)
    - tesseract (for OCR)
-4. Required Python packages:
+   - PostgreSQL client libraries (for Supabase)
+5. Required Python packages:
    - websocket-client
    - psutil
    - python-dotenv
@@ -18,6 +20,163 @@ This project includes a Chrome extension and a Python script to automatically in
    - pytesseract
    - Pillow
    - PyPDF2
+   - supabase
+   - pydantic
+   - python-dateutil
+   - psycopg2-binary
+   - pyyaml
+
+## Supabase Setup
+
+1. Install Docker if you haven't already:
+   - macOS: `brew install docker`
+   - Ubuntu/Debian: `sudo apt-get install docker.io`
+   - Windows: Download from https://www.docker.com/products/docker-desktop
+
+2. Start Docker:
+   - macOS: Open Docker Desktop
+   - Linux: `sudo systemctl start docker`
+   - Windows: Start Docker Desktop
+
+3. The project includes a `docker-compose.yml` file for Supabase. To start Supabase:
+   ```bash
+   docker-compose up -d
+   ```
+
+4. Set up environment variables:
+   ```bash
+   # Run the setup script to configure environment variables
+   python scripts/setup_env.py
+   ```
+   
+   This script will:
+   - Create a new `.env` file if it doesn't exist
+   - Update an existing `.env` file with the correct Supabase configuration
+   - Try to get the service key in this order:
+     1. From your environment variables (if set)
+     2. From the running Supabase container (if local)
+     3. Prompt you to get it from the Supabase dashboard
+   - Preserve any existing environment variables not related to Supabase
+   - Verify that all required environment variables are present
+
+   To get the service key manually:
+   1. Go to your Supabase project dashboard
+   2. Navigate to Project Settings > API
+   3. Find the "Project API keys" section
+   4. Copy the "service_role" key
+   5. Set it in your environment: `export SUPABASE_SERVICE_KEY=your-key-here`
+
+   Note: The service role key has full access to your database. Keep it secure and never commit it to version control.
+
+5. The database schema will be automatically created when you first run the application.
+
+6. Verify Supabase is running:
+   ```bash
+   # Check if Supabase container is running
+   docker ps | grep supabase
+   
+   # Check Supabase logs if needed
+   docker-compose logs supabase
+   ```
+
+7. If you need to restart Supabase services:
+   ```bash
+   python start_services.py --force
+   ```
+
+## Starting Services with start_services.py
+
+The project includes a `start_services.py` script that automates the setup and management of Supabase services. This script:
+
+1. Clones/updates the Supabase repository
+2. Configures the environment
+3. Manages Docker containers
+4. Handles health checks
+
+### Usage
+
+1. Basic usage:
+   ```bash
+   python start_services.py
+   ```
+
+2. Force restart all services:
+   ```bash
+   python start_services.py --force
+   ```
+
+### Features
+
+- Automatically clones/updates the Supabase repository
+- Configures environment variables
+- Starts services in the correct order
+- Performs health checks
+- Handles container cleanup
+- Disables Logflare sinks and adds a dummy file sink
+- Waits for services to be healthy before proceeding
+
+### Troubleshooting
+
+If you encounter issues:
+
+1. Check Docker is running:
+   ```bash
+   docker info
+   ```
+
+2. Check container status:
+   ```bash
+   docker ps
+   ```
+
+3. View container logs:
+   ```bash
+   docker logs supabase-vector
+   docker logs supabase-kong
+   ```
+
+4. Force restart all services:
+   ```bash
+   python start_services.py --force
+   ```
+
+5. Check the vector.yml configuration:
+   ```bash
+   cat supabase/docker/volumes/logs/vector.yml
+   ```
+
+## Dropbox Authentication
+
+To use the Dropbox integration, you need to set up authentication:
+
+1. Create a Dropbox app at https://www.dropbox.com/developers/apps
+   - Choose "Scoped access"
+   - Select "Full Dropbox" access type
+   - Name your app and create it
+
+2. Get your app credentials:
+   - Copy the "App key" and "App secret" from your app's settings
+   - Create a `.env` file in the project root if it doesn't exist
+   - Add these lines to your `.env` file:
+     ```
+     DROPBOX_APP_KEY=your_app_key
+     DROPBOX_APP_SECRET=your_app_secret
+     ```
+
+3. Get your access tokens:
+   ```bash
+   PYTHONPATH=src python -m sync.dropbox_client.get_tokens
+   ```
+   - Follow the prompts to authorize the app
+   - The script will save your tokens to the `.env` file
+
+4. Verify your `.env` file now contains:
+   ```
+   DROPBOX_APP_KEY=your_app_key
+   DROPBOX_APP_SECRET=your_app_secret
+   DROPBOX_TOKEN=your_access_token
+   DROPBOX_REFRESH_TOKEN=your_refresh_token
+   ```
 
 ## Installation
 
@@ -31,19 +190,20 @@ cd <repository-directory>
 
 For macOS:
 ```bash
-brew install poppler tesseract
+brew install poppler tesseract postgresql
 ```
 
 For Ubuntu/Debian:
 ```bash
 sudo apt-get update
-sudo apt-get install -y poppler-utils tesseract-ocr
+sudo apt-get install -y poppler-utils tesseract-ocr postgresql postgresql-contrib
 ```
 
 For Windows:
 - Download and install poppler from: https://github.com/oschwartz10612/poppler-windows/releases/
 - Download and install tesseract from: https://github.com/UB-Mannheim/tesseract/wiki
-- Add both to your system PATH
+- Download and install PostgreSQL from: https://www.postgresql.org/download/windows/
+- Add all to your system PATH
 
 3. Install required Python packages:
 ```bash

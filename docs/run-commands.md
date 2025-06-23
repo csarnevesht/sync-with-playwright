@@ -82,4 +82,5 @@ unset DROPBOX_TOKEN && clear && python -m sync.cmd_runner --salesforce-accounts 
 
 
 Dennis Matalon (Brokers)???
-unset DROPBOX_TOKEN && clear && python -m sync.cmd_runner --salesforce-accounts --dropbox-account-info --dropbox-accounts --salesforce-account-info --dropbox-account-name='Aspillaga, Jose'
+get Dropbox and Salesforce account information for Dennis Matalon
+unset DROPBOX_TOKEN && clear && python -m sync.cmd_runner --salesforce-accounts --dropbox-account-info --dropbox-accounts --salesforce-account-info --dropbox-account-name='Matalon, Dennis'

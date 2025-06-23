@@ -99,14 +99,15 @@ import argparse
 import time
 import re
 import pandas as pd
-
-from sync import salesforce_client
-from sync.utils.name_utils import extract_name_parts
-from src.sync.utils.duration import format_duration
-from playwright.sync_api import sync_playwright, TimeoutError
+import shutil
+import subprocess
+from dotenv import load_dotenv
 import logging
 from datetime import datetime
 from pathlib import Path
+from playwright.sync_api import sync_playwright
+
+from sync.utils.name_utils import extract_name_parts
 from src.sync.salesforce_client.pages.account_manager import AccountManager
 from src.sync.salesforce_client.pages.file_manager import SalesforceFileManager
 from src.sync.salesforce_client.utils.browser import get_salesforce_page
@@ -122,10 +123,51 @@ from src.sync.dropbox_client.utils.dropbox_utils import (
     get_folder_creation_date
 )
 from src.sync.dropbox_client.utils.date_utils import has_date_prefix
+from src.sync.dropbox_client.utils.logging_utils import log_dropbox_account_info, log_icon_legend
 from dropbox.exceptions import ApiError
 import dropbox
 from typing import List, Union
 
+# Add the src directory to the path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
+from sync.salesforce_client.utils.logging_utils import log_salesforce_account_information
+
+logger = logging.getLogger()
+
+def log_to_both(logger, report_logger, level, message):
+    """
+    Log a message to both the main logger and report logger.
+    
+    Args:
+        logger: The main logger instance
+        report_logger: The report logger instance
+        level: The logging level ('info', 'error', 'warning', 'debug')
+        message: The message to log
+    """
+    if level == 'info':
+        logger.info(message)
+        report_logger.info(message)
+    elif level == 'error':
+        logger.error(message)
+        report_logger.error(message)
+    elif level == 'warning':
+        logger.warning(message)
+        report_logger.warning(message)
+    elif level == 'debug':
+        logger.debug(message)
+        report_logger.debug(message)
+
+def format_duration(seconds):
+    """Format duration in seconds to a human-readable string."""
+    if seconds < 60:
+        return f"{seconds:.1f} seconds"
+    elif seconds < 3600:
+        minutes = seconds / 60
+        return f"{minutes:.1f} minutes"
+    else:
+        hours = seconds / 3600
+        return f"{hours:.1f} hours"
 
 # ANSI color codes
 class Colors:
@@ -173,20 +215,103 @@ def format_args_for_logging(args):
     
     return " ".join(formatted_args)
 
-def setup_logging(args):
+def get_preserved_logs_file():
+    """Get the path to the file that stores preserved log folders."""
+    return Path('logs') / '.preserved_logs'
+
+def add_preserved_log(log_folder: str):
+    """Add a log folder to the list of preserved logs."""
+    preserved_file = get_preserved_logs_file()
+    preserved_logs = set()
+    
+    # Load existing preserved logs
+    if preserved_file.exists():
+        with open(preserved_file, 'r') as f:
+            preserved_logs = set(line.strip() for line in f if line.strip())
+    
+    # Add new log folder
+    preserved_logs.add(log_folder)
+    
+    # Save updated list
+    preserved_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(preserved_file, 'w') as f:
+        for log in sorted(preserved_logs):
+            f.write(f"{log}\n")
+
+def get_preserved_logs():
+    """Get the set of preserved log folders."""
+    preserved_file = get_preserved_logs_file()
+    if not preserved_file.exists():
+        return set()
+    
+    with open(preserved_file, 'r') as f:
+        return set(line.strip() for line in f if line.strip())
+
+def clean_old_log_folders(max_folders=1):
+    """Keep only the most recent log folders.
+    
+    Args:
+        max_folders: Maximum number of log folders to keep (default: 2)
+    """
+    log_dir = Path('logs')
+    if not log_dir.exists():
+        return
+        
+    # Get all log folders and sort by creation time (newest first)
+    log_folders = []
+    for folder in log_dir.iterdir():
+        if folder.is_dir():
+            try:
+                # Try to parse the folder name as a timestamp
+                datetime.strptime(folder.name, '%Y-%m-%d_%H-%M-%S')
+                log_folders.append(folder)
+            except ValueError:
+                # Skip folders that don't match the timestamp format
+                continue
+    
+    # Sort folders by name (which is timestamp) in descending order
+    log_folders.sort(reverse=True)
+    
+    # Get preserved logs
+    preserved_logs = get_preserved_logs()
+    
+    # Remove old folders, keeping max_folders - 1 since we'll create a new one
+    # Skip preserved logs in the count
+    preserved_count = sum(1 for folder in log_folders if folder.name in preserved_logs)
+    folders_to_keep = max_folders - preserved_count
+    
+    for folder in log_folders[folders_to_keep:]:
+        if folder.name not in preserved_logs:
+            try:
+                shutil.rmtree(folder)
+            except Exception as e:
+                print(f"Error removing old log folder {folder}: {e}")
+
+def setup_logging(args, command: str = None):
     """Configure logging to write to both file and console with colored output.
     
     Args:
         args: The parsed command line arguments
+        command: The command string to log (optional)
     """
+    # Clean up old log folders before creating a new one
+    clean_old_log_folders()
+    
     # Create logs directory with date and time-based subfolder
     timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     log_dir = Path('logs') / timestamp
     log_dir.mkdir(parents=True, exist_ok=True)
     
+    # If --keep-log flag is set, add this log to preserved logs
+    if args.keep_log:
+        add_preserved_log(timestamp)
+    
     # Create log files directly in the timestamped folder
     log_file = log_dir / 'analyzer.log'
     report_file = log_dir / 'report.log'
+    summary_file = log_dir / 'summary.log'
+    red_file = log_dir / 'red.log'
+    red_no_salesforce_only_file = log_dir / 'red-no-salesforce-only.log'
     
     # Create formatters
     file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
@@ -201,6 +326,18 @@ def setup_logging(args):
     # Create file handler for report log
     report_handler = logging.FileHandler(report_file)
     report_handler.setFormatter(report_formatter)
+    
+    # Create file handler for summary log
+    summary_handler = logging.FileHandler(summary_file)
+    # summary_handler.setFormatter(report_formatter)
+    
+    # Create file handler for red log
+    red_handler = logging.FileHandler(red_file)
+    red_handler.setFormatter(report_formatter)
+    
+    # Create file handler for red-no-salesforce-only log
+    red_no_salesforce_only_handler = logging.FileHandler(red_no_salesforce_only_file)
+    red_no_salesforce_only_handler.setFormatter(report_formatter)
     
     # Create console handler
     console_handler = logging.StreamHandler()
@@ -228,17 +365,49 @@ def setup_logging(args):
     report_logger = logging.getLogger('report')
     report_logger.setLevel(logging.INFO)
     report_logger.addHandler(report_handler)
+    report_logger.propagate = False
     
-    # Log the command and arguments
-    command = f"python -m sync.cmd_runner {format_args_for_logging(args)}"
-    root_logger.info(f"Command: {command}")
-    report_logger.info(f"Command: {command}")
+    # Create a separate logger for summary
+    summary_logger = logging.getLogger('summary')
+    summary_logger.setLevel(logging.INFO)
+    summary_logger.addHandler(summary_handler)
+    summary_logger.propagate = False
+    
+    # Create a separate logger for red items
+    red_logger = logging.getLogger('red')
+    red_logger.setLevel(logging.INFO)
+    red_logger.addHandler(red_handler)
+    red_logger.propagate = False
+    
+    # Create a separate logger for red-no-salesforce-only items
+    red_no_salesforce_only_logger = logging.getLogger('red_no_salesforce_only')
+    red_no_salesforce_only_logger.setLevel(logging.INFO)
+    red_no_salesforce_only_logger.addHandler(red_no_salesforce_only_handler)
+    red_no_salesforce_only_logger.propagate = False
+    
+    # Set logging level for Supabase client and its dependencies to WARNING
+    logging.getLogger('httpx').setLevel(logging.WARNING)
+    logging.getLogger('httpcore').setLevel(logging.WARNING)
+    logging.getLogger('supabase').setLevel(logging.WARNING)
+    
+    # Set specific httpx loggers to WARNING level
+    logging.getLogger('httpx._client').setLevel(logging.WARNING)
+    logging.getLogger('httpx._transports.default').setLevel(logging.WARNING)
+    logging.getLogger('httpx._utils').setLevel(logging.WARNING)
+    
+    # Log the command and arguments if provided
+    if command:
+        log_to_both(root_logger, report_logger, 'info', f"Command: {command}")
+        summary_logger.info(f"Command: {command}")
     
     # Log the log file locations
     root_logger.info(f"Main log file: {log_file}")
     report_logger.info(f"Report log file: {report_file}")
+    summary_logger.info(f"Summary log file: {summary_file}")
+    red_logger.info(f"Red items log file: {red_file}")
+    red_no_salesforce_only_logger.info(f"Red-no-salesforce-only items log file: {red_no_salesforce_only_file}")
     
-    return root_logger, report_logger
+    return root_logger, report_logger, summary_logger, red_logger, red_no_salesforce_only_logger, str(log_dir)
 
 def parse_args():
     """Parse command line arguments."""
@@ -289,6 +458,18 @@ def parse_args():
                       help='Get detailed information and relationships for Salesforce accounts',
                       action='store_true')
     
+    # Search Criteria Options
+    parser.add_argument('--birthdate',
+                      help='Search for applications with this birthdate (format: YYYY-MM-DD)',
+                      type=str)
+    parser.add_argument('--gender',
+                      help='Search for applications with this gender (Male/Female)',
+                      type=str,
+                      choices=['Male', 'Female'])
+    parser.add_argument('--application-type',
+                      help='Search for applications with this type',
+                      type=str)
+    
     # Processing Options
     parser.add_argument('--account-batch-size',
                       help='Number of accounts to process in each batch',
@@ -305,6 +486,13 @@ def parse_args():
                       help='Process driver\'s license information',
                       action='store_true')
     
+    # New arguments
+    parser.add_argument('--debug', action='store_true', help='Enable debug logging')
+    parser.add_argument('--keep-log', action='store_true', help='Keep this log folder and prevent it from being cleaned up')
+    parser.add_argument('--file-filter',
+                      help='Filter files by name pattern (e.g. "*Life*" to only process files containing "Life")',
+                      default=None)
+    
     return parser.parse_args()
 
 def initialize_dropbox_client(args):
@@ -317,47 +505,130 @@ def initialize_dropbox_client(args):
     Returns:
         DropboxClient: Initialized client or None if initialization fails
     """
-    try:
-        # Get access token with detailed logging
-        logger.info("Attempting to get Dropbox access token...")
-        token = get_access_token()
-        
-        if not token:
-            logger.error("Failed to get Dropbox access token: No token found")
-            return None
-            
-        # Log token details (first 10 chars for security)
-        token_preview = token[:10] + "..." if len(token) > 10 else token
-        logger.info(f"Successfully retrieved Dropbox token (starts with: {token_preview})")
-        
-        # Initialize client with debug mode
-        logger.info("Initializing Dropbox client...")
-        dbx = DropboxClient(token, debug_mode=True)
-        dbx.args = args  # Pass args to the client
-        
-        # Test connection
+    tried_refresh = False
+    
+    # Add detailed environment variable logging
+    logger.info("=== ENVIRONMENT VARIABLE DEBUGGING ===")
+    import os
+    from dotenv import load_dotenv
+    
+    # Load environment variables
+    if args.env_file:
+        logger.info(f"Loading environment from: {args.env_file}")
+        load_dotenv(args.env_file)
+    else:
+        logger.info("Loading environment from default .env file")
+        load_dotenv()
+    
+    # Check for Dropbox environment variables
+    dropbox_token = os.getenv('DROPBOX_TOKEN')
+    dropbox_refresh_token = os.getenv('DROPBOX_REFRESH_TOKEN')
+    dropbox_app_key = os.getenv('DROPBOX_APP_KEY')
+    dropbox_app_secret = os.getenv('DROPBOX_APP_SECRET')
+    
+    logger.info(f"DROPBOX_APP_KEY: {'✅ Present' if dropbox_app_key else '❌ Missing'}")
+    if dropbox_app_key:
+        logger.info(f"  Value: {dropbox_app_key[:10]}...")
+    
+    logger.info(f"DROPBOX_APP_SECRET: {'✅ Present' if dropbox_app_secret else '❌ Missing'}")
+    if dropbox_app_secret:
+        logger.info(f"  Value: {dropbox_app_secret[:10]}...")
+    
+    logger.info(f"DROPBOX_TOKEN: {'✅ Present' if dropbox_token else '❌ Missing'}")
+    if dropbox_token:
+        logger.info(f"  Value: {dropbox_token[:20]}...")
+        logger.info(f"  Length: {len(dropbox_token)} characters")
+    
+    logger.info(f"DROPBOX_REFRESH_TOKEN: {'✅ Present' if dropbox_refresh_token else '❌ Missing'}")
+    if dropbox_refresh_token:
+        logger.info(f"  Value: {dropbox_refresh_token[:20]}...")
+        logger.info(f"  Length: {len(dropbox_refresh_token)} characters")
+    
+    logger.info("=== END ENVIRONMENT VARIABLE DEBUGGING ===")
+    
+    while True:
         try:
-            account = dbx.dbx.users_get_current_account()
-            logger.info(f"Successfully connected to Dropbox as: {account.name.display_name}")
-            logger.info(f"Account ID: {account.account_id}")
-            logger.info(f"Email: {account.email}")
-            return dbx
-        except ApiError as e:
-            if e.error.is_expired_access_token():
+            logger.info("Attempting to get Dropbox access token...")
+            token = get_access_token()
+            if not token:
+                logger.error("Failed to get Dropbox access token: No token found")
+                return None
+            token_preview = token[:10] + "..." if len(token) > 10 else token
+            logger.info(f"Successfully retrieved Dropbox token (starts with: {token_preview})")
+            logger.info("Initializing Dropbox client...")
+            dbx = DropboxClient(token, debug_mode=True)
+            dbx.args = args
+            try:
+                # Use the _make_request method which has automatic token refresh built in
+                account = dbx._make_request(dbx.dbx.users_get_current_account)
+                logger.info(f"Successfully connected to Dropbox as: {account.name.display_name}")
+                logger.info(f"Account ID: {account.account_id}")
+                logger.info(f"Email: {account.email}")
+                return dbx
+            except ApiError as e:
+                if e.error.is_expired_access_token() or 'expired_access_token' in str(e):
+                    logger.error("Dropbox access token has expired")
+                    if not tried_refresh:
+                        logger.info("Attempting to refresh token automatically...")
+                        # Try to refresh the token using the DropboxClient's built-in refresh logic
+                        if dbx._handle_token_expiration():
+                            logger.info("Token refreshed successfully, retrying connection...")
+                            tried_refresh = True
+                            continue
+                        else:
+                            logger.error("Automatic token refresh failed")
+                            logger.info("Attempting manual token refresh...")
+                            try:
+                                # Try to use the auth utility to refresh the token
+                                from sync.dropbox_client.utils.auth import DropboxAuth
+                                auth = DropboxAuth()
+                                new_token = auth.refresh_access_token()
+                                if new_token:
+                                    logger.info("Manual token refresh successful")
+                                    tried_refresh = True
+                                    continue
+                                else:
+                                    logger.error("Manual token refresh also failed")
+                            except Exception as auth_error:
+                                logger.error(f"Manual token refresh failed: {auth_error}")
+                    else:
+                        logger.error("Token refresh already attempted. Please generate a new token and update your environment.")
+                        logger.info("You can run: python src/sync/dropbox_client/get_tokens.py")
+                else:
+                    logger.error(f"Failed to connect to Dropbox: {str(e)}")
+                return None
+        except Exception as e:
+            if 'expired_access_token' in str(e) and not tried_refresh:
                 logger.error("Dropbox access token has expired")
-                logger.error("Please generate a new token and update your environment")
-            else:
-                logger.error(f"Failed to connect to Dropbox: {str(e)}")
+                logger.info("Attempting to refresh token automatically...")
+                try:
+                    # Try to refresh the token using the DropboxClient's built-in refresh logic
+                    if dbx._handle_token_expiration():
+                        logger.info("Token refreshed successfully, retrying connection...")
+                        tried_refresh = True
+                        continue
+                    else:
+                        logger.error("Automatic token refresh failed")
+                        logger.info("Attempting manual token refresh...")
+                        try:
+                            # Try to use the auth utility to refresh the token
+                            from sync.dropbox_client.utils.auth import DropboxAuth
+                            auth = DropboxAuth()
+                            new_token = auth.refresh_access_token()
+                            if new_token:
+                                logger.info("Manual token refresh successful")
+                                tried_refresh = True
+                                continue
+                            else:
+                                logger.error("Manual token refresh also failed")
+                        except Exception as auth_error:
+                            logger.error(f"Manual token refresh failed: {auth_error}")
+                except Exception as refresh_error:
+                    logger.error(f"Token refresh failed: {refresh_error}")
+            logger.error(f"Unexpected error initializing Dropbox client: {str(e)}")
             return None
-            
-    except Exception as e:
-        logger.error(f"Unexpected error initializing Dropbox client: {str(e)}")
-        return None
-    
-    
-      
 
-def run_command(args):
+def run_command(args, log_dir):
     """
     Run the command based on the provided arguments.
     """
@@ -389,8 +660,7 @@ def run_command(args):
     if args.dropbox_account_name:
         logger.info('step: Get Account Folders')
         if args.dropbox_account_name in ignored_folders:
-            logger.warning(f"Account {args.dropbox_account_name} is in the ignore list. Skipping...")
-            report_logger.info(f"\nAccount {args.dropbox_account_name} is in the ignore list. Skipping...")
+            log_to_both(logger, report_logger, 'warning', f"Account {args.dropbox_account_name} is in the ignore list. Skipping...")
             return
         ACCOUNT_FOLDERS = [args.dropbox_account_name]
         logger.info(f"Using provided Dropbox account name: {args.dropbox_account_name}")
@@ -412,8 +682,7 @@ def run_command(args):
         # Initialize Dropbox client with enhanced logging
         dropbox_client = initialize_dropbox_client(args)
         if not dropbox_client:
-            logger.error("Failed to initialize Dropbox client. Exiting...")
-            report_logger.info("\nFailed to initialize Dropbox client. Exiting...")
+            log_to_both(logger, report_logger, 'error', "Failed to initialize Dropbox client. Exiting...")
             return
             
         logger.info("Retrieving all Dropbox account folders...")
@@ -426,16 +695,11 @@ def run_command(args):
                 logger.info(f"Path exists, type: {type(metadata).__name__}")
             except ApiError as e:
                 if e.error.is_path() and e.error.get_path().is_not_found():
-                    logger.error(f"Path not found: {dropbox_root_folder}")
-                    logger.error("Please check:")
-                    logger.error("1. The path exists in your Dropbox")
-                    logger.error("2. You have permission to access this path")
-                    logger.error("3. The path is correctly formatted")
-                    report_logger.info(f"\nPath not found: {dropbox_root_folder}")
-                    report_logger.info("Please check:")
-                    report_logger.info("1. The path exists in your Dropbox")
-                    report_logger.info("2. You have permission to access this path")
-                    report_logger.info("3. The path is correctly formatted")
+                    log_to_both(logger, report_logger, 'error', f"Path not found: {dropbox_root_folder}")
+                    log_to_both(logger, report_logger, 'error', "Please check:")
+                    log_to_both(logger, report_logger, 'error', "1. The path exists in your Dropbox")
+                    log_to_both(logger, report_logger, 'error', "2. You have permission to access this path")
+                    log_to_both(logger, report_logger, 'error', "3. The path is correctly formatted")
                     return
                 raise
                 
@@ -455,30 +719,22 @@ def run_command(args):
                     logger.info(f"  - {folder}")
             
             if not ACCOUNT_FOLDERS:
-                logger.warning(f"No valid folders found in path: {dropbox_root_folder}")
-                logger.info("Please check your Dropbox folder path and permissions")
-                report_logger.info(f"\nNo valid folders found in path: {dropbox_root_folder}")
-                report_logger.info("Please check your Dropbox folder path and permissions")
+                log_to_both(logger, report_logger, 'warning', f"No valid folders found in path: {dropbox_root_folder}")
+                log_to_both(logger, report_logger, 'info', "Please check your Dropbox folder path and permissions")
                 return
                 
             logger.info(f"Successfully retrieved {len(ACCOUNT_FOLDERS)} folders from Dropbox (after filtering {ignored_count} ignored folders)")
             logger.info(f"Dropbox folder used: {dropbox_root_folder}")
             
         except ApiError as e:
-            logger.error(f"Error listing folders: {str(e)}")
-            logger.error("This could be due to:")
-            logger.error("1. Invalid path format")
-            logger.error("2. Insufficient permissions")
-            logger.error("3. Network connectivity issues")
-            report_logger.info(f"\nError listing folders: {str(e)}")
-            report_logger.info("This could be due to:")
-            report_logger.info("1. Invalid path format")
-            report_logger.info("2. Insufficient permissions")
-            report_logger.info("3. Network connectivity issues")
+            log_to_both(logger, report_logger, 'error', f"Error listing folders: {str(e)}")
+            log_to_both(logger, report_logger, 'error', "This could be due to:")
+            log_to_both(logger, report_logger, 'error', "1. Invalid path format")
+            log_to_both(logger, report_logger, 'error', "2. Insufficient permissions")
+            log_to_both(logger, report_logger, 'error', "3. Network connectivity issues")
             return
         except Exception as e:
-            logger.error(f"Unexpected error: {str(e)}")
-            report_logger.info(f"\nUnexpected error: {str(e)}")
+            log_to_both(logger, report_logger, 'error', f"Unexpected error: {str(e)}")
             return
 
     # Apply batch size and start-from if specified
@@ -490,40 +746,26 @@ def run_command(args):
 
     if args.dropbox_accounts_only:
         total_folders = len(ACCOUNT_FOLDERS)
-        logger.info(f"Dropbox account folder names:")
-        report_logger.info("\n=== DROPBOX ACCOUNT FOLDERS ===")
+        log_to_both(logger, report_logger, 'info', f"Dropbox account folder names:")
         for index, dropbox_account_folder_name in enumerate(ACCOUNT_FOLDERS, 1):
-            logger.info(f"    {index}. {dropbox_account_folder_name}")
-            report_logger.info(f"{index}. {dropbox_account_folder_name}")
+            log_to_both(logger, report_logger, 'info', f"    {index}. {dropbox_account_folder_name}")
         return
 
     if args.dropbox_accounts_and_name_parts:
         total_folders = len(ACCOUNT_FOLDERS)
-        logger.info(f"Dropbox account folder names with parsed parts:")
-        report_logger.info("\n=== DROPBOX ACCOUNT FOLDERS WITH PARSED PARTS ===")
+        log_to_both(logger, report_logger, 'info', f"Dropbox account folder names with parsed parts:")
         for index, dropbox_account_folder_name in enumerate(ACCOUNT_FOLDERS, 1):
             name_parts = extract_name_parts(dropbox_account_folder_name)
-            logger.info(f"\n{index}. {dropbox_account_folder_name}")
-            logger.info(f"   First Name: {name_parts['first_name']}")
-            logger.info(f"   Last Name: {name_parts['last_name']}")
-            logger.info(f"   Middle Name: {name_parts['middle_name']}")
-            logger.info(f"   Additional Info: {name_parts['additional_info']}")
-            logger.info(f"   Full Name: {name_parts['full_name']}")
-            logger.info(f"   Normalized Names: {name_parts['normalized_names']}")
-            logger.info(f"   Swapped Names: {name_parts['swapped_names']}")
-            logger.info(f"   Expected Dropbox Matches: {name_parts.get('expected_dropbox_matches', [])}")
-            logger.info(f"   Expected Salesforce Matches: {name_parts.get('expected_salesforce_matches', [])}")
-
-            report_logger.info(f"\n{index}. {dropbox_account_folder_name}")
-            report_logger.info(f"   First Name: {name_parts['first_name']}")
-            report_logger.info(f"   Last Name: {name_parts['last_name']}")
-            report_logger.info(f"   Middle Name: {name_parts['middle_name']}")
-            report_logger.info(f"   Additional Info: {name_parts['additional_info']}")
-            report_logger.info(f"   Full Name: {name_parts['full_name']}")
-            report_logger.info(f"   Normalized Names: {name_parts['normalized_names']}")
-            report_logger.info(f"   Swapped Names: {name_parts['swapped_names']}")
-            report_logger.info(f"   Expected Dropbox Matches: {name_parts.get('expected_dropbox_matches', [])}")
-            report_logger.info(f"   Expected Salesforce Matches: {name_parts.get('expected_salesforce_matches', [])}")
+            log_to_both(logger, report_logger, 'info', f"\n{index}. {dropbox_account_folder_name}")
+            log_to_both(logger, report_logger, 'info', f"   First Name: {name_parts['first_name']}")
+            log_to_both(logger, report_logger, 'info', f"   Last Name: {name_parts['last_name']}")
+            log_to_both(logger, report_logger, 'info', f"   Middle Name: {name_parts['middle_name']}")
+            log_to_both(logger, report_logger, 'info', f"   Additional Info: {name_parts['additional_info']}")
+            log_to_both(logger, report_logger, 'info', f"   Full Name: {name_parts['full_name']}")
+            log_to_both(logger, report_logger, 'info', f"   Normalized Names: {name_parts['normalized_names']}")
+            log_to_both(logger, report_logger, 'info', f"   Swapped Names: {name_parts['swapped_names']}")
+            log_to_both(logger, report_logger, 'info', f"   Expected Dropbox Matches: {name_parts.get('expected_dropbox_matches', [])}")
+            log_to_both(logger, report_logger, 'info', f"   Expected Salesforce Matches: {name_parts.get('expected_salesforce_matches', [])}")
         return
 
     # List to store results for summary
@@ -534,8 +776,7 @@ def run_command(args):
     # Initialize Dropbox client once before Playwright context
     dropbox_client = initialize_dropbox_client(args)
     if not dropbox_client:
-        logger.error("Failed to initialize Dropbox client. Exiting...")
-        report_logger.info("Failed to initialize Dropbox client. Exiting...")
+        log_to_both(logger, report_logger, 'error', "Failed to initialize Dropbox client. Exiting...")
         return
 
     with sync_playwright() as p:
@@ -559,8 +800,7 @@ def run_command(args):
             # Initialize command runner if commands are specified
             if args.commands or args.commands_file:
                 from src.sync.command_runner import CommandRunner
-                command_runner = CommandRunner(args)
-                command_runner.set_context('salesforce_client', salesforce_client)
+                command_runner = CommandRunner(args, log_dir)
                 command_runner.set_context('dropbox_client', dropbox_client)
                 command_runner.set_context('dropbox_root_folder', dropbox_root_folder)
                 if browser and page:
@@ -574,12 +814,10 @@ def run_command(args):
             total_folders = len(ACCOUNT_FOLDERS)
             
             if total_folders == 0:
-                logger.warning("No Dropbox accounts to process")
-                report_logger.info("\nNo Dropbox accounts to process")
+                log_to_both(logger, report_logger, 'warning', "No Dropbox accounts to process")
                 return
             
-            logger.info(f"Starting to process {total_folders} folders...")
-            report_logger.info(f"\nStarting to process {total_folders} folders...")
+            log_to_both(logger, report_logger, 'info', f"Starting to process {total_folders} folders...")
 
             excel_file = None
             flatfile_excel = None
@@ -587,8 +825,7 @@ def run_command(args):
                 # Process holiday file
                 holiday_file, temp_path, excel_file, sheets = dropbox_client._process_holiday_file()
                 if not all([holiday_file, temp_path, excel_file, sheets]):
-                    logger.error("Failed to process holiday file")
-                    report_logger.info("Failed to process holiday file")
+                    log_to_both(logger, report_logger, 'error', "Failed to process holiday file")
                     return
 
                 # Process FlatFile template
@@ -599,8 +836,7 @@ def run_command(args):
 
             # Process each folder name
             for index, dropbox_account_folder_name in enumerate(ACCOUNT_FOLDERS, 1):
-                logger.info(f"[{index}/{total_folders}] Processing Dropbox account folder: {dropbox_account_folder_name}")
-                report_logger.info(f"\n[{index}/{total_folders}] Processing Dropbox account folder: {dropbox_account_folder_name}")
+                log_to_both(logger, report_logger, 'info', f"[{index}/{total_folders}] Processing Dropbox account folder: {dropbox_account_folder_name}")
                 
                 # Initialize variables for this folder
                 dropbox_account_file_names = []
@@ -609,31 +845,31 @@ def run_command(args):
                 dropbox_account_search_result = {}
                 salesforce_account_search_result = {}
                 
-                # Add retry mechanism with 3 attempts
-                max_attempts = 3
+                # Add retry mechanism with 1 attempts
+                max_attempts = 1
                 current_attempt = 1
                 success = False
+
                 
                 while current_attempt <= max_attempts and not success:
                     try:
-                        logger.info(f"Attempt {current_attempt} of {max_attempts} for folder: {dropbox_account_folder_name}")
-                        report_logger.info(f"Attempt {current_attempt} of {max_attempts} for folder: {dropbox_account_folder_name}")
+                        log_to_both(logger, report_logger, 'info', f"Attempt {current_attempt} of {max_attempts} for folder: {dropbox_account_folder_name}")
                         
-                        if command_runner:
-                            command_runner.set_data('dropbox_account_name', dropbox_account_folder_name)
+                        logger.info(f"dropbox_account_name, {dropbox_account_folder_name}")
                         
                         logger.info('step: Extract name parts')
                         # Always extract name parts
                         dropbox_account_name_parts = extract_name_parts(dropbox_account_folder_name, log=True)
+
+                        if command_runner:
+                                command_runner.set_data('dropbox_account_name_parts', dropbox_account_name_parts)
                         
                         # Navigate to Salesforce base URL
                         if args.salesforce_accounts and account_manager:    
                             logger.info(f"Navigating to Salesforce")
                             if not account_manager.navigate_to_salesforce():
-                                logger.error("Failed to navigate to Salesforce base URL")
-                                report_logger.info("Failed to navigate to Salesforce base URL")
+                                log_to_both(logger, report_logger, 'error', "Failed to navigate to Salesforce base URL")
                                 raise Exception("Failed to navigate to Salesforce base URL")
-                            logger.info("Refreshing page")
                             account_manager.refresh_page()
 
                         # Get Dropbox account info
@@ -645,14 +881,9 @@ def run_command(args):
                             logger.info(f'dropbox_account_search_result: {dropbox_account_search_result}')
                             logger.info(f"Successfully retrieved info for Dropbox account: {dropbox_account_folder_name}")
 
-                            # # Add to summary results
-                            # summary_results.append({
-                            #     'dropbox_name': dropbox_account_folder_name,
-                            #     'dropbox_account_search_result': dropbox_account_search_result,
-                            #     'dropbox_account_file_names': dropbox_account_file_names,
-                            #     'salesforce_account_file_names': salesforce_account_file_names,
-                            #     'file_comparison': file_comparison
-                            # })
+                            # # Call log_dropbox_account_info for detailed logging if dropbox account info is available
+                            # if dropbox_account_search_result and args.dropbox_account_info:
+                            #     log_dropbox_account_info(dropbox_account_search_result, summary_logger, args, report_logger)
 
                             # Update FlatFile with account info if found
                             if dropbox_account_search_result.get('account_data'):
@@ -677,15 +908,13 @@ def run_command(args):
                             logger.info(f"step: Retrieving files for Dropbox account: {dropbox_account_folder_name}")
                             # DROPBOX ACCOUNT FILES
                             dropbox_account_file_names = dropbox_client.get_dropbox_account_files(dropbox_account_folder_name)
-                            logger.info(f"Successfully retrieved {len(dropbox_account_file_names)} files from Dropbox")
-                            report_logger.info(f"\n📁 Dropbox account files: [account: {dropbox_account_folder_name}] [files: {len(dropbox_account_file_names)}]")
+                            log_to_both(logger, report_logger, 'info', f"Successfully retrieved {len(dropbox_account_file_names)} files from Dropbox")
                             sorted_files = sorted(dropbox_account_file_names, key=lambda x: x.name)
                             for i, file in enumerate(sorted_files, 1):
                                 report_logger.info(f"   + {i}. {file.name}")
 
                             if command_runner:
                                 command_runner.set_data('dropbox_account_file_names', dropbox_account_file_names)
-                                command_runner.set_data('dropbox_account_folder_name', dropbox_account_folder_name)
                         
                         if args.salesforce_accounts and account_manager:
                             logger.info('step: Salesforce Search Account')
@@ -704,202 +933,311 @@ def run_command(args):
                             salesforce_account_name = salesforce_matches[0] if salesforce_matches else '--'
                             salesforce_match = salesforce_account_search_result['match_info']['match_status'] if 'match_info' in salesforce_account_search_result else 'No match found'
                             salesforce_view = salesforce_account_search_result.get('view', '--')
+                            logger.info(f"after salesforce_search_account salesforce_matches: {salesforce_matches}")
 
                             # Process salesforce account info and relationships if flag is set
-                            if args.salesforce_account_info and salesforce_matches:
-                                logger.info('step: Process Salesforce Account Relationships')
+                            if args.salesforce_account_info:
+                                log_to_both(logger, report_logger, 'info', 'step: Process Salesforce Account Relationships')
                                 report_logger.info("\n=== SALESFORCE ACCOUNT RELATIONSHIPS ===")
                                 
-                                # Keep track of processed relationships to avoid duplicates
-                                processed_relationships = set()
+                                # Initialize salesforce_account_information structure
+                                salesforce_account_information = {
+                                    'names_found': salesforce_matches if salesforce_matches else [],
+                                    'household': None,
+                                    'head': None,
+                                    'members': [],
+                                    'accounts': [],
+                                    'not_found_accounts': []  # Track accounts found in search but not accessible in views
+                                }
                                 
-                                for match in salesforce_matches:
-                                    logger.info(f"Processing relationships for account: {match}")
-                                    report_logger.info(f"\nProcessing relationships for account: {match}")
+                                # Only process relationships if there are matches
+                                if salesforce_matches:
+                                    # Keep track of processed relationships to avoid duplicates
+                                    processed_relationships = set()
                                     
-                                    # Check if account exists in appropriate view based on name
-                                    found_view = None
-                                    if match.endswith('Household'):
-                                        if account_manager.account_exists(match, view_name="All Accounts"):
-                                            found_view = "All Accounts"
-                                    else:
-                                        if account_manager.account_exists(match, view_name="All Clients"):
-                                            found_view = "All Clients"
-                                        elif account_manager.account_exists(match, view_name="All Accounts"):
-                                            found_view = "All Accounts"
-                                    
-                                    if found_view:
-                                        logger.info(f"Account found in {found_view} view: {match}")
+                                    for match in salesforce_matches:
+                                        log_to_both(logger, report_logger, 'info', f"Processing relationships for account: {match}")
+                                        
+                                        found_account = False
+                                        found_view = None
+
                                         # Click on the account
+                                        logger.info(f"Clicking account name: {match} in 'Search All'")
                                         if account_manager.click_account_name(match):
+                                            logger.info(f"Account found: {match}")
                                             # Get account ID
                                             is_valid, account_id = account_manager.verify_account_page_url()
                                             if is_valid and account_id:
                                                 # Get account information
                                                 account_info = account_manager.get_account_information(account_id)
-                                                report_logger.info(f"\nAccount Information:")
-                                                for key, value in account_info.items():
-                                                    report_logger.info(f"  {key}: {value}")
-                                                # Get relationships
-                                                relationships = account_manager.get_account_relationships(account_id)
-                                                if relationships:
-                                                    report_logger.info(f"\nFound {len(relationships)} relationship accounts:")
-                                                    for rel in relationships:
-                                                        # Create a unique key for this relationship
-                                                        rel_key = (rel['name'], rel['role'], rel['type'])
-                                                        
-                                                        # Skip if we've already processed this relationship
-                                                        if rel_key in processed_relationships:
-                                                            logger.info(f"Skipping already processed relationship: {rel['name']}")
-                                                            report_logger.info(f"Skipping already processed relationship: {rel['name']}")
-                                                            continue
-                                                        
-                                                        report_logger.info(f"\nRelationship Account:")
-                                                        report_logger.info(f"  Name: {rel['name']}")
-                                                        report_logger.info(f"  Type: {rel['type']}")
-                                                        report_logger.info(f"  Role: {rel['role']}")
-                                                        
-                                                        # Check if account exists and store result
-                                                        report_logger.info(f"Checking if account exists: {rel['name']} in view: {view_name}")
-                                                        account_exists = account_manager.account_exists(rel['name'], view_name=view_name)
-                                                        if account_exists:
-                                                            logger.info(f"Account exists: {rel['name']}")
-                                                            report_logger.info(f"Account exists: {rel['name']}")
-                                                            # Then click on the relationship account
-                                                            if account_manager.click_account_name(rel['name']):
-                                                                rel_is_valid, rel_account_id = account_manager.verify_account_page_url()
-                                                                if rel_is_valid and rel_account_id:
-                                                                    rel_info = account_manager.get_account_information(rel_account_id)
-                                                                    rel['account_info'] = rel_info
-                                                                    # Mark this relationship as processed
-                                                                    processed_relationships.add(rel_key)
-                                                                    # Navigate back to original account
-                                                                    account_manager.navigate_back_to_account_page()
-                                                    # Store relationships in salesforce_account_search_result, avoiding duplicates
-                                                    if 'relationships' not in salesforce_account_search_result:
-                                                        salesforce_account_search_result['relationships'] = []
-                                                    # Create a set of existing relationships to avoid duplicates
-                                                    existing_relationships = {
-                                                        (rel['name'], rel['role'], rel['type']) 
-                                                        for rel in salesforce_account_search_result['relationships']
-                                                    }
-                                                    # Only add relationships that aren't already in the set
-                                                    for rel in relationships:
-                                                        rel_key = (rel['name'], rel['role'], rel['type'])
-                                                        if rel_key not in existing_relationships:
-                                                            salesforce_account_search_result['relationships'].append(rel)
-                                                            existing_relationships.add(rel_key)
-                                                else:
-                                                    report_logger.info("\nNo relationship accounts found")
-                                            else:
-                                                logger.error(f"Could not verify account page or get account ID for: {match}")
-                                                report_logger.info(f"Could not verify account page or get account ID for: {match}")
+                                                found_account = True
+                                                log_to_both(logger, report_logger, 'info', f"Account found: {match}")
+                                                report_logger.info(f"Account ID: {account_id}")
                                         else:
-                                            logger.error(f"Could not navigate to Salesforce account: {match}")
-                                            report_logger.info(f"Could not navigate to Salesforce account: {match}")
-                                    else:
-                                        logger.error(f"Account not found in All Clients or All Clients view: {match}")
-                                        report_logger.info(f"Account not found in All Clients or All Clients view: {match}")
-
-                            if args.salesforce_accounts or args.dropbox_account_info or args.dropbox_accounts:
-                                # Add to summary results
-                                summary_results.append({
-                                    'dropbox_name': dropbox_account_folder_name,
-                                    'salesforce_account_search_result': salesforce_account_search_result,
-                                    'dropbox_account_search_result': dropbox_account_search_result,
-                                    'dropbox_account_file_names': dropbox_account_file_names,
-                                    'salesforce_account_file_names': salesforce_account_file_names,
-                                    'file_comparison': file_comparison
-                                })
-                                logger.info(f"CAROLINA summary_results: {summary_results}")
-                                
-
-                                if args.salesforce_accounts or args.dropbox_account_info:
-
-                                    log_block = f"""
-📁 **Dropbox Folder**
-   - Name: {dropbox_account_folder_name}
-   
-📄 **Dropbox Account Search** 
-"""
-                                    if args.dropbox_account_info:
-                                        dropbox_account_data = dropbox_account_search_result.get('account_data', {})
-                                        for key, value in dropbox_account_data.items():
-                                            log_block += f"   + {key}: {value}\n"
-                                        log_block += "\n"
-                                    if args.salesforce_accounts:
-                                        # Update match status to include count if there are multiple matches
-                                        if salesforce_matches and len(salesforce_matches) > 1:
-                                            salesforce_match = f"Match Found ({len(salesforce_matches)})"
+                                            log_to_both(logger, report_logger, 'error', f"Could not navigate to Salesforce account: {match} from 'Search All'")
+                                            
+                                        if not found_account:
+                                            # Check if account exists in appropriate view based on name
+                                            log_to_both(logger, report_logger, 'info', f"Account not found: {match}")
+                                            log_to_both(logger, report_logger, 'info', f"Checking if account exists in appropriate view based on name: {match}")
+                                            if match.endswith('Household'):
+                                                if account_manager.account_exists(match, view_name="All Accounts"):
+                                                    found_view = "All Accounts"
+                                            else:
+                                                if account_manager.account_exists(match, view_name="All Clients"):
+                                                    found_view = "All Clients"
+                                                elif account_manager.account_exists(match, view_name="All Accounts"):
+                                                    found_view = "All Accounts"
                                         
-                                        log_block = f"""
-   
-👤 **Salesforce Account Search**
-   - Names found: {', '.join(salesforce_matches) if salesforce_matches else '--'}
-   - Match: {salesforce_match}
-   - View: {salesforce_view}
+                                            if found_view:
+                                                log_to_both(logger, report_logger, 'info', f"Account found in {found_view} view: {match}")
+                                                # Click on the account
+                                                if account_manager.click_account_name(match):
+                                                    # Get account ID
+                                                    is_valid, account_id = account_manager.verify_account_page_url()
+                                                if is_valid and account_id:
+                                                    # Get account information
+                                                    account_info = account_manager.get_account_information(account_id)
+                                                
+                                        if found_account or (found_view != None):
+                                            # Create account structure
+                                            account_data = {
+                                                'account_name': match,
+                                                'type': 'Contact',  # Default type
+                                                'role': None,
+                                                'stage': account_info.get('stage', ''),
+                                                'email': account_info.get('email', ''),
+                                                'phone': account_info.get('phone', ''),
+                                                'mailing_address': account_info.get('mailing_address', ''),
+                                                'ssn/tax_id': account_info.get('ssn/tax_id', ''),
+                                                'relationships': []
+                                            }
+                                            
+                                            # Determine account type and role
+                                            if match.endswith('Household'):
+                                                account_data['type'] = 'Household'
+                                                salesforce_account_information['household'] = account_data
+                                            else:
+                                                # Check if this is a head or member based on relationships
+                                                account_data['type'] = 'Contact'
+                                            
+                                            # Log account information
+                                            report_logger.info(f"\nAccount Information:")
+                                            for key, value in account_info.items():
+                                                report_logger.info(f"  {key}: {value}")
+                                            
+                                            # Get relationships
+                                            relationships = account_manager.get_account_relationships(account_id)
+                                            if relationships:
+                                                report_logger.info(f"\nFound {len(relationships)} relationship accounts:")
+                                                for rel in relationships:
+                                                    # Create a unique key for this relationship
+                                                    rel_key = (rel['name'], rel['role'], rel['type'])
+                                                    
+                                                    # Skip if we've already processed this relationship
+                                                    if rel_key in processed_relationships:
+                                                        log_to_both(logger, report_logger, 'info', f"Skipping already processed relationship: {rel['name']}")
+                                                        continue
+                                                    
+                                                    report_logger.info(f"\nRelationship Account:")
+                                                    report_logger.info(f"  Name: {rel['name']}")
+                                                    report_logger.info(f"  Type: {rel['type']}")
+                                                    report_logger.info(f"  Role: {rel['role']}")
+                                                    
+                                                    # Check if account exists and store result
+                                                    report_logger.info(f"Checking if account exists: {rel['name']} in view: {view_name}")
+                                                    account_exists = account_manager.account_exists(rel['name'], view_name=view_name)
+                                                    if account_exists:
+                                                        log_to_both(logger, report_logger, 'info', f"Account exists: {rel['name']}")
+                                                        # Then click on the relationship account
+                                                        if account_manager.click_account_name(rel['name']):
+                                                            rel_is_valid, rel_account_id = account_manager.verify_account_page_url()
+                                                            if rel_is_valid and rel_account_id:
+                                                                rel_info = account_manager.get_account_information(rel_account_id)
+                                                                rel['account_info'] = rel_info
+                                                                
+                                                                # Create relationship account structure
+                                                                rel_account_data = {
+                                                                    'account_name': rel['name'],
+                                                                    'type': rel['type'],
+                                                                    'role': rel['role'],
+                                                                    'stage': rel_info.get('stage', ''),
+                                                                    'email': rel_info.get('email', ''),
+                                                                    'phone': rel_info.get('phone', ''),
+                                                                    'mailing_address': rel_info.get('mailing_address', ''),
+                                                                    'ssn/tax_id': rel_info.get('ssn/tax_id', ''),
+                                                                    'relationships': []
+                                                                }
+                                                                
+                                                                # Add to appropriate category
+                                                                if rel['role'] == 'Household Head':
+                                                                    salesforce_account_information['head'] = rel_account_data
+                                                                    account_data['role'] = 'Household Head'
+                                                                elif rel['role'] == 'Member':
+                                                                    salesforce_account_information['members'].append(rel_account_data)
+                                                                    account_data['role'] = 'Member'
+                                                                
+                                                                # Add to relationships list
+                                                                account_data['relationships'].append(rel_account_data)
+                                                                
+                                                                # Mark this relationship as processed
+                                                                processed_relationships.add(rel_key)
+                                                                # Navigate back to original account
+                                                                account_manager.navigate_back_to_account_page()
+                                                        
+                                                        # Store relationships in salesforce_account_search_result, avoiding duplicates
+                                                        if 'relationships' not in salesforce_account_search_result:
+                                                            salesforce_account_search_result['relationships'] = []
+                                                        # Create a set of existing relationships to avoid duplicates
+                                                        existing_relationships = {
+                                                            (rel['name'], rel['role'], rel['type']) 
+                                                            for rel in salesforce_account_search_result['relationships']
+                                                        }
+                                                        # Only add relationships that aren't already in the set
+                                                        for rel in relationships:
+                                                            rel_key = (rel['name'], rel['role'], rel['type'])
+                                                            if rel_key not in existing_relationships:
+                                                                salesforce_account_search_result['relationships'].append(rel)
+                                                                existing_relationships.add(rel_key)
+                                                    else:
+                                                        log_to_both(logger, report_logger, 'error', f"Could not verify account page or get account ID for: {match}")
+                                                        # Add to not_found_accounts with reason
+                                                        salesforce_account_information['not_found_accounts'].append({
+                                                            'account_name': match,
+                                                            'reason': 'Could not verify account page or get account ID',
+                                                            'found_in_search': True,
+                                                            'accessible_in_views': False
+                                                        })
+                                            else:
+                                                log_to_both(logger, report_logger, 'info', f"No relationships found for account: {match}")
+                                            
+                                            # Add account to accounts list (regardless of whether relationships were found)
+                                            salesforce_account_information['accounts'].append(account_data)
+                                        else:
+                                            log_to_both(logger, report_logger, 'error', f"Account not found in Search:All or in All Clients or All Accounts view: {match}")
+                                            # Add to not_found_accounts with reason
+                                            salesforce_account_information['not_found_accounts'].append({
+                                                'account_name': match,
+                                                'reason': 'Account not found in All Clients or All Accounts view',
+                                                'found_in_search': True,
+                                                'accessible_in_views': False
+                                            })
+                                
+                                # Store the comprehensive salesforce_account_information
+                                salesforce_account_search_result['salesforce_account_information'] = salesforce_account_information
+                                
+                                # Log the comprehensive Salesforce Account Information using the new utilities
+                                log_salesforce_account_information(salesforce_account_information, dropbox_account_folder_name, report_logger=report_logger, summary_logger=summary_logger)
+
+                        if args.salesforce_accounts or args.dropbox_account_info or args.dropbox_accounts:
+                            # Add to summary results
+                            logger.info(f"adding to summary_results")
+                            summary_results.append({
+                                'dropbox_name': dropbox_account_folder_name,
+                                'salesforce_account_search_result': salesforce_account_search_result,
+                                'dropbox_account_search_result': dropbox_account_search_result,
+                                'dropbox_account_file_names': dropbox_account_file_names,
+                                'salesforce_account_file_names': salesforce_account_file_names,
+                                'file_comparison': file_comparison
+                            })
+
+                            if args.salesforce_accounts or args.dropbox_account_info:
+
+                                if args.salesforce_accounts:
+                                    # Update match status to include count if there are multiple matches
+                                    if salesforce_matches and len(salesforce_matches) > 1:
+                                        salesforce_match = f"Match Found ({len(salesforce_matches)})"
+                                    
+                                    log_block = f"""
+
+👤 **Salesforce Account Information - [📁Dropbox Account Folder Name: {dropbox_account_folder_name}]**
+- Names found: {', '.join(salesforce_matches) if salesforce_matches else '--'}
+- Match: {salesforce_match}
+- View: {salesforce_view}
 """                 
-                                    print('*********log_block*********', log_block)
                                     report_logger.info(log_block)
 
-                                    # Create result dictionary before calling build_and_log_summary_line
-                                    result_dict = {
-                                        'dropbox_name': dropbox_account_folder_name,
-                                        'salesforce_account_search_result': salesforce_account_search_result if args.salesforce_accounts else {},
-                                        'dropbox_account_search_result': dropbox_account_search_result
-                                    }
-                                    build_and_log_summary_line(result_dict, report_logger, args)
+                                # Create result dictionary before calling the summary logging below
+                                result_dict = {
+                                    'dropbox_name': dropbox_account_folder_name,
+                                    'salesforce_account_search_result': salesforce_account_search_result if args.salesforce_accounts else {},
+                                    'dropbox_account_search_result': dropbox_account_search_result
+                                }
+                                # CAROLINA HERE
+                                # build_and_log_final_summary_line(result_dict, report_logger, summary_logger, red_logger, args)
 
-                                    # Get Salesforce files if requested and account was found
-                                    if args.salesforce_account_files and salesforce_matches and len(salesforce_matches) > 0 and salesforce_matches != "--":
-                                        salesforce_matches = salesforce_account_search_result['matches']
-                                        logger.info(f"*** salesforce_matches: {salesforce_matches}")
-                                        logger.info(f"step: Get Salesforce Account Files")
-                                        # For multiple matches, we'll check files for the first match
-                                        logger.info("for multiple matches, we'll check files for the first match")
-                                        account_to_check = salesforce_matches[0] if isinstance(salesforce_matches, list) else salesforce_matches 
-                                        logger.info(f"accounts_to_check: {account_to_check}")
-                                        # Navigate to the account and get its ID
-                                        logger.info(f"click_account_name: {account_to_check}")
-                                        if account_manager.click_account_name(account_to_check):
-                                            logger.info("verify_account_page_url")
-                                            is_valid, salesforce_account_id = account_manager.verify_account_page_url()
-                                            if is_valid and salesforce_account_id:
-                                                logger.info(f"salesforce_account_id: {salesforce_account_id}")
-                                                if command_runner:  
-                                                    command_runner.set_data('salesforce_account_id', salesforce_account_id)
-                                                logger.info(f"salesforce_account_id: {salesforce_account_id}")
+                                # Get Salesforce files if requested and account was found
+                                if args.salesforce_account_files and salesforce_matches and len(salesforce_matches) > 0 and salesforce_matches != "--":
+                                    salesforce_matches = salesforce_account_search_result['matches']
+                                    logger.info(f"*** salesforce_matches: {salesforce_matches}")
+                                    logger.info(f"step: Get Salesforce Account Files")
+                                    # For multiple matches, we'll check files for the first match
+                                    logger.info("for multiple matches, we'll check files for the first match")
+                                    account_to_check = salesforce_matches[0] if isinstance(salesforce_matches, list) else salesforce_matches 
+                                    logger.info(f"accounts_to_check: {account_to_check}")
+                                    # Navigate to the account and get its ID
+                                    logger.info(f"click_account_name: {account_to_check}")
+                                    if account_manager.click_account_name(account_to_check):
+                                        logger.info("verify_account_page_url")
+                                        is_valid, salesforce_account_id = account_manager.verify_account_page_url()
+                                        if is_valid and salesforce_account_id:
+                                            logger.info(f"salesforce_account_id: {salesforce_account_id}")
+                                            if command_runner:  
+                                                command_runner.set_data('salesforce_account_id', salesforce_account_id)
+                                            logger.info(f"salesforce_account_id: {salesforce_account_id}")
 
-                                                logger.info(f"get salesforce account file names")
-                                                salesforce_account_file_names = account_manager.get_salesforce_account_file_names(salesforce_account_id)
-                                                logger.info(f"Found {len(salesforce_account_file_names)} files in Salesforce")
+                                            logger.info(f"get salesforce account file names")
+                                            salesforce_account_file_names = account_manager.get_salesforce_account_file_names(salesforce_account_id)
+                                            logger.info(f"Found {len(salesforce_account_file_names)} files in Salesforce")
 
-                                                # Update summary results with Salesforce files
-                                                for summary in summary_results:
-                                                    if summary['dropbox_name'] == dropbox_account_folder_name:
-                                                        summary['salesforce_account_file_names'] = salesforce_account_file_names
-                                                        break
+                                            # Update summary results with Salesforce files
+                                            for summary in summary_results:
+                                                if summary['dropbox_name'] == dropbox_account_folder_name:
+                                                    summary['salesforce_account_file_names'] = salesforce_account_file_names
+                                                    break
 
-                                                if command_runner:
-                                                    command_runner.set_data('dropbox_account_folder_name', dropbox_account_folder_name)
-                                                    command_runner.set_data('salesforce_account_file_names', salesforce_account_file_names)
+                                            if command_runner:
+                                                command_runner.set_data('dropbox_account_folder_name', dropbox_account_folder_name)
+                                                command_runner.set_data('salesforce_account_file_names', salesforce_account_file_names)
 
-                                            else:
-                                                logger.error(f"Could not verify account page or get account ID for: {account_to_check}")
-                                                report_logger.info(f"Could not verify account page or get account ID for: {account_to_check}")
-                                                raise Exception(f"Could not verify account page or get account ID for: {account_to_check}")
                                         else:
-                                            logger.error(f"Could not navigate to Salesforce account: {account_to_check}")
-                                            report_logger.info(f"Could not navigate to Salesforce account: {account_to_check}")
-                                            raise Exception(f"Could not navigate to Salesforce account: {account_to_check}")
+                                            log_to_both(logger, report_logger, 'error', f"Could not verify account page or get account ID for: {account_to_check}")
+                                            raise Exception(f"Could not verify account page or get account ID for: {account_to_check}")
+                                    else:
+                                        log_to_both(logger, report_logger, 'error', f"Could not navigate to Salesforce account: {account_to_check}")
+                                        raise Exception(f"Could not navigate to Salesforce account: {account_to_check}")
 
                         if command_runner:  
                             command_runner.set_data('dropbox_account_folder_name', dropbox_account_folder_name)
-                            command_runner.set_data('dropbox_account_file_names', dropbox_account_file_names)
-                            command_runner.set_data('salesforce_account_file_names', salesforce_account_file_names)
-                            command_runner.set_data('salesforce_matches', salesforce_matches)
-                            command_runner.set_data('result', salesforce_account_search_result)
+                            command_runner.set_data('dropbox_account_file_names', dropbox_account_file_names if args.dropbox_account_files else [])
+                            command_runner.set_data('salesforce_account_file_names', salesforce_account_file_names if args.salesforce_account_files else [])
+                            command_runner.set_data('salesforce_matches', salesforce_matches if args.salesforce_accounts else [])
+                            command_runner.set_data('result', salesforce_account_search_result if args.salesforce_accounts else {})
+                            if args.salesforce_account_info and 'salesforce_account_information' in salesforce_account_search_result:
+                                command_runner.set_data('salesforce_account_information', salesforce_account_search_result['salesforce_account_information'])
+                            
+                            # Build and store dropbox_account_information structure if dropbox account info is available
+                            if args.dropbox_account_info:
+                                dropbox_account_information = command_runner._build_dropbox_account_information()
+                                command_runner.set_data('dropbox_account_information', dropbox_account_information)
+                            
                             command_runner.execute_commands()
+                            
+                            # Rebuild dropbox_account_information after commands execute to include any new data
+                            if args.dropbox_account_info:
+                                dropbox_account_information = command_runner._build_dropbox_account_information()
+                                command_runner.set_data('dropbox_account_information', dropbox_account_information)
+                            # Ensure result_dict has up-to-date application files info
+                            result_dict['account_info_from_app_files'] = dropbox_account_information.get('application_data', {})
+
+                            from sync.dropbox_client.utils.logging_utils import log_dropbox_account_information
+                            log_dropbox_account_information(
+                                dropbox_account_information,
+                                dropbox_account_folder_name,
+                                logger,
+                                summary_logger,
+                                report_logger
+                            )
                         
                         # Compare files if both Dropbox and Salesforce files are available
                         file_comparison = None
@@ -914,26 +1252,21 @@ def run_command(args):
                         
                         # If we get here without exceptions, mark as success
                         success = True
-                        logger.info(f"Successfully processed folder: {dropbox_account_folder_name} on attempt {current_attempt}")
-                        report_logger.info(f"Successfully processed folder: {dropbox_account_folder_name} on attempt {current_attempt}")
+                        log_to_both(logger, report_logger, 'info', f"Successfully processed folder: {dropbox_account_folder_name} on attempt {current_attempt}")
                         
                     except Exception as e:
-                        logger.error(f"Error processing folder {dropbox_account_folder_name} on attempt {current_attempt}: {str(e)}")
-                        report_logger.info(f"Error processing folder {dropbox_account_folder_name} on attempt {current_attempt}: {str(e)}")
+                        log_to_both(logger, report_logger, 'error', f"Error processing folder {dropbox_account_folder_name} on attempt {current_attempt}: {str(e)}")
                         
                         if current_attempt < max_attempts:
-                            logger.info(f"Retrying... (Attempt {current_attempt + 1} of {max_attempts})")
-                            report_logger.info(f"Retrying... (Attempt {current_attempt + 1} of {max_attempts})")
+                            log_to_both(logger, report_logger, 'info', f"Retrying... (Attempt {current_attempt + 1} of {max_attempts})")
                             time.sleep(2)  # Add a small delay between retries
                         else:
-                            logger.error(f"Failed to process folder {dropbox_account_folder_name} after {max_attempts} attempts")
-                            report_logger.info(f"Failed to process folder {dropbox_account_folder_name} after {max_attempts} attempts")
+                            log_to_both(logger, report_logger, 'error', f"Failed to process folder {dropbox_account_folder_name} after {max_attempts} attempts")
                         
                         current_attempt += 1
                 
                 if not success:
-                    logger.error(f"Skipping folder {dropbox_account_folder_name} after all attempts failed")
-                    report_logger.info(f"Skipping folder {dropbox_account_folder_name} after all attempts failed")
+                    log_to_both(logger, report_logger, 'error', f"Skipping folder {dropbox_account_folder_name} after all attempts failed")
                     continue
 
             # Print results summary
@@ -990,102 +1323,133 @@ def run_command(args):
                 
                 report_logger.info("=" * 50)
 
-            
-            # Print final summary
-            report_logger.info("\n=== SUMMARY ===")
-            
-            # Add icon legend
-            report_logger.info("\nIcon Legend:")
-            report_logger.info("📁 - Dropbox Folder")
-            report_logger.info("🪪 - Driver's License Found")
-            report_logger.info("🔺 - No Driver's License")
-            report_logger.info("📄 - Dropbox Account Match Found")
-            report_logger.info("🔴 - No Dropbox Account Match")
-            report_logger.info("👤 - Salesforce Account")
-            report_logger.info("🟥 - No Salesforce Account")
-            report_logger.info("\nAdditional Account Information:")
-            report_logger.info("📧 - Email")
-            report_logger.info("📞 - Phone")
-            report_logger.info("📍 - Address")
-            report_logger.info("🔒 - SSN/Tax ID")
-            report_logger.info("🎂 - Birthdate")
-            report_logger.info("👶 - Age")
-            report_logger.info("\n" + "="*50 + "\n")
-            
-            for result_dict in summary_results:
-                build_and_log_summary_line(result_dict, report_logger, args)
 
-                # Show file summary if available
-                if args.dropbox_account_files and args.salesforce_account_files:
-                    report_logger.info("\nFile Migration Status:")
-                    file_comparison = result_dict.get('file_comparison')
-                    if file_comparison:
-                        matched = file_comparison.get('matched_files', 0)
-                        total = file_comparison.get('total_files', 0)
-                        report_logger.info(f"   {matched}/{total} files matched")
-                        missing_files = file_comparison.get('missing_files', [])
-                        extra_files = file_comparison.get('extra_files', [])
-                        if missing_files:
-                            report_logger.info("   Missing files in Salesforce:")
-                            for f in missing_files:
-                                report_logger.info(f"      - {f}")
-                        if extra_files:
-                            report_logger.info("   Extra files in Salesforce:")
-                            for f in extra_files:
-                                report_logger.info(f"      - {f}")
-                    else:
-                        report_logger.info("   No files to compare")
-            
-            # Print match statistics
-            report_logger.info("\n=== MATCH STATISTICS ===")
-            if(args.dropbox_account_info):
-                # Update Dropbox match statistics
-                total_dl_matches = 0
-                total_dl_no_matches = 0
+            if summary_results:
+                # Print final summary
+                report_logger.info("\n" + "=" * 80)
+                summary_logger.info("\n" + "=" * 80)
+                report_logger.info("📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋")
+                summary_logger.info("📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋")
+                report_logger.info("📋 **FINAL SUMMARY**")
+                summary_logger.info("📋 **FINAL SUMMARY**")
+                report_logger.info("─" * 60)
+                summary_logger.info("─" * 60)
+                
+                # Add icon legend
+                log_icon_legend(summary_logger, report_logger)
+                
                 for result_dict in summary_results:
-                    dropbox_result = result_dict.get('dropbox_account_search_result', {})
-                    if dropbox_result:
-                        match_info = dropbox_result.get('search_info', {}).get('match_info', {})
-                        if match_info.get('match_status', '').lower() == 'match found':
-                            total_dropbox_matches += 1
-                        else:
-                            total_dropbox_no_matches += 1
+                    # Fetch the latest application files info from result_dict
+                    app_files_info = result_dict.get('account_info_from_app_files', {})
+                    build_and_log_final_summary_line(result_dict, report_logger, summary_logger, red_logger, red_no_salesforce_only_logger, args, app_files_info)
+
+                    # Show file summary if available
+                    if args.dropbox_account_files and args.salesforce_account_files:
+                        file_summary = "\n📁 **File Migration Status**"
+                        report_logger.info(file_summary)
+                        summary_logger.info(file_summary)
                         
-                        # Check for driver's license
-                        drivers_license_info = dropbox_result.get('drivers_license_info', {})
-                        if drivers_license_info.get('status') == 'found':
-                            total_dl_matches += 1
+                        file_comparison = result_dict.get('file_comparison')
+                        if file_comparison:
+                            matched = file_comparison.get('matched_files', 0)
+                            total = file_comparison.get('total_files', 0)
+                            status_line = f"   📄 {matched}/{total} files matched"
+                            report_logger.info(status_line)
+                            summary_logger.info(status_line)
+                            
+                            missing_files = file_comparison.get('missing_files', [])
+                            extra_files = file_comparison.get('extra_files', [])
+                            if missing_files:
+                                missing_msg = "   ❌ Missing files in Salesforce:"
+                                report_logger.info(missing_msg)
+                                summary_logger.info(missing_msg)
+                                for f in missing_files:
+                                    file_line = f"      - {f}"
+                                    report_logger.info(file_line)
+                                    summary_logger.info(file_line)
+                            if extra_files:
+                                extra_msg = "   ⚠️ Extra files in Salesforce:"
+                                report_logger.info(extra_msg)
+                                summary_logger.info(extra_msg)
+                                for f in extra_files:
+                                    file_line = f"      - {f}"
+                                    report_logger.info(file_line)
+                                    summary_logger.info(file_line)
                         else:
-                            total_dl_no_matches += 1
-                report_logger.info(f"Total Dropbox Matches Found: {total_dropbox_matches}")
-                report_logger.info(f"Total Dropbox No Matches: {total_dropbox_no_matches}")
-                report_logger.info(f"Total Driver's License Matches Found: {total_dl_matches}")
-                report_logger.info(f"Total Driver's License No Matches: {total_dl_no_matches}")
-            if(args.salesforce_accounts):
-                # Update Salesforce match statistics
-                for result_dict in summary_results:
-                    salesforce_result = result_dict.get('salesforce_account_search_result', {})
-                    if salesforce_result:
-                        match_info = salesforce_result.get('match_info', {})
-                        if match_info.get('match_status', '').lower() == 'match found':
-                            total_salesforce_matches += 1
-                        else:
-                            total_salesforce_no_matches += 1
-                report_logger.info(f"Total Salesforce Matches Found: {total_salesforce_matches}")
-                report_logger.info(f"Total Salesforce No Matches: {total_salesforce_no_matches}")
-            report_logger.info(f"Total Accounts Processed: {len(summary_results)}")
+                            no_files_msg = "   📄 No files to compare"
+                            report_logger.info(no_files_msg)
+                            summary_logger.info(no_files_msg)
+                
+                # Print match statistics
+                stats_header = "\n📊 **MATCH STATISTICS**"
+                report_logger.info(stats_header)
+                summary_logger.info(stats_header)
+                report_logger.info("─" * 40)
+                summary_logger.info("─" * 40)
+                
+                if(args.dropbox_account_info):
+                    # Update Dropbox match statistics
+                    total_dl_matches = 0
+                    total_dl_no_matches = 0
+                    for result_dict in summary_results:
+                        dropbox_result = result_dict.get('dropbox_account_search_result', {})
+                        if dropbox_result:
+                            match_info = dropbox_result.get('search_info', {}).get('match_info', {})
+                            if match_info.get('match_status', '').lower() == 'match found':
+                                total_dropbox_matches += 1
+                            else:
+                                total_dropbox_no_matches += 1
+                            
+                            if args.dl:
+                                # Check for driver's license
+                                drivers_license_info = dropbox_result.get('drivers_license_info', {})
+                                if drivers_license_info.get('status') == 'found':
+                                    total_dl_matches += 1
+                                else:
+                                    total_dl_no_matches += 1
+                    
+                    stats_lines = [
+                        f"Total Dropbox Matches Found: {total_dropbox_matches}",
+                        f"Total Dropbox No Matches: {total_dropbox_no_matches}",
+                        f"Total Driver's License Matches Found: {total_dl_matches}" if args.dl else "",
+                        f"Total Driver's License No Matches: {total_dl_no_matches}" if args.dl else ""
+                    ]
+                    for line in stats_lines:
+                        report_logger.info(line)
+                        summary_logger.info(line)
+                
+                if(args.salesforce_accounts):
+                    # Update Salesforce match statistics
+                    for result_dict in summary_results:
+                        salesforce_result = result_dict.get('salesforce_account_search_result', {})
+                        if salesforce_result:
+                            match_info = salesforce_result.get('match_info', {})
+                            if match_info.get('match_status', '').lower() == 'match found':
+                                total_salesforce_matches += 1
+                            else:
+                                total_salesforce_no_matches += 1
+                    
+                    stats_lines = [
+                        f"Total Salesforce Matches Found: {total_salesforce_matches}",
+                        f"Total Salesforce No Matches: {total_salesforce_no_matches}"
+                    ]
+                    for line in stats_lines:
+                        report_logger.info(line)
+                        summary_logger.info(line)
+                
+            if len(summary_results) > 0:
+                total_accounts_line = f"Total Accounts Processed: {len(summary_results)}"
+                report_logger.info(total_accounts_line)
+                summary_logger.info(total_accounts_line)
 
              
 
             
         except Exception as e:
             import traceback
-            logger.error(f"Command analyzer failed with error: {str(e)}")
-            logger.error("Stack trace:")
-            logger.error(traceback.format_exc())
-            report_logger.info(f"\nCommand analyzer with error: {str(e)}")
-            report_logger.info("\nStack trace:")
-            report_logger.info(traceback.format_exc())
+            log_to_both(logger, report_logger, 'error', f"Command analyzer failed with error: {str(e)}")
+            log_to_both(logger, report_logger, 'error', "Stack trace:")
+            log_to_both(logger, report_logger, 'error', traceback.format_exc())
         finally:
             report_logger.info(f"\n=== ANALYSIS COMPLETE ===")
 
@@ -1095,10 +1459,14 @@ def run_command(args):
     logging.info(duration_message)
     report_logger.info(duration_message)   
 
-def build_and_log_summary_line(result, report_logger, args):
+def build_and_log_final_summary_line(result, report_logger, summary_logger, red_logger, red_no_salesforce_only_logger, args, app_files_info=None):
     """
     Builds and logs a summary line for the report log.
     """
+    # Log method name at the beginning
+    report_logger.info("[build_and_log_final_summary_line]")
+    summary_logger.info("[build_and_log_final_summary_line]")
+    
     # Initialize salesforce_info with default values
     salesforce_info = result.get('salesforce_account_search_result', {})
     salesforce_info.setdefault('matches', [])
@@ -1107,34 +1475,60 @@ def build_and_log_summary_line(result, report_logger, args):
     
     # Set match status based on matches
     if salesforce_info.get('matches'):
-        salesforce_info['match'] = 'Match Found'
+        salesforce_info['match'] = 'Match found'
     
     # Initialize dropbox_info with default values
     dropbox_info = result.get('dropbox_account_search_result', {})
     dropbox_info.setdefault('account_name', '--')
     dropbox_info.setdefault('match', '--')
     
+    # CAROLINA HERE HERE
+    # Call log_dropbox_account_info for detailed logging if dropbox account info is available
+    # if dropbox_info and args.dropbox_account_info:
+    #     from sync.dropbox_client.utils.logging_utils import log_dropbox_account_info
+    #     # Call with both loggers so it appears in both summary and report logs
+    #     log_dropbox_account_info(dropbox_info, summary_logger, args, report_logger)
+    
     # Format the summary line
-    summary_line = format_summary_line(result.get('dropbox_name', '--'), salesforce_info, dropbox_info, args)
+    summary = format_summary_line(result.get('dropbox_name', '--'), salesforce_info, dropbox_info, args, result, app_files_info)
     
-    # Log the summary line
-    report_logger.info(summary_line)
+    # Log the summary line to both report and summary logs
+    report_logger.info(summary)
+    summary_logger.info(summary)
     
-    return summary_line
+    # Check for red items and log them to red.log
+    if '🔴' in summary or '🟥' in summary or '🚫' in summary:
+        red_logger.info(f"Red item found for account: {result.get('dropbox_name', '--')}")
+        red_logger.info(summary)
+        red_logger.info("=" * 50)
+    
+    # Check for red-no-salesforce-only items (red square only OR red square AND either red circle OR red stop sign, but not both)
+    has_red_circle = '🔴' in summary
+    has_red_stop = '🚫' in summary
+    has_red_square = '🟥' in summary
+    
+    if has_red_square and not (has_red_circle and has_red_stop):
+        red_no_salesforce_only_logger.info(f"Red-no-salesforce-only item found for account: {result.get('dropbox_name', '--')}")
+        red_no_salesforce_only_logger.info(summary)
+        red_no_salesforce_only_logger.info("=" * 50)
+    
+    return summary
 
-def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox_info: dict, args=None):
+def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox_info: dict, args=None, result=None, app_files_info=None):
     """
     Returns a formatted summary line for the report log.
     dropbox_folder_name: str
     salesforce_info: dict with keys 'matches' (list of all matching accounts), 'match', 'view'
     dropbox_info: dict with keys 'account_data', 'search_info', 'match_info'
     args: argparse.Namespace (optional, to check for salesforce_accounts flag)
+    result: dict (optional, to include additional information)
     """
     # Build the base summary with just the folder name
     summary = f"📁 **Dropbox Folder** Name: {dropbox_folder_name}"
 
     # Add driver's license info only if --dl flag is set
-    if args.dl:
+    if args.dl and args.dl is not None:
+        logger.info(f"args.dl: {args.dl}")
         drivers_license_info = dropbox_info.get('drivers_license_info', {})
         if drivers_license_info:
             drivers_license_status = drivers_license_info.get('status', 'not_found')
@@ -1164,6 +1558,70 @@ def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox
         dropbox_account_match = match_info.get('match_status', '--')
         dropbox_icon = '📄' if dropbox_account_match == 'Match found' else '🔴'
         summary += f", {dropbox_icon} Dropbox Name: {dropbox_account_search_name}, Dropbox Match: {dropbox_account_match}"
+        
+        # Add additional account information if available
+        if account_data:
+            # Contact information
+            if account_data.get('email'):
+                summary += f", 📧 {account_data['email']}"
+            if account_data.get('phone'):
+                summary += f", 📞 {account_data['phone']}"
+            
+            # Address information (condensed)
+            address_parts = []
+            if account_data.get('address'):
+                address_parts.append(account_data['address'])
+            if account_data.get('city'):
+                address_parts.append(account_data['city'])
+            if account_data.get('state'):
+                address_parts.append(account_data['state'])
+            if account_data.get('zip'):
+                address_parts.append(account_data['zip'])
+            
+            if address_parts:
+                summary += f", 📍 {', '.join(address_parts)}"
+            
+            # Personal information
+            if account_data.get('birthdate'):
+                summary += f", 🎂 {account_data['birthdate']}"
+            if account_data.get('age'):
+                summary += f", 👶 {account_data['age']}"
+            if account_data.get('gender'):
+                summary += f", 👤 {account_data['gender']}"
+            
+            # Identification information (condensed for security)
+            if account_data.get('ssn'):
+                summary += f", 🔒 SSN: ***-**-{account_data['ssn'][-4:]}" if len(account_data['ssn']) >= 4 else f", 🔒 SSN: {account_data['ssn']}"
+            if account_data.get('tax_id'):
+                summary += f", 🔒 Tax ID: ***-**-{account_data['tax_id'][-4:]}" if len(account_data['tax_id']) >= 4 else f", 🔒 Tax ID: {account_data['tax_id']}"
+    
+    # Add Application Files info - always show this information
+    if app_files_info and isinstance(app_files_info, dict) and app_files_info:
+        # Use the passed app_files_info if it has data
+        app_files_info_source = 'passed_in_app_files_info'
+    else:
+        # Fall back to result or dropbox_info
+        app_files_info = result.get('account_info_from_app_files', {}) if result else {}
+        app_files_info_source = 'result.account_info_from_app_files'
+        if not app_files_info and dropbox_info:
+            app_files_info = dropbox_info.get('application_data', {})
+            app_files_info_source = 'dropbox_info.application_data'
+    
+    debug_msg = f"[DEBUG] app_files_info source: {app_files_info_source}, value: {app_files_info}"
+    logger.info(debug_msg)
+    if 'summary_logger' in globals() and summary_logger:
+        summary_logger.info(debug_msg)
+    total_files = app_files_info.get('total_files_processed', 0)
+    complete_files = app_files_info.get('files_with_complete_info', 0)
+    partial_files = app_files_info.get('files_with_partial_info', 0)
+    no_info_files = app_files_info.get('files_with_no_info', 0)
+    if total_files > 0:
+        app_files_icon = '📄'
+        app_files_status = f"Files: {total_files} (Complete: {complete_files}, Partial: {partial_files}, None: {no_info_files})"
+    else:
+        app_files_icon = '🚫'
+        app_files_status = "No files found"
+    summary += f", {app_files_icon} App Files: {app_files_status}"
     
     # Add Salesforce info if available
     if args.salesforce_accounts:
@@ -1171,10 +1629,18 @@ def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox
         salesforce_match = salesforce_info.get('match', '--')
         salesforce_view = salesforce_info.get('view', '--')
         
+        # Set match status based on matches
+        if salesforce_matches:
+            salesforce_match = 'Match found'
+            salesforce_icon = '👤'
+        else:
+            salesforce_match = 'No match found'
+            salesforce_icon = '🟥'
+        
         # Add primary Salesforce account info
         if salesforce_matches:
             primary_account = salesforce_matches[0]
-            summary += f", 👤 Salesforce Account: {primary_account}, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
+            summary += f", {salesforce_icon} Salesforce Account: {primary_account}, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
             
             # Add all relationships
             if 'relationships' in salesforce_info:
@@ -1183,7 +1649,7 @@ def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox
                     # Add account information if available
                     account_info = rel.get('account_info', {})
                     fields_info = []
-                    logger.info(f"CAROLINA account_info: {account_info}")
+                    logger.info(f"account_info: {account_info}")
                     # Check for each field and add to fields_info if present
                     if account_info.get('email'):
                         fields_info.append('📧')
@@ -1204,7 +1670,7 @@ def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox
                     
                     summary += f"\n                                                  👤 Additional Account: {rel['name']}{relationship_info}"
         else:
-            summary += f", 🟥 Salesforce Account: --, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
+            summary += f", {salesforce_icon} Salesforce Account: --, Salesforce Match: {salesforce_match}, Salesforce View: {salesforce_view}"
     
     return summary
 
@@ -1220,23 +1686,21 @@ def prepare_flatfile_from_template(template_path, logger, report_logger):
                 os.remove(out_path)
                 logger.info(f"Deleted existing output file: {out_path}")
             except Exception as e:
-                logger.error(f"Error deleting output file {out_path}: {str(e)}")
-                report_logger.info(f"Error deleting output file {out_path}: {str(e)}")
+                log_to_both(logger, report_logger, 'error', f"Error deleting output file {out_path}: {str(e)}")
     if os.path.exists(template_path):
         try:
             flatfile_excel = pd.ExcelFile(template_path)
             logger.info("Successfully loaded FlatFile template")
             return flatfile_excel
         except Exception as e:
-            logger.error(f"Error loading FlatFile template: {str(e)}")
-            report_logger.info(f"Error loading FlatFile template: {str(e)}")
+            log_to_both(logger, report_logger, 'error', f"Error loading FlatFile template: {str(e)}")
             return None
     else:
-        logger.error(f"FlatFile template does not exist: {template_path}")
-        report_logger.info(f"FlatFile template does not exist: {template_path}")
+        log_to_both(logger, report_logger, 'error', f"FlatFile template does not exist: {template_path}")
         return None
 
 if __name__ == "__main__":
     args = parse_args()
-    logger, report_logger = setup_logging(args)
-    run_command(args) 
+    command = f"python -m sync.cmd_runner {format_args_for_logging(args)}"
+    logger, report_logger, summary_logger, red_logger, red_no_salesforce_only_logger, log_dir = setup_logging(args, command)
+    run_command(args, log_dir) 

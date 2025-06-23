@@ -8,26 +8,35 @@ from dropbox.files import FileMetadata
 from typing import List, Tuple, Optional, Dict, Any
 from datetime import datetime
 import re
-import pdf2image
-import pytesseract
-from PIL import Image
 import tempfile
-import PyPDF2
 import logging
 import urllib.parse
 from dotenv import load_dotenv
 import pandas as pd
 from sync.salesforce_client.pages.account_manager import LoggingHelper
 import json
-from PIL import ImageEnhance
+from PIL import Image, ImageEnhance
 import numpy as np
 import cv2
 import difflib
+from .app_file_extractor import AppFileExtractor
+
+# Import OCR-related modules
+try:
+    import pytesseract
+    from pdf2image import convert_from_path
+    import PyPDF2
+    OCR_AVAILABLE = True
+except ImportError:
+    OCR_AVAILABLE = False
+    logging.warning("OCR modules not available. OCR functionality will be disabled.")
 
 from .date_utils import has_date_prefix, get_folder_creation_date
 from .path_utils import clean_dropbox_folder_name
 from .file_utils import log_renamed_file
 from src.config import DROPBOX_FOLDER, ACCOUNT_INFO_PATTERN, DRIVERS_LICENSE_PATTERN, DROPBOX_HOLIDAY_FOLDER, DROPBOX_SALESFORCE_FOLDER, DROPBOX_HOLIDAY_FILE
+from .auth import DropboxAuth
+from sync.utils.name_utils import _load_special_cases
 
 # Configure logging
 # Get the logger for this module
@@ -69,9 +78,25 @@ def construct_dropbox_path(account_folder: str, root_folder: str) -> Optional[st
 
 class DropboxClient:
     def __init__(self, token: str, debug_mode: bool = False):
-        self.token = token
         self.debug_mode = debug_mode
-        self.dbx = dropbox.Dropbox(token)
+        self.auth = DropboxAuth()
+        self.token = token
+        # Get refresh token, app key, and app secret from environment
+        refresh_token = os.getenv('DROPBOX_REFRESH_TOKEN')
+        app_key = os.getenv('DROPBOX_APP_KEY')
+        app_secret = os.getenv('DROPBOX_APP_SECRET')
+        # Use Dropbox SDK's built-in refresh support if refresh token and app credentials are available
+        if refresh_token and app_key and app_secret:
+            self.dbx = dropbox.Dropbox(
+                oauth2_access_token=token,
+                oauth2_refresh_token=refresh_token,
+                app_key=app_key,
+                app_secret=app_secret
+            )
+            logger.info("Initialized Dropbox client with automatic refresh support.")
+        else:
+            self.dbx = dropbox.Dropbox(token)
+            logger.info("Initialized Dropbox client with static access token only.")
         
         # Get the root folder from environment
         folder = DROPBOX_FOLDER
@@ -124,39 +149,17 @@ class DropboxClient:
         if debug_mode:
             logging.info("Debug mode is enabled")
 
-    def _handle_token_expiration(self):
-        """Handle token expiration by refreshing the token."""
-        try:
-            new_token = refresh_access_token()
-            self.token = new_token
-            self.dbx = dropbox.Dropbox(new_token)
-            logger.info("Successfully refreshed token and reinitialized client")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to refresh token: {str(e)}")
-            return False
-
     def _make_request(self, func, *args, **kwargs):
         """
-        Make a request to Dropbox API with automatic token refresh.
-        
+        Make a request to Dropbox API. The Dropbox SDK will handle token refresh automatically if configured.
         Args:
             func: The Dropbox API function to call
             *args: Arguments to pass to the function
             **kwargs: Keyword arguments to pass to the function
-            
         Returns:
             The result of the API call
         """
-        try:
-            return func(*args, **kwargs)
-        except ApiError as e:
-            if e.error.is_expired_access_token():
-                logger.info("Access token expired, attempting to refresh...")
-                if self._handle_token_expiration():
-                    # Retry the request with the new token
-                    return func(*args, **kwargs)
-            raise
+        return func(*args, **kwargs)
 
     def _debug_show_files(self, account_name: str, files: List[FileMetadata], skip_patterns: List[str] = None) -> List[FileMetadata]:
         """
@@ -307,14 +310,17 @@ class DropboxClient:
             logger.info(f"Found expected Dropbox matches for {account_name}")
             dropbox_account_info['search_info']['status'] = 'found'
             dropbox_account_info['search_info']['match_info']['match_status'] = "Match found in expected matches"
+            dropbox_account_info['search_info']['match_info']['total_matches'] = 1
         else:
             if len(expected_matches) > 0:
                 logger.warning(f"Found {match_type} name match {match_name} but not in expected matches [{expected_matches}] for {account_name}")
                 dropbox_account_info['search_info']['status'] = 'unexpected_matches'
                 dropbox_account_info['search_info']['match_info']['match_status'] = f"Match found in {match_type} names but not in expected matches"
+                dropbox_account_info['search_info']['match_info']['total_matches'] = 1
             else:
                 dropbox_account_info['search_info']['status'] = 'found'
                 dropbox_account_info['search_info']['match_info']['match_status'] = f"Match found in {match_type} names"
+                dropbox_account_info['search_info']['match_info']['total_matches'] = 1
 
     def _store_matching_rows(self, dropbox_account_info: Dict[str, Any], matching_rows: pd.DataFrame, sheet_name: str, last_name: str) -> None:
         """
@@ -543,6 +549,7 @@ class DropboxClient:
         
         # Initialize result structure
         dropbox_account_info = {
+            'folder_name': account_name,
             'name_parts': dropbox_account_name_parts,
             'search_info': {
                 'status': 'not_found',
@@ -605,6 +612,28 @@ class DropboxClient:
                     dropbox_account_info['drivers_license_info']['reason'] = 'No driver\'s license file found in the account folder'
             else:
                 logger.info("Skipping driver's license processing (--dl flag not set)")
+
+            # Check for special cases with account_info and birth_date
+            logger.info(f"\n=== Checking for special case account info for {account_name} ===")
+            special_cases = _load_special_cases()
+            normalized_name = ' '.join(account_name.split())
+            special_case = special_cases.get(normalized_name)
+            
+            special_case_account_info = None
+            if special_case and special_case.get('account_info'):
+                logger.info(f"Found special case with account_info for: {account_name}")
+                
+                # Store special case account info for later merging
+                special_case_account_info = special_case['account_info']
+                logger.info(f"Using account_info from special case: {special_case_account_info}")
+                
+                # Update match status to indicate special case was found
+                dropbox_account_info['search_info']['status'] = 'found'
+                dropbox_account_info['search_info']['match_info']['match_status'] = "Match found (special case)"
+                dropbox_account_info['search_info']['match_info']['total_matches'] = 1
+                dropbox_account_info['search_info']['match_info']['total_no_matches'] = 0
+            else:
+                logger.info(f"No special case with account_info found for: {account_name}")
 
             # Log search parameters
             logger.info("Search parameters:")
@@ -876,6 +905,27 @@ class DropboxClient:
             else:
                 logger.info("DEBUG: No driver's_license info extracted.")
             
+            # Merge special case account info with search results if available
+            if special_case_account_info:
+                logger.info("Merging special case account info with search results...")
+                # Merge special case data, taking precedence over search results
+                for key, value in special_case_account_info.items():
+                    if value:  # Only overwrite if special case has a value
+                        dropbox_account_info['account_data'][key] = value
+                        logger.info(f"  - Set {key}: {value} (from special case)")
+                
+                # Ensure we have the basic structure even if search didn't find anything
+                if not dropbox_account_info['account_data'].get('name') and special_case_account_info.get('name'):
+                    dropbox_account_info['account_data']['name'] = special_case_account_info['name']
+                if not dropbox_account_info['account_data'].get('first_name') and special_case_account_info.get('first_name'):
+                    dropbox_account_info['account_data']['first_name'] = special_case_account_info['first_name']
+                if not dropbox_account_info['account_data'].get('last_name') and special_case_account_info.get('last_name'):
+                    dropbox_account_info['account_data']['last_name'] = special_case_account_info['last_name']
+                
+                logger.info("Special case account info merged successfully")
+            else:
+                logger.info("No special case account info to merge")
+            
             # Log driver's license information to report.log
             report_logger = logging.getLogger('report')
             if hasattr(self, 'args') and getattr(self.args, 'dl', False):
@@ -1082,7 +1132,7 @@ class DropboxClient:
 
             logging.info("Direct text extraction failed, attempting OCR")
             # If direct extraction didn't work, try OCR
-            images = pdf2image.convert_from_path(pdf_path)
+            images = convert_from_path(pdf_path)
             text = ""
             for image in images:
                 text += pytesseract.image_to_string(image)
@@ -1252,9 +1302,30 @@ class DropboxClient:
             if ext == '.pdf':
                 try:
                     text = self._extract_text_from_pdf(image_path)
+                    lines = text.split('\n')
+                    
+                    # Log first 10 lines of content
+                    logger.info("First 10 lines of PDF content:")
+                    for i, line in enumerate(lines[:10]):
+                        logger.info(f"Line {i+1}: '{line}'")
+                    
+                    # Initialize file info dictionary
+                    file_info = {
+                        'name': '',
+                        'address': '',
+                        'application_type': '',
+                        'status': '',
+                        'drivers_license': {},
+                        'drivers_license_info': {
+                            'status': 'not_found',
+                            'reason': None,
+                            'file_path': None,
+                            'extraction_errors': []
+                        }
+                    }
                     if not text.strip():
                         logger.info("Direct text extraction failed, attempting OCR")
-                        images = pdf2image.convert_from_path(
+                        images = convert_from_path(
                             image_path,
                             dpi=600,  # Higher DPI for better quality
                             grayscale=True,
@@ -1426,6 +1497,44 @@ class DropboxClient:
             logger.error(f"Error extracting driver's license info: {str(e)}")
             return {}
 
+    def extract_app_files_info(self, folder_path: str, extract_fields: set = None, name_parts: Dict[str, Any] = None, file_filter: str = None, skip_zero_length_if_account_info_exists: bool = False, report_logger: Any = None, log_dir: str = None, dropbox_account_folder_name: str = None) -> Dict[str, Any]:
+        """Extract information from application files in a Dropbox folder.
+        
+        Args:
+            folder_path: The path to the Dropbox folder containing application files
+            extract_fields: Optional set of fields to extract. If None, extracts all fields.
+                           Valid fields: 'name', 'address', 'application_type', 'status', 'birthdate', 'gender'
+            name_parts: Optional dictionary containing name parts for better name extraction
+            file_filter: Optional pattern to filter files by name (e.g. "*Life*")
+            skip_zero_length_if_account_info_exists: If True, skip processing files with 0 extracted text when account info already exists
+            report_logger: Optional report logger instance for additional logging
+            log_dir: Optional log directory for storing logs
+            dropbox_account_folder_name: Optional account folder name for organizing logs
+            
+        Returns:
+            Dict containing extracted information
+        """
+        try:
+            # Create AppFileExtractor instance
+            extractor = AppFileExtractor(self.dbx, report_logger, log_dir)
+            
+            # Extract information from the folder
+            result = extractor.extract_info(
+                folder_path, 
+                extract_fields=extract_fields, 
+                name_parts=name_parts, 
+                file_filter=file_filter, 
+                skip_zero_length_if_account_info_exists=skip_zero_length_if_account_info_exists,
+                report_logger=report_logger,
+                dropbox_account_folder_name=dropbox_account_folder_name
+            )
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error in extract_app_files_info: {str(e)}")
+            return {}
+
     def get_dropbox_salesforce_folder(self) -> Optional[str]:
         """Get the configured Dropbox Salesforce folder path."""
         return self.dropbox_salesforce_path
@@ -1562,10 +1671,10 @@ class DropboxClient:
             df = pd.read_excel(flatfile_excel, sheet_name=sheet_name)
             
             # Debug: Log current sheet data
-            logger.info(f"Current sheet data shape: {df.shape}")
-            logger.info("Columns in sheet:")
-            for col in df.columns:
-                logger.info(f"  - {col}")
+            # logger.info(f"Current sheet data shape: {df.shape}")
+            # logger.info("Columns in sheet:")
+            # for col in df.columns:
+            #     logger.info(f"  - {col}")
             
             # Check if this is a new entry or update
             last_name = mapped_data['Last Name'].lower()
@@ -1604,7 +1713,7 @@ class DropboxClient:
                                 logger.info(f"  {col}: No change (already matches)")
             else:
                 # Add new entry
-                logger.info(f"\n=== Adding new entry ===")
+                logger.info(f"\n=== Adding new entry to flatfile ===")
                 logger.info(f"No matching rows found, adding new entry to sheet: {sheet_name}")
                 # Create a new row with the same columns as the DataFrame
                 new_row = pd.DataFrame([{col: mapped_data.get(col, '') for col in df.columns}])
@@ -1693,7 +1802,7 @@ class DropboxClient:
         # --- License Number Extraction ---
         # Fix common OCR errors
         ocr_replacements = {
-            '¢': '0', '|': '1', '§': '5', '©': '0', '®': '0', '“': '1', '”': '1', '‘': '1', '’': '1',
+            '¢': '0', '|': '1', '§': '5', '©': '0', '®': '0', '"': '1', '"': '1', ''': '1', ''': '1',
             'S': '5', 'O': '0', 'I': '1', 'L': '1', 'B': '8', 'G': '6', 'Z': '2', 'Q': '0', 'D': '0', 'T': '7', 'A': '4',
             '(': '0', ')': '0', '{': '0', '}': '0', '[': '0', ']': '0', 'o': '0', 's': '5', 'l': '1', 'i': '1', 'a': '4',
             'b': '6', 'g': '9', 'z': '2', 'q': '0', 'd': '0', 't': '7', 'e': '6', 'E': '6', 'B': '8', 'G': '6', 'Z': '2', 'Q': '0', 'D': '0', 'T': '7', 'A': '4'
@@ -1782,6 +1891,8 @@ class DropboxClient:
             logger.warning("No information could be extracted from driver's license (enhanced)")
             logger.debug(f"Raw OCR text: {text}")
         return result
+
+
 
 def update_env_file(env_file, token=None, root_folder=None, directory=None):
     """Update the .env file with new values."""
@@ -1954,24 +2065,39 @@ def get_access_token() -> str:
     Returns:
         str: Dropbox access token
     """
+    logger.info("=== GET_ACCESS_TOKEN DEBUGGING ===")
+    
     # First try to load from .env file
     try:
+        logger.info("Attempting to load .env file...")
         load_dotenv()
         token = os.getenv('DROPBOX_TOKEN')
         if token:
-            logger.info("Token loaded from .env file (DROPBOX_TOKEN)")
+            logger.info("✅ Token loaded from .env file (DROPBOX_TOKEN)")
+            logger.info(f"   Token length: {len(token)} characters")
+            logger.info(f"   Token preview: {token[:20]}...")
+            logger.info("=== END GET_ACCESS_TOKEN DEBUGGING ===")
             return token
+        else:
+            logger.warning("❌ No DROPBOX_TOKEN found in .env file")
     except Exception as e:
-        logger.warning(f"Failed to load .env file: {str(e)}")
+        logger.warning(f"❌ Failed to load .env file: {str(e)}")
     
     # If not in .env, try environment variable
+    logger.info("Checking environment variable DROPBOX_TOKEN...")
     token = os.getenv('DROPBOX_TOKEN')
     if token:
-        logger.info("Token loaded from environment variable DROPBOX_TOKEN")
+        logger.info("✅ Token loaded from environment variable DROPBOX_TOKEN")
+        logger.info(f"   Token length: {len(token)} characters")
+        logger.info(f"   Token preview: {token[:20]}...")
+        logger.info("=== END GET_ACCESS_TOKEN DEBUGGING ===")
         return token
+    else:
+        logger.warning("❌ No DROPBOX_TOKEN found in environment variables")
     
     # If still not found, prompt user
-    logger.warning("No token found in .env file or environment")
+    logger.warning("❌ No token found in .env file or environment")
+    logger.info("=== END GET_ACCESS_TOKEN DEBUGGING ===")
     token = input("Please enter your Dropbox access token: ").strip()
     if not token:
         raise ValueError("No access token provided")
@@ -2179,24 +2305,39 @@ def get_refresh_token() -> str:
     Returns:
         str: Dropbox refresh token
     """
+    logger.info("=== GET_REFRESH_TOKEN DEBUGGING ===")
+    
     # First try to load from .env file
     try:
+        logger.info("Attempting to load .env file for refresh token...")
         load_dotenv()
         token = os.getenv('DROPBOX_REFRESH_TOKEN')
         if token:
-            logger.info("Refresh token loaded from .env file (DROPBOX_REFRESH_TOKEN)")
+            logger.info("✅ Refresh token loaded from .env file (DROPBOX_REFRESH_TOKEN)")
+            logger.info(f"   Token length: {len(token)} characters")
+            logger.info(f"   Token preview: {token[:20]}...")
+            logger.info("=== END GET_REFRESH_TOKEN DEBUGGING ===")
             return token
+        else:
+            logger.warning("❌ No DROPBOX_REFRESH_TOKEN found in .env file")
     except Exception as e:
-        logger.warning(f"Failed to load .env file: {str(e)}")
+        logger.warning(f"❌ Failed to load .env file: {str(e)}")
     
     # If not in .env, try environment variable
+    logger.info("Checking environment variable DROPBOX_REFRESH_TOKEN...")
     token = os.getenv('DROPBOX_REFRESH_TOKEN')
     if token:
-        logger.info("Refresh token loaded from environment variable DROPBOX_REFRESH_TOKEN")
+        logger.info("✅ Refresh token loaded from environment variable DROPBOX_REFRESH_TOKEN")
+        logger.info(f"   Token length: {len(token)} characters")
+        logger.info(f"   Token preview: {token[:20]}...")
+        logger.info("=== END GET_REFRESH_TOKEN DEBUGGING ===")
         return token
+    else:
+        logger.warning("❌ No DROPBOX_REFRESH_TOKEN found in environment variables")
     
     # If still not found, prompt user
-    logger.warning("No refresh token found in .env file or environment")
+    logger.warning("❌ No refresh token found in .env file or environment")
+    logger.info("=== END GET_REFRESH_TOKEN DEBUGGING ===")
     token = input("Please enter your Dropbox refresh token: ").strip()
     if not token:
         raise ValueError("No refresh token provided")
@@ -2240,25 +2381,43 @@ def refresh_access_token() -> str:
     Returns:
         str: New access token
     """
+    logger.info("=== REFRESH_ACCESS_TOKEN DEBUGGING ===")
+    
     try:
+        logger.info("Getting refresh token...")
         refresh_token = get_refresh_token()
-        app_key = get_app_key()
+        logger.info(f"✅ Refresh token obtained (length: {len(refresh_token)})")
         
+        logger.info("Getting app key...")
+        app_key = get_app_key()
+        logger.info(f"✅ App key obtained: {app_key[:10]}...")
+        
+        logger.info("Creating OAuth2 refresh flow...")
         # Create OAuth2 refresh flow
         auth_flow = dropbox.DropboxOAuth2FlowNoRedirect(
             app_key,
             token_access_type='offline'
         )
+        logger.info("✅ OAuth2 refresh flow created")
         
+        logger.info("Attempting to refresh access token...")
         # Get new access token
         new_token = auth_flow.refresh_access_token(refresh_token)
+        logger.info("✅ Access token refreshed successfully")
+        logger.info(f"   New token length: {len(new_token.access_token)} characters")
+        logger.info(f"   New token preview: {new_token.access_token[:20]}...")
         
+        logger.info("Updating .env file with new token...")
         # Update .env file with new token
         update_env_file('.env', token=new_token.access_token)
+        logger.info("✅ .env file updated with new token")
         
         logger.info("Successfully refreshed access token")
+        logger.info("=== END REFRESH_ACCESS_TOKEN DEBUGGING ===")
         return new_token.access_token
         
     except Exception as e:
-        logger.error(f"Failed to refresh access token: {str(e)}")
-        raise 
+        logger.error(f"❌ Failed to refresh access token: {str(e)}")
+        logger.error(f"   Error type: {type(e).__name__}")
+        logger.info("=== END REFRESH_ACCESS_TOKEN DEBUGGING ===")
+        raise

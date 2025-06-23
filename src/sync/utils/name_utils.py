@@ -14,76 +14,43 @@ import os
 import json
 from typing import Dict, List, Tuple, Optional, Any
 
+# Set up logger
+logger = logging.getLogger(__name__)
+
 # Special cases for name parsing (fallback if JSON file is not available)
 SPECIAL_CASES = {}
 
-def _load_special_cases() -> Dict[str, Dict[str, Any]]:
-    """Load special cases for name parsing from accounts/special_cases.json.
-    Falls back to hardcoded SPECIAL_CASES if the file is not available.
-    
-    Returns:
-        Dict[str, Dict[str, Any]]: Dictionary of special cases
+def _load_special_cases() -> Dict[str, str]:
+    """
+    Load special cases from JSON file
+    Returns a dictionary of special cases where the key is the folder_name
     """
     try:
-        with open('accounts/special_cases.json', 'r') as f:
+        special_cases_file = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'accounts', 'special_cases.json')
+        # logger.debug(f"[DEBUG] _load_special_cases: loading file from {special_cases_file}")
+        with open(special_cases_file, 'r') as f:
             data = json.load(f)
-            special_cases = data.get('special_cases', [])
-            
-            # Process each case to ensure expected matches exist
-            for case in special_cases:
-                if 'expected_salesforce_matches' not in case:
-                    case['expected_salesforce_matches'] = []
-                if 'expected_dropbox_matches' not in case:
-                    case['expected_dropbox_matches'] = []
-            
-            # Build dictionary with normalized folder names (single space)
-            special_cases_dict = {}
-            for case in special_cases:
-                # Normalize whitespace in folder name (replace multiple spaces with single space)
-                normalized_folder_name = ' '.join(case['folder_name'].split())
-                special_cases_dict[normalized_folder_name] = case
-            
-            return special_cases_dict
-    except FileNotFoundError:
-        logger.warning("Special cases file not found, using hardcoded values")
-        return {}
-    except json.JSONDecodeError:
-        logger.error("Error decoding special cases JSON file")
+        
+        # Convert array of special cases to dictionary with folder_name as key
+        special_cases_dict = {case['folder_name']: case for case in data.get('special_cases', [])}
+        # logger.debug(f"[DEBUG] _load_special_cases: loaded data keys={list(special_cases_dict.keys())}")
+        return special_cases_dict
+    except json.JSONDecodeError as e:
+        logger.error(f"Error decoding special cases JSON file: {str(e)}")
         return {}
     except Exception as e:
-        logger.error(f"Error loading special cases: {str(e)}")
+        logger.error(f"Error loading special cases file: {str(e)}")
         return {}
 
 def _is_special_case(name: str) -> bool:
-    """Check if a name is a special case.
-    
-    Args:
-        name (str): The name to check
-        
-    Returns:
-        bool: True if the name is a special case, False otherwise
     """
-    special_cases = _load_special_cases()
-    # Normalize whitespace in the name
-    normalized_name = ' '.join(name.split())
-    cleaned_name = re.sub(r'\([^)]*\)', '', normalized_name).strip()
-    
-    logger = logging.getLogger('name_utils')
-    logger.debug(f"[DEBUG] _is_special_case: normalized_name='{normalized_name}', cleaned_name='{cleaned_name}'")
-    # logger.debug(f"[DEBUG] _is_special_case: special_cases keys={list(special_cases.keys())}")
-    
-    # Check if the name (with or without parentheses) is in special cases
-    found = normalized_name in special_cases or cleaned_name in special_cases
-    
-    # If not found and name has parentheses, try with parentheses content
-    if not found and '(' in normalized_name and ')' in normalized_name:
-        paren_content = normalized_name[normalized_name.find('(')+1:normalized_name.find(')')].strip()
-        name_without_parens = re.sub(r'\([^)]*\)', '', normalized_name).strip()
-        name_with_content = f"{name_without_parens} {paren_content}"
-        found = name_with_content in special_cases
-    
-    logger.debug(f"[DEBUG] _is_special_case: found={found}")
-    return found
+    Check if a name is a special case using the more robust _get_special_case_rules function
+    """
+    logger.debug(f"[DEBUG] _is_special_case: checking name='{name}'")
+    rules = _get_special_case_rules(name)
+    is_special = rules is not None
+    logger.debug(f"[DEBUG] _is_special_case: is_special={is_special}")
+    return is_special
 
 def _get_special_case_rules(name: str) -> Optional[Dict[str, Any]]:
     """Get the rules for a special case name.
@@ -96,7 +63,6 @@ def _get_special_case_rules(name: str) -> Optional[Dict[str, Any]]:
     """
     special_cases = _load_special_cases()
     normalized_name = ' '.join(name.split())
-    logger = logging.getLogger('name_utils')
     logger.debug(f"[DEBUG] _get_special_case_rules: normalized_name='{normalized_name}'")
     # logger.debug(f"[DEBUG] _get_special_case_rules: special_cases keys={list(special_cases.keys())}")
     
@@ -401,5 +367,32 @@ def extract_name_parts(name: str, log: bool = False) -> Dict[str, Any]:
     #     logger.info(f"Final result: {result}")
     
     return result
+
+def should_skip_command_for_account(account_name: str, command_name: str) -> bool:
+    """
+    Check if a command should be skipped for a given account based on special case rules.
+    
+    Args:
+        account_name (str): The account name to check
+        command_name (str): The command name to check
+        
+    Returns:
+        bool: True if the command should be skipped, False otherwise
+    """
+    try:
+        special_cases = _load_special_cases()
+        normalized_name = ' '.join(account_name.split())
+        special_case = special_cases.get(normalized_name)
+        
+        if special_case and special_case.get('skip_commands'):
+            skip_commands = special_case['skip_commands']
+            if command_name in skip_commands:
+                logger.info(f"Command '{command_name}' skipped for account '{account_name}' due to special case rule")
+                return True
+        
+        return False
+    except Exception as e:
+        logger.error(f"Error checking skip command for {account_name}: {str(e)}")
+        return False
 
 

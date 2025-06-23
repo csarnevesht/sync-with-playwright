@@ -51,3 +51,15 @@ output.log*
 temp_downloads/**
 special_cases.txt
 .DS_Store
+logs saved/** 
+volumes/** 
+supabase/** supabase/
+.env.backup
+supabase
+debug_**
+ollama_request_**
+lm_studio_request_**
+lmstudioprocessor_request**
+logs/** 
+logs/.preserved_logs
+.env.backup.*
