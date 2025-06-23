@@ -589,6 +589,15 @@ class BaseProcessor(ABC):
                 processor_type = "ollama"
             owner_prompt = self.prompt_creator.create_owner_extraction_prompt(text, processor_type, filename, dropbox_folder_name)
             self.logger.info(f"owner_prompt: {owner_prompt}")
+            
+            # Write the prompt to file
+            self.prompt_creator._write_prompt_to_file(
+                owner_prompt, 
+                "owner", 
+                filename,
+                dropbox_folder_name
+            )
+            
             owner_response = self._make_request(owner_prompt)
             self.logger.info(f"owner_response: {owner_response}")
             
@@ -659,6 +668,15 @@ class BaseProcessor(ABC):
                 processor_type = "ollama"
             joint_owner_prompt = self.prompt_creator.create_joint_owner_extraction_prompt(text, processor_type, filename, dropbox_folder_name)
             self.logger.info(f"joint_owner_prompt: {joint_owner_prompt}")
+            
+            # Write the prompt to file
+            self.prompt_creator._write_prompt_to_file(
+                joint_owner_prompt, 
+                "jointOwner", 
+                filename,
+                dropbox_folder_name
+            )
+            
             joint_owner_response = self._make_request(joint_owner_prompt)
             self.logger.info(f"joint_owner_response: {joint_owner_response}")
             
@@ -723,6 +741,8 @@ class BaseProcessor(ABC):
             r'^PARTIES\s+TO\s+THE\s+CONTRACT',  # Parties to the Contract
             r'^APPLICATION\s+FOR',  # Application for Individual...
             r'^APPLICATION\s+FORM',  # Application Form
+            r'^OWNERSHIP\s+INFORMATION',  # Owner Information
+            r'\nOWNERSHIP\s+INFORMATION',  # Owner Information on new line
             r'^ANNUITANT\s+INFORMATION',  # Owner Information
             r'\nANNUITANT\s+INFORMATION',  # Owner Information on new line
             r'^OWNER\s+INFORMATION',  # Owner Information

@@ -19,9 +19,10 @@ from .prompt_creator import PromptCreator
 from .base_processor import BaseProcessor, SetEncoder
 
 class LMStudioProcessor(BaseProcessor):
-    def __init__(self, model_name: str = "local-model", base_url: str = "http://localhost:1234/v1", log_dir: str = None):
+    def __init__(self, model_name: str = "local-model", base_url: str = "http://localhost:1234/v1", log_dir: str = None, max_context_tokens: int = 32000):
         """Initialize the LM Studio processor."""
         super().__init__(model_name, base_url, log_dir)
+        self.max_context_tokens = max_context_tokens
         self._check_server_availability()
         self.prompt_creator = PromptCreator(log_dir=self.log_dir)
 
@@ -47,7 +48,34 @@ class LMStudioProcessor(BaseProcessor):
         try:
             response = requests.get(f"{self.base_url}/models")
             if response.status_code == 200:
-                models = response.json()
+                models_data = response.json()
+                self.logger.debug(f"Raw models response: {models_data}")
+                
+                # Handle different response formats
+                if isinstance(models_data, list):
+                    models = models_data
+                elif isinstance(models_data, dict):
+                    # Some APIs return {"data": [...]} format
+                    models = models_data.get('data', [])
+                elif isinstance(models_data, str):
+                    # If it's a string, try to parse it as JSON
+                    try:
+                        models = json.loads(models_data)
+                        if not isinstance(models, list):
+                            self.logger.error(f"Parsed string response is not a list: {type(models)}")
+                            return []
+                    except json.JSONDecodeError:
+                        self.logger.error(f"Could not parse string response as JSON: {models_data}")
+                        return []
+                else:
+                    self.logger.error(f"Unexpected response type: {type(models_data)}")
+                    return []
+                
+                # Ensure models is a list
+                if not isinstance(models, list):
+                    self.logger.error(f"Models is not a list: {type(models)}")
+                    return []
+                
                 self.logger.info(f"Found {len(models)} available models")
                 return models
             else:
@@ -70,30 +98,87 @@ class LMStudioProcessor(BaseProcessor):
             self.logger.info(f"Loading model: {model_id}")
             
             # First, check if the model is already loaded
-            current_models = self.list_available_models()
-            for model in current_models:
-                if model.get('id') == model_id and model.get('object') == 'model':
-                    self.logger.info(f"Model {model_id} is already loaded")
-                    return True
+            current_model = self.get_loaded_model()
+            if current_model:
+                self.logger.info(f"A model is already loaded in LM Studio")
+                # Note: We can't easily determine which specific model is loaded
+                # So we'll proceed with the load request anyway
+                # LM Studio will handle the case where a model is already loaded
             
-            # Load the model
-            response = requests.post(
-                f"{self.base_url}/models/load",
-                json={"model_id": model_id},
-                headers={"Content-Type": "application/json"}
-            )
+            # Check if the model exists in available models
+            available_models = self.list_available_models()
+            model_exists = False
+            for model in available_models:
+                if isinstance(model, dict) and model.get('id') == model_id:
+                    model_exists = True
+                    break
+                elif not isinstance(model, dict):
+                    self.logger.warning(f"Skipping non-dictionary model: {type(model)}")
             
-            if response.status_code == 200:
-                self.logger.info(f"Successfully loaded model: {model_id}")
-                return True
-            else:
-                self.logger.error(f"Failed to load model {model_id}: {response.status_code}")
-                try:
-                    error_response = response.json()
-                    self.logger.error(f"Error response: {json.dumps(error_response, indent=2)}")
-                except:
-                    self.logger.error(f"Raw error response: {response.text}")
+            if not model_exists:
+                self.logger.error(f"Model {model_id} not found in available models")
                 return False
+            
+            # Try different approaches to load the model with larger context
+            load_attempts = [
+                # Attempt 1: Try with context_length parameter
+                {
+                    "url": f"{self.base_url}/models/load",
+                    "payload": {
+                        "model_id": model_id,
+                        "context_length": 32768,
+                        "max_tokens": 4096
+                    }
+                },
+                # Attempt 2: Try without v1 prefix
+                {
+                    "url": f"{self.base_url.replace('/v1', '')}/models/load",
+                    "payload": {
+                        "model_id": model_id,
+                        "context_length": 32768
+                    }
+                },
+                # Attempt 3: Try with different parameter names
+                {
+                    "url": f"{self.base_url}/models/load",
+                    "payload": {
+                        "model_id": model_id,
+                        "max_context_length": 32768
+                    }
+                },
+                # Attempt 4: Try basic load without context parameters
+                {
+                    "url": f"{self.base_url}/models/load",
+                    "payload": {
+                        "model_id": model_id
+                    }
+                }
+            ]
+            
+            for i, attempt in enumerate(load_attempts):
+                try:
+                    self.logger.info(f"Load attempt {i+1}: {attempt['url']} with payload {attempt['payload']}")
+                    response = requests.post(
+                        attempt['url'],
+                        json=attempt['payload'],
+                        headers={"Content-Type": "application/json"}
+                    )
+                    
+                    if response.status_code == 200:
+                        self.logger.info(f"Successfully loaded model: {model_id} (attempt {i+1})")
+                        return True
+                    else:
+                        self.logger.warning(f"Load attempt {i+1} failed: {response.status_code}")
+                        try:
+                            error_response = response.json()
+                            self.logger.warning(f"Error response: {json.dumps(error_response, indent=2)}")
+                        except:
+                            self.logger.warning(f"Raw error response: {response.text}")
+                except Exception as e:
+                    self.logger.warning(f"Load attempt {i+1} exception: {str(e)}")
+            
+            self.logger.error(f"All load attempts failed for model {model_id}")
+            return False
                 
         except Exception as e:
             self.logger.error(f"Error loading model {model_id}: {str(e)}")
@@ -135,11 +220,42 @@ class LMStudioProcessor(BaseProcessor):
             Model information dictionary or None if no model is loaded
         """
         try:
-            models = self.list_available_models()
-            for model in models:
-                if model.get('object') == 'model':
-                    return model
-            return None
+            # Try to get the currently loaded model by making a request
+            # LM Studio doesn't have a direct endpoint for this, so we'll try a simple request
+            # and see what model is being used
+            test_response = requests.post(
+                f"{self.base_url}/chat/completions",
+                json={
+                    "model": "test",
+                    "messages": [{"role": "user", "content": "test"}],
+                    "max_tokens": 1
+                },
+                headers={"Content-Type": "application/json"},
+                timeout=5
+            )
+            
+            if test_response.status_code == 200:
+                # If we get a 200, there's a model loaded
+                # We can't easily determine which one, but we know one is loaded
+                self.logger.info("A model is currently loaded in LM Studio")
+                return {"id": "loaded_model", "object": "model", "status": "loaded"}
+            elif test_response.status_code == 404:
+                # Check if it's the "no models loaded" error
+                try:
+                    error_response = test_response.json()
+                    if (error_response.get('error', {}).get('code') == 'model_not_found' and
+                        'No models loaded' in error_response.get('error', {}).get('message', '')):
+                        self.logger.info("No models are currently loaded in LM Studio")
+                        return None
+                except:
+                    pass
+                
+                self.logger.info("No models are currently loaded in LM Studio")
+                return None
+            else:
+                self.logger.warning(f"Unexpected response when checking loaded model: {test_response.status_code}")
+                return None
+                
         except Exception as e:
             self.logger.error(f"Error getting loaded model: {str(e)}")
             return None
@@ -169,18 +285,25 @@ class LMStudioProcessor(BaseProcessor):
             # Try to load preferred model first
             if preferred_model_id:
                 for model in available_models:
-                    if model.get('id') == preferred_model_id:
+                    # Ensure model is a dictionary before calling .get()
+                    if isinstance(model, dict) and model.get('id') == preferred_model_id:
                         if self.load_model(preferred_model_id):
                             return True
                         break
+                    elif not isinstance(model, dict):
+                        self.logger.warning(f"Skipping non-dictionary model: {type(model)}")
             
             # If preferred model failed or not found, try the first available model
             for model in available_models:
-                model_id = model.get('id')
-                if model_id and model.get('object') == 'model':
-                    self.logger.info(f"Trying to load model: {model_id}")
-                    if self.load_model(model_id):
-                        return True
+                # Ensure model is a dictionary before calling .get()
+                if isinstance(model, dict):
+                    model_id = model.get('id')
+                    if model_id and model.get('object') == 'model':
+                        self.logger.info(f"Trying to load model: {model_id}")
+                        if self.load_model(model_id):
+                            return True
+                else:
+                    self.logger.warning(f"Skipping non-dictionary model: {type(model)}")
             
             self.logger.error("Failed to load any model")
             return False
@@ -189,12 +312,18 @@ class LMStudioProcessor(BaseProcessor):
             self.logger.error(f"Error in auto_load_model: {str(e)}")
             return False
 
-    def _truncate_prompt_for_context(self, prompt: str, max_tokens: int = 3500) -> str:
+    def _truncate_prompt_for_context(self, prompt: str, max_tokens: int = None) -> str:
         """Truncate prompt to fit within model's context window."""
+        _max_context_tokens = max_tokens if max_tokens is not None else self.max_context_tokens
+        self.logger.info(f"self.max_context_tokens: {self.max_context_tokens}")
+        self.logger.info(f"Max context tokens: {_max_context_tokens}")
+    
+        
         # Rough estimate: 1 token ≈ 4 characters
-        max_chars = max_tokens * 4
+        max_chars = _max_context_tokens * 4
         
         if len(prompt) <= max_chars:
+            self.logger.info(f"Prompt is within context window: {len(prompt)} chars")
             return prompt
         
         self.logger.warning(f"Prompt too long ({len(prompt)} chars), truncating to {max_chars} chars")

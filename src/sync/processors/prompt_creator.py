@@ -262,64 +262,6 @@ Return ONLY the JSON object. Use null for missing fields."""
 
         return final_prompt
 
-    def _create_short_extraction_prompt(self, text: str, owner_type: str, processor_type: str = "lm_studio", filename: str = None, dropbox_folder_name: str = None) -> str:
-        """Create a short extraction prompt for LM Studio to avoid context overflow."""
-        self.logger.info(f"_create_short_extraction_prompt: {owner_type}")
-        
-        # Truncate text to first 2000 characters to fit in context window
-        max_text_length = 2000
-        if len(text) > max_text_length:
-            self.logger.info(f"Truncating text from {len(text)} to {max_text_length} characters for LM Studio")
-            text = text[:max_text_length]
-        
-        # Short prompt template
-        prompt = f"""Extract {owner_type} information and return ONLY a JSON object.
-
-JSON structure:
-{{
-  "{owner_type}": {{
-    "firstName": "string or null",
-    "lastName": "string or null", 
-    "dateOfBirth": "string (YYYY-MM-DD) or null",
-    "gender": "string or null",
-    "mailingAddressStreet": "string or null",
-    "mailingAddressCity": "string or null",
-    "mailingAddressState": "string or null",
-    "mailingAddressZip": "string or null",
-    "phoneNumber": "string or null",
-    "emailAddress": "string or null"
-  }}
-}}
-
-IMPORTANT EXTRACTION GUIDELINES:
-
-For gender field:
-- Look for "Gender:" followed by "X Male Female" or similar patterns
-- If "X" appears next to "Male", extract "Male"
-- If "X" appears next to "Female", extract "Female"
-- Look for gender options with "X" or "£X" indicating the selected option
-- The "X" or "£X" indicates which option is SELECTED
-- Examples:
-  - "£ Male £X Female" → gender: "Female" (X is next to Female)
-  - "£X Male £ Female" → gender: "Male" (X is next to Male)
-  - "Male X Female" → gender: "Female" (X is next to Female)
-  - "X Male Female" → gender: "Male" (X is next to Male)
-  - "Male Female X" → gender: "Female" (X is next to Female)
-- Look in both Annuitant and Owner sections
-
-Text to analyze:
-{text}
-
-Return ONLY the JSON object."""
-        
-        self.logger.info(f"_create_short_extraction_prompt: Final Prompt BEGIN PROMPT: \n{prompt}\nEND OF PROMPT")
-        self.logger.info(f"\n{'='*80}\n{'='*80}\n{'='*80}\n{'='*80}")
-        
-        # Write prompt to file in log directory and store the path for later use
-        self._write_prompt_to_file(prompt, owner_type, filename, dropbox_folder_name)
-        
-        return prompt
-
     def create_owner_extraction_prompt(self, text: str, processor_type: str = "default", filename: str = None, dropbox_folder_name: str = None) -> str:
         """Create a prompt for extracting owner information."""
         self.logger.info(f"create_owner_extraction_prompt: Creating owner extraction prompt")
@@ -327,21 +269,13 @@ Return ONLY the JSON object."""
         self.logger.info(f"create_owner_extraction_prompt: Text length: {len(text)} characters")
         self.logger.info(f"create_owner_extraction_prompt: Processor type: {processor_type}")
         
-        # For LM Studio, create a shorter prompt to avoid context overflow
-        if processor_type == "lm_studio":
-            return self._create_short_extraction_prompt(text, "owner", processor_type, filename, dropbox_folder_name)
-        else:
-            return self._create_extraction_prompt(text, "owner", processor_type)
+        return self._create_extraction_prompt(text, "owner", processor_type)
 
     def create_joint_owner_extraction_prompt(self, text: str, processor_type: str = "default", filename: str = None, dropbox_folder_name: str = None) -> str:
         """Create a prompt for extracting joint owner information."""
         self.logger.info(f"create_joint_owner_extraction_prompt: Creating joint owner extraction prompt")
         
-        # For LM Studio, create a shorter prompt to avoid context overflow
-        if processor_type == "lm_studio":
-            return self._create_short_extraction_prompt(text, "jointOwner", processor_type, filename, dropbox_folder_name)
-        else:
-            return self._create_extraction_prompt(text, "jointOwner", processor_type)
+        return self._create_extraction_prompt(text, "jointOwner", processor_type)
 
     def create_chat_prompt(self, text: str, processor_type: str = "default") -> Dict[str, Any]:
         """
@@ -361,7 +295,7 @@ Return ONLY the JSON object."""
         
         if processor_type == "lm_studio":
             return {
-                "model": "Element Labs Inc",  # This should be configurable
+                "model": "qwen2-vl-7b-instruct",  # Use the actual model ID from LM Studio
                 "messages": [
                     {
                         "role": "system",
