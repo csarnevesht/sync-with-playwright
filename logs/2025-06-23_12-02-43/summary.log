@@ -1,0 +1,1004 @@
+Command: python -m sync.cmd_runner --env_file=.env --commands=extract-dropbox-account-app-files-info --continue_on_error --dropbox_accounts_file=accounts/todo.txt --dropbox_account_info --start_from=0
+Summary log file: logs/2025-06-23_12-02-43/summary.log
+  🚫 No application files found for /A Work Documents/A WORK Documents/Principal Protection/McNabb, Frances daughter Pam Murphy
+[_extract_dropbox_account_app_files_info] ✅ Successfully extracted information from 5 application files
+[_extract_dropbox_account_app_files_info] Files with complete info: 4
+[_extract_dropbox_account_app_files_info] Files with partial info: 0
+[_extract_dropbox_account_app_files_info] Files with no info: 1
+[_extract_dropbox_account_app_files_info] ✅ Complete account information found from app files
+✅ Account comprehensive search report written to: logs/2025-06-23_12-02-43/reports/McNabb, Frances daughter Pam Murphy_app_files_extraction.txt
+[log_dropbox_account_information]
+
+================================================================================
+📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦
+📦 **DROPBOX ACCOUNT INFORMATION** 📊
+📁 Dropbox Account Folder: McNabb, Frances daughter Pam Murphy
+================================================================================
+[_log_summary_section]
+
+📋 **SUMMARY**
+🔍 Names found: McNabb, Frances daughter Pam Murphy, Pamela/Daniel Murphy, Daniel Murphy, Pamela M Murphy
+📄 Client List File Information: Available
+📄 Application Files Data: Available
+[_log_detailed_account_information]
+
+📊 **DETAILED ACCOUNT INFORMATION**
+[_log_single_account]
+
+────────────────────────────────────────────────────────────
+📄 **Account 1: McNabb, Frances daughter Pam Murphy (Dropbox Client List)**
+────────────────────────────────────────────────────────────
+👤 Source: dropbox_client_list
+👤 Account Type: Primary
+[_log_account_details]
+✅ Match Status: Match found
+👤 First Name: Pamela/Daniel
+👤 Last Name: Murphy
+📞 Phone: 843-271-2161
+📍 Address: 1382 Whiskey Creek Dr. 
+[_log_drivers_license_info]
+
+🪪 **Driver's License**: Not found
+[_log_single_account]
+
+────────────────────────────────────────────────────────────
+📄 **Account 2: Daniel Murphy (Dropbox Application Files)**
+────────────────────────────────────────────────────────────
+👤 Source: dropbox_application_files
+👤 Account Type: Primary
+[_log_account_details]
+✅ Match Status: N/A
+👤 First Name: Daniel
+👤 Last Name: Murphy
+🎂 Birthdate: 1946-10-04
+♂️♀️ Gender: Male
+📞 Phone: 843-271-2161
+📍 Address: 371 3rd St., Key Colony, FL, 33051
+[_log_drivers_license_info]
+
+🪪 **Driver's License**: Not found
+[_log_single_account]
+
+────────────────────────────────────────────────────────────
+📄 **Account 3: Pamela M Murphy (Dropbox Application Files)**
+────────────────────────────────────────────────────────────
+👤 Source: dropbox_application_files
+👤 Account Type: Joint
+[_log_account_details]
+✅ Match Status: N/A
+👤 First Name: Pamela M
+👤 Last Name: Murphy
+🎂 Birthdate: 12/11/1950
+♂️♀️ Gender: Female
+📞 Phone: 843-605-4109
+📍 Address: 371 3rd St., Key Colony, FL, 33051
+[_log_drivers_license_info]
+
+🪪 **Driver's License**: Not found
+[_log_application_files_data]
+
+────────────────────────────────────────────────────────────
+📄 **Application Files Data**
+────────────────────────────────────────────────────────────
+
+👤 **Primary Account Holder**
+────────────────────────────────────────
+👤 Name: Daniel Murphy
+🎂 Date of Birth: 1946-10-04
+♂️♀️ Gender: Male
+📞 Phone: 843-271-2161
+📍 Address: 371 3rd St., Key Colony, FL, 33051
+
+👥 **Joint Account Holder**
+────────────────────────────────────────
+👤 Name: Pamela M Murphy
+🎂 Date of Birth: 12/11/1950
+♂️♀️ Gender: Female
+📞 Phone: 843-605-4109
+📍 Address: 371 3rd St., Key Colony, FL, 33051
+
+📊 **File Processing Statistics**
+────────────────────────────────────────
+📄 Total Files Processed: 5
+✅ Files with Complete Info: 4
+⚠️ Files with Partial Info: 0
+❌ Files with No Info: 1
+[_log_comprehensive_application_files_info]
+
+📄 **COMPREHENSIVE APPLICATION FILES INFORMATION**
+────────────────────────────────────────────────────────────
+📋 Application Type: N/A
+📊 Status: Not available
+
+📊 **File Processing Statistics**
+────────────────────────────────────────
+📄 Total Files Processed: 5
+✅ Files with Complete Info: 4
+⚠️ Files with Partial Info: 0
+❌ Files with No Info: 1
+🎯 Has Complete Account Info: ✅ Yes
+
+📁 **Individual File Details**
+────────────────────────────────────────
+
+📄 **File: 200511Murphy Joint Sec Ben App 2020.pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/McNabb, Frances daughter Pam Murphy/200511Murphy Joint Sec Ben App 2020.pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ✅ Available
+   📊 Completeness Score: 18
+
+📄 **File: 180212Mcnabb Principal App.pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/McNabb, Frances daughter Pam Murphy/180212Mcnabb Principal App.pdf
+   👤 Owner Info: ❌ Not Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 0
+
+📄 **File: 180702Murphy Sagicor App .pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/McNabb, Frances daughter Pam Murphy/180702Murphy Sagicor App .pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 9
+
+📄 **File: 210730Murphy Joint 96k Sec Ben App.pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/McNabb, Frances daughter Pam Murphy/210730Murphy Joint 96k Sec Ben App.pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ✅ Available
+   📊 Completeness Score: 13
+
+📄 **File: 230515Murphy Joint 95k Sec Ben App.pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/McNabb, Frances daughter Pam Murphy/230515Murphy Joint 95k Sec Ben App.pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ✅ Available
+   📊 Completeness Score: 17
+
+🏆 **Best Available Information Summary**
+────────────────────────────────────────
+👤 Primary Owner: Daniel Murphy
+🎂 Primary Owner DOB: 1946-10-04
+📞 Primary Owner Phone: 843-271-2161
+👥 Joint Owner: Pamela M Murphy
+🎂 Joint Owner DOB: 12/11/1950
+📞 Joint Owner Phone: 843-605-4109
+
+📋 **App Files Extraction Summary**
+────────────────────────────────────────
+📄 Summary Data Available: ✅
+📊 Total Application Files Found: 5
+📁 Processed Folders: 1
+   📂 McNabb, Frances daughter Pam Murphy
+🎂 Files with Birthdate: 0
+👤 Files with Name: 0
+⏱️ Total Processing Time: 227.56 seconds
+🕐 Processing Started: 2025-06-23 12:02:46
+📄 Total Files in Folders: 5
+   📂 McNabb, Frances daughter Pam Murphy: 5 files
+[_log_statistics_summary]
+
+📊 **STATISTICS SUMMARY**
+────────────────────────────────────────────────────────────
+📁 Total Accounts: 3
+📄 Client List File Data: ✅ Available
+📄 Application Files Data: ✅ Available
+🔍 Total Matches: 1
+🪪 Total Driver's Licenses: 0
+  🚫 No application files found for /A Work Documents/A WORK Documents/Principal Protection/Arana, Ada son Luis Arana
+[_extract_dropbox_account_app_files_info] ✅ Successfully extracted information from 18 application files
+[_extract_dropbox_account_app_files_info] Files with complete info: 11
+[_extract_dropbox_account_app_files_info] Files with partial info: 3
+[_extract_dropbox_account_app_files_info] Files with no info: 4
+[_extract_dropbox_account_app_files_info] ✅ Complete account information found from app files
+✅ Account comprehensive search report written to: logs/2025-06-23_12-02-43/reports/Arana, Ada son Luis Arana_app_files_extraction.txt
+[log_dropbox_account_information]
+
+================================================================================
+📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦
+📦 **DROPBOX ACCOUNT INFORMATION** 📊
+📁 Dropbox Account Folder: Arana, Ada son Luis Arana
+================================================================================
+[_log_summary_section]
+
+📋 **SUMMARY**
+🔍 Names found: Arana, Ada son Luis Arana, Luis Arana
+📄 Client List File Information: Available
+📄 Application Files Data: Available
+[_log_detailed_account_information]
+
+📊 **DETAILED ACCOUNT INFORMATION**
+[_log_single_account]
+
+────────────────────────────────────────────────────────────
+📄 **Account 1: Arana, Ada son Luis Arana (Dropbox Client List)**
+────────────────────────────────────────────────────────────
+👤 Source: dropbox_client_list
+👤 Account Type: Primary
+[_log_account_details]
+✅ Match Status: Match found
+👤 First Name: Luis
+👤 Last Name: Arana
+📞 Phone: 305-978-5087
+📍 Address: 560 Curtis Pkwy 
+[_log_drivers_license_info]
+
+🪪 **Driver's License**: Not found
+[_log_single_account]
+
+────────────────────────────────────────────────────────────
+📄 **Account 2: Luis Arana (Dropbox Application Files)**
+────────────────────────────────────────────────────────────
+👤 Source: dropbox_application_files
+👤 Account Type: Primary
+[_log_account_details]
+✅ Match Status: N/A
+👤 First Name: Luis
+👤 Last Name: Arana
+🎂 Birthdate: 1970-07-26
+♂️♀️ Gender: Male
+📞 Phone: 305-978-5087
+📧 Email: dubltap.la@gmail.com
+📍 Address: 560 Curtiss Parkway, Miami Springs, FL, 33166
+[_log_drivers_license_info]
+
+🪪 **Driver's License**: Not found
+[_log_application_files_data]
+
+────────────────────────────────────────────────────────────
+📄 **Application Files Data**
+────────────────────────────────────────────────────────────
+
+👤 **Primary Account Holder**
+────────────────────────────────────────
+👤 Name: Luis Arana
+🎂 Date of Birth: 1970-07-26
+♂️♀️ Gender: Male
+📧 Email: dubltap.la@gmail.com
+📞 Phone: 305-978-5087
+📍 Address: 560 Curtiss Parkway, Miami Springs, FL, 33166
+
+📊 **File Processing Statistics**
+────────────────────────────────────────
+📄 Total Files Processed: 18
+✅ Files with Complete Info: 11
+⚠️ Files with Partial Info: 3
+❌ Files with No Info: 4
+[_log_comprehensive_application_files_info]
+
+📄 **COMPREHENSIVE APPLICATION FILES INFORMATION**
+────────────────────────────────────────────────────────────
+📋 Application Type: N/A
+📊 Status: Not available
+
+📊 **File Processing Statistics**
+────────────────────────────────────────
+📄 Total Files Processed: 18
+✅ Files with Complete Info: 11
+⚠️ Files with Partial Info: 3
+❌ Files with No Info: 4
+🎯 Has Complete Account Info: ✅ Yes
+
+📁 **Individual File Details**
+────────────────────────────────────────
+
+📄 **File: 180208Arana 150k Sagicor App.pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Arana, Ada son Luis Arana/180208Arana 150k Sagicor App.pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 8
+
+📄 **File: 170605Arana Approval Notice.pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Arana, Ada son Luis Arana/170605Arana Approval Notice.pdf
+   👤 Owner Info: ❌ Not Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 0
+
+📄 **File: 161220Arana Integrity 200k App.pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Arana, Ada son Luis Arana/161220Arana Integrity 200k App.pdf
+   👤 Owner Info: ❌ Not Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 0
+
+📄 **File: 180212Arana 200k Sagicor App.pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Arana, Ada son Luis Arana/180212Arana 200k Sagicor App.pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 9
+
+📄 **File: 200401Arana Delaware Life 73k App.pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Arana, Ada son Luis Arana/200401Arana Delaware Life 73k App.pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 9
+
+📄 **File: 210701Luis Arana 32k North American App.pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Arana, Ada son Luis Arana/210701Luis Arana 32k North American App.pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 4
+
+📄 **File: 161220Arana Integrity 25k App.pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Arana, Ada son Luis Arana/161220Arana Integrity 25k App.pdf
+   👤 Owner Info: ❌ Not Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 0
+
+📄 **File: 170124ACCESS Application 674335239 arana.pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Arana, Ada son Luis Arana/170124ACCESS Application 674335239 arana.pdf
+   👤 Owner Info: ❌ Not Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 0
+
+📄 **File: 230626Luis Arana Prudential App (NQ 25k).pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Arana, Ada son Luis Arana/230626Luis Arana Prudential App (NQ 25k).pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 8
+
+📄 **File: 230625Luis Arana Prudential App (IRA 42k).pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Arana, Ada son Luis Arana/230625Luis Arana Prudential App (IRA 42k).pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 8
+
+📄 **File: 200609Global Atlantic App 320k.pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Arana, Ada son Luis Arana/200609Global Atlantic App 320k.pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 8
+
+📄 **File: 220420Arana Allianz 222 Annuity App.pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Arana, Ada son Luis Arana/220420Arana Allianz 222 Annuity App.pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 10
+
+📄 **File: 240509 Arana Prudential App (2nd Allianz Replacement).pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Arana, Ada son Luis Arana/240509 Arana Prudential App (2nd Allianz Replacement).pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 8
+
+📄 **File: 240509 Arana Prudential App (2nd Global Atlantic Replacement).pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Arana, Ada son Luis Arana/240509 Arana Prudential App (2nd Global Atlantic Replacement).pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 8
+
+📄 **File: 240522 Arana Prudential 25k App (w correct age).pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Arana, Ada son Luis Arana/240522 Arana Prudential 25k App (w correct age).pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 8
+
+📄 **File: 240522 Arana Prudential 38k App (w correct age).pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Arana, Ada son Luis Arana/240522 Arana Prudential 38k App (w correct age).pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 8
+
+📄 **File: Luis Arana 42k Delaware App (Allianz).pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Arana, Ada son Luis Arana/Luis Arana 42k Delaware App (Allianz).pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 4
+
+📄 **File: Luis Arana 20k Delaware App (Global Atlantic).pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Arana, Ada son Luis Arana/Luis Arana 20k Delaware App (Global Atlantic).pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 4
+
+🏆 **Best Available Information Summary**
+────────────────────────────────────────
+👤 Primary Owner: Luis Arana
+🎂 Primary Owner DOB: 1970-07-26
+📞 Primary Owner Phone: 305-978-5087
+📧 Primary Owner Email: dubltap.la@gmail.com
+
+📋 **App Files Extraction Summary**
+────────────────────────────────────────
+📄 Summary Data Available: ✅
+📊 Total Application Files Found: 18
+📁 Processed Folders: 1
+   📂 Arana, Ada son Luis Arana
+🎂 Files with Birthdate: 0
+👤 Files with Name: 0
+⏱️ Total Processing Time: 603.52 seconds
+🕐 Processing Started: 2025-06-23 12:06:33
+📄 Total Files in Folders: 18
+   📂 Arana, Ada son Luis Arana: 18 files
+[_log_statistics_summary]
+
+📊 **STATISTICS SUMMARY**
+────────────────────────────────────────────────────────────
+📁 Total Accounts: 2
+📄 Client List File Data: ✅ Available
+📄 Application Files Data: ✅ Available
+🔍 Total Matches: 1
+🪪 Total Driver's Licenses: 0
+  🚫 No application files found for /A Work Documents/A WORK Documents/Principal Protection/Velazquez, Gizelle
+[_extract_dropbox_account_app_files_info] ✅ Successfully extracted information from 1 application files
+[_extract_dropbox_account_app_files_info] Files with complete info: 0
+[_extract_dropbox_account_app_files_info] Files with partial info: 1
+[_extract_dropbox_account_app_files_info] Files with no info: 0
+[_extract_dropbox_account_app_files_info] ⚠️ Incomplete account information from app files
+✅ Account comprehensive search report written to: logs/2025-06-23_12-02-43/reports/Velazquez, Gizelle_app_files_extraction.txt
+[log_dropbox_account_information]
+
+================================================================================
+📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦
+📦 **DROPBOX ACCOUNT INFORMATION** 📊
+📁 Dropbox Account Folder: Velazquez, Gizelle
+================================================================================
+[_log_summary_section]
+
+📋 **SUMMARY**
+🔍 Names found: Velazquez, Gizelle, Gizelle Velazquez, Gizelle Ortiz-Velazquez
+📄 Client List File Information: Available
+📄 Application Files Data: Available
+[_log_detailed_account_information]
+
+📊 **DETAILED ACCOUNT INFORMATION**
+[_log_single_account]
+
+────────────────────────────────────────────────────────────
+📄 **Account 1: Velazquez, Gizelle (Dropbox Client List)**
+────────────────────────────────────────────────────────────
+👤 Source: dropbox_client_list
+👤 Account Type: Primary
+[_log_account_details]
+✅ Match Status: Match found
+👤 First Name: Gizelle
+👤 Last Name: Velazquez
+📞 Phone: 305-205-0834
+📍 Address: 10420 S.W 128th Pl.
+[_log_drivers_license_info]
+
+🪪 **Driver's License**: Not found
+[_log_single_account]
+
+────────────────────────────────────────────────────────────
+📄 **Account 2: Gizelle Ortiz-Velazquez (Dropbox Application Files)**
+────────────────────────────────────────────────────────────
+👤 Source: dropbox_application_files
+👤 Account Type: Primary
+[_log_account_details]
+✅ Match Status: N/A
+👤 First Name: Gizelle
+👤 Last Name: Ortiz-Velazquez
+🎂 Birthdate: 09/05/1963
+♂️♀️ Gender: Female
+[_log_drivers_license_info]
+
+🪪 **Driver's License**: Not found
+[_log_application_files_data]
+
+────────────────────────────────────────────────────────────
+📄 **Application Files Data**
+────────────────────────────────────────────────────────────
+
+👤 **Primary Account Holder**
+────────────────────────────────────────
+👤 Name: Gizelle Ortiz-Velazquez
+🎂 Date of Birth: 09/05/1963
+♂️♀️ Gender: Female
+
+📊 **File Processing Statistics**
+────────────────────────────────────────
+📄 Total Files Processed: 1
+✅ Files with Complete Info: 0
+⚠️ Files with Partial Info: 1
+❌ Files with No Info: 0
+[_log_comprehensive_application_files_info]
+
+📄 **COMPREHENSIVE APPLICATION FILES INFORMATION**
+────────────────────────────────────────────────────────────
+📋 Application Type: N/A
+📊 Status: Not available
+
+📊 **File Processing Statistics**
+────────────────────────────────────────
+📄 Total Files Processed: 1
+✅ Files with Complete Info: 0
+⚠️ Files with Partial Info: 1
+❌ Files with No Info: 0
+🎯 Has Complete Account Info: ❌ No
+
+📁 **Individual File Details**
+────────────────────────────────────────
+
+📄 **File: 190531 Ortiz-Velazquez NA 170k App.pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Velazquez, Gizelle/190531 Ortiz-Velazquez NA 170k App.pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 4
+
+🏆 **Best Available Information Summary**
+────────────────────────────────────────
+👤 Primary Owner: Gizelle Ortiz-Velazquez
+🎂 Primary Owner DOB: 09/05/1963
+
+📋 **App Files Extraction Summary**
+────────────────────────────────────────
+📄 Summary Data Available: ✅
+📊 Total Application Files Found: 1
+📁 Processed Folders: 1
+   📂 Velazquez, Gizelle
+🎂 Files with Birthdate: 0
+👤 Files with Name: 0
+⏱️ Total Processing Time: 40.81 seconds
+🕐 Processing Started: 2025-06-23 12:16:37
+📄 Total Files in Folders: 1
+   📂 Velazquez, Gizelle: 1 files
+[_log_statistics_summary]
+
+📊 **STATISTICS SUMMARY**
+────────────────────────────────────────────────────────────
+📁 Total Accounts: 2
+📄 Client List File Data: ✅ Available
+📄 Application Files Data: ✅ Available
+🔍 Total Matches: 1
+🪪 Total Driver's Licenses: 0
+  🚫 No application files found for /A Work Documents/A WORK Documents/Principal Protection/Afanador, Isabel
+[_extract_dropbox_account_app_files_info] ✅ Successfully extracted information from 5 application files
+[_extract_dropbox_account_app_files_info] Files with complete info: 4
+[_extract_dropbox_account_app_files_info] Files with partial info: 0
+[_extract_dropbox_account_app_files_info] Files with no info: 1
+[_extract_dropbox_account_app_files_info] ✅ Complete account information found from app files
+✅ Account comprehensive search report written to: logs/2025-06-23_12-02-43/reports/Afanador, Isabel_app_files_extraction.txt
+[log_dropbox_account_information]
+
+================================================================================
+📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦
+📦 **DROPBOX ACCOUNT INFORMATION** 📊
+📁 Dropbox Account Folder: Afanador, Isabel
+================================================================================
+[_log_summary_section]
+
+📋 **SUMMARY**
+🔍 Names found: Afanador, Isabel, Isabel Afanador
+📄 Client List File Information: Available
+📄 Application Files Data: Available
+[_log_detailed_account_information]
+
+📊 **DETAILED ACCOUNT INFORMATION**
+[_log_single_account]
+
+────────────────────────────────────────────────────────────
+📄 **Account 1: Afanador, Isabel (Dropbox Client List)**
+────────────────────────────────────────────────────────────
+👤 Source: dropbox_client_list
+👤 Account Type: Primary
+[_log_account_details]
+✅ Match Status: Match found
+👤 First Name: Isabel
+👤 Last Name: Afanador
+📞 Phone: 305-262-4653/ Cell: 305-345-9323
+📍 Address: 2700 S.W 80th Ave
+[_log_drivers_license_info]
+
+🪪 **Driver's License**: Not found
+[_log_single_account]
+
+────────────────────────────────────────────────────────────
+📄 **Account 2: Isabel Afanador (Dropbox Application Files)**
+────────────────────────────────────────────────────────────
+👤 Source: dropbox_application_files
+👤 Account Type: Primary
+[_log_account_details]
+✅ Match Status: N/A
+👤 First Name: Isabel
+👤 Last Name: Afanador
+🎂 Birthdate: 09/20/1955
+♂️♀️ Gender: Female
+📞 Phone: (305) 345-9323
+📧 Email: iafanadorn@aol.com
+📍 Address: 2700 S.W 80th Ave., Miami, FL, 33155
+[_log_drivers_license_info]
+
+🪪 **Driver's License**: Not found
+[_log_application_files_data]
+
+────────────────────────────────────────────────────────────
+📄 **Application Files Data**
+────────────────────────────────────────────────────────────
+
+👤 **Primary Account Holder**
+────────────────────────────────────────
+👤 Name: Isabel Afanador
+🎂 Date of Birth: 09/20/1955
+♂️♀️ Gender: Female
+📧 Email: iafanadorn@aol.com
+📞 Phone: (305) 345-9323
+📍 Address: 2700 S.W 80th Ave., Miami, FL, 33155
+
+📊 **File Processing Statistics**
+────────────────────────────────────────
+📄 Total Files Processed: 5
+✅ Files with Complete Info: 4
+⚠️ Files with Partial Info: 0
+❌ Files with No Info: 1
+[_log_comprehensive_application_files_info]
+
+📄 **COMPREHENSIVE APPLICATION FILES INFORMATION**
+────────────────────────────────────────────────────────────
+📋 Application Type: N/A
+📊 Status: Not available
+
+📊 **File Processing Statistics**
+────────────────────────────────────────
+📄 Total Files Processed: 5
+✅ Files with Complete Info: 4
+⚠️ Files with Partial Info: 0
+❌ Files with No Info: 1
+🎯 Has Complete Account Info: ✅ Yes
+
+📁 **Individual File Details**
+────────────────────────────────────────
+
+📄 **File: 191015Afanador Global Atlantic App 2019.pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Afanador, Isabel/191015Afanador Global Atlantic App 2019.pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 8
+
+📄 **File: 191009Nationwide Application.pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Afanador, Isabel/191009Nationwide Application.pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 8
+
+📄 **File: 220616Isabel Afanador AIG Application.pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Afanador, Isabel/220616Isabel Afanador AIG Application.pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 8
+
+📄 **File: 210520American Equity 192k App.pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Afanador, Isabel/210520American Equity 192k App.pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 10
+
+📄 **File: Isabel Afanador 317k Sec Ben App.pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Afanador, Isabel/Isabel Afanador 317k Sec Ben App.pdf
+   👤 Owner Info: ❌ Not Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 0
+
+🏆 **Best Available Information Summary**
+────────────────────────────────────────
+👤 Primary Owner: Isabel Afanador
+🎂 Primary Owner DOB: 09/20/1955
+📞 Primary Owner Phone: (305) 345-9323
+📧 Primary Owner Email: iafanadorn@aol.com
+
+📋 **App Files Extraction Summary**
+────────────────────────────────────────
+📄 Summary Data Available: ✅
+📊 Total Application Files Found: 5
+📁 Processed Folders: 1
+   📂 Afanador, Isabel
+🎂 Files with Birthdate: 0
+👤 Files with Name: 0
+⏱️ Total Processing Time: 193.67 seconds
+🕐 Processing Started: 2025-06-23 12:17:18
+📄 Total Files in Folders: 5
+   📂 Afanador, Isabel: 5 files
+[_log_statistics_summary]
+
+📊 **STATISTICS SUMMARY**
+────────────────────────────────────────────────────────────
+📁 Total Accounts: 2
+📄 Client List File Data: ✅ Available
+📄 Application Files Data: ✅ Available
+🔍 Total Matches: 1
+🪪 Total Driver's Licenses: 0
+  🚫 No application files found for /A Work Documents/A WORK Documents/Principal Protection/Montesino, Maria
+[_extract_dropbox_account_app_files_info] ✅ Successfully extracted information from 1 application files
+[_extract_dropbox_account_app_files_info] Files with complete info: 1
+[_extract_dropbox_account_app_files_info] Files with partial info: 0
+[_extract_dropbox_account_app_files_info] Files with no info: 0
+[_extract_dropbox_account_app_files_info] ✅ Complete account information found from app files
+✅ Account comprehensive search report written to: logs/2025-06-23_12-02-43/reports/Montesino, Maria_app_files_extraction.txt
+[log_dropbox_account_information]
+
+================================================================================
+📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦
+📦 **DROPBOX ACCOUNT INFORMATION** 📊
+📁 Dropbox Account Folder: Montesino, Maria
+================================================================================
+[_log_summary_section]
+
+📋 **SUMMARY**
+🔍 Names found: Montesino, Maria, Maria Montesino
+📄 Client List File Information: Available
+📄 Application Files Data: Available
+[_log_detailed_account_information]
+
+📊 **DETAILED ACCOUNT INFORMATION**
+[_log_single_account]
+
+────────────────────────────────────────────────────────────
+📄 **Account 1: Montesino, Maria (Dropbox Client List)**
+────────────────────────────────────────────────────────────
+👤 Source: dropbox_client_list
+👤 Account Type: Primary
+[_log_account_details]
+✅ Match Status: Match found
+👤 First Name: Maria
+👤 Last Name: Montesino
+📞 Phone: 786-282-4047
+📍 Address: 920 NE 199 ST. Apt. 417
+[_log_drivers_license_info]
+
+🪪 **Driver's License**: Not found
+[_log_single_account]
+
+────────────────────────────────────────────────────────────
+📄 **Account 2: Maria Montesino (Dropbox Application Files)**
+────────────────────────────────────────────────────────────
+👤 Source: dropbox_application_files
+👤 Account Type: Primary
+[_log_account_details]
+✅ Match Status: N/A
+👤 First Name: Maria
+👤 Last Name: Montesino
+🎂 Birthdate: 01/25/1953
+♂️♀️ Gender: Female
+📞 Phone: (786) 2-82-4047
+📧 Email: jackaron2014@outlook.com
+📍 Address: 920 NE 199 St., Miami, FL, 33179
+[_log_drivers_license_info]
+
+🪪 **Driver's License**: Not found
+[_log_application_files_data]
+
+────────────────────────────────────────────────────────────
+📄 **Application Files Data**
+────────────────────────────────────────────────────────────
+
+👤 **Primary Account Holder**
+────────────────────────────────────────
+👤 Name: Maria Montesino
+🎂 Date of Birth: 01/25/1953
+♂️♀️ Gender: Female
+📧 Email: jackaron2014@outlook.com
+📞 Phone: (786) 2-82-4047
+📍 Address: 920 NE 199 St., Miami, FL, 33179
+
+📊 **File Processing Statistics**
+────────────────────────────────────────
+📄 Total Files Processed: 1
+✅ Files with Complete Info: 1
+⚠️ Files with Partial Info: 0
+❌ Files with No Info: 0
+[_log_comprehensive_application_files_info]
+
+📄 **COMPREHENSIVE APPLICATION FILES INFORMATION**
+────────────────────────────────────────────────────────────
+📋 Application Type: N/A
+📊 Status: Not available
+
+📊 **File Processing Statistics**
+────────────────────────────────────────
+📄 Total Files Processed: 1
+✅ Files with Complete Info: 1
+⚠️ Files with Partial Info: 0
+❌ Files with No Info: 0
+🎯 Has Complete Account Info: ✅ Yes
+
+📁 **Individual File Details**
+────────────────────────────────────────
+
+📄 **File: 210928American Equity Application.pdf**
+   📍 Path: /A Work Documents/A WORK Documents/Principal Protection/Montesino, Maria/210928American Equity Application.pdf
+   👤 Owner Info: ✅ Available
+   👥 Joint Owner Info: ❌ Not Available
+   📊 Completeness Score: 10
+
+🏆 **Best Available Information Summary**
+────────────────────────────────────────
+👤 Primary Owner: Maria Montesino
+🎂 Primary Owner DOB: 01/25/1953
+📞 Primary Owner Phone: (786) 2-82-4047
+📧 Primary Owner Email: jackaron2014@outlook.com
+
+📋 **App Files Extraction Summary**
+────────────────────────────────────────
+📄 Summary Data Available: ✅
+📊 Total Application Files Found: 1
+📁 Processed Folders: 1
+   📂 Montesino, Maria
+🎂 Files with Birthdate: 0
+👤 Files with Name: 0
+⏱️ Total Processing Time: 91.48 seconds
+🕐 Processing Started: 2025-06-23 12:20:32
+📄 Total Files in Folders: 1
+   📂 Montesino, Maria: 1 files
+[_log_statistics_summary]
+
+📊 **STATISTICS SUMMARY**
+────────────────────────────────────────────────────────────
+📁 Total Accounts: 2
+📄 Client List File Data: ✅ Available
+📄 Application Files Data: ✅ Available
+🔍 Total Matches: 1
+🪪 Total Driver's Licenses: 0
+  🚫 No application files found for /A Work Documents/A WORK Documents/Principal Protection/Yi, Francisco (Medicaid Mike)
+[_extract_dropbox_account_app_files_info] ✅ Successfully extracted information from 0 application files
+[_extract_dropbox_account_app_files_info] Files with complete info: 0
+[_extract_dropbox_account_app_files_info] Files with partial info: 0
+[_extract_dropbox_account_app_files_info] Files with no info: 0
+[_extract_dropbox_account_app_files_info] ⚠️ Incomplete account information from app files
+✅ Account comprehensive search report written to: logs/2025-06-23_12-02-43/reports/Yi, Francisco (Medicaid Mike)_app_files_extraction.txt
+[log_dropbox_account_information]
+
+================================================================================
+📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦
+📦 **DROPBOX ACCOUNT INFORMATION** 📊
+📁 Dropbox Account Folder: Yi, Francisco (Medicaid Mike)
+================================================================================
+[_log_summary_section]
+
+📋 **SUMMARY**
+🔍 Names found: Yi, Francisco (Medicaid Mike)
+📄 Client List File Information: Not available
+📄 Application Files Data: Not available
+[_log_detailed_account_information]
+
+📊 **DETAILED ACCOUNT INFORMATION**
+[_log_application_files_data]
+[_log_comprehensive_application_files_info]
+
+📄 **COMPREHENSIVE APPLICATION FILES INFORMATION**
+────────────────────────────────────────────────────────────
+📋 Application Type: N/A
+📊 Status: Not available
+
+📊 **File Processing Statistics**
+────────────────────────────────────────
+📄 Total Files Processed: 0
+✅ Files with Complete Info: 0
+⚠️ Files with Partial Info: 0
+❌ Files with No Info: 0
+🎯 Has Complete Account Info: ❌ No
+
+📋 **App Files Extraction Summary**
+────────────────────────────────────────
+📄 Summary Data Available: ✅
+📊 Total Application Files Found: 0
+📁 Processed Folders: 1
+   📂 Yi, Francisco (Medicaid Mike)
+🎂 Files with Birthdate: 0
+👤 Files with Name: 0
+⏱️ Total Processing Time: 0.45 seconds
+🕐 Processing Started: 2025-06-23 12:22:04
+📄 Total Files in Folders: 0
+   📂 Yi, Francisco (Medicaid Mike): 0 files
+[_log_statistics_summary]
+
+📊 **STATISTICS SUMMARY**
+────────────────────────────────────────────────────────────
+📁 Total Accounts: 0
+📄 Client List File Data: ❌ Not Available
+📄 Application Files Data: 🚫 Not Available
+🔍 Total Matches: 0
+🪪 Total Driver's Licenses: 0
+  🚫 No application files found for /A Work Documents/A WORK Documents/Principal Protection/Bisono, Fernando (Medicaid Mike)
+[_extract_dropbox_account_app_files_info] ✅ Successfully extracted information from 0 application files
+[_extract_dropbox_account_app_files_info] Files with complete info: 0
+[_extract_dropbox_account_app_files_info] Files with partial info: 0
+[_extract_dropbox_account_app_files_info] Files with no info: 0
+[_extract_dropbox_account_app_files_info] ⚠️ Incomplete account information from app files
+✅ Account comprehensive search report written to: logs/2025-06-23_12-02-43/reports/Bisono, Fernando (Medicaid Mike)_app_files_extraction.txt
+[log_dropbox_account_information]
+
+================================================================================
+📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦
+📦 **DROPBOX ACCOUNT INFORMATION** 📊
+📁 Dropbox Account Folder: Bisono, Fernando (Medicaid Mike)
+================================================================================
+[_log_summary_section]
+
+📋 **SUMMARY**
+🔍 Names found: Bisono, Fernando (Medicaid Mike)
+📄 Client List File Information: Not available
+📄 Application Files Data: Not available
+[_log_detailed_account_information]
+
+📊 **DETAILED ACCOUNT INFORMATION**
+[_log_application_files_data]
+[_log_comprehensive_application_files_info]
+
+📄 **COMPREHENSIVE APPLICATION FILES INFORMATION**
+────────────────────────────────────────────────────────────
+📋 Application Type: N/A
+📊 Status: Not available
+
+📊 **File Processing Statistics**
+────────────────────────────────────────
+📄 Total Files Processed: 0
+✅ Files with Complete Info: 0
+⚠️ Files with Partial Info: 0
+❌ Files with No Info: 0
+🎯 Has Complete Account Info: ❌ No
+
+📋 **App Files Extraction Summary**
+────────────────────────────────────────
+📄 Summary Data Available: ✅
+📊 Total Application Files Found: 0
+📁 Processed Folders: 1
+   📂 Bisono, Fernando (Medicaid Mike)
+🎂 Files with Birthdate: 0
+👤 Files with Name: 0
+⏱️ Total Processing Time: 0.29 seconds
+🕐 Processing Started: 2025-06-23 12:22:05
+📄 Total Files in Folders: 0
+   📂 Bisono, Fernando (Medicaid Mike): 0 files
+[_log_statistics_summary]
+
+📊 **STATISTICS SUMMARY**
+────────────────────────────────────────────────────────────
+📁 Total Accounts: 0
+📄 Client List File Data: ❌ Not Available
+📄 Application Files Data: 🚫 Not Available
+🔍 Total Matches: 0
+🪪 Total Driver's Licenses: 0
+
+================================================================================
+📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋📋
+📋 **FINAL SUMMARY**
+────────────────────────────────────────────────────────────
+
+Icon Legend:
+📁 - Dropbox Folder
+🪪 - Driver's License Found
+🔺 - No Driver's License
+📄 - Dropbox Account Match Found
+🔴 - No Dropbox Account Match
+👤 - Salesforce Account
+🟥 - No Salesforce Account
+🚫 - No Application Files Data
+
+Additional Account Information:
+📧 - Email
+📞 - Phone
+📍 - Address
+🔒 - SSN/Tax ID
+🎂 - Birthdate
+👶 - Age
+
+
+==================================================
+
+[build_and_log_final_summary_line]
+[DEBUG] app_files_info source: dropbox_info.application_data, value: {}
+📁 **Dropbox Folder** Name: McNabb, Frances daughter Pam Murphy, 📄 Dropbox Name: Pamela/Daniel Murphy, Dropbox Match: Match found, 📞 843-271-2161, 📍 1382 Whiskey Creek Dr. , Fort Meyers, FL , 33919, 🚫 App Files: No files found
+[build_and_log_final_summary_line]
+[DEBUG] app_files_info source: dropbox_info.application_data, value: {}
+📁 **Dropbox Folder** Name: Arana, Ada son Luis Arana, 📄 Dropbox Name: Luis Arana, Dropbox Match: Match found, 📞 305-978-5087, 📍 560 Curtis Pkwy , Miami Springs, FL., 33166, 🚫 App Files: No files found
+[build_and_log_final_summary_line]
+[DEBUG] app_files_info source: dropbox_info.application_data, value: {}
+📁 **Dropbox Folder** Name: Velazquez, Gizelle, 📄 Dropbox Name: Gizelle Velazquez, Dropbox Match: Match found, 📞 305-205-0834, 📍 10420 S.W 128th Pl., Miami, FL., 33186, 🚫 App Files: No files found
+[build_and_log_final_summary_line]
+[DEBUG] app_files_info source: dropbox_info.application_data, value: {}
+📁 **Dropbox Folder** Name: Afanador, Isabel, 📄 Dropbox Name: Isabel Afanador, Dropbox Match: Match found, 📞 305-262-4653/ Cell: 305-345-9323, 📍 2700 S.W 80th Ave, Miami, Fl, 33155, 🚫 App Files: No files found
+[build_and_log_final_summary_line]
+[DEBUG] app_files_info source: dropbox_info.application_data, value: {}
+📁 **Dropbox Folder** Name: Montesino, Maria, 📄 Dropbox Name: Maria Montesino, Dropbox Match: Match found, 📞 786-282-4047, 📍 920 NE 199 ST. Apt. 417, Miami, FL., 33179, 🚫 App Files: No files found
+[build_and_log_final_summary_line]
+[DEBUG] app_files_info source: dropbox_info.application_data, value: {}
+📁 **Dropbox Folder** Name: Yi, Francisco (Medicaid Mike), 🔴 Dropbox Name: --, Dropbox Match: No match found, 🚫 App Files: No files found
+[build_and_log_final_summary_line]
+[DEBUG] app_files_info source: dropbox_info.application_data, value: {}
+📁 **Dropbox Folder** Name: Bisono, Fernando (Medicaid Mike), 🔴 Dropbox Name: --, Dropbox Match: No match found, 🚫 App Files: No files found
+
+📊 **MATCH STATISTICS**
+────────────────────────────────────────
+Total Dropbox Matches Found: 5
+Total Dropbox No Matches: 2
+
+
+Total Accounts Processed: 7
+
+=== ANALYSIS COMPLETE ===
+Total duration: 19.4 minutes

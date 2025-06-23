@@ -218,7 +218,11 @@ class AppFileExtractor:
 
             # Initialize processor
             from sync.processors.lm_studio_processor import LMStudioProcessor
-            processor = LMStudioProcessor(model_name="qwen2-vl-7b-instruct", log_dir=self.log_dir)
+            processor = LMStudioProcessor(
+                model_name="qwen2-vl-7b-instruct", 
+                log_dir=self.log_dir,
+                max_context_tokens=32000  # Increased for better prompt handling and to prevent context overflow
+            )
             
             # Try to auto-load a model if none is loaded
             try:
