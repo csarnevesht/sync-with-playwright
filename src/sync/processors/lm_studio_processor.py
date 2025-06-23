@@ -25,6 +25,8 @@ class LMStudioProcessor(BaseProcessor):
         self.max_context_tokens = max_context_tokens
         self._check_server_availability()
         self.prompt_creator = PromptCreator(log_dir=self.log_dir)
+        # Clear cache to ensure updated prompts take effect
+        self.clear_cache()
 
     def _check_server_availability(self) -> None:
         """Check if the LM Studio server is available."""

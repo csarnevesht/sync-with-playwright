@@ -80,6 +80,12 @@ class BaseProcessor(ABC):
         self.response_cache[cache_key] = response
         self.cache_timestamps[cache_key] = datetime.now()
 
+    def clear_cache(self):
+        """Clear the response cache to force fresh responses."""
+        self.response_cache.clear()
+        self.cache_timestamps.clear()
+        self.logger.info("Response cache cleared")
+
     def _extract_text_from_file(self, file_path: str) -> str:
         """Common text extraction from PDF files."""
         try:
