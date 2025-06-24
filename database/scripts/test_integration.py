@@ -19,7 +19,7 @@ def test_integration():
         # Test imports
         print("1. Testing imports...")
         from supabase_client import SupabaseClient
-        from supabase_client.schema import ApplicationFile, PersonInfo, DropboxAccountWithFiles, ApplicationStatus, ApplicationType
+        from supabase_client.schema import DropboxAccountApplicationFile, DropboxAccountApplicationInfo, DropboxAccountWithFiles, ApplicationStatus, ApplicationType
         print("✅ Imports successful")
         
         # Test connection

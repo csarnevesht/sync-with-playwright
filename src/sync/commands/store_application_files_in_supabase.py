@@ -27,14 +27,14 @@ else:
 
 from supabase_client import SupabaseClient
 from supabase_client.schema import (
-    ApplicationFile, PersonInfo, DropboxAccountWithFiles,
+    DropboxAccountApplicationFile, DropboxAccountApplicationInfo, DropboxAccountWithFiles,
     ApplicationStatus, ApplicationType
 )
 
 logger = logging.getLogger(__name__)
 
-def convert_file_info_to_application_file(file_info: Dict[str, Any], file_name: str, file_path: str = None) -> ApplicationFile:
-    """Convert file info from LM Studio processor to ApplicationFile model."""
+def convert_file_info_to_application_file(file_info: Dict[str, Any], file_name: str, file_path: str = None) -> DropboxAccountApplicationFile:
+    """Convert file info from LM Studio processor to DropboxAccountApplicationFile model."""
     
     # Convert application type
     app_type_str = file_info.get('application_type', 'Unknown')
@@ -70,7 +70,7 @@ def convert_file_info_to_application_file(file_info: Dict[str, Any], file_name: 
     
     # Convert owner data
     owner_data = file_info.get('owner', {})
-    owner = PersonInfo(
+    owner = DropboxAccountApplicationInfo(
         first_name=owner_data.get('firstName'),
         last_name=owner_data.get('lastName'),
         date_of_birth=convert_date(owner_data.get('dateOfBirth')),
@@ -86,7 +86,7 @@ def convert_file_info_to_application_file(file_info: Dict[str, Any], file_name: 
     
     # Convert joint owner data
     joint_owner_data = file_info.get('jointOwner', {})
-    joint_owner = PersonInfo(
+    joint_owner = DropboxAccountApplicationInfo(
         first_name=joint_owner_data.get('firstName'),
         last_name=joint_owner_data.get('lastName'),
         date_of_birth=convert_date(joint_owner_data.get('dateOfBirth')),
@@ -100,8 +100,8 @@ def convert_file_info_to_application_file(file_info: Dict[str, Any], file_name: 
         ocr_method=joint_owner_data.get('ocrMethod')
     )
     
-    # Create ApplicationFile object
-    app_file = ApplicationFile(
+    # Create DropboxAccountApplicationFile object
+    app_file = DropboxAccountApplicationFile(
         file_name=file_name,
         file_path=file_path,
         application_type=app_type,

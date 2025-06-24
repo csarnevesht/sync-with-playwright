@@ -26,11 +26,6 @@ def check_legacy_tables():
         
         # List of legacy tables to check
         legacy_tables = [
-            'applications',
-            'dropbox_account_applications', 
-            'household_members',
-            'dropbox_account_household_members',
-            'person_info'  # This was the old name for dropbox_account_application_info
         ]
         
         found_tables = []

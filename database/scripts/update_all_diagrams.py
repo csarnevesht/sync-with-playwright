@@ -46,19 +46,6 @@ dropbox_account_application_info.id ──┐
 dropbox_account_application_files.owner_id
 dropbox_account_application_files.joint_owner_id
 
-🟡 LEGACY TABLES (May Not Exist)
-=================================
-
-dropbox_accounts (📁) ──┐
-                        │
-                        │ Many:Many
-                        │
-                        ▼
-dropbox_account_applications (🔗)
-                        │
-                        ▼
-applications (📋)
-
 📊 CURRENT SYSTEM ARCHITECTURE:
 ===============================
 

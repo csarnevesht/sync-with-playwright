@@ -72,28 +72,65 @@ def example_store_data():
     )
     
     # Create sample application files
-    app_file1 = ApplicationFile(
-        file_name="Life_Insurance_Application_John_Doe.pdf",
+    app_file1 = DropboxAccountApplicationFile(
+        file_name="sample_application_1.pdf",
+        file_path="/path/to/sample_application_1.pdf",
         application_type=ApplicationType.LIFE_INSURANCE,
         status=ApplicationStatus.PROCESSED,
-        owner=owner,
-        joint_owner=joint_owner,
-        notes=["Successfully extracted structured data", "Both owner and joint owner found"],
-        processing_timestamp=datetime.now(),
-        lm_studio_model_used="qwen2-vl-7b-instruct",
-        processing_duration_seconds=45.2
+        owner=DropboxAccountApplicationInfo(
+            first_name="John",
+            last_name="Doe",
+            date_of_birth=date(1980, 5, 15),
+            gender="Male",
+            mailing_address_street="123 Main St",
+            mailing_address_city="Anytown",
+            mailing_address_state="CA",
+            mailing_address_zip="12345",
+            phone_number="555-123-4567",
+            email_address="john.doe@email.com"
+        ),
+        joint_owner=DropboxAccountApplicationInfo(
+            first_name="Jane",
+            last_name="Doe",
+            date_of_birth=date(1982, 8, 20),
+            gender="Female",
+            mailing_address_street="123 Main St",
+            mailing_address_city="Anytown",
+            mailing_address_state="CA",
+            mailing_address_zip="12345",
+            phone_number="555-123-4568",
+            email_address="jane.doe@email.com"
+        ),
+        extracted_text="Sample extracted text from application file...",
+        ocr_confidence=0.95,
+        lm_studio_model_used="llama-3.1-8b-instruct",
+        processing_duration_seconds=2.5,
+        notes=["Sample note 1", "Sample note 2"]
     )
     
-    app_file2 = ApplicationFile(
-        file_name="Annuity_Application_John_Doe.pdf",
+    app_file2 = DropboxAccountApplicationFile(
+        file_name="sample_application_2.pdf",
+        file_path="/path/to/sample_application_2.pdf",
         application_type=ApplicationType.ANNUITY,
         status=ApplicationStatus.PROCESSED,
-        owner=owner,
-        joint_owner=PersonInfo(),  # No joint owner for this file
-        notes=["Successfully extracted owner data", "No joint owner found"],
-        processing_timestamp=datetime.now(),
-        lm_studio_model_used="qwen2-vl-7b-instruct",
-        processing_duration_seconds=38.7
+        owner=DropboxAccountApplicationInfo(
+            first_name="Bob",
+            last_name="Smith",
+            date_of_birth=date(1975, 12, 10),
+            gender="Male",
+            mailing_address_street="456 Oak Ave",
+            mailing_address_city="Somewhere",
+            mailing_address_state="NY",
+            mailing_address_zip="67890",
+            phone_number="555-987-6543",
+            email_address="bob.smith@email.com"
+        ),
+        joint_owner=DropboxAccountApplicationInfo(),  # No joint owner for this file
+        extracted_text="Sample extracted text from application file...",
+        ocr_confidence=0.95,
+        lm_studio_model_used="llama-3.1-8b-instruct",
+        processing_duration_seconds=2.5,
+        notes=["Sample note 1", "Sample note 2"]
     )
     
     # Create account with files
