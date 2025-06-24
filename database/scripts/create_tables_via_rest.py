@@ -5,144 +5,136 @@ Script to create new tables via REST API calls
 
 import os
 import sys
-import httpx
-from dotenv import load_dotenv
+from pathlib import Path
 
-def load_environment():
-    """Load environment variables"""
-    env_path = os.path.join(os.path.dirname(__file__), '.env')
-    print(f"Loading environment variables from {env_path}")
-    load_dotenv(env_path)
-    
-    supabase_url = os.getenv('SUPABASE_URL')
-    if not supabase_url:
-        supabase_url = os.getenv('SUPABASE_PUBLIC_URL')
-    if not supabase_url:
-        supabase_url = 'http://localhost:8000'
-    
-    supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-    if not supabase_key:
-        supabase_key = os.getenv('SUPABASE_SERVICE_KEY')
-    if not supabase_key:
-        supabase_key = os.getenv('SUPABASE_ANON_KEY')
-    
-    if not supabase_key:
-        raise ValueError("No Supabase key found!")
-    
-    return supabase_url, supabase_key
+# Add the src directory to the Python path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+
+from supabase_client import SupabaseClient
 
 def create_tables():
     """Create tables by making REST API calls"""
     print("🏗️ Creating new tables via REST API...")
     
-    base_url, api_key = load_environment()
-    headers = {
-        'apikey': api_key,
-        'Content-Type': 'application/json'
-    }
-    
-    print(f"Using Supabase URL: {base_url}")
-    
-    # First, let's try to create the tables by making a request that might trigger creation
-    # We'll use the schema from our schema.py file
-    
-    # Create dropbox_account_application_info table
-    print("Creating dropbox_account_application_info table...")
     try:
-        # Try to insert a test record to see if table exists
-        test_data = {
-            'first_name': 'Test',
-            'last_name': 'User',
-            'date_of_birth': '1990-01-01',
-            'gender': 'Unknown',
-            'mailing_address_street': '123 Test St',
-            'mailing_address_city': 'Test City',
-            'mailing_address_state': 'TS',
-            'mailing_address_zip': '12345',
-            'phone_number': '555-1234',
-            'email_address': 'test@example.com',
-            'ocr_method': 'test'
-        }
+        # Create Supabase client
+        client = SupabaseClient()
         
-        url = f"{base_url}/rest/v1/dropbox_account_application_info?select=*"
-        with httpx.Client() as client:
-            response = client.post(url, headers=headers, json=test_data)
-            if response.status_code == 201 or response.status_code == 200:
-                print("✅ dropbox_account_application_info table created/accessed successfully")
-                # Delete the test record
-                if response.json():
-                    test_id = response.json()[0]['id']
-                    delete_url = f"{base_url}/rest/v1/dropbox_account_application_info?id=eq.{test_id}"
-                    client.delete(delete_url, headers=headers)
-            else:
-                print(f"❌ Failed to create dropbox_account_application_info table: {response.status_code}")
-                print(response.text)
-    except Exception as e:
-        print(f"❌ Error creating dropbox_account_application_info table: {e}")
-    
-    # Create dropbox_account_application_files table
-    print("Creating dropbox_account_application_files table...")
-    try:
-        # Try to insert a test record to see if table exists
-        test_data = {
-            'file_name': 'test_file.pdf',
-            'file_path': '/test/path',
-            'application_type': 'Unknown',
-            'status': 'Processed',
-            'notes': [],
-            'extracted_text': 'Test extracted text',
-            'processing_timestamp': '2024-01-01T00:00:00Z',
-            'ocr_confidence': 0.95,
-            'lm_studio_model_used': 'test_model',
-            'processing_duration_seconds': 1.5,
-            'dropbox_account_id': 1
-        }
+        # Check if tables already exist
+        print("🔍 Checking existing tables...")
         
-        url = f"{base_url}/rest/v1/dropbox_account_application_files?select=*"
-        with httpx.Client() as client:
-            response = client.post(url, headers=headers, json=test_data)
-            if response.status_code == 201 or response.status_code == 200:
-                print("✅ dropbox_account_application_files table created/accessed successfully")
-                # Delete the test record
-                if response.json():
-                    test_id = response.json()[0]['id']
-                    delete_url = f"{base_url}/rest/v1/dropbox_account_application_files?id=eq.{test_id}"
-                    client.delete(delete_url, headers=headers)
-            else:
-                print(f"❌ Failed to create dropbox_account_application_files table: {response.status_code}")
-                print(response.text)
+        tables_to_check = [
+            'dropbox_account_application_info',
+            'dropbox_account_application_files'
+        ]
+        
+        existing_tables = []
+        for table in tables_to_check:
+            try:
+                result = client.client.table(table).select('count').execute()
+                print(f"✅ Table {table} already exists")
+                existing_tables.append(table)
+            except Exception as e:
+                print(f"❌ Table {table} does not exist: {e}")
+        
+        if len(existing_tables) == len(tables_to_check):
+            print("✅ All required tables already exist!")
+            return True
+        else:
+            print(f"\n💡 Found {len(existing_tables)} existing tables out of {len(tables_to_check)} required")
+            print("📝 Tables that need to be created:")
+            for table in tables_to_check:
+                if table not in existing_tables:
+                    print(f"   - {table}")
+            
+            print("\n⚠️  Note: Table creation via REST API is limited.")
+            print("   You may need to run the SQL schema manually in your Supabase dashboard:")
+            print("\n   SQL to create missing tables:")
+            
+            # Provide the SQL for manual execution
+            sql_schema = """
+            -- Create dropbox_account_application_info table for owner and joint owner data
+            CREATE TABLE IF NOT EXISTS dropbox_account_application_info (
+                id SERIAL PRIMARY KEY,
+                first_name VARCHAR(100),
+                last_name VARCHAR(100),
+                date_of_birth DATE,
+                gender VARCHAR(50),
+                mailing_address_street TEXT,
+                mailing_address_city VARCHAR(100),
+                mailing_address_state VARCHAR(50),
+                mailing_address_zip VARCHAR(20),
+                phone_number VARCHAR(50),
+                email_address VARCHAR(255),
+                ocr_method VARCHAR(50),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            -- Create dropbox_account_application_files table for comprehensive file data
+            CREATE TABLE IF NOT EXISTS dropbox_account_application_files (
+                id SERIAL PRIMARY KEY,
+                file_name VARCHAR(255) NOT NULL,
+                file_path TEXT,
+                application_type application_type DEFAULT 'Unknown',
+                status application_status DEFAULT 'Processed',
+                owner_id INTEGER REFERENCES dropbox_account_application_info(id),
+                joint_owner_id INTEGER REFERENCES dropbox_account_application_info(id),
+                notes JSONB DEFAULT '[]',
+                extracted_text TEXT,
+                processing_timestamp TIMESTAMP WITH TIME ZONE,
+                ocr_confidence DECIMAL(5,2),
+                lm_studio_model_used VARCHAR(100),
+                processing_duration_seconds DECIMAL(10,3),
+                dropbox_account_id INTEGER REFERENCES dropbox_accounts(id),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            -- Add foreign key constraint for dropbox_account_application_files
+            ALTER TABLE dropbox_account_application_files 
+            ADD CONSTRAINT fk_dropbox_account_application_files_dropbox_account 
+            FOREIGN KEY (dropbox_account_id) REFERENCES dropbox_accounts(id);
+
+            -- Create indexes for better performance
+            CREATE INDEX IF NOT EXISTS idx_dropbox_account_application_files_file_name ON dropbox_account_application_files(file_name);
+            CREATE INDEX IF NOT EXISTS idx_dropbox_account_application_files_dropbox_account_id ON dropbox_account_application_files(dropbox_account_id);
+            CREATE INDEX IF NOT EXISTS idx_dropbox_account_application_files_status ON dropbox_account_application_files(status);
+            CREATE INDEX IF NOT EXISTS idx_dropbox_account_application_info_names ON dropbox_account_application_info(first_name, last_name);
+            """
+            
+            print(sql_schema)
+            return False
+        
     except Exception as e:
-        print(f"❌ Error creating dropbox_account_application_files table: {e}")
+        print(f"❌ Error checking tables: {e}")
+        return False
 
 def check_tables():
     """Check if the new tables exist"""
     print("🔍 Checking if new tables exist...")
     
-    base_url, api_key = load_environment()
-    headers = {
-        'apikey': api_key,
-        'Content-Type': 'application/json'
-    }
-    
-    tables_to_check = [
-        'dropbox_account_application_info',
-        'dropbox_account_application_files'
-    ]
-    
-    for table in tables_to_check:
-        try:
-            url = f"{base_url}/rest/v1/{table}?select=count"
-            with httpx.Client() as client:
-                response = client.get(url, headers=headers)
-                response.raise_for_status()
+    try:
+        client = SupabaseClient()
+        
+        tables_to_check = [
+            'dropbox_account_application_info',
+            'dropbox_account_application_files'
+        ]
+        
+        for table in tables_to_check:
+            try:
+                result = client.client.table(table).select('count').execute()
                 print(f"✅ Table {table} exists")
-        except Exception as e:
-            print(f"❌ Table {table} does not exist: {e}")
+            except Exception as e:
+                print(f"❌ Table {table} does not exist: {e}")
+                
+    except Exception as e:
+        print(f"❌ Error checking tables: {e}")
 
 if __name__ == "__main__":
     try:
-        create_tables()
-        check_tables()
+        success = create_tables()
+        if success:
+            check_tables()
     except Exception as e:
         print(f"❌ Table creation failed: {e}")
         sys.exit(1) 

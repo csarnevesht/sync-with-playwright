@@ -30,12 +30,10 @@ def force_clear_database():
         # List of all tables to clear (in dependency order - children first)
         tables_to_clear = [
             'dropbox_account_application_files',
-            'dropbox_account_application_info', 
-            'dropbox_account_applications',
-            'dropbox_account_household_members',
+            'dropbox_account_application_info',
+            'dropbox_accounts',
             'applications',
-            'household_members',
-            'dropbox_accounts'
+            'dropbox_account_applications'
         ]
         
         # Clear each table by deleting records one by one

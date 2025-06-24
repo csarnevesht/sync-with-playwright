@@ -54,38 +54,6 @@ class DropboxAccountApplicationFile(BaseModel):
         }
     }
 
-class Application(BaseModel):
-    """Legacy model for backward compatibility"""
-    file_name: str
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    birthdate: Optional[date] = None
-    gender: str
-    address: Optional[str] = None
-    application_type: str
-    status: str
-
-class HouseholdMember(BaseModel):
-    role: str  # "Head" or "Member"
-    account_name: str
-    stage: str
-    email: str
-    phone: str
-    writing_advisor: str
-    prospecting_status: str
-    account_record_type: str
-    mailing_address: str
-    ssn_tax_id: str
-
-class DropboxAccount(BaseModel):
-    folder: str
-    first_name: Optional[str] = None
-    middle_name: Optional[str] = None
-    last_name: Optional[str] = None
-    applications: List[Application]
-    household_head: Optional[HouseholdMember]
-    household_members: List[HouseholdMember]
-
 class DropboxAccountWithFiles(BaseModel):
     """Enhanced model for Dropbox accounts with application files"""
     folder: str
@@ -112,7 +80,6 @@ def create_schema() -> str:
     """
     return """
     -- Create enums
-    CREATE TYPE household_role AS ENUM ('Head', 'Member');
     CREATE TYPE application_status AS ENUM ('Processed', 'Failed', 'Error', 'Skipped');
     CREATE TYPE application_type AS ENUM ('Life Insurance', 'Annuity', 'EquiTrust Annuity', 'Security Benefit', 'Unknown');
 
@@ -165,50 +132,6 @@ def create_schema() -> str:
         processing_timestamp TIMESTAMP WITH TIME ZONE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-    );
-
-    -- Create applications table (legacy)
-    CREATE TABLE IF NOT EXISTS applications (
-        id SERIAL PRIMARY KEY,
-        file_name VARCHAR(255) NOT NULL,
-        first_name VARCHAR(100) NOT NULL,
-        last_name VARCHAR(100) NOT NULL,
-        birthdate DATE,
-        gender VARCHAR(50) NOT NULL,
-        address TEXT NOT NULL,
-        application_type VARCHAR(100),
-        status VARCHAR(50),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-    );
-
-    -- Create household_members table
-    CREATE TABLE IF NOT EXISTS household_members (
-        id SERIAL PRIMARY KEY,
-        role household_role NOT NULL,
-        account_name VARCHAR(255) NOT NULL,
-        stage VARCHAR(100) NOT NULL,
-        email VARCHAR(255) NOT NULL,
-        phone VARCHAR(50) NOT NULL,
-        writing_advisor VARCHAR(255) NOT NULL,
-        prospecting_status VARCHAR(100) NOT NULL,
-        account_record_type VARCHAR(100) NOT NULL,
-        mailing_address TEXT NOT NULL,
-        ssn_tax_id VARCHAR(50) NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-    );
-
-    -- Create junction table for dropbox_accounts and applications (legacy)
-    CREATE TABLE IF NOT EXISTS dropbox_account_applications (
-        dropbox_account_id INTEGER REFERENCES dropbox_accounts(id),
-        application_id INTEGER REFERENCES applications(id),
-        PRIMARY KEY (dropbox_account_id, application_id)
-    );
-
-    -- Create junction table for dropbox_accounts and household_members
-    CREATE TABLE IF NOT EXISTS dropbox_account_household_members (
-        dropbox_account_id INTEGER REFERENCES dropbox_accounts(id),
-        household_member_id INTEGER REFERENCES household_members(id),
-        PRIMARY KEY (dropbox_account_id, household_member_id)
     );
 
     -- Add foreign key constraint for dropbox_account_application_files

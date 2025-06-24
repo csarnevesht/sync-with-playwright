@@ -118,7 +118,6 @@ The database includes these main tables:
 - **dropbox_account_application_files** - Extracted application files
 - **dropbox_account_application_info** - Person information from applications
 - **applications** - Application metadata
-- **household_members** - Household member information
 
 For detailed database documentation, see `database/README.md`.
 

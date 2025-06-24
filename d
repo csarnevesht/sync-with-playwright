@@ -40,11 +40,13 @@ show_menu() {
     echo "14) (rl) Remove Legacy Tables"
     echo ""
     echo -e "${YELLOW}📋 Utilities:${NC}"
-    echo "15) (v) View Schema Diagram"
-    echo "16) (rd) Open Database README"
-    echo "17) (gd) Generate Schema Diagram"
-    echo "18) (l) Run Last Command"
-    echo "19) (q) Quit"
+    echo "15) (v) View Schema Diagram (HTML)"
+    echo "16) (vv) View Visual Diagram (Text)"
+    echo "17) (rd) Open Database README"
+    echo "18) (gd) Generate Schema Diagram"
+    echo "19) (ud) Update All Diagrams"
+    echo "20) (l) Run Last Command"
+    echo "21) (q) Quit"
     echo "====================================="
     echo -n "Enter your choice (number or shortcut): "
 }
@@ -129,6 +131,42 @@ view_schema_diagram() {
     fi
     
     echo -e "${GREEN}Schema diagram opened!${NC}"
+    echo -n "Press Enter to continue..."
+    read
+}
+
+# Function to view visual diagram
+view_visual_diagram() {
+    echo -e "\n${YELLOW}Viewing Visual Diagram${NC}"
+    echo "-------------------------------------"
+    
+    local visual_path="database/diagrams/database_schema_visual.txt"
+    
+    if [ ! -f "$visual_path" ]; then
+        echo -e "${RED}Error: Visual diagram not found: $visual_path${NC}"
+        echo -n "Press Enter to continue..."
+        read
+        return
+    fi
+    
+    echo -e "${GREEN}Displaying visual diagram...${NC}"
+    echo "-------------------------------------"
+    
+    # Try to use a better text viewer if available
+    if command -v less >/dev/null 2>&1; then
+        # Use less with colors and line numbers
+        less -R "$visual_path"
+    elif command -v more >/dev/null 2>&1; then
+        # Use more as fallback
+        more "$visual_path"
+    elif command -v cat >/dev/null 2>&1; then
+        # Use cat as last resort
+        cat "$visual_path"
+    else
+        echo -e "${YELLOW}Could not display file. Please open manually:${NC} $visual_path"
+    fi
+    
+    echo -e "\n${GREEN}Visual diagram displayed!${NC}"
     echo -n "Press Enter to continue..."
     read
 }
@@ -281,16 +319,22 @@ while true; do
         15|v)
             view_schema_diagram
             ;;
-        16|rd)
+        16|vv)
+            view_visual_diagram
+            ;;
+        17|rd)
             open_database_readme
             ;;
-        17|gd)
+        18|gd)
             run_script "generate_schema_diagram.py" "Generate Schema Diagram"
             ;;
-        18|l)
+        19|ud)
+            run_script "update_all_diagrams.py" "Update All Diagrams"
+            ;;
+        20|l)
             run_last_command
             ;;
-        19|q)
+        21|q)
             echo -e "\n${GREEN}Goodbye!${NC}"
             exit 0
             ;;

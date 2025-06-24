@@ -16,9 +16,7 @@ Run these SQL commands in order:
 DROP TABLE IF EXISTS dropbox_account_application_files CASCADE;
 DROP TABLE IF EXISTS dropbox_account_application_info CASCADE;
 DROP TABLE IF EXISTS dropbox_account_applications CASCADE;
-DROP TABLE IF EXISTS dropbox_account_household_members CASCADE;
 DROP TABLE IF EXISTS applications CASCADE;
-DROP TABLE IF EXISTS household_members CASCADE;
 DROP TABLE IF EXISTS dropbox_accounts CASCADE;
 ```
 
@@ -26,7 +24,6 @@ DROP TABLE IF EXISTS dropbox_accounts CASCADE;
 
 ```sql
 -- Drop custom types
-DROP TYPE IF EXISTS household_role CASCADE;
 DROP TYPE IF EXISTS application_status CASCADE;
 DROP TYPE IF EXISTS application_type CASCADE;
 ```
@@ -60,9 +57,7 @@ If you just want to clear all data without dropping tables:
 TRUNCATE TABLE dropbox_account_application_files CASCADE;
 TRUNCATE TABLE dropbox_account_application_info CASCADE;
 TRUNCATE TABLE dropbox_account_applications CASCADE;
-TRUNCATE TABLE dropbox_account_household_members CASCADE;
 TRUNCATE TABLE applications CASCADE;
-TRUNCATE TABLE household_members CASCADE;
 TRUNCATE TABLE dropbox_accounts CASCADE;
 ```
 

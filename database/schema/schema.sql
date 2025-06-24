@@ -1,5 +1,4 @@
 -- Create enums
-CREATE TYPE household_role AS ENUM ('Head', 'Member');
 CREATE TYPE application_status AS ENUM ('Processed', 'Failed', 'Error', 'Skipped');
 CREATE TYPE application_type AS ENUM ('Life Insurance', 'Annuity', 'EquiTrust Annuity', 'Security Benefit', 'Unknown');
 
@@ -52,29 +51,6 @@ CREATE TABLE IF NOT EXISTS dropbox_accounts (
     processing_timestamp TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create household_members table
-CREATE TABLE IF NOT EXISTS household_members (
-    id SERIAL PRIMARY KEY,
-    role household_role NOT NULL,
-    account_name VARCHAR(255) NOT NULL,
-    stage VARCHAR(100) NOT NULL,
-    email VARCHAR(255) NOT NULL,
-    phone VARCHAR(50) NOT NULL,
-    writing_advisor VARCHAR(255) NOT NULL,
-    prospecting_status VARCHAR(100) NOT NULL,
-    account_record_type VARCHAR(100) NOT NULL,
-    mailing_address TEXT NOT NULL,
-    ssn_tax_id VARCHAR(50) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create junction table for dropbox_accounts and household_members
-CREATE TABLE IF NOT EXISTS dropbox_account_household_members (
-    dropbox_account_id INTEGER REFERENCES dropbox_accounts(id),
-    household_member_id INTEGER REFERENCES household_members(id),
-    PRIMARY KEY (dropbox_account_id, household_member_id)
 );
 
 -- Add foreign key constraint for dropbox_account_application_files
