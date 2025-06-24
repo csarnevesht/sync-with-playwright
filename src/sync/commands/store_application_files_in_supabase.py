@@ -288,7 +288,7 @@ def load_application_files_from_logs(log_dir: str, folder_name: str) -> Optional
     
     return account
 
-def store_application_files_data(folder_name: str, log_dir: str = None) -> bool:
+def store_application_files_data(folder_name: str, log_dir: str = None, force: bool = False) -> bool:
     """Store application files data for a specific folder in Supabase."""
     
     if not log_dir:
@@ -308,7 +308,7 @@ def store_application_files_data(folder_name: str, log_dir: str = None) -> bool:
         
         # Store in Supabase
         supabase_client = SupabaseClient()
-        account_id = supabase_client.store_dropbox_account_with_files(account)
+        account_id = supabase_client.store_dropbox_account_with_files(account, force=force)
         
         if account_id:
             logger.info(f"Successfully stored application files data for folder: {folder_name}")
@@ -409,7 +409,7 @@ def main():
         return
     
     # Store the data
-    success = store_application_files_data(args.folder_name, args.log_dir)
+    success = store_application_files_data(args.folder_name, args.log_dir, force=args.force)
     if success:
         print(f"Successfully stored application files data for {args.folder_name}")
         

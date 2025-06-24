@@ -1,9 +1,7 @@
 
 
-# Extract dropbox account app files info and store them in the database
+# Extract dropbox account app files info and (force) store them in the database
 clear && python -m sync.cmd_runner  --dropbox-account-info --commands=extract-dropbox-account-app-files-info,store-in-supabase --continue-on-error --force-store-dropbox-info --dropbox-account-name='Montesino, Maria' 
-
-
 
 
 # Extract info, (force) store in database, analyze
