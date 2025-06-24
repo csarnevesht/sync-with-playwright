@@ -232,8 +232,17 @@ class SupabaseClient:
             if response.data and len(response.data) > 0:
                 return response.data[0]['id']
             else:
-                logger.warning("No data returned from person_info insert")
-                return None
+                # Insert succeeded but no data returned (common with local Supabase)
+                # Query for the newly created record to get its ID
+                print(f"[DEBUG] Insert succeeded but no data returned, querying for new person record...")
+                new_person_response = self.client.table('dropbox_account_application_info').select('id').eq('first_name', person.first_name).eq('last_name', person.last_name).execute()
+                if new_person_response.data and len(new_person_response.data) > 0:
+                    person_id = new_person_response.data[0]['id']
+                    print(f"[DEBUG] Found newly created person ID: {person_id}")
+                    return person_id
+                else:
+                    logger.warning("No data returned from person_info insert and could not find newly created record")
+                    return None
         except Exception as e:
             logger.error(f"Error storing person info: {str(e)}")
             print(f"[ERROR] Exception in store_person_info: {e}")
@@ -281,37 +290,65 @@ class SupabaseClient:
             print(f"[ERROR] Exception in store_application_file: {e}")
             return None
 
-    def store_dropbox_account_with_files(self, account: DropboxAccountWithFiles) -> Optional[int]:
-        """Store dropbox account and its application files. If account exists, use its ID."""
+    def store_dropbox_account_with_files(self, account: DropboxAccountWithFiles, force: bool = False) -> Optional[int]:
+        """Store dropbox account and its application files. If account exists, use its ID, or delete and re-insert if force=True."""
         try:
-            # First store the dropbox account
-            account_data = {
-                'folder': account.folder,
-                'first_name': account.first_name,
-                'middle_name': account.middle_name,
-                'last_name': account.last_name,
-                'total_files': account.total_files,
-                'processed_files': account.processed_files,
-                'failed_files': account.failed_files,
-                'processing_timestamp': account.processing_timestamp.isoformat() if account.processing_timestamp else None
-            }
-            account_data = self._serialize_dates(account_data)
-            print(f"[DEBUG] Inserting dropbox account: {account_data}")
-            response = self.client.table('dropbox_accounts').insert(account_data).execute()
-            print(f"[DEBUG] Insert response: {getattr(response, 'data', None)} | Error: {getattr(response, 'error', None)}")
+            # First check if the account already exists
+            existing_account_response = self.client.table('dropbox_accounts').select('id').eq('folder', account.folder).execute()
             account_id = None
-            if response.data and len(response.data) > 0:
-                account_id = response.data[0]['id']
+            if existing_account_response.data and len(existing_account_response.data) > 0:
+                account_id = existing_account_response.data[0]['id']
+                print(f"[DEBUG] Existing account found for folder: {account.folder}, ID: {account_id}")
+                if force:
+                    print(f"[DEBUG] Force flag is set. Deleting account ID: {account_id} and all related files before re-inserting.")
+                    self.delete_application_files_for_folder(account.folder)
+                    self.client.table('dropbox_accounts').delete().eq('id', account_id).execute()
+                    account_id = None
             else:
-                logger.error(f"Failed to insert dropbox account: No data returned")
-                return None
-            
+                print(f"[DEBUG] No existing account found for folder: {account.folder}")
+
+            # Insert new account if needed
+            if account_id is None:
+                account_data = {
+                    'folder': account.folder,
+                    'first_name': account.first_name,
+                    'middle_name': account.middle_name,
+                    'last_name': account.last_name,
+                    'total_files': account.total_files,
+                    'processed_files': account.processed_files,
+                    'failed_files': account.failed_files,
+                    'processing_timestamp': account.processing_timestamp.isoformat() if account.processing_timestamp else None
+                }
+                account_data = self._serialize_dates(account_data)
+                print(f"[DEBUG] Inserting dropbox account: {account_data}")
+                response = self.client.table('dropbox_accounts').insert(account_data).execute()
+                print(f"[DEBUG] Insert response: {getattr(response, 'data', None)} | Error: {getattr(response, 'error', None)}")
+                if response.data and len(response.data) > 0:
+                    account_id = response.data[0]['id']
+                    print(f"[DEBUG] Created new account ID: {account_id}")
+                else:
+                    # Insert succeeded but no data returned (common with local Supabase)
+                    # Query for the newly created record to get its ID
+                    print(f"[DEBUG] Insert succeeded but no data returned, querying for new record...")
+                    new_account_response = self.client.table('dropbox_accounts').select('id').eq('folder', account.folder).execute()
+                    if new_account_response.data and len(new_account_response.data) > 0:
+                        account_id = new_account_response.data[0]['id']
+                        print(f"[DEBUG] Found newly created account ID: {account_id}")
+                    else:
+                        logger.error(f"Failed to insert dropbox account: Could not find newly created record")
+                        return None
+            else:
+                print(f"[DEBUG] Using existing account ID: {account_id} for folder: {account.folder}")
+
             # Store client list info if available
             if account.client_list_info:
+                print(f"[DEBUG] Storing client list info for account ID: {account_id}")
                 self.store_client_list_info(account.client_list_info, account_id)
-            
+
             # Store each application file
             for app_file in account.application_files:
+                print(f"[DEBUG] Storing application file: {app_file.file_name} for account ID: {account_id}")
+                print(f"[DEBUG] Application file data: {app_file}")
                 self.store_application_file(app_file, account_id)
             return account_id
         except Exception as e:

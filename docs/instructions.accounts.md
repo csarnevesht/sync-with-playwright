@@ -2,16 +2,9 @@
 Account Information
   Dropbox Account Information 'from application files'
   Dropbox Account Information 'from client list file'
+  Dropbox Best Account Information 
   Salesforce Account Information 
-  Account Name
-  First Name
-  Middle Name
-  Last Name
-  Address
-  Birthdate
-  Gender
-  Phone
-  Email
+  
 
 Dropbox Account Information 'from client list file'`
   Account Name

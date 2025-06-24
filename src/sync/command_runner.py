@@ -1114,7 +1114,8 @@ class CommandRunner:
             )
             
             # Store in Supabase
-            account_id = supabase_client.store_dropbox_account_with_files(account)
+            # Use force=True if the force_store_dropbox_info flag is set
+            account_id = supabase_client.store_dropbox_account_with_files(account, force=getattr(self.args, 'force_store_dropbox_info', False))
             
             if account_id:
                 action_text = "overwrote" if data_exists and getattr(self.args, 'force_store_dropbox_info', False) else "stored"
