@@ -96,8 +96,6 @@ The main schema is defined in `database/schema/schema.sql` and includes:
 - **dropbox_accounts** - Dropbox account metadata and folder information
 - **dropbox_account_application_info** - Person information extracted from applications (owners, joint owners)
 - **dropbox_account_application_files** - Extracted application files with processing metadata
-- **household_members** - Household member information from Salesforce
-- **dropbox_account_household_members** - Junction table linking Dropbox accounts to household members
 
 ### **Key Features:**
 - ✅ **Normalized Design** - Person info separated from file info

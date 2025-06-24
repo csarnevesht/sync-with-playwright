@@ -1,4 +1,19 @@
-🗄️ DATABASE SCHEMA VISUAL DIAGRAM
+#!/usr/bin/env python3
+"""
+Update All Diagrams Script
+
+This script updates both the HTML and visual diagrams by calling the existing generate_schema_diagram.py script and then updating the visual diagram.
+"""
+
+import os
+import sys
+import subprocess
+from datetime import datetime
+
+def update_visual_diagram():
+    """Update the visual text diagram to match the current schema."""
+    
+    visual_content = '''🗄️ DATABASE SCHEMA VISUAL DIAGRAM
 ==================================
 
 🔵 CORE TABLES (Currently Active)
@@ -82,5 +97,60 @@ application_type: [Life Insurance, Annuity, EquiTrust Annuity, Security Benefit,
 ✅ LM Studio model information stored
 ⚠️ Legacy tables may not exist in current database
 
-📊 Last Updated: 2025-06-24 10:28:31
+📊 Last Updated: ''' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '''
 📊 Supabase Database Schema Visual Diagram | Generated for sync-with-playwright project
+'''
+    
+    # Write the visual diagram
+    visual_path = "database/diagrams/database_schema_visual.txt"
+    os.makedirs(os.path.dirname(visual_path), exist_ok=True)
+    
+    with open(visual_path, 'w', encoding='utf-8') as f:
+        f.write(visual_content)
+    
+    print(f"✅ Visual diagram updated: {visual_path}")
+
+def main():
+    """Main function to update all diagrams."""
+    print("🔄 Updating all database diagrams...")
+    print("=" * 50)
+    
+    # Get the directory of this script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(os.path.dirname(script_dir))
+    
+    # Change to project root
+    os.chdir(project_root)
+    
+    try:
+        # First, update the HTML diagram using the existing script
+        print("📊 Updating HTML schema diagram...")
+        html_script = "database/scripts/generate_schema_diagram.py"
+        
+        if os.path.exists(html_script):
+            result = subprocess.run([sys.executable, html_script], 
+                                  capture_output=True, text=True, cwd=project_root)
+            if result.returncode == 0:
+                print("✅ HTML schema diagram updated successfully")
+            else:
+                print(f"⚠️ HTML diagram update had issues: {result.stderr}")
+        else:
+            print(f"❌ HTML diagram script not found: {html_script}")
+        
+        # Then update the visual diagram
+        print("\n📊 Updating visual text diagram...")
+        update_visual_diagram()
+        
+        print("\n🎉 All diagrams updated successfully!")
+        print("=" * 50)
+        print("📁 Updated files:")
+        print("   • database/diagrams/database_schema_diagram.html")
+        print("   • database/diagrams/database_schema_visual.txt")
+        print("   • database/diagrams/database_schema_diagram.txt")
+        
+    except Exception as e:
+        print(f"❌ Error updating diagrams: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main() 

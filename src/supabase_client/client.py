@@ -2,7 +2,6 @@ import os
 from typing import Optional, List, Dict, Any
 from supabase import create_client, Client as SupabaseBaseClient
 from .schema import (
-    Application, DropboxAccount, HouseholdMember, 
     DropboxAccountWithFiles, ApplicationStatus, ApplicationType,
     DropboxAccountApplicationFile, DropboxAccountApplicationInfo
 )
@@ -487,126 +486,6 @@ class SupabaseClient:
             logger.error(f"Error deleting application files for folder: {str(e)}")
             return False
 
-    def store_application(self, application: Application) -> int:
-        """Store a legacy application record"""
-        try:
-            app_data = self._serialize_dates(application.model_dump())
-            response = self.client.table('applications').insert(app_data).execute()
-            return response.data[0]['id'] if response.data else 0
-        except Exception as e:
-            logger.error(f"Error storing application: {str(e)}")
-            return 0
-
-    def store_household_member(self, member: HouseholdMember) -> None:
-        """Store a household member"""
-        try:
-            member_data = self._serialize_dates(member.model_dump())
-            self.client.table('household_members').insert(member_data).execute()
-        except Exception as e:
-            logger.error(f"Error storing household member: {str(e)}")
-
-    def store_dropbox_account(self, account: DropboxAccount) -> None:
-        """Store a dropbox account with applications and household members"""
-        try:
-            # Store the account
-            account_data = {
-                'folder': account.folder,
-                'first_name': account.first_name,
-                'middle_name': account.middle_name,
-                'last_name': account.last_name
-            }
-            
-            response = self.client.table('dropbox_accounts').insert(account_data).execute()
-            account_id = response.data[0]['id'] if response.data else None
-            
-            if account_id:
-                # Store applications
-                for app in account.applications:
-                    app_id = self.store_application(app)
-                    if app_id:
-                        # Link application to account
-                        self.client.table('dropbox_account_applications').insert({
-                            'dropbox_account_id': account_id,
-                            'application_id': app_id
-                        }).execute()
-                
-                # Store household members
-                if account.household_head:
-                    self.store_household_member(account.household_head)
-                
-                for member in account.household_members:
-                    self.store_household_member(member)
-                    
-        except Exception as e:
-            logger.error(f"Error storing dropbox account: {str(e)}")
-
-    def get_dropbox_account(self, account_id: int) -> Optional[DropboxAccount]:
-        """Get a dropbox account by ID with all related data"""
-        try:
-            # Get the account
-            account_response = self.client.table('dropbox_accounts').select('*').eq('id', account_id).execute()
-            
-            if not account_response.data:
-                return None
-            
-            account_data = account_response.data[0]
-            
-            # Get applications for this account
-            apps_response = self.client.table('dropbox_account_applications').select('application_id').eq('dropbox_account_id', account_id).execute()
-            
-            applications = []
-            for app_link in apps_response.data:
-                app_response = self.client.table('applications').select('*').eq('id', app_link['application_id']).execute()
-                if app_response.data:
-                    app_data = app_response.data[0]
-                    applications.append(Application(**app_data))
-            
-            # Get household members
-            members_response = self.client.table('dropbox_account_household_members').select('household_member_id').eq('dropbox_account_id', account_id).execute()
-            
-            household_members = []
-            household_head = None
-            
-            for member_link in members_response.data:
-                member_response = self.client.table('household_members').select('*').eq('id', member_link['household_member_id']).execute()
-                if member_response.data:
-                    member_data = member_response.data[0]
-                    member = HouseholdMember(**member_data)
-                    if member.role == 'Head':
-                        household_head = member
-                    else:
-                        household_members.append(member)
-            
-            return DropboxAccount(
-                folder=account_data['folder'],
-                first_name=account_data.get('first_name'),
-                middle_name=account_data.get('middle_name'),
-                last_name=account_data.get('last_name'),
-                applications=applications,
-                household_head=household_head,
-                household_members=household_members
-            )
-            
-        except Exception as e:
-            logger.error(f"Error getting dropbox account: {str(e)}")
-            return None
-
-    def get_dropbox_account_by_folder(self, folder_name: str) -> Optional[DropboxAccount]:
-        """Get a dropbox account by folder name"""
-        try:
-            # Get the account
-            account_response = self.client.table('dropbox_accounts').select('id').eq('folder', folder_name).execute()
-            
-            if not account_response.data:
-                return None
-            
-            account_id = account_response.data[0]['id']
-            return self.get_dropbox_account(account_id)
-            
-        except Exception as e:
-            logger.error(f"Error getting dropbox account by folder: {str(e)}")
-            return None
-
     def generate_account_summary(self, folder_name: str) -> str:
         """Generate a summary of account data for a folder"""
         try:
@@ -743,14 +622,6 @@ class SupabaseClient:
             summary_lines.append(f"\n❌ Error generating search summary: {str(e)}")
             return "\n".join(summary_lines)
 
-    def insert_dropbox_account(self, account: DropboxAccount) -> Dict:
-        """Insert a dropbox account"""
-        return self.client.insert_dropbox_account(account)
-    
-    def insert_dropbox_account_with_files(self, account: DropboxAccountWithFiles) -> Dict:
-        """Insert a dropbox account with application files"""
-        return self.client.insert_dropbox_account_with_files(account)
-    
     def insert_application_file(self, app_file: DropboxAccountApplicationFile, account_id: int) -> Dict:
         """Insert an application file"""
         return self.client.insert_application_file(app_file, account_id)

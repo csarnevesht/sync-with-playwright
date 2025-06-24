@@ -419,11 +419,11 @@
                     </div>
                 </div>
                 
-                <!-- Household Members Table -->
-                <div class="table-card">
+                <!-- Legacy Applications Table -->
+                <div class="table-card legacy">
                     <div class="table-header">
-                        <h3>household_members</h3>
-                        <span class="table-type">Salesforce Data</span>
+                        <h3>applications</h3>
+                        <span class="table-type">Legacy Table</span>
                     </div>
                     <div class="table-body">
                         <div class="field">
@@ -431,68 +431,41 @@
                             <span class="field-type">SERIAL PRIMARY KEY</span>
                         </div>
                         <div class="field">
-                            <span class="field-name">role</span>
-                            <span class="field-type">household_role NOT NULL</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">account_name</span>
+                            <span class="field-name">file_name</span>
                             <span class="field-type">VARCHAR(255) NOT NULL</span>
                         </div>
                         <div class="field">
-                            <span class="field-name">stage</span>
+                            <span class="field-name">first_name</span>
                             <span class="field-type">VARCHAR(100) NOT NULL</span>
                         </div>
                         <div class="field">
-                            <span class="field-name">email</span>
-                            <span class="field-type">VARCHAR(255) NOT NULL</span>
+                            <span class="field-name">last_name</span>
+                            <span class="field-type">VARCHAR(100) NOT NULL</span>
                         </div>
                         <div class="field">
-                            <span class="field-name">phone</span>
+                            <span class="field-name">birthdate</span>
+                            <span class="field-type">DATE</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">gender</span>
                             <span class="field-type">VARCHAR(50) NOT NULL</span>
                         </div>
                         <div class="field">
-                            <span class="field-name">writing_advisor</span>
-                            <span class="field-type">VARCHAR(255) NOT NULL</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">prospecting_status</span>
-                            <span class="field-type">VARCHAR(100) NOT NULL</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">account_record_type</span>
-                            <span class="field-type">VARCHAR(100) NOT NULL</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">mailing_address</span>
+                            <span class="field-name">address</span>
                             <span class="field-type">TEXT NOT NULL</span>
                         </div>
                         <div class="field">
-                            <span class="field-name">ssn_tax_id</span>
-                            <span class="field-type">VARCHAR(50) NOT NULL</span>
+                            <span class="field-name">application_type</span>
+                            <span class="field-type">VARCHAR(100)</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">status</span>
+                            <span class="field-type">VARCHAR(50)</span>
                         </div>
                         <div class="field">
                             <span class="field-name">created_at</span>
                             <span class="field-type">TIMESTAMP WITH TIME ZONE</span>
                         </div>
-                    </div>
-                </div>
-                
-                <!-- Junction Table -->
-                <div class="table-card">
-                    <div class="table-header">
-                        <h3>dropbox_account_household_members</h3>
-                        <span class="table-type">Junction Table</span>
-                    </div>
-                    <div class="table-body">
-                        <div class="field">
-                            <span class="field-name">dropbox_account_id</span>
-                            <span class="field-type">INTEGER REFERENCES dropbox_accounts(id)</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">household_member_id</span>
-                            <span class="field-type">INTEGER REFERENCES household_members(id)</span>
-                        </div>
-                        <div class="field-constraints">PRIMARY KEY (dropbox_account_id, household_member_id)</div>
                     </div>
                 </div>
             </div>
@@ -521,24 +494,16 @@
                     </div>
                 </div>
                 
-                <div class="relationship-item">
-                    <h4>dropbox_accounts ↔ household_members</h4>
+                <div class="relationship-item legacy">
+                    <h4>dropbox_accounts ↔ applications (Legacy)</h4>
                     <div class="relationship-desc">
-                        <strong>Many-to-Many:</strong> Dropbox accounts can be associated with multiple household members through the <code>dropbox_account_household_members</code> junction table.
+                        <strong>Many-to-Many:</strong> Legacy relationship through the <code>dropbox_account_applications</code> junction table.
                     </div>
                 </div>
             </div>
             
             <div class="enums-section">
                 <h2>📋 Enum Types</h2>
-                
-                <div class="enum-card">
-                    <h4>household_role</h4>
-                    <div class="enum-values">
-                        <span class="enum-value">Head</span>
-                        <span class="enum-value">Member</span>
-                    </div>
-                </div>
                 
                 <div class="enum-card">
                     <h4>application_status</h4>
@@ -564,7 +529,7 @@
         </div>
         
         <div class="footer">
-            <p>Schema diagram generated on 2025-06-24 08:36:16 | Legacy applications table removed</p>
+            <p>Schema diagram generated on 2025-06-24 10:30:04 | Legacy tables removed</p>
         </div>
     </div>
 </body>

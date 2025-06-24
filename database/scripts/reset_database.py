@@ -33,10 +33,8 @@ def reset_database():
             'dropbox_account_application_files',
             'dropbox_account_application_info', 
             'dropbox_account_applications',
-            'dropbox_account_household_members',
-            'applications',
-            'household_members',
-            'dropbox_accounts'
+            'dropbox_accounts',
+            'applications'
         ]
         
         # Drop each table
