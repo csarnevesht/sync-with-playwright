@@ -3,7 +3,7 @@ from typing import Optional, List, Dict, Any
 from supabase import create_client, Client as SupabaseBaseClient
 from .schema import (
     DropboxAccountWithFiles, ApplicationStatus, ApplicationType,
-    DropboxAccountApplicationFile, DropboxAccountApplicationInfo
+    DropboxAccountApplicationFile, DropboxAccountApplicationInfo, DropboxAccountClientListInfo
 )
 from dotenv import load_dotenv
 import logging
@@ -64,6 +64,10 @@ class LocalQueryBuilder:
         self.params[f"{column}"] = f"eq.{value}"
         return self
     
+    def limit(self, count: int):
+        self.params["limit"] = str(count)
+        return self
+    
     def execute(self):
         params = "&".join([f"{k}={v}" for k, v in self.params.items()])
         url = f"{self.endpoint}?select={self.columns}"
@@ -107,9 +111,15 @@ class LocalDeleteBuilder:
         self.endpoint = endpoint
         self.headers = headers
         self.params = {}
+    
     def eq(self, column: str, value: Any):
         self.params[f"{column}"] = f"eq.{value}"
         return self
+    
+    def neq(self, column: str, value: Any):
+        self.params[f"{column}"] = f"neq.{value}"
+        return self
+    
     def execute(self):
         params = "&".join([f"{k}={v}" for k, v in self.params.items()])
         url = self.endpoint
@@ -295,37 +305,19 @@ class SupabaseClient:
             else:
                 logger.error(f"Failed to insert dropbox account: No data returned")
                 return None
+            
+            # Store client list info if available
+            if account.client_list_info:
+                self.store_client_list_info(account.client_list_info, account_id)
+            
             # Store each application file
             for app_file in account.application_files:
                 self.store_application_file(app_file, account_id)
             return account_id
         except Exception as e:
-            print(f"[DEBUG] Outer exception caught: {type(e).__name__}: {str(e)}")
-            print(f"[DEBUG] Exception args: {e.args}")
-            
-            # Check for 409 Conflict (already exists)
-            if '409' in str(e) and 'Conflict' in str(e):
-                print(f"[DEBUG] 409 Conflict detected, fetching existing account for folder: {account.folder}")
-                try:
-                    existing = self.client.table('dropbox_accounts').select('id').eq('folder', account.folder).execute()
-                    print(f"[DEBUG] Existing account fetch response: {getattr(existing, 'data', None)} | Error: {getattr(existing, 'error', None)}")
-                    if existing.data and len(existing.data) > 0:
-                        account_id = existing.data[0]['id']
-                        print(f"[DEBUG] Successfully got existing account ID: {account_id}")
-                        
-                        # Store each application file using the existing account ID
-                        for app_file in account.application_files:
-                            self.store_application_file(app_file, account_id)
-                        return account_id
-                    else:
-                        logger.error("409 Conflict but could not fetch existing account ID")
-                        return None
-                except Exception as fetch_error:
-                    logger.error(f"Error fetching existing account: {str(fetch_error)}")
-                    return None
-            else:
-                logger.error(f"Error storing dropbox account with files: {str(e)}")
-                return None
+            logger.error(f"Error storing dropbox account with files: {str(e)}")
+            print(f"[ERROR] Exception in store_dropbox_account_with_files: {e}")
+            return None
 
     def get_application_files_by_folder(self, folder_name: str) -> Optional[DropboxAccountWithFiles]:
         """Get all application files for a specific folder"""
@@ -361,25 +353,49 @@ class SupabaseClient:
             application_files = []
             for file_data in files_response.data:
                 # Get owner info
-                owner = None
+                owner = DropboxAccountApplicationInfo()
                 if file_data.get('owner_id') and file_data['owner_id'] in person_info_map:
                     owner_data = person_info_map[file_data['owner_id']]
-                    owner = DropboxAccountApplicationInfo(**owner_data)
+                    owner = DropboxAccountApplicationInfo(
+                        first_name=owner_data.get('first_name'),
+                        last_name=owner_data.get('last_name'),
+                        date_of_birth=datetime.fromisoformat(owner_data['date_of_birth']).date() if owner_data.get('date_of_birth') else None,
+                        gender=owner_data.get('gender'),
+                        mailing_address_street=owner_data.get('mailing_address_street'),
+                        mailing_address_city=owner_data.get('mailing_address_city'),
+                        mailing_address_state=owner_data.get('mailing_address_state'),
+                        mailing_address_zip=owner_data.get('mailing_address_zip'),
+                        phone_number=owner_data.get('phone_number'),
+                        email_address=owner_data.get('email_address'),
+                        ocr_method=owner_data.get('ocr_method')
+                    )
                 
                 # Get joint owner info
-                joint_owner = None
+                joint_owner = DropboxAccountApplicationInfo()
                 if file_data.get('joint_owner_id') and file_data['joint_owner_id'] in person_info_map:
                     joint_owner_data = person_info_map[file_data['joint_owner_id']]
-                    joint_owner = DropboxAccountApplicationInfo(**joint_owner_data)
+                    joint_owner = DropboxAccountApplicationInfo(
+                        first_name=joint_owner_data.get('first_name'),
+                        last_name=joint_owner_data.get('last_name'),
+                        date_of_birth=datetime.fromisoformat(joint_owner_data['date_of_birth']).date() if joint_owner_data.get('date_of_birth') else None,
+                        gender=joint_owner_data.get('gender'),
+                        mailing_address_street=joint_owner_data.get('mailing_address_street'),
+                        mailing_address_city=joint_owner_data.get('mailing_address_city'),
+                        mailing_address_state=joint_owner_data.get('mailing_address_state'),
+                        mailing_address_zip=joint_owner_data.get('mailing_address_zip'),
+                        phone_number=joint_owner_data.get('phone_number'),
+                        email_address=joint_owner_data.get('email_address'),
+                        ocr_method=joint_owner_data.get('ocr_method')
+                    )
                 
-                # Create application file
+                # Create application file object
                 app_file = DropboxAccountApplicationFile(
                     file_name=file_data['file_name'],
                     file_path=file_data.get('file_path'),
                     application_type=ApplicationType(file_data.get('application_type', 'Unknown')),
                     status=ApplicationStatus(file_data.get('status', 'Processed')),
-                    owner=owner or DropboxAccountApplicationInfo(),
-                    joint_owner=joint_owner or DropboxAccountApplicationInfo(),
+                    owner=owner,
+                    joint_owner=joint_owner,
                     notes=file_data.get('notes', []),
                     extracted_text=file_data.get('extracted_text'),
                     processing_timestamp=datetime.fromisoformat(file_data['processing_timestamp']) if file_data.get('processing_timestamp') else None,
@@ -389,6 +405,9 @@ class SupabaseClient:
                 )
                 application_files.append(app_file)
             
+            # Get client list info for this account
+            client_list_info = self.get_client_list_info_by_folder(folder_name)
+            
             # Create the account with files
             account = DropboxAccountWithFiles(
                 folder=account_data['folder'],
@@ -396,6 +415,7 @@ class SupabaseClient:
                 middle_name=account_data.get('middle_name'),
                 last_name=account_data.get('last_name'),
                 application_files=application_files,
+                client_list_info=client_list_info,
                 total_files=account_data.get('total_files', 0),
                 processed_files=account_data.get('processed_files', 0),
                 failed_files=account_data.get('failed_files', 0),
@@ -648,4 +668,114 @@ class SupabaseClient:
     
     def delete_person_info(self, person_id: int) -> Dict:
         """Delete person info"""
-        return self.client.delete_person_info(person_id) 
+        return self.client.delete_person_info(person_id)
+
+    def store_client_list_info(self, client_list_info: DropboxAccountClientListInfo, dropbox_account_id: int) -> Optional[int]:
+        """Store client list file data and return the client list info ID"""
+        try:
+            # Prepare client list data
+            client_list_data = {
+                'dropbox_account_id': dropbox_account_id,
+                'account_name': client_list_info.account_name,
+                'first_name': client_list_info.first_name,
+                'middle_name': client_list_info.middle_name,
+                'last_name': client_list_info.last_name,
+                'birthdate': client_list_info.birthdate.isoformat() if client_list_info.birthdate else None,
+                'gender': client_list_info.gender,
+                'phone': client_list_info.phone,
+                'address': client_list_info.address,
+                'city': client_list_info.city,
+                'state': client_list_info.state,
+                'zip_code': client_list_info.zip_code,
+                'email': client_list_info.email,
+                'additional_info': client_list_info.additional_info,
+                'match_status': client_list_info.match_status,
+                'drivers_license_data': client_list_info.drivers_license_data,
+                'search_info': client_list_info.search_info
+            }
+            
+            client_list_data = self._serialize_dates(client_list_data)
+            print(f"[DEBUG] Inserting client list info: {client_list_data}")
+            
+            # Insert into the database
+            response = self.client.table('dropbox_account_client_list_info').insert(client_list_data).execute()
+            print(f"[DEBUG] Insert response: {getattr(response, 'data', None)} | Error: {getattr(response, 'error', None)}")
+            
+            if response.data and len(response.data) > 0:
+                return response.data[0]['id']
+            else:
+                logger.warning("No data returned from client_list_info insert")
+                return None
+        except Exception as e:
+            logger.error(f"Error storing client list info: {str(e)}")
+            print(f"[ERROR] Exception in store_client_list_info: {e}")
+            return None
+
+    def get_client_list_info_by_folder(self, folder_name: str) -> Optional[DropboxAccountClientListInfo]:
+        """Get client list info for a specific folder"""
+        try:
+            # First get the dropbox account
+            account_response = self.client.table('dropbox_accounts').select('id').eq('folder', folder_name).execute()
+            
+            if not account_response.data or len(account_response.data) == 0:
+                logger.warning(f"No dropbox account found for folder: {folder_name}")
+                return None
+            
+            account_id = account_response.data[0]['id']
+            
+            # Get client list info for this account
+            client_list_response = self.client.table('dropbox_account_client_list_info').select('*').eq('dropbox_account_id', account_id).execute()
+            
+            if not client_list_response.data or len(client_list_response.data) == 0:
+                logger.info(f"No client list info found for folder: {folder_name}")
+                return None
+            
+            client_list_data = client_list_response.data[0]
+            
+            # Convert to Pydantic model
+            client_list_info = DropboxAccountClientListInfo(
+                account_name=client_list_data.get('account_name'),
+                first_name=client_list_data.get('first_name'),
+                middle_name=client_list_data.get('middle_name'),
+                last_name=client_list_data.get('last_name'),
+                birthdate=datetime.fromisoformat(client_list_data['birthdate']).date() if client_list_data.get('birthdate') else None,
+                gender=client_list_data.get('gender'),
+                phone=client_list_data.get('phone'),
+                address=client_list_data.get('address'),
+                city=client_list_data.get('city'),
+                state=client_list_data.get('state'),
+                zip_code=client_list_data.get('zip_code'),
+                email=client_list_data.get('email'),
+                additional_info=client_list_data.get('additional_info'),
+                match_status=client_list_data.get('match_status'),
+                drivers_license_data=client_list_data.get('drivers_license_data', {}),
+                search_info=client_list_data.get('search_info', {})
+            )
+            
+            return client_list_info
+            
+        except Exception as e:
+            logger.error(f"Error getting client list info by folder: {str(e)}")
+            return None
+
+    def delete_client_list_info_for_folder(self, folder_name: str) -> bool:
+        """Delete client list info for a specific folder"""
+        try:
+            # Get the dropbox account
+            account_response = self.client.table('dropbox_accounts').select('id').eq('folder', folder_name).execute()
+            
+            if not account_response.data or len(account_response.data) == 0:
+                logger.warning(f"No dropbox account found for folder: {folder_name}")
+                return False
+            
+            account_id = account_response.data[0]['id']
+            
+            # Delete client list info
+            self.client.table('dropbox_account_client_list_info').delete().eq('dropbox_account_id', account_id).execute()
+            
+            logger.info(f"Deleted client list info for folder: {folder_name}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error deleting client list info for folder: {str(e)}")
+            return False 

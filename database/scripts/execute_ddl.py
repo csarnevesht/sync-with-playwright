@@ -47,11 +47,16 @@ def execute_ddl():
     
     # DDL to drop tables
     ddl_sql = """
-    -- Drop junction table first (due to foreign key constraints)
+    -- Drop legacy tables first
     DROP TABLE IF EXISTS dropbox_account_applications CASCADE;
-    
-    -- Drop legacy applications table
     DROP TABLE IF EXISTS applications CASCADE;
+    DROP TABLE IF EXISTS household_members CASCADE;
+    DROP TABLE IF EXISTS dropbox_account_household_members CASCADE;
+    
+    -- Drop current tables (in dependency order)
+    DROP TABLE IF EXISTS dropbox_account_application_files CASCADE;
+    DROP TABLE IF EXISTS dropbox_account_application_info CASCADE;
+    DROP TABLE IF EXISTS dropbox_accounts CASCADE;
     """
     
     try:
@@ -72,7 +77,13 @@ def execute_ddl():
         
         # Try direct table deletion via REST API
         try:
-            tables_to_drop = ['dropbox_account_applications', 'applications']
+            # Legacy tables to drop
+            legacy_tables = ['dropbox_account_applications', 'applications', 'household_members', 'dropbox_account_household_members']
+            
+            # Current tables to drop (in dependency order)
+            current_tables = ['dropbox_account_application_files', 'dropbox_account_application_info', 'dropbox_accounts']
+            
+            tables_to_drop = legacy_tables + current_tables
             
             for table in tables_to_drop:
                 print(f"Dropping table: {table}")

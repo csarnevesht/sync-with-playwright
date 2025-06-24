@@ -32,6 +32,32 @@ class DropboxAccountApplicationInfo(BaseModel):
     email_address: Optional[str] = None
     ocr_method: Optional[str] = None  # For OCR-extracted data
 
+class DropboxAccountClientListInfo(BaseModel):
+    """Model for client list file information"""
+    account_name: Optional[str] = None
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
+    birthdate: Optional[date] = None
+    gender: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip_code: Optional[str] = None
+    email: Optional[str] = None
+    additional_info: Optional[str] = None
+    match_status: Optional[str] = None
+    drivers_license_data: Dict[str, Any] = Field(default_factory=dict)
+    search_info: Dict[str, Any] = Field(default_factory=dict)
+    
+    model_config = {
+        'json_encoders': {
+            date: lambda v: v.isoformat() if v else None,
+            datetime: lambda v: v.isoformat() if v else None
+        }
+    }
+
 class DropboxAccountApplicationFile(BaseModel):
     """Model for application file data extracted by LM Studio processor"""
     file_name: str
@@ -61,6 +87,7 @@ class DropboxAccountWithFiles(BaseModel):
     middle_name: Optional[str] = None
     last_name: Optional[str] = None
     application_files: List[DropboxAccountApplicationFile] = Field(default_factory=list)
+    client_list_info: Optional[DropboxAccountClientListInfo] = None
     total_files: int = 0
     processed_files: int = 0
     failed_files: int = 0

@@ -13,100 +13,95 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 from supabase_client import SupabaseClient
 
 def create_tables():
-    """Create tables by making REST API calls"""
+    """Create the new tables via REST API"""
     print("🏗️ Creating new tables via REST API...")
     
     try:
         # Create Supabase client
         client = SupabaseClient()
         
-        # Check if tables already exist
+        # Check existing tables
         print("🔍 Checking existing tables...")
+        existing_tables = check_existing_tables(client)
         
-        tables_to_check = [
-            'dropbox_account_application_info',
-            'dropbox_account_application_files'
-        ]
-        
-        existing_tables = []
-        for table in tables_to_check:
-            try:
-                result = client.client.table(table).select('count').execute()
-                print(f"✅ Table {table} already exists")
-                existing_tables.append(table)
-            except Exception as e:
-                print(f"❌ Table {table} does not exist: {e}")
-        
-        if len(existing_tables) == len(tables_to_check):
+        if all(existing_tables.values()):
             print("✅ All required tables already exist!")
-            return True
         else:
-            print(f"\n💡 Found {len(existing_tables)} existing tables out of {len(tables_to_check)} required")
-            print("📝 Tables that need to be created:")
-            for table in tables_to_check:
-                if table not in existing_tables:
-                    print(f"   - {table}")
+            print("📋 Creating missing tables...")
             
-            print("\n⚠️  Note: Table creation via REST API is limited.")
-            print("   You may need to run the SQL schema manually in your Supabase dashboard:")
-            print("\n   SQL to create missing tables:")
+            # Create tables that don't exist
+            if not existing_tables['dropbox_account_application_info']:
+                create_application_info_table(client)
             
-            # Provide the SQL for manual execution
-            sql_schema = """
-            -- Create dropbox_account_application_info table for owner and joint owner data
-            CREATE TABLE IF NOT EXISTS dropbox_account_application_info (
-                id SERIAL PRIMARY KEY,
-                first_name VARCHAR(100),
-                last_name VARCHAR(100),
-                date_of_birth DATE,
-                gender VARCHAR(50),
-                mailing_address_street TEXT,
-                mailing_address_city VARCHAR(100),
-                mailing_address_state VARCHAR(50),
-                mailing_address_zip VARCHAR(20),
-                phone_number VARCHAR(50),
-                email_address VARCHAR(255),
-                ocr_method VARCHAR(50),
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
-
-            -- Create dropbox_account_application_files table for comprehensive file data
-            CREATE TABLE IF NOT EXISTS dropbox_account_application_files (
-                id SERIAL PRIMARY KEY,
-                file_name VARCHAR(255) NOT NULL,
-                file_path TEXT,
-                application_type application_type DEFAULT 'Unknown',
-                status application_status DEFAULT 'Processed',
-                owner_id INTEGER REFERENCES dropbox_account_application_info(id),
-                joint_owner_id INTEGER REFERENCES dropbox_account_application_info(id),
-                notes JSONB DEFAULT '[]',
-                extracted_text TEXT,
-                processing_timestamp TIMESTAMP WITH TIME ZONE,
-                ocr_confidence DECIMAL(5,2),
-                lm_studio_model_used VARCHAR(100),
-                processing_duration_seconds DECIMAL(10,3),
-                dropbox_account_id INTEGER REFERENCES dropbox_accounts(id),
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
-
-            -- Add foreign key constraint for dropbox_account_application_files
-            ALTER TABLE dropbox_account_application_files 
-            ADD CONSTRAINT fk_dropbox_account_application_files_dropbox_account 
-            FOREIGN KEY (dropbox_account_id) REFERENCES dropbox_accounts(id);
-
-            -- Create indexes for better performance
-            CREATE INDEX IF NOT EXISTS idx_dropbox_account_application_files_file_name ON dropbox_account_application_files(file_name);
-            CREATE INDEX IF NOT EXISTS idx_dropbox_account_application_files_dropbox_account_id ON dropbox_account_application_files(dropbox_account_id);
-            CREATE INDEX IF NOT EXISTS idx_dropbox_account_application_files_status ON dropbox_account_application_files(status);
-            CREATE INDEX IF NOT EXISTS idx_dropbox_account_application_info_names ON dropbox_account_application_info(first_name, last_name);
-            """
-            
-            print(sql_schema)
-            return False
+            if not existing_tables['dropbox_account_application_files']:
+                create_application_files_table(client)
+        
+        # Check if client list table exists
+        print("🔍 Checking if client list table exists...")
+        try:
+            result = client.client.table('dropbox_account_client_list_info').select('id').limit(1).execute()
+            print("✅ Table dropbox_account_client_list_info already exists")
+        except Exception as e:
+            if 'does not exist' in str(e) or 'relation' in str(e):
+                print("📋 Creating client list table...")
+                create_client_list_table(client)
+            else:
+                print(f"❌ Error checking client list table: {e}")
+        
+        print("🔍 Checking if new tables exist...")
+        check_new_tables(client)
+        
+        return True
         
     except Exception as e:
-        print(f"❌ Error checking tables: {e}")
+        print(f"❌ Error creating tables: {e}")
         return False
+
+def create_client_list_table(client):
+    """Create the client list table"""
+    try:
+        sql = """
+        -- Create dropbox_account_client_list_info table for client list file data
+        CREATE TABLE IF NOT EXISTS dropbox_account_client_list_info (
+            id SERIAL PRIMARY KEY,
+            dropbox_account_id INTEGER REFERENCES dropbox_accounts(id),
+            account_name VARCHAR(255),
+            first_name VARCHAR(100),
+            middle_name VARCHAR(100),
+            last_name VARCHAR(100),
+            birthdate DATE,
+            gender VARCHAR(50),
+            phone VARCHAR(50),
+            address TEXT,
+            city VARCHAR(100),
+            state VARCHAR(50),
+            zip_code VARCHAR(20),
+            email VARCHAR(255),
+            additional_info TEXT,
+            match_status VARCHAR(100),
+            drivers_license_data JSONB DEFAULT '{}',
+            search_info JSONB DEFAULT '{}',
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- Create indexes for better performance
+        CREATE INDEX IF NOT EXISTS idx_dropbox_account_client_list_info_dropbox_account_id ON dropbox_account_client_list_info(dropbox_account_id);
+        CREATE INDEX IF NOT EXISTS idx_dropbox_account_client_list_info_names ON dropbox_account_client_list_info(first_name, last_name);
+        CREATE INDEX IF NOT EXISTS idx_dropbox_account_client_list_info_match_status ON dropbox_account_client_list_info(match_status);
+
+        -- Add foreign key constraint
+        ALTER TABLE dropbox_account_client_list_info 
+        ADD CONSTRAINT fk_dropbox_account_client_list_info_dropbox_account 
+        FOREIGN KEY (dropbox_account_id) REFERENCES dropbox_accounts(id);
+        """
+        
+        # Execute the SQL
+        client.client.rpc('exec_sql', {'sql': sql}).execute()
+        print("✅ Client list table created successfully!")
+        
+    except Exception as e:
+        print(f"❌ Error creating client list table: {e}")
 
 def check_tables():
     """Check if the new tables exist"""

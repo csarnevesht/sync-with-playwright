@@ -31,9 +31,7 @@ def clear_database_data():
         tables_to_clear = [
             'dropbox_account_application_files',
             'dropbox_account_application_info',
-            'dropbox_accounts',
-            'applications',
-            'dropbox_account_applications'
+            'dropbox_accounts'
         ]
         
         # Clear each table

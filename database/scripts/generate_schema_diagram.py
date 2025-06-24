@@ -248,238 +248,46 @@ def generate_schema_diagram():
             </div>
             
             <div class="tables-grid">
-                <!-- Dropbox Accounts Table -->
-                <div class="table-card">
-                    <div class="table-header">
-                        <h3>dropbox_accounts</h3>
-                        <span class="table-type">Core Table</span>
-                    </div>
-                    <div class="table-body">
-                        <div class="field">
-                            <span class="field-name">id</span>
-                            <span class="field-type">SERIAL PRIMARY KEY</span>
+                <!-- Main Tables -->
+                <div class="table-section">
+                    <h2>Main Tables</h2>
+                    <div class="table-grid">
+                        <div class="table-card">
+                            <h3>dropbox_accounts</h3>
+                            <p>Core table storing Dropbox account information and folder metadata.</p>
+                            <ul>
+                                <li><strong>folder:</strong> Unique folder name from Dropbox</li>
+                                <li><strong>first_name, last_name:</strong> Account holder information</li>
+                                <li><strong>total_files, processed_files, failed_files:</strong> Processing statistics</li>
+                                <li><strong>processing_timestamp:</strong> Last processing time</li>
+                            </ul>
                         </div>
-                        <div class="field">
-                            <span class="field-name">folder</span>
-                            <span class="field-type">VARCHAR(255) UNIQUE</span>
+                        
+                        <div class="table-card">
+                            <h3>dropbox_account_application_info</h3>
+                            <p>Stores person information (owners and joint owners) extracted from application files.</p>
+                            <ul>
+                                <li><strong>first_name, last_name:</strong> Person's name</li>
+                                <li><strong>date_of_birth, gender:</strong> Personal details</li>
+                                <li><strong>mailing_address_*:</strong> Complete address information</li>
+                                <li><strong>phone_number, email_address:</strong> Contact information</li>
+                                <li><strong>ocr_method:</strong> Method used for data extraction</li>
+                            </ul>
                         </div>
-                        <div class="field">
-                            <span class="field-name">first_name</span>
-                            <span class="field-type">VARCHAR(100)</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">middle_name</span>
-                            <span class="field-type">VARCHAR(100)</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">last_name</span>
-                            <span class="field-type">VARCHAR(100)</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">total_files</span>
-                            <span class="field-type">INTEGER DEFAULT 0</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">processed_files</span>
-                            <span class="field-type">INTEGER DEFAULT 0</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">failed_files</span>
-                            <span class="field-type">INTEGER DEFAULT 0</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">processing_timestamp</span>
-                            <span class="field-type">TIMESTAMP WITH TIME ZONE</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">created_at</span>
-                            <span class="field-type">TIMESTAMP WITH TIME ZONE</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">updated_at</span>
-                            <span class="field-type">TIMESTAMP WITH TIME ZONE</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Application Info Table -->
-                <div class="table-card">
-                    <div class="table-header">
-                        <h3>dropbox_account_application_info</h3>
-                        <span class="table-type">Person Data</span>
-                    </div>
-                    <div class="table-body">
-                        <div class="field">
-                            <span class="field-name">id</span>
-                            <span class="field-type">SERIAL PRIMARY KEY</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">first_name</span>
-                            <span class="field-type">VARCHAR(100)</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">last_name</span>
-                            <span class="field-type">VARCHAR(100)</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">date_of_birth</span>
-                            <span class="field-type">DATE</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">gender</span>
-                            <span class="field-type">VARCHAR(50)</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">mailing_address_street</span>
-                            <span class="field-type">TEXT</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">mailing_address_city</span>
-                            <span class="field-type">VARCHAR(100)</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">mailing_address_state</span>
-                            <span class="field-type">VARCHAR(50)</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">mailing_address_zip</span>
-                            <span class="field-type">VARCHAR(20)</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">phone_number</span>
-                            <span class="field-type">VARCHAR(50)</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">email_address</span>
-                            <span class="field-type">VARCHAR(255)</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">ocr_method</span>
-                            <span class="field-type">VARCHAR(50)</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">created_at</span>
-                            <span class="field-type">TIMESTAMP WITH TIME ZONE</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Application Files Table -->
-                <div class="table-card">
-                    <div class="table-header">
-                        <h3>dropbox_account_application_files</h3>
-                        <span class="table-type">File Data</span>
-                    </div>
-                    <div class="table-body">
-                        <div class="field">
-                            <span class="field-name">id</span>
-                            <span class="field-type">SERIAL PRIMARY KEY</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">file_name</span>
-                            <span class="field-type">VARCHAR(255) NOT NULL</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">file_path</span>
-                            <span class="field-type">TEXT</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">application_type</span>
-                            <span class="field-type">application_type DEFAULT 'Unknown'</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">status</span>
-                            <span class="field-type">application_status DEFAULT 'Processed'</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">owner_id</span>
-                            <span class="field-type">INTEGER REFERENCES dropbox_account_application_info(id)</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">joint_owner_id</span>
-                            <span class="field-type">INTEGER REFERENCES dropbox_account_application_info(id)</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">notes</span>
-                            <span class="field-type">JSONB DEFAULT '[]'</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">extracted_text</span>
-                            <span class="field-type">TEXT</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">processing_timestamp</span>
-                            <span class="field-type">TIMESTAMP WITH TIME ZONE</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">ocr_confidence</span>
-                            <span class="field-type">DECIMAL(5,2)</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">lm_studio_model_used</span>
-                            <span class="field-type">VARCHAR(100)</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">processing_duration_seconds</span>
-                            <span class="field-type">DECIMAL(10,3)</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">dropbox_account_id</span>
-                            <span class="field-type">INTEGER REFERENCES dropbox_accounts(id)</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">created_at</span>
-                            <span class="field-type">TIMESTAMP WITH TIME ZONE</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Legacy Applications Table -->
-                <div class="table-card legacy">
-                    <div class="table-header">
-                        <h3>applications</h3>
-                        <span class="table-type">Legacy Table</span>
-                    </div>
-                    <div class="table-body">
-                        <div class="field">
-                            <span class="field-name">id</span>
-                            <span class="field-type">SERIAL PRIMARY KEY</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">file_name</span>
-                            <span class="field-type">VARCHAR(255) NOT NULL</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">first_name</span>
-                            <span class="field-type">VARCHAR(100) NOT NULL</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">last_name</span>
-                            <span class="field-type">VARCHAR(100) NOT NULL</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">birthdate</span>
-                            <span class="field-type">DATE</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">gender</span>
-                            <span class="field-type">VARCHAR(50) NOT NULL</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">address</span>
-                            <span class="field-type">TEXT NOT NULL</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">application_type</span>
-                            <span class="field-type">VARCHAR(100)</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">status</span>
-                            <span class="field-type">VARCHAR(50)</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-name">created_at</span>
-                            <span class="field-type">TIMESTAMP WITH TIME ZONE</span>
+                        
+                        <div class="table-card">
+                            <h3>dropbox_account_application_files</h3>
+                            <p>Comprehensive file processing data and metadata for each application file.</p>
+                            <ul>
+                                <li><strong>file_name, file_path:</strong> File identification</li>
+                                <li><strong>application_type:</strong> Type of insurance application</li>
+                                <li><strong>status:</strong> Processing status (Processed/Failed/Error/Skipped)</li>
+                                <li><strong>owner_id, joint_owner_id:</strong> Links to person information</li>
+                                <li><strong>extracted_text:</strong> Raw text from file processing</li>
+                                <li><strong>ocr_confidence:</strong> Confidence score from OCR</li>
+                                <li><strong>lm_studio_model_used:</strong> AI model used for processing</li>
+                                <li><strong>processing_duration_seconds:</strong> Processing time</li>
+                            </ul>
                         </div>
                     </div>
                 </div>
@@ -506,13 +314,6 @@ def generate_schema_diagram():
                     <h4>dropbox_account_application_info ↔ dropbox_account_application_files (Joint Owner)</h4>
                     <div class="relationship-desc">
                         <strong>One-to-Many:</strong> Each person can be the joint owner of multiple application files. Files are linked via the <code>joint_owner_id</code> foreign key.
-                    </div>
-                </div>
-                
-                <div class="relationship-item legacy">
-                    <h4>dropbox_accounts ↔ applications (Legacy)</h4>
-                    <div class="relationship-desc">
-                        <strong>Many-to-Many:</strong> Legacy relationship through the <code>dropbox_account_applications</code> junction table.
                     </div>
                 </div>
             </div>

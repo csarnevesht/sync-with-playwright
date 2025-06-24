@@ -1326,29 +1326,23 @@ class CommandRunner:
         return aggregated_info
 
     def _build_dropbox_account_information(self) -> Dict[str, Any]:
-        """Build the dropbox_account_information structure from available data.
+        """Build the dropbox account information structure"""
+        dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
         
-        Returns:
-            Dict containing the structured dropbox account information
-        """
+        # Initialize the structure
         dropbox_account_information = {
-            'names_found': [],
+            'names_found': [dropbox_account_folder_name],
             'client_list_data': None,
             'application_data': None,
-            'app_files_extraction_summary': None,
             'accounts': []
         }
-        
-        # Get the account folder name
-        dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
-        if dropbox_account_folder_name:
-            dropbox_account_information['names_found'].append(dropbox_account_folder_name)
         
         # Get client list file data
         try:
             client_list_file_data = self.get_data('dropbox_account_info')
         except KeyError:
             client_list_file_data = None
+        
         if client_list_file_data:
             dropbox_account_information['client_list_data'] = client_list_file_data
             # Create account object from client list file data
@@ -1378,12 +1372,58 @@ class CommandRunner:
                     'drivers_license': client_list_file_data.get('drivers_license')
                 }
                 dropbox_account_information['accounts'].append(client_list_account)
+                
+                # Store client list data in database if we have a Supabase client
+                try:
+                    supabase_client = self.get_context('supabase_client')
+                    if supabase_client and account_data:
+                        from supabase_client.schema import DropboxAccountClientListInfo
+                        from datetime import datetime
+                        
+                        # Convert birthdate string to date if available
+                        birthdate = None
+                        if account_data.get('birthdate'):
+                            try:
+                                birthdate = datetime.strptime(account_data['birthdate'], '%Y-%m-%d').date()
+                            except:
+                                pass
+                        
+                        client_list_info = DropboxAccountClientListInfo(
+                            account_name=account_data.get('name', ''),
+                            first_name=account_data.get('first_name', ''),
+                            middle_name=account_data.get('middle_name', ''),
+                            last_name=account_data.get('last_name', ''),
+                            birthdate=birthdate,
+                            gender=account_data.get('gender', ''),
+                            phone=account_data.get('phone', ''),
+                            address=account_data.get('address', ''),
+                            city=account_data.get('city', ''),
+                            state=account_data.get('state', ''),
+                            zip_code=account_data.get('zip', ''),
+                            email=account_data.get('email', ''),
+                            additional_info=account_data.get('additional_info', ''),
+                            match_status=match_info.get('match_status', ''),
+                            drivers_license_data=client_list_file_data.get('drivers_license', {}),
+                            search_info=search_info
+                        )
+                        
+                        # Get the dropbox account ID
+                        account_response = supabase_client.client.table('dropbox_accounts').select('id').eq('folder', dropbox_account_folder_name).execute()
+                        if account_response.data and len(account_response.data) > 0:
+                            account_id = account_response.data[0]['id']
+                            supabase_client.store_client_list_info(client_list_info, account_id)
+                            self.logger.info(f"Stored client list data for account: {dropbox_account_folder_name}")
+                        else:
+                            self.logger.warning(f"No dropbox account found for folder: {dropbox_account_folder_name}")
+                except Exception as e:
+                    self.logger.warning(f"Could not store client list data in database: {e}")
         
         # Get application files data
         try:
             account_info_from_app_files = self.get_data('account_info_from_app_files')
         except KeyError:
             account_info_from_app_files = None
+        
         if not account_info_from_app_files:
             # Set default empty structure if not available
             account_info_from_app_files = {
@@ -1421,97 +1461,43 @@ class CommandRunner:
         self.logger.debug(f"Owner lastName: {owner.get('lastName', '')}")
         self.logger.debug(f"Owner condition check: {owner and (owner.get('firstName') or owner.get('lastName'))}")
         
-        # Primary account holder
+        # Create account object for owner if we have data
         if owner and (owner.get('firstName') or owner.get('lastName')):
-            self.logger.debug("Creating primary account holder from application files")
-            # Build address string
-            address_parts = []
-            if owner.get('mailingAddressStreet'):
-                address_parts.append(owner['mailingAddressStreet'])
-            if owner.get('mailingAddressCity'):
-                address_parts.append(owner['mailingAddressCity'])
-            if owner.get('mailingAddressState'):
-                address_parts.append(owner['mailingAddressState'])
-            if owner.get('mailingAddressZip'):
-                address_parts.append(owner['mailingAddressZip'])
-            
-            address = ', '.join(address_parts) if address_parts else ''
-            
-            # Build name
-            first_name = owner.get('firstName', '')
-            last_name = owner.get('lastName', '')
-            account_name = f"{first_name} {last_name}".strip()
-            if not account_name:
-                account_name = dropbox_account_folder_name
-            
-            # Add application files name to names_found if not already present
-            if account_name and account_name not in dropbox_account_information['names_found']:
-                dropbox_account_information['names_found'].append(account_name)
-            
-            owner_account = {
-                'account_name': account_name,
+            app_files_account = {
+                'account_name': dropbox_account_folder_name,
                 'source': 'dropbox_application_files',
                 'account_type': 'Primary',
-                'first_name': first_name,
-                'middle_name': '',  # Not typically available in app files
-                'last_name': last_name,
+                'first_name': owner.get('firstName', ''),
+                'middle_name': owner.get('middleName', ''),
+                'last_name': owner.get('lastName', ''),
                 'birthdate': owner.get('dateOfBirth', ''),
                 'gender': owner.get('gender', ''),
                 'phone': owner.get('phoneNumber', ''),
-                'address': address,
+                'address': owner.get('mailingAddressStreet', ''),
                 'email': owner.get('emailAddress', ''),
                 'additional_info': '',
-                'match_status': 'N/A',  # Not applicable for app files
-                'drivers_license': None
+                'match_status': 'Extracted from application files'
             }
-            self.logger.debug(f"Created application files account: {owner_account}")
-            dropbox_account_information['accounts'].append(owner_account)
-        else:
-            self.logger.debug("No primary account holder found in application files")
+            dropbox_account_information['accounts'].append(app_files_account)
         
-        # Joint account holder
+        # Create account object for joint owner if we have data
         if joint_owner and (joint_owner.get('firstName') or joint_owner.get('lastName')):
-            # Build address string
-            address_parts = []
-            if joint_owner.get('mailingAddressStreet'):
-                address_parts.append(joint_owner['mailingAddressStreet'])
-            if joint_owner.get('mailingAddressCity'):
-                address_parts.append(joint_owner['mailingAddressCity'])
-            if joint_owner.get('mailingAddressState'):
-                address_parts.append(joint_owner['mailingAddressState'])
-            if joint_owner.get('mailingAddressZip'):
-                address_parts.append(joint_owner['mailingAddressZip'])
-            
-            address = ', '.join(address_parts) if address_parts else ''
-            
-            # Build name
-            first_name = joint_owner.get('firstName', '')
-            last_name = joint_owner.get('lastName', '')
-            account_name = f"{first_name} {last_name}".strip()
-            if not account_name:
-                account_name = f"{dropbox_account_folder_name} (Joint)"
-            
-            # Add joint account name to names_found if not already present
-            if account_name and account_name not in dropbox_account_information['names_found']:
-                dropbox_account_information['names_found'].append(account_name)
-            
-            joint_account = {
-                'account_name': account_name,
+            joint_app_files_account = {
+                'account_name': dropbox_account_folder_name,
                 'source': 'dropbox_application_files',
                 'account_type': 'Joint',
-                'first_name': first_name,
-                'middle_name': '',  # Not typically available in app files
-                'last_name': last_name,
+                'first_name': joint_owner.get('firstName', ''),
+                'middle_name': joint_owner.get('middleName', ''),
+                'last_name': joint_owner.get('lastName', ''),
                 'birthdate': joint_owner.get('dateOfBirth', ''),
                 'gender': joint_owner.get('gender', ''),
                 'phone': joint_owner.get('phoneNumber', ''),
-                'address': address,
+                'address': joint_owner.get('mailingAddressStreet', ''),
                 'email': joint_owner.get('emailAddress', ''),
                 'additional_info': '',
-                'match_status': 'N/A',  # Not applicable for app files
-                'drivers_license': None
+                'match_status': 'Extracted from application files'
             }
-            dropbox_account_information['accounts'].append(joint_account)
+            dropbox_account_information['accounts'].append(joint_app_files_account)
         
         return dropbox_account_information
 
