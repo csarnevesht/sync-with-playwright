@@ -1,14 +1,126 @@
 import os
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from supabase import create_client, Client as SupabaseBaseClient
-from .schema import Application, DropboxAccount, HouseholdMember
+from .schema import (
+    Application, DropboxAccount, HouseholdMember, 
+    DropboxAccountWithFiles, ApplicationStatus, ApplicationType,
+    DropboxAccountApplicationFile, DropboxAccountApplicationInfo
+)
 from dotenv import load_dotenv
 import logging
 import jwt
 import time
 import collections.abc
+from datetime import datetime, date
+import httpx
+import json
 
 logger = logging.getLogger(__name__)
+
+class LocalSupabaseClient:
+    """Custom client for local Supabase development with Kong key-auth"""
+    
+    def __init__(self, url: str, api_key: str):
+        self.url = url
+        self.api_key = api_key
+        self.headers = {
+            'apikey': api_key,
+            'Content-Type': 'application/json'
+        }
+    
+    def table(self, table_name: str):
+        return LocalTableClient(self.url, table_name, self.headers)
+
+class LocalTableClient:
+    """Custom table client for local development"""
+    
+    def __init__(self, base_url: str, table_name: str, headers: dict):
+        self.base_url = base_url
+        self.table_name = table_name
+        self.headers = headers
+        self.endpoint = f"{base_url}/rest/v1/{table_name}"
+    
+    def select(self, columns: str = "*"):
+        return LocalQueryBuilder(self.endpoint, self.headers, columns)
+    
+    def insert(self, data: dict):
+        return LocalInsertBuilder(self.endpoint, self.headers, data)
+    
+    def eq(self, column: str, value: Any):
+        return LocalQueryBuilder(self.endpoint, self.headers, "*").eq(column, value)
+
+    def delete(self):
+        return LocalDeleteBuilder(self.endpoint, self.headers)
+
+class LocalQueryBuilder:
+    """Custom query builder for local development"""
+    
+    def __init__(self, endpoint: str, headers: dict, columns: str):
+        self.endpoint = endpoint
+        self.headers = headers
+        self.columns = columns
+        self.params = {}
+    
+    def eq(self, column: str, value: Any):
+        self.params[f"{column}"] = f"eq.{value}"
+        return self
+    
+    def execute(self):
+        params = "&".join([f"{k}={v}" for k, v in self.params.items()])
+        url = f"{self.endpoint}?select={self.columns}"
+        if params:
+            url += f"&{params}"
+        
+        with httpx.Client() as client:
+            response = client.get(url, headers=self.headers)
+            response.raise_for_status()
+            return type('Response', (), {'data': response.json()})()
+
+class LocalInsertBuilder:
+    """Custom insert builder for local development"""
+    
+    def __init__(self, endpoint: str, headers: dict, data: dict):
+        self.endpoint = endpoint
+        self.headers = headers
+        self.data = data
+    
+    def execute(self):
+        with httpx.Client() as client:
+            # Add select=* to get the inserted record back
+            insert_url = f"{self.endpoint}?select=*"
+            response = client.post(
+                insert_url,
+                headers=self.headers,
+                json=self.data
+            )
+            response.raise_for_status()
+            
+            # Handle empty response (common with PostgREST)
+            if response.text.strip():
+                return type('Response', (), {'data': response.json()})()
+            else:
+                # Return empty data for successful insert with no response
+                return type('Response', (), {'data': []})()
+
+class LocalDeleteBuilder:
+    """Custom delete builder for local development"""
+    def __init__(self, endpoint: str, headers: dict):
+        self.endpoint = endpoint
+        self.headers = headers
+        self.params = {}
+    def eq(self, column: str, value: Any):
+        self.params[f"{column}"] = f"eq.{value}"
+        return self
+    def execute(self):
+        params = "&".join([f"{k}={v}" for k, v in self.params.items()])
+        url = self.endpoint
+        if params:
+            url += f"?{params}"
+        with httpx.Client() as client:
+            response = client.delete(url, headers=self.headers)
+            response.raise_for_status()
+            # Return a dummy response object for compatibility
+            return type('Response', (), {'data': response.json() if response.text.strip() else []})()
 
 class SupabaseClient:
     """
@@ -16,6 +128,7 @@ class SupabaseClient:
     """
     _instance = None
     _client: Optional[SupabaseBaseClient] = None
+    _local_client: Optional[LocalSupabaseClient] = None
 
     def __new__(cls):
         if cls._instance is None:
@@ -30,358 +143,638 @@ class SupabaseClient:
         print(f"Loading environment variables from {env_path}")
         load_dotenv(env_path)
 
-        # Get the Supabase URL
-        supabase_url = os.getenv('SUPABASE_URL', 'http://localhost:8000')
+        # Get the Supabase URL - try multiple possible names
+        supabase_url = os.getenv('SUPABASE_URL')
+        if not supabase_url:
+            supabase_url = os.getenv('SUPABASE_PUBLIC_URL')
+        if not supabase_url:
+            supabase_url = 'http://localhost:8000'
+            
         logger.debug(f"Using Supabase URL: {supabase_url}")
 
-        # Get the Supabase service role key from the .env file
-        service_role_key = os.getenv('SUPABASE_SERVICE_KEY')
+        # Get the Supabase service role key - try multiple possible names
+        service_role_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
         if not service_role_key:
-            raise ValueError("SUPABASE_SERVICE_KEY not set in .env file!")
-        logger.debug(f"Using Supabase service role key: {service_role_key}")
+            service_role_key = os.getenv('SUPABASE_SERVICE_KEY')
+        if not service_role_key:
+            # Try anon key as fallback
+            service_role_key = os.getenv('SUPABASE_ANON_KEY')
+            
+        if not service_role_key:
+            raise ValueError("No Supabase key found! Please set SUPABASE_SERVICE_ROLE_KEY, SUPABASE_SERVICE_KEY, or SUPABASE_ANON_KEY in your environment variables.")
+        
+        logger.debug(f"Using Supabase key: {service_role_key[:10]}...")
 
         try:
-            # Create the Supabase client with the service role key
-            self._client = create_client(supabase_url, service_role_key)
-            # Test the connection
-            self._client.table('dropbox_accounts').select('count').execute()
-            logger.info("Successfully connected to Supabase")
+            # For local development, use custom client with Kong key-auth
+            if 'localhost' in supabase_url or '127.0.0.1' in supabase_url:
+                self._local_client = LocalSupabaseClient(supabase_url, service_role_key)
+                # Test the connection
+                self._local_client.table('dropbox_accounts').select('count').execute()
+                logger.info("Successfully connected to local Supabase")
+            else:
+                # For cloud Supabase, use the standard client
+                self._client = create_client(supabase_url, service_role_key)
+                # Test the connection
+                self._client.table('dropbox_accounts').select('count').execute()
+                logger.info("Successfully connected to Supabase")
         except Exception as e:
+            print(f"[DEBUG] Outer exception caught: {type(e).__name__}: {str(e)}")
+            print(f"[DEBUG] Exception args: {e.args}")
             logger.error(f"Failed to connect to Supabase: {str(e)}")
+            logger.error(f"URL: {supabase_url}")
+            logger.error(f"Key type: {'Service Role' if 'service_role' in service_role_key else 'Anon'}")
             raise
 
     @property
     def client(self) -> SupabaseBaseClient:
         """Get the Supabase client instance"""
+        if self._local_client:
+            return self._local_client
         return self._client
 
-    def store_application(self, application: Application) -> int:
-        """Store an application in the database"""
-        if not self._client:
-            raise RuntimeError("Supabase client not initialized")
-        data = application.model_dump()
-        data = self._serialize_dates(data)
-        result = self._client.table('applications').insert(data).execute()
-        if not result.data:
-            raise RuntimeError("Failed to create application")
-        return result.data[0]['id']
-
-    def store_household_member(self, member: HouseholdMember) -> None:
-        """Store a household member in the database"""
-        if not self._client:
-            raise RuntimeError("Supabase client not initialized")
-        data = member.model_dump()
-        data = self._serialize_dates(data)
-        self._client.table('household_members').insert(data).execute()
-
     def _serialize_dates(self, obj):
+        """Serialize dates for database storage"""
         if isinstance(obj, dict):
             return {k: self._serialize_dates(v) for k, v in obj.items()}
         elif isinstance(obj, list):
             return [self._serialize_dates(i) for i in obj]
-        elif hasattr(obj, 'isoformat'):
+        elif isinstance(obj, (datetime, date)):
             return obj.isoformat()
-        else:
-            return obj
+        return obj
+
+    def store_person_info(self, person: DropboxAccountApplicationInfo) -> Optional[int]:
+        """Store person information and return the ID"""
+        try:
+            # Check if person already exists (by name and address)
+            if person.first_name and person.last_name:
+                existing_response = self.client.table('dropbox_account_application_info').select('id').eq('first_name', person.first_name).eq('last_name', person.last_name).execute()
+                if existing_response.data and len(existing_response.data) > 0:
+                    existing_id = existing_response.data[0]['id']
+                    print(f"[DEBUG] Person already exists with ID: {existing_id}")
+                    return existing_id
+            
+            # Serialize the person data
+            person_data = self._serialize_dates(person.model_dump(exclude_none=True))
+            print(f"[DEBUG] Inserting person info: {person_data}")
+            # Insert into the database
+            response = self.client.table('dropbox_account_application_info').insert(person_data).execute()
+            print(f"[DEBUG] Insert response: {getattr(response, 'data', None)} | Error: {getattr(response, 'error', None)}")
+            if response.data and len(response.data) > 0:
+                return response.data[0]['id']
+            else:
+                logger.warning("No data returned from person_info insert")
+                return None
+        except Exception as e:
+            logger.error(f"Error storing person info: {str(e)}")
+            print(f"[ERROR] Exception in store_person_info: {e}")
+            return None
+
+    def store_application_file(self, app_file: DropboxAccountApplicationFile, dropbox_account_id: int) -> Optional[int]:
+        """Store application file data and return the file ID"""
+        try:
+            # First store owner info if present
+            owner_id = None
+            if app_file.owner and (app_file.owner.first_name or app_file.owner.last_name):
+                owner_id = self.store_person_info(app_file.owner)
+            # Store joint owner info if present
+            joint_owner_id = None
+            if app_file.joint_owner and (app_file.joint_owner.first_name or app_file.joint_owner.last_name):
+                joint_owner_id = self.store_person_info(app_file.joint_owner)
+            # Prepare application file data
+            file_data = {
+                'file_name': app_file.file_name,
+                'file_path': app_file.file_path,
+                'application_type': app_file.application_type.value,
+                'status': app_file.status.value,
+                'owner_id': owner_id,
+                'joint_owner_id': joint_owner_id,
+                'notes': app_file.notes,
+                'extracted_text': app_file.extracted_text,
+                'processing_timestamp': app_file.processing_timestamp.isoformat() if app_file.processing_timestamp else None,
+                'ocr_confidence': app_file.ocr_confidence,
+                'lm_studio_model_used': app_file.lm_studio_model_used,
+                'processing_duration_seconds': app_file.processing_duration_seconds,
+                'dropbox_account_id': dropbox_account_id
+            }
+            file_data = self._serialize_dates(file_data)
+            print(f"[DEBUG] Inserting application file: {file_data}")
+            # Insert into the database
+            response = self.client.table('dropbox_account_application_files').insert(file_data).execute()
+            print(f"[DEBUG] Insert response: {getattr(response, 'data', None)} | Error: {getattr(response, 'error', None)}")
+            if response.data and len(response.data) > 0:
+                return response.data[0]['id']
+            else:
+                logger.warning("No data returned from application_files insert")
+                return None
+        except Exception as e:
+            logger.error(f"Error storing application file: {str(e)}")
+            print(f"[ERROR] Exception in store_application_file: {e}")
+            return None
+
+    def store_dropbox_account_with_files(self, account: DropboxAccountWithFiles) -> Optional[int]:
+        """Store dropbox account and its application files. If account exists, use its ID."""
+        try:
+            # First store the dropbox account
+            account_data = {
+                'folder': account.folder,
+                'first_name': account.first_name,
+                'middle_name': account.middle_name,
+                'last_name': account.last_name,
+                'total_files': account.total_files,
+                'processed_files': account.processed_files,
+                'failed_files': account.failed_files,
+                'processing_timestamp': account.processing_timestamp.isoformat() if account.processing_timestamp else None
+            }
+            account_data = self._serialize_dates(account_data)
+            print(f"[DEBUG] Inserting dropbox account: {account_data}")
+            response = self.client.table('dropbox_accounts').insert(account_data).execute()
+            print(f"[DEBUG] Insert response: {getattr(response, 'data', None)} | Error: {getattr(response, 'error', None)}")
+            account_id = None
+            if response.data and len(response.data) > 0:
+                account_id = response.data[0]['id']
+            else:
+                logger.error(f"Failed to insert dropbox account: No data returned")
+                return None
+            # Store each application file
+            for app_file in account.application_files:
+                self.store_application_file(app_file, account_id)
+            return account_id
+        except Exception as e:
+            print(f"[DEBUG] Outer exception caught: {type(e).__name__}: {str(e)}")
+            print(f"[DEBUG] Exception args: {e.args}")
+            
+            # Check for 409 Conflict (already exists)
+            if '409' in str(e) and 'Conflict' in str(e):
+                print(f"[DEBUG] 409 Conflict detected, fetching existing account for folder: {account.folder}")
+                try:
+                    existing = self.client.table('dropbox_accounts').select('id').eq('folder', account.folder).execute()
+                    print(f"[DEBUG] Existing account fetch response: {getattr(existing, 'data', None)} | Error: {getattr(existing, 'error', None)}")
+                    if existing.data and len(existing.data) > 0:
+                        account_id = existing.data[0]['id']
+                        print(f"[DEBUG] Successfully got existing account ID: {account_id}")
+                        
+                        # Store each application file using the existing account ID
+                        for app_file in account.application_files:
+                            self.store_application_file(app_file, account_id)
+                        return account_id
+                    else:
+                        logger.error("409 Conflict but could not fetch existing account ID")
+                        return None
+                except Exception as fetch_error:
+                    logger.error(f"Error fetching existing account: {str(fetch_error)}")
+                    return None
+            else:
+                logger.error(f"Error storing dropbox account with files: {str(e)}")
+                return None
+
+    def get_application_files_by_folder(self, folder_name: str) -> Optional[DropboxAccountWithFiles]:
+        """Get all application files for a specific folder"""
+        try:
+            # First get the dropbox account
+            account_response = self.client.table('dropbox_accounts').select('*').eq('folder', folder_name).execute()
+            
+            if not account_response.data or len(account_response.data) == 0:
+                logger.warning(f"No dropbox account found for folder: {folder_name}")
+                return None
+            
+            account_data = account_response.data[0]
+            
+            # Get application files for this account
+            files_response = self.client.table('dropbox_account_application_files').select('*').eq('dropbox_account_id', account_data['id']).execute()
+            
+            # Get person info for owners and joint owners
+            person_ids = set()
+            for file_data in files_response.data:
+                if file_data.get('owner_id'):
+                    person_ids.add(file_data['owner_id'])
+                if file_data.get('joint_owner_id'):
+                    person_ids.add(file_data['joint_owner_id'])
+            
+            person_info_map = {}
+            if person_ids:
+                # Get all person info in one query
+                person_response = self.client.table('dropbox_account_application_info').select('*').execute()
+                for person in person_response.data:
+                    person_info_map[person['id']] = person
+            
+            # Build the application files
+            application_files = []
+            for file_data in files_response.data:
+                # Get owner info
+                owner = None
+                if file_data.get('owner_id') and file_data['owner_id'] in person_info_map:
+                    owner_data = person_info_map[file_data['owner_id']]
+                    owner = DropboxAccountApplicationInfo(**owner_data)
+                
+                # Get joint owner info
+                joint_owner = None
+                if file_data.get('joint_owner_id') and file_data['joint_owner_id'] in person_info_map:
+                    joint_owner_data = person_info_map[file_data['joint_owner_id']]
+                    joint_owner = DropboxAccountApplicationInfo(**joint_owner_data)
+                
+                # Create application file
+                app_file = DropboxAccountApplicationFile(
+                    file_name=file_data['file_name'],
+                    file_path=file_data.get('file_path'),
+                    application_type=ApplicationType(file_data.get('application_type', 'Unknown')),
+                    status=ApplicationStatus(file_data.get('status', 'Processed')),
+                    owner=owner or DropboxAccountApplicationInfo(),
+                    joint_owner=joint_owner or DropboxAccountApplicationInfo(),
+                    notes=file_data.get('notes', []),
+                    extracted_text=file_data.get('extracted_text'),
+                    processing_timestamp=datetime.fromisoformat(file_data['processing_timestamp']) if file_data.get('processing_timestamp') else None,
+                    ocr_confidence=file_data.get('ocr_confidence'),
+                    lm_studio_model_used=file_data.get('lm_studio_model_used'),
+                    processing_duration_seconds=file_data.get('processing_duration_seconds')
+                )
+                application_files.append(app_file)
+            
+            # Create the account with files
+            account = DropboxAccountWithFiles(
+                folder=account_data['folder'],
+                first_name=account_data.get('first_name'),
+                middle_name=account_data.get('middle_name'),
+                last_name=account_data.get('last_name'),
+                application_files=application_files,
+                total_files=account_data.get('total_files', 0),
+                processed_files=account_data.get('processed_files', 0),
+                failed_files=account_data.get('failed_files', 0),
+                processing_timestamp=datetime.fromisoformat(account_data['processing_timestamp']) if account_data.get('processing_timestamp') else None
+            )
+            
+            return account
+            
+        except Exception as e:
+            logger.error(f"Error getting application files by folder: {str(e)}")
+            return None
+
+    def check_application_file_exists(self, folder_name: str, file_name: str) -> bool:
+        """Check if a specific application file already exists for a folder"""
+        try:
+            # Get the dropbox account
+            account_response = self.client.table('dropbox_accounts').select('id').eq('folder', folder_name).execute()
+            
+            if not account_response.data or len(account_response.data) == 0:
+                return False
+            
+            account_id = account_response.data[0]['id']
+            
+            # Check if the specific file exists
+            files_response = self.client.table('dropbox_account_application_files').select('id').eq('dropbox_account_id', account_id).eq('file_name', file_name).execute()
+            
+            return len(files_response.data) > 0
+            
+        except Exception as e:
+            logger.error(f"Error checking application file exists: {str(e)}")
+            return False
+
+    def check_application_files_exist(self, folder_name: str) -> bool:
+        """Check if application files exist for a folder"""
+        try:
+            # Get the dropbox account
+            account_response = self.client.table('dropbox_accounts').select('id').eq('folder', folder_name).execute()
+            
+            if not account_response.data or len(account_response.data) == 0:
+                return False
+            
+            account_id = account_response.data[0]['id']
+            
+            # Check if there are any application files
+            files_response = self.client.table('dropbox_account_application_files').select('id').eq('dropbox_account_id', account_id).execute()
+            
+            return len(files_response.data) > 0
+            
+        except Exception as e:
+            logger.error(f"Error checking application files exist: {str(e)}")
+            return False
+
+    def delete_application_files_for_folder(self, folder_name: str) -> bool:
+        """Delete all application files for a specific folder"""
+        try:
+            # Get the dropbox account
+            account_response = self.client.table('dropbox_accounts').select('id').eq('folder', folder_name).execute()
+            
+            if not account_response.data or len(account_response.data) == 0:
+                logger.warning(f"No dropbox account found for folder: {folder_name}")
+                return False
+            
+            account_id = account_response.data[0]['id']
+            
+            # Get all application files for this account to find person IDs
+            files_response = self.client.table('dropbox_account_application_files').select('owner_id,joint_owner_id').eq('dropbox_account_id', account_id).execute()
+            
+            # Collect person IDs to delete
+            person_ids = set()
+            for file_data in files_response.data:
+                if file_data.get('owner_id'):
+                    person_ids.add(file_data['owner_id'])
+                if file_data.get('joint_owner_id'):
+                    person_ids.add(file_data['joint_owner_id'])
+            
+            # Delete application files
+            self.client.table('dropbox_account_application_files').delete().eq('dropbox_account_id', account_id).execute()
+            
+            # Delete person info records
+            for person_id in person_ids:
+                if person_id:
+                    self.client.table('dropbox_account_application_info').delete().eq('id', person_id).execute()
+            
+            logger.info(f"Deleted application files for folder: {folder_name}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error deleting application files for folder: {str(e)}")
+            return False
+
+    def store_application(self, application: Application) -> int:
+        """Store a legacy application record"""
+        try:
+            app_data = self._serialize_dates(application.model_dump())
+            response = self.client.table('applications').insert(app_data).execute()
+            return response.data[0]['id'] if response.data else 0
+        except Exception as e:
+            logger.error(f"Error storing application: {str(e)}")
+            return 0
+
+    def store_household_member(self, member: HouseholdMember) -> None:
+        """Store a household member"""
+        try:
+            member_data = self._serialize_dates(member.model_dump())
+            self.client.table('household_members').insert(member_data).execute()
+        except Exception as e:
+            logger.error(f"Error storing household member: {str(e)}")
 
     def store_dropbox_account(self, account: DropboxAccount) -> None:
-        """Store a Dropbox account and its related data"""
-        if not self._client:
-            raise RuntimeError("Supabase client not initialized")
-        
-        # Store the account
-        account_data = account.model_dump(exclude={'applications', 'household_members', 'household_head'})
-        if account.household_head:
-            account_data['household_head_id'] = None
-        account_data = self._serialize_dates(account_data)
-        self._client.table('dropbox_accounts').insert(account_data).execute()
-        
-        # Store applications
-        for application in account.applications:
-            self.store_application(application)
-        
-        # Store household members
-        for member in account.household_members:
-            self.store_household_member(member)
+        """Store a dropbox account with applications and household members"""
+        try:
+            # Store the account
+            account_data = {
+                'folder': account.folder,
+                'first_name': account.first_name,
+                'middle_name': account.middle_name,
+                'last_name': account.last_name
+            }
+            
+            response = self.client.table('dropbox_accounts').insert(account_data).execute()
+            account_id = response.data[0]['id'] if response.data else None
+            
+            if account_id:
+                # Store applications
+                for app in account.applications:
+                    app_id = self.store_application(app)
+                    if app_id:
+                        # Link application to account
+                        self.client.table('dropbox_account_applications').insert({
+                            'dropbox_account_id': account_id,
+                            'application_id': app_id
+                        }).execute()
+                
+                # Store household members
+                if account.household_head:
+                    self.store_household_member(account.household_head)
+                
+                for member in account.household_members:
+                    self.store_household_member(member)
+                    
+        except Exception as e:
+            logger.error(f"Error storing dropbox account: {str(e)}")
 
     def get_dropbox_account(self, account_id: int) -> Optional[DropboxAccount]:
-        """Retrieve a dropbox account by ID"""
-        if not self._client:
-            raise RuntimeError("Supabase client not initialized")
-
-        # Get account
-        result = self._client.table("dropbox_accounts").select("*").eq("id", account_id).execute()
-        if not result.data:
+        """Get a dropbox account by ID with all related data"""
+        try:
+            # Get the account
+            account_response = self.client.table('dropbox_accounts').select('*').eq('id', account_id).execute()
+            
+            if not account_response.data:
+                return None
+            
+            account_data = account_response.data[0]
+            
+            # Get applications for this account
+            apps_response = self.client.table('dropbox_account_applications').select('application_id').eq('dropbox_account_id', account_id).execute()
+            
+            applications = []
+            for app_link in apps_response.data:
+                app_response = self.client.table('applications').select('*').eq('id', app_link['application_id']).execute()
+                if app_response.data:
+                    app_data = app_response.data[0]
+                    applications.append(Application(**app_data))
+            
+            # Get household members
+            members_response = self.client.table('dropbox_account_household_members').select('household_member_id').eq('dropbox_account_id', account_id).execute()
+            
+            household_members = []
+            household_head = None
+            
+            for member_link in members_response.data:
+                member_response = self.client.table('household_members').select('*').eq('id', member_link['household_member_id']).execute()
+                if member_response.data:
+                    member_data = member_response.data[0]
+                    member = HouseholdMember(**member_data)
+                    if member.role == 'Head':
+                        household_head = member
+                    else:
+                        household_members.append(member)
+            
+            return DropboxAccount(
+                folder=account_data['folder'],
+                first_name=account_data.get('first_name'),
+                middle_name=account_data.get('middle_name'),
+                last_name=account_data.get('last_name'),
+                applications=applications,
+                household_head=household_head,
+                household_members=household_members
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting dropbox account: {str(e)}")
             return None
-
-        account_data = result.data[0]
-
-        # Get household head
-        household_head = None
-        if account_data["household_head_id"]:
-            head_result = self._client.table("household_members").select("*").eq("id", account_data["household_head_id"]).execute()
-            if head_result.data:
-                household_head = HouseholdMember(**head_result.data[0])
-
-        # Get applications
-        apps_result = self._client.table("dropbox_account_applications").select("application_id").eq("dropbox_account_id", account_id).execute()
-        applications = []
-        for app in apps_result.data:
-            app_result = self._client.table("applications").select("*").eq("id", app["application_id"]).execute()
-            if app_result.data:
-                applications.append(Application(**app_result.data[0]))
-
-        # Get household members
-        members_result = self._client.table("dropbox_account_household_members").select("id").eq("dropbox_account_id", account_id).execute()
-        household_members = []
-        for member in members_result.data:
-            member_result = self._client.table("household_members").select("*").eq("id", member["id"]).execute()
-            if member_result.data:
-                household_members.append(HouseholdMember(**member_result.data[0]))
-
-        return DropboxAccount(
-            folder=account_data["folder"],
-            first_name=account_data["first_name"],
-            middle_name=account_data["middle_name"],
-            last_name=account_data["last_name"],
-            applications=applications,
-            household_head=household_head,
-            household_members=household_members
-        )
 
     def get_dropbox_account_by_folder(self, folder_name: str) -> Optional[DropboxAccount]:
-        """Retrieve a dropbox account by folder name"""
-        if not self._client:
-            raise RuntimeError("Supabase client not initialized")
-
-        # Get account
-        result = self._client.table("dropbox_accounts").select("*").eq("folder", folder_name).execute()
-        if not result.data:
+        """Get a dropbox account by folder name"""
+        try:
+            # Get the account
+            account_response = self.client.table('dropbox_accounts').select('id').eq('folder', folder_name).execute()
+            
+            if not account_response.data:
+                return None
+            
+            account_id = account_response.data[0]['id']
+            return self.get_dropbox_account(account_id)
+            
+        except Exception as e:
+            logger.error(f"Error getting dropbox account by folder: {str(e)}")
             return None
 
-        account_data = result.data[0]
-
-        # Get household head
-        household_head = None
-        if account_data.get("household_head_id"):
-            head_result = self._client.table("household_members").select("*").eq("id", account_data["household_head_id"]).execute()
-            if head_result.data:
-                household_head = HouseholdMember(**head_result.data[0])
-
-        # Get applications directly from applications table
-        apps_result = self._client.table("applications").select("*").eq("dropbox_account_id", account_data["id"]).execute()
-        applications = []
-        if apps_result.data:
-            for app_data in apps_result.data:
-                applications.append(Application(**app_data))
-
-        # Get household members
-        members_result = self._client.table("household_members").select("id").eq("dropbox_account_id", account_data["id"]).execute()
-        household_members = []
-        for member in members_result.data:
-            member_result = self._client.table("household_members").select("*").eq("id", member["id"]).execute()
-            if member_result.data:
-                household_members.append(HouseholdMember(**member_result.data[0]))
-
-        return DropboxAccount(
-            folder=account_data["folder"],
-            first_name=account_data.get("first_name"),
-            middle_name=account_data.get("middle_name"),
-            last_name=account_data.get("last_name"),
-            applications=applications,
-            household_head=household_head,
-            household_members=household_members
-        )
-
     def generate_account_summary(self, folder_name: str) -> str:
-        """Generate a summary for a specific Dropbox account.
-        
-        Args:
-            folder_name: The name of the Dropbox folder to generate a summary for
-            
-        Returns:
-            str: A formatted summary of the account's data
-        """
-        if not self._client:
-            raise RuntimeError("Supabase client not initialized")
-
-        summary_lines = []
-        summary_lines.append(f"\nAccount Summary for: {folder_name}")
-        summary_lines.append("=" * (len(folder_name) + 20))
-
+        """Generate a summary of account data for a folder"""
         try:
-            # Get the account with its applications
-            result = self._client.table('dropbox_accounts').select('*, applications(*)').eq('folder', folder_name).execute()
-            if not result.data:
-                summary_lines.append(f"❌ No account found for folder: {folder_name}")
+            summary_lines = []
+            summary_lines.append(f"📁 **Account Summary for: {folder_name}**")
+            summary_lines.append("=" * 50)
+            
+            # Get the account with files
+            account = self.get_application_files_by_folder(folder_name)
+            
+            if not account:
+                summary_lines.append("❌ No account data found for this folder")
                 return "\n".join(summary_lines)
-
-            account = result.data[0]
-            apps = account.get('applications', [])
             
-            # Add account details
-            summary_lines.append(f"\nAccount Details:")
-            summary_lines.append(f"  Name: {account.get('first_name', '')} {account.get('middle_name', '')} {account.get('last_name', '')}".strip())
+            # Account info
+            summary_lines.append(f"👤 **Account Holder:** {account.first_name or 'N/A'} {account.middle_name or ''} {account.last_name or 'N/A'}")
+            summary_lines.append(f"📊 **File Statistics:**")
+            summary_lines.append(f"   • Total Files: {account.total_files}")
+            summary_lines.append(f"   • Processed: {account.processed_files}")
+            summary_lines.append(f"   • Failed: {account.failed_files}")
             
-            # Add applications summary
-            summary_lines.append(f"\nApplications ({len(apps)}):")
-            if not apps:
-                summary_lines.append(f"  🚫 No application files found")
-            else:
-                for app in apps:
-                    # Format date as MM/DD/YYYY
-                    birthdate = app.get('birthdate')
-                    if birthdate:
-                        try:
-                            from datetime import datetime
-                            dob = datetime.fromisoformat(birthdate)
-                            dob_str = dob.strftime('%m/%d/%Y')
-                        except (ValueError, TypeError):
-                            dob_str = birthdate
-                    else:
-                        dob_str = 'N/A'
+            if account.processing_timestamp:
+                summary_lines.append(f"⏰ **Last Processed:** {account.processing_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+            
+            # Application files
+            if account.application_files:
+                summary_lines.append(f"\n📄 **Application Files ({len(account.application_files)}):**")
+                
+                for i, app_file in enumerate(account.application_files, 1):
+                    summary_lines.append(f"\n{i}. **{app_file.file_name}**")
+                    summary_lines.append(f"   📋 Type: {app_file.application_type.value}")
+                    summary_lines.append(f"   ✅ Status: {app_file.status.value}")
                     
-                    # Get gender emoji
-                    gender_emoji = '👩' if app.get('gender') == 'Female' else '👨' if app.get('gender') == 'Male' else ''
-                    gender_str = app.get('gender', 'Unknown')
-                    summary_lines.append(f"  ✅ {app['file_name']}")
-                    summary_lines.append(f"    🎂 DOB: {dob_str}")
-                    summary_lines.append(f"    ☑️ Gender: {gender_emoji} {gender_str}")
-                    if app.get('address'):
-                        summary_lines.append(f"    📍 Address: {app['address']}")
-
-            # Get household members
-            members_result = self._client.table('household_members').select('*').eq('dropbox_account_id', account['id']).execute()
-            members = members_result.data if members_result.data else []
-            
-            # Add household members summary
-            summary_lines.append(f"\nHousehold Members ({len(members)}):")
-            if not members:
-                summary_lines.append("  ❌ No household members found")
+                    if app_file.owner and (app_file.owner.first_name or app_file.owner.last_name):
+                        summary_lines.append(f"   👤 Owner: {app_file.owner.first_name or ''} {app_file.owner.last_name or ''}")
+                        if app_file.owner.date_of_birth:
+                            summary_lines.append(f"      📅 DOB: {app_file.owner.date_of_birth}")
+                        if app_file.owner.phone_number:
+                            summary_lines.append(f"      📞 Phone: {app_file.owner.phone_number}")
+                    
+                    if app_file.joint_owner and (app_file.joint_owner.first_name or app_file.joint_owner.last_name):
+                        summary_lines.append(f"   👥 Joint Owner: {app_file.joint_owner.first_name or ''} {app_file.joint_owner.last_name or ''}")
+                        if app_file.joint_owner.date_of_birth:
+                            summary_lines.append(f"      📅 DOB: {app_file.joint_owner.date_of_birth}")
+                        if app_file.joint_owner.phone_number:
+                            summary_lines.append(f"      📞 Phone: {app_file.joint_owner.phone_number}")
+                    
+                    if app_file.notes:
+                        summary_lines.append(f"   📝 Notes: {', '.join(app_file.notes)}")
+                    
+                    if app_file.processing_duration_seconds:
+                        summary_lines.append(f"   ⏱️ Processing Time: {app_file.processing_duration_seconds:.2f}s")
             else:
-                for member in members:
-                    is_head = "👑 " if member.get('is_household_head') else ""
-                    name = f"{member.get('first_name', '')} {member.get('middle_name', '')} {member.get('last_name', '')}".strip()
-                    dob = member.get('date_of_birth', 'N/A')
-                    if dob and hasattr(dob, 'strftime'):
-                        dob = dob.strftime('%m/%d/%Y')
-                    gender_emoji = '👩' if member.get('gender') == 'Female' else '👨' if member.get('gender') == 'Male' else ''
-                    summary_lines.append(f"  {is_head}{name}")
-                    summary_lines.append(f"    🎂 DOB: {dob}")
-                    summary_lines.append(f"    ☑️ Gender: {gender_emoji} {member.get('gender', 'Unknown')}")
-
+                summary_lines.append("\n📄 **Application Files:** None found")
+            
             return "\n".join(summary_lines)
-
+            
         except Exception as e:
-            logger.error(f"Error generating account summary: {str(e)}")
+            summary_lines = []
+            summary_lines.append(f"📁 **Account Summary for: {folder_name}**")
+            summary_lines.append("=" * 50)
             summary_lines.append(f"\n❌ Error generating summary: {str(e)}")
             return "\n".join(summary_lines)
 
     def generate_search_results_summary(self, folder_name: str, search_criteria: dict = None) -> str:
-        """Display search results for a Dropbox account in a formatted way.
-        
-        Args:
-            folder_name: The name of the Dropbox folder to search
-            search_criteria: Optional dictionary containing search criteria (birthdate, gender, application_type)
-            
-        Returns:
-            str: A formatted string containing the search results
-        """
-        if not self._client:
-            raise RuntimeError("Supabase client not initialized")
-
-        logger.debug("Generating search results summary for folder: %s", folder_name)
-        logger.debug("Search criteria: %s", search_criteria)
-
-        summary_lines = []
-        summary_lines.append(f"\n📁 Dropbox Account Folder: {folder_name}")
-        summary_lines.append("=" * (len(folder_name) + 30))
-
+        """Generate a summary of search results for a folder"""
         try:
-            # Get the account with its applications
-            logger.debug("Querying Supabase for account: %s", folder_name)
-            result = self._client.table('dropbox_accounts').select('*, applications(*)').eq('folder', folder_name).execute()
+            summary_lines = []
+            summary_lines.append(f"🔍 **Search Results Summary for: {folder_name}**")
+            summary_lines.append("=" * 50)
             
-            if not result.data:
-                logger.warning("No account found for folder: %s", folder_name)
-                summary_lines.append(f"❌ No account found for folder: {folder_name}")
-                return "\n".join(summary_lines)
-
-            account = result.data[0]
-            apps = account.get('applications', [])
-            logger.debug("Found %d applications for account", len(apps))
-            
-            # Filter applications based on search criteria if provided
             if search_criteria:
-                logger.debug("Filtering applications with criteria: %s", search_criteria)
-                filtered_apps = []
-                for app in apps:
-                    matches = True
-                    if search_criteria.get('birthdate'):
-                        app_dob = app.get('birthdate', '')
-                        logger.debug("Comparing birthdate: %s with %s", app_dob, search_criteria['birthdate'])
-                        if search_criteria['birthdate'] not in str(app_dob):
-                            matches = False
-                    if search_criteria.get('gender'):
-                        app_gender = app.get('gender', '').lower()
-                        search_gender = search_criteria['gender'].lower()
-                        logger.debug("Comparing gender: %s with %s", app_gender, search_gender)
-                        if search_gender != app_gender:
-                            matches = False
-                    if search_criteria.get('application_type'):
-                        app_type = app.get('application_type', '').lower()
-                        search_type = search_criteria['application_type'].lower()
-                        logger.debug("Comparing application type: %s with %s", app_type, search_type)
-                        if search_type != app_type:
-                            matches = False
-                    if matches:
-                        filtered_apps.append(app)
-                apps = filtered_apps
-                logger.debug("After filtering, found %d matching applications", len(apps))
+                summary_lines.append(f"🔎 **Search Criteria:**")
+                for key, value in search_criteria.items():
+                    summary_lines.append(f"   • {key}: {value}")
+                summary_lines.append("")
             
-            # Add applications summary
-            summary_lines.append(f"\n✅ Applications ({len(apps)}):")
-            if not apps:
-                summary_lines.append(f"  🚫 No application files found")
+            # Get the account with files
+            account = self.get_application_files_by_folder(folder_name)
+            
+            if not account:
+                summary_lines.append("❌ No account data found for this folder")
+                return "\n".join(summary_lines)
+            
+            # Filter files based on search criteria
+            matching_files = account.application_files
+            
+            if search_criteria:
+                matching_files = []
+                for app_file in account.application_files:
+                    matches = True
+                    
+                    # Check owner name
+                    if 'owner_name' in search_criteria:
+                        owner_name = f"{app_file.owner.first_name or ''} {app_file.owner.last_name or ''}".strip()
+                        if search_criteria['owner_name'].lower() not in owner_name.lower():
+                            matches = False
+                    
+                    # Check joint owner name
+                    if 'joint_owner_name' in search_criteria:
+                        joint_owner_name = f"{app_file.joint_owner.first_name or ''} {app_file.joint_owner.last_name or ''}".strip()
+                        if search_criteria['joint_owner_name'].lower() not in joint_owner_name.lower():
+                            matches = False
+                    
+                    # Check application type
+                    if 'application_type' in search_criteria:
+                        if app_file.application_type.value.lower() != search_criteria['application_type'].lower():
+                            matches = False
+                    
+                    if matches:
+                        matching_files.append(app_file)
+            
+            summary_lines.append(f"📊 **Results:** {len(matching_files)} files found")
+            
+            if matching_files:
+                for i, app_file in enumerate(matching_files, 1):
+                    summary_lines.append(f"\n{i}. **{app_file.file_name}**")
+                    summary_lines.append(f"   📋 Type: {app_file.application_type.value}")
+                    
+                    if app_file.owner and (app_file.owner.first_name or app_file.owner.last_name):
+                        summary_lines.append(f"   👤 Owner: {app_file.owner.first_name or ''} {app_file.owner.last_name or ''}")
+                    
+                    if app_file.joint_owner and (app_file.joint_owner.first_name or app_file.joint_owner.last_name):
+                        summary_lines.append(f"   👥 Joint Owner: {app_file.joint_owner.first_name or ''} {app_file.joint_owner.last_name or ''}")
             else:
-                for app in apps:
-                    # Format date as MM/DD/YYYY
-                    birthdate = app.get('birthdate')
-                    if birthdate:
-                        try:
-                            from datetime import datetime
-                            dob = datetime.fromisoformat(birthdate)
-                            dob_str = dob.strftime('%m/%d/%Y')
-                            logger.debug("Formatted birthdate %s to %s", birthdate, dob_str)
-                        except (ValueError, TypeError) as e:
-                            logger.warning("Error formatting birthdate %s: %s", birthdate, str(e))
-                            dob_str = birthdate
-                    else:
-                        dob_str = 'N/A'
-                    
-                    # Get gender emoji
-                    gender_emoji = '👩' if app.get('gender') == 'Female' else '👨' if app.get('gender') == 'Male' else ''
-                    gender_str = app.get('gender', 'Unknown')
-                    logger.debug("Formatted gender %s with emoji %s", gender_str, gender_emoji)
-                    
-                    summary_lines.append(f"  ✅ {app['file_name']}")
-                    summary_lines.append(f"    🎂 DOB: {dob_str}")
-                    summary_lines.append(f"    ☑️ Gender: {gender_emoji} {gender_str}")
-                    if app.get('address'):
-                        summary_lines.append(f"    📍 Address: {app['address']}")
-                    if app.get('application_type'):
-                        summary_lines.append(f"    📄 Type: {app['application_type']}")
-                    if app.get('status'):
-                        summary_lines.append(f"    📊 Status: {app['status']}")
-
+                summary_lines.append("\n📄 No matching files found")
+            
+            return "\n".join(summary_lines)
+            
+        except Exception as e:
+            summary_lines = []
+            summary_lines.append(f"🔍 **Search Results Summary for: {folder_name}**")
+            summary_lines.append("=" * 50)
+            summary_lines.append(f"\n❌ Error generating search summary: {str(e)}")
             return "\n".join(summary_lines)
 
-        except Exception as e:
-            import traceback
-            error_msg = f"Error displaying search results: {str(e)}"
-            stack_trace = traceback.format_exc()
-            logger.error(error_msg)
-            logger.error("Stack trace:\n%s", stack_trace)
-            summary_lines.append(f"\n❌ Error displaying results: {str(e)}")
-            summary_lines.append(f"\nStack trace:\n{stack_trace}")
-            return "\n".join(summary_lines) 
+    def insert_dropbox_account(self, account: DropboxAccount) -> Dict:
+        """Insert a dropbox account"""
+        return self.client.insert_dropbox_account(account)
+    
+    def insert_dropbox_account_with_files(self, account: DropboxAccountWithFiles) -> Dict:
+        """Insert a dropbox account with application files"""
+        return self.client.insert_dropbox_account_with_files(account)
+    
+    def insert_application_file(self, app_file: DropboxAccountApplicationFile, account_id: int) -> Dict:
+        """Insert an application file"""
+        return self.client.insert_application_file(app_file, account_id)
+    
+    def get_dropbox_accounts(self) -> List[Dict]:
+        """Get all dropbox accounts"""
+        return self.client.get_dropbox_accounts()
+    
+    def get_application_files(self) -> List[Dict]:
+        """Get all application files"""
+        return self.client.get_application_files()
+    
+    def get_person_info(self) -> List[Dict]:
+        """Get all person info"""
+        return self.client.get_person_info()
+    
+    def delete_dropbox_account(self, account_id: int) -> Dict:
+        """Delete a dropbox account"""
+        return self.client.delete_dropbox_account(account_id)
+    
+    def delete_application_file(self, file_id: int) -> Dict:
+        """Delete an application file"""
+        return self.client.delete_application_file(file_id)
+    
+    def delete_person_info(self, person_id: int) -> Dict:
+        """Delete person info"""
+        return self.client.delete_person_info(person_id) 

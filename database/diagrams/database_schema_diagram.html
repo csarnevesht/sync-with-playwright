@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase Database Schema Diagram</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .schema-overview {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border-left: 5px solid #3498db;
+        }
+        
+        .schema-overview h2 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        
+        .tables-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+        
+        .table-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .table-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+        }
+        
+        .table-header {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            padding: 20px;
+            position: relative;
+        }
+        
+        .table-header h3 {
+            margin: 0;
+            font-size: 1.3em;
+            font-weight: 600;
+        }
+        
+        .table-type {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255,255,255,0.2);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+        
+        .table-body {
+            padding: 20px;
+        }
+        
+        .field {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .field:last-child {
+            border-bottom: none;
+        }
+        
+        .field-name {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .field-type {
+            background: #e8f4fd;
+            color: #2980b9;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+        
+        .field-constraints {
+            font-size: 0.8em;
+            color: #7f8c8d;
+            margin-top: 4px;
+        }
+        
+        .relationships {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .relationships h2 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        
+        .relationship-item {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #e74c3c;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .relationship-item h4 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+        }
+        
+        .relationship-desc {
+            color: #7f8c8d;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+        
+        .enums-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .enums-section h2 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        
+        .enum-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #f39c12;
+        }
+        
+        .enum-card h4 {
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+        }
+        
+        .enum-values {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .enum-value {
+            background: #fff3cd;
+            color: #856404;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+        
+        .footer {
+            background: #2c3e50;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Database Schema Diagram</h1>
+            <p>Current database structure for Dropbox account data extraction and storage</p>
+        </div>
+        
+        <div class="content">
+            <div class="schema-overview">
+                <h2>📊 Schema Overview</h2>
+                <p>This database schema is designed to store and manage Dropbox account data, extracted application files, and person details extracted from insurance applications. The system supports comprehensive file processing with OCR capabilities and detailed person information tracking.</p>
+            </div>
+            
+            <div class="tables-grid">
+                <!-- Dropbox Accounts Table -->
+                <div class="table-card">
+                    <div class="table-header">
+                        <h3>dropbox_accounts</h3>
+                        <span class="table-type">Core Table</span>
+                    </div>
+                    <div class="table-body">
+                        <div class="field">
+                            <span class="field-name">id</span>
+                            <span class="field-type">SERIAL PRIMARY KEY</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">folder</span>
+                            <span class="field-type">VARCHAR(255) UNIQUE</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">first_name</span>
+                            <span class="field-type">VARCHAR(100)</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">middle_name</span>
+                            <span class="field-type">VARCHAR(100)</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">last_name</span>
+                            <span class="field-type">VARCHAR(100)</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">total_files</span>
+                            <span class="field-type">INTEGER DEFAULT 0</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">processed_files</span>
+                            <span class="field-type">INTEGER DEFAULT 0</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">failed_files</span>
+                            <span class="field-type">INTEGER DEFAULT 0</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">processing_timestamp</span>
+                            <span class="field-type">TIMESTAMP WITH TIME ZONE</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">created_at</span>
+                            <span class="field-type">TIMESTAMP WITH TIME ZONE</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">updated_at</span>
+                            <span class="field-type">TIMESTAMP WITH TIME ZONE</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Application Info Table -->
+                <div class="table-card">
+                    <div class="table-header">
+                        <h3>dropbox_account_application_info</h3>
+                        <span class="table-type">Person Data</span>
+                    </div>
+                    <div class="table-body">
+                        <div class="field">
+                            <span class="field-name">id</span>
+                            <span class="field-type">SERIAL PRIMARY KEY</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">first_name</span>
+                            <span class="field-type">VARCHAR(100)</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">last_name</span>
+                            <span class="field-type">VARCHAR(100)</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">date_of_birth</span>
+                            <span class="field-type">DATE</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">gender</span>
+                            <span class="field-type">VARCHAR(50)</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">mailing_address_street</span>
+                            <span class="field-type">TEXT</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">mailing_address_city</span>
+                            <span class="field-type">VARCHAR(100)</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">mailing_address_state</span>
+                            <span class="field-type">VARCHAR(50)</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">mailing_address_zip</span>
+                            <span class="field-type">VARCHAR(20)</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">phone_number</span>
+                            <span class="field-type">VARCHAR(50)</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">email_address</span>
+                            <span class="field-type">VARCHAR(255)</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">ocr_method</span>
+                            <span class="field-type">VARCHAR(50)</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">created_at</span>
+                            <span class="field-type">TIMESTAMP WITH TIME ZONE</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Application Files Table -->
+                <div class="table-card">
+                    <div class="table-header">
+                        <h3>dropbox_account_application_files</h3>
+                        <span class="table-type">File Data</span>
+                    </div>
+                    <div class="table-body">
+                        <div class="field">
+                            <span class="field-name">id</span>
+                            <span class="field-type">SERIAL PRIMARY KEY</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">file_name</span>
+                            <span class="field-type">VARCHAR(255) NOT NULL</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">file_path</span>
+                            <span class="field-type">TEXT</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">application_type</span>
+                            <span class="field-type">application_type DEFAULT 'Unknown'</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">status</span>
+                            <span class="field-type">application_status DEFAULT 'Processed'</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">owner_id</span>
+                            <span class="field-type">INTEGER REFERENCES dropbox_account_application_info(id)</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">joint_owner_id</span>
+                            <span class="field-type">INTEGER REFERENCES dropbox_account_application_info(id)</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">notes</span>
+                            <span class="field-type">JSONB DEFAULT '[]'</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">extracted_text</span>
+                            <span class="field-type">TEXT</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">processing_timestamp</span>
+                            <span class="field-type">TIMESTAMP WITH TIME ZONE</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">ocr_confidence</span>
+                            <span class="field-type">DECIMAL(5,2)</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">lm_studio_model_used</span>
+                            <span class="field-type">VARCHAR(100)</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">processing_duration_seconds</span>
+                            <span class="field-type">DECIMAL(10,3)</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">dropbox_account_id</span>
+                            <span class="field-type">INTEGER REFERENCES dropbox_accounts(id)</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">created_at</span>
+                            <span class="field-type">TIMESTAMP WITH TIME ZONE</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Household Members Table -->
+                <div class="table-card">
+                    <div class="table-header">
+                        <h3>household_members</h3>
+                        <span class="table-type">Salesforce Data</span>
+                    </div>
+                    <div class="table-body">
+                        <div class="field">
+                            <span class="field-name">id</span>
+                            <span class="field-type">SERIAL PRIMARY KEY</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">role</span>
+                            <span class="field-type">household_role NOT NULL</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">account_name</span>
+                            <span class="field-type">VARCHAR(255) NOT NULL</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">stage</span>
+                            <span class="field-type">VARCHAR(100) NOT NULL</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">email</span>
+                            <span class="field-type">VARCHAR(255) NOT NULL</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">phone</span>
+                            <span class="field-type">VARCHAR(50) NOT NULL</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">writing_advisor</span>
+                            <span class="field-type">VARCHAR(255) NOT NULL</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">prospecting_status</span>
+                            <span class="field-type">VARCHAR(100) NOT NULL</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">account_record_type</span>
+                            <span class="field-type">VARCHAR(100) NOT NULL</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">mailing_address</span>
+                            <span class="field-type">TEXT NOT NULL</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">ssn_tax_id</span>
+                            <span class="field-type">VARCHAR(50) NOT NULL</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">created_at</span>
+                            <span class="field-type">TIMESTAMP WITH TIME ZONE</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Junction Table -->
+                <div class="table-card">
+                    <div class="table-header">
+                        <h3>dropbox_account_household_members</h3>
+                        <span class="table-type">Junction Table</span>
+                    </div>
+                    <div class="table-body">
+                        <div class="field">
+                            <span class="field-name">dropbox_account_id</span>
+                            <span class="field-type">INTEGER REFERENCES dropbox_accounts(id)</span>
+                        </div>
+                        <div class="field">
+                            <span class="field-name">household_member_id</span>
+                            <span class="field-type">INTEGER REFERENCES household_members(id)</span>
+                        </div>
+                        <div class="field-constraints">PRIMARY KEY (dropbox_account_id, household_member_id)</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="relationships">
+                <h2>🔗 Table Relationships</h2>
+                
+                <div class="relationship-item">
+                    <h4>dropbox_accounts ↔ dropbox_account_application_files</h4>
+                    <div class="relationship-desc">
+                        <strong>One-to-Many:</strong> Each Dropbox account can have multiple application files. Files are linked via the <code>dropbox_account_id</code> foreign key.
+                    </div>
+                </div>
+                
+                <div class="relationship-item">
+                    <h4>dropbox_account_application_info ↔ dropbox_account_application_files (Owner)</h4>
+                    <div class="relationship-desc">
+                        <strong>One-to-Many:</strong> Each person can be the owner of multiple application files. Files are linked via the <code>owner_id</code> foreign key.
+                    </div>
+                </div>
+                
+                <div class="relationship-item">
+                    <h4>dropbox_account_application_info ↔ dropbox_account_application_files (Joint Owner)</h4>
+                    <div class="relationship-desc">
+                        <strong>One-to-Many:</strong> Each person can be the joint owner of multiple application files. Files are linked via the <code>joint_owner_id</code> foreign key.
+                    </div>
+                </div>
+                
+                <div class="relationship-item">
+                    <h4>dropbox_accounts ↔ household_members</h4>
+                    <div class="relationship-desc">
+                        <strong>Many-to-Many:</strong> Dropbox accounts can be associated with multiple household members through the <code>dropbox_account_household_members</code> junction table.
+                    </div>
+                </div>
+            </div>
+            
+            <div class="enums-section">
+                <h2>📋 Enum Types</h2>
+                
+                <div class="enum-card">
+                    <h4>household_role</h4>
+                    <div class="enum-values">
+                        <span class="enum-value">Head</span>
+                        <span class="enum-value">Member</span>
+                    </div>
+                </div>
+                
+                <div class="enum-card">
+                    <h4>application_status</h4>
+                    <div class="enum-values">
+                        <span class="enum-value">Processed</span>
+                        <span class="enum-value">Failed</span>
+                        <span class="enum-value">Error</span>
+                        <span class="enum-value">Skipped</span>
+                    </div>
+                </div>
+                
+                <div class="enum-card">
+                    <h4>application_type</h4>
+                    <div class="enum-values">
+                        <span class="enum-value">Life Insurance</span>
+                        <span class="enum-value">Annuity</span>
+                        <span class="enum-value">EquiTrust Annuity</span>
+                        <span class="enum-value">Security Benefit</span>
+                        <span class="enum-value">Unknown</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Schema diagram generated on 2025-06-24 08:36:16 | Legacy applications table removed</p>
+        </div>
+    </div>
+</body>
+</html>

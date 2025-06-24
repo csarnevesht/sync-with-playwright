@@ -492,6 +492,8 @@ def parse_args():
     parser.add_argument('--file-filter',
                       help='Filter files by name pattern (e.g. "*Life*" to only process files containing "Life")',
                       default=None)
+    parser.add_argument('--force-store-supabase', action='store_true', 
+                      help='Force storing data in Supabase even if it already exists (will overwrite existing data)')
     
     return parser.parse_args()
 
@@ -1238,6 +1240,12 @@ def run_command(args, log_dir):
                                 command_runner.set_data('dropbox_account_information', dropbox_account_information)
                             # Ensure result_dict has up-to-date application files info
                             result_dict['account_info_from_app_files'] = dropbox_account_information.get('application_data', {})
+                            
+                            # Update the summary_results list with the latest data
+                            for summary in summary_results:
+                                if summary['dropbox_name'] == dropbox_account_folder_name:
+                                    summary['account_info_from_app_files'] = dropbox_account_information.get('application_data', {})
+                                    break
 
                             from sync.dropbox_client.utils.logging_utils import log_dropbox_account_information
                             log_dropbox_account_information(
@@ -1616,10 +1624,12 @@ def format_summary_line(dropbox_folder_name: str, salesforce_info: dict, dropbox
             app_files_info = dropbox_info.get('application_data', {})
             app_files_info_source = 'dropbox_info.application_data'
     
-    debug_msg = f"[DEBUG] app_files_info source: {app_files_info_source}, value: {app_files_info}"
-    logger.info(debug_msg)
-    if 'summary_logger' in globals() and summary_logger:
-        summary_logger.info(debug_msg)
+    # Show debug info only if we're actually using fallback data
+    if app_files_info_source != 'passed_in_app_files_info':
+        debug_msg = f"[DEBUG] app_files_info source: {app_files_info_source}, value: {app_files_info}"
+        logger.info(debug_msg)
+        if 'summary_logger' in globals() and summary_logger:
+            summary_logger.info(debug_msg)
     total_files = app_files_info.get('total_files_processed', 0)
     complete_files = app_files_info.get('files_with_complete_info', 0)
     partial_files = app_files_info.get('files_with_partial_info', 0)

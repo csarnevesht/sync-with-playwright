@@ -878,9 +878,9 @@ class DropboxAccountLogger:
         # Client list file data availability
         client_list_data = dropbox_account_information.get('client_list_data')
         if client_list_data and client_list_data.get('account_data'):
-            self._log(f"📄 Client List File Information: Available", summary_logger, report_logger)
+            self._log(f"📄 Dropbox Client List File Data: {'✅ Available' if client_list_data else '🚫 Not Available'}", summary_logger, report_logger)
         else:
-            self._log(f"📄 Client List File Information: Not available", summary_logger, report_logger)
+            self._log(f"📄 Dropbox Client List File Data: {'❌ Not Available'}", summary_logger, report_logger)
         
         # Application files data availability - check if we actually have meaningful data
         application_data = dropbox_account_information.get('application_data')
@@ -897,11 +897,11 @@ class DropboxAccountLogger:
             )
             
             if has_meaningful_data:
-                self._log(f"📄 Application Files Data: Available", summary_logger, report_logger)
+                self._log(f"📄 Dropbox Application Files Data: {'✅ Available'}", summary_logger, report_logger)
             else:
-                self._log(f"📄 Application Files Data: Not available", summary_logger, report_logger)
+                self._log(f"📄 Dropbox Application Files Data: {'🚫 Not Available'}", summary_logger, report_logger)
         else:
-            self._log(f"📄 Application Files Data: Not available", summary_logger, report_logger)
+            self._log(f"📄 Dropbox Application Files Data: {'🚫 Not Available'}", summary_logger, report_logger)
     
     def _log_detailed_account_information(self, dropbox_account_information: Dict[str, Any], summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None) -> None:
         """Log detailed information for each account."""
@@ -946,21 +946,21 @@ class DropboxAccountLogger:
             
             if owner.get('firstName') or owner.get('lastName'):
                 name = f"{owner.get('firstName', '')} {owner.get('lastName', '')}".strip()
-                self._log(f"👤 Name: {name}", summary_logger, report_logger)
+                self._log(f"👤 Primary Owner: {name}", summary_logger, report_logger)
             
             if owner.get('dateOfBirth'):
-                self._log(f"🎂 Date of Birth: {owner['dateOfBirth']}", summary_logger, report_logger)
+                self._log(f"🎂 Primary Owner DOB: {owner['dateOfBirth']}", summary_logger, report_logger)
             
             if owner.get('gender'):
-                self._log(f"♂️♀️ Gender: {owner['gender']}", summary_logger, report_logger)
-            
-            if owner.get('emailAddress'):
-                self._log(f"📧 Email: {owner['emailAddress']}", summary_logger, report_logger)
+                self._log(f"♂️♀️ Primary Owner Gender: {owner['gender']}", summary_logger, report_logger)
             
             if owner.get('phoneNumber'):
-                self._log(f"📞 Phone: {owner['phoneNumber']}", summary_logger, report_logger)
+                self._log(f"📞 Primary Owner Phone: {owner['phoneNumber']}", summary_logger, report_logger)
             
-            # Build address
+            if owner.get('emailAddress'):
+                self._log(f"📧 Primary Owner Email: {owner['emailAddress']}", summary_logger, report_logger)
+            
+            # Build address from components
             if owner.get('mailingAddressStreet'):
                 address_parts = [owner['mailingAddressStreet']]
                 if owner.get('mailingAddressCity'):
@@ -970,7 +970,7 @@ class DropboxAccountLogger:
                 if owner.get('mailingAddressZip'):
                     address_parts.append(owner['mailingAddressZip'])
                 address = ', '.join(address_parts)
-                self._log(f"📍 Address: {address}", summary_logger, report_logger)
+                self._log(f"📍 Primary Owner Address: {address}", summary_logger, report_logger)
         
         # Joint account holder
         joint_owner = best_info.get('jointOwner', {})
@@ -980,21 +980,21 @@ class DropboxAccountLogger:
             
             if joint_owner.get('firstName') or joint_owner.get('lastName'):
                 name = f"{joint_owner.get('firstName', '')} {joint_owner.get('lastName', '')}".strip()
-                self._log(f"👤 Name: {name}", summary_logger, report_logger)
+                self._log(f"👤 Joint Owner: {name}", summary_logger, report_logger)
             
             if joint_owner.get('dateOfBirth'):
-                self._log(f"🎂 Date of Birth: {joint_owner['dateOfBirth']}", summary_logger, report_logger)
+                self._log(f"🎂 Joint Owner DOB: {joint_owner['dateOfBirth']}", summary_logger, report_logger)
             
             if joint_owner.get('gender'):
-                self._log(f"♂️♀️ Gender: {joint_owner['gender']}", summary_logger, report_logger)
-            
-            if joint_owner.get('emailAddress'):
-                self._log(f"📧 Email: {joint_owner['emailAddress']}", summary_logger, report_logger)
+                self._log(f"♂️♀️ Joint Owner Gender: {joint_owner['gender']}", summary_logger, report_logger)
             
             if joint_owner.get('phoneNumber'):
-                self._log(f"📞 Phone: {joint_owner['phoneNumber']}", summary_logger, report_logger)
+                self._log(f"📞 Joint Owner Phone: {joint_owner['phoneNumber']}", summary_logger, report_logger)
             
-            # Build address
+            if joint_owner.get('emailAddress'):
+                self._log(f"📧 Joint Owner Email: {joint_owner['emailAddress']}", summary_logger, report_logger)
+            
+            # Build address from components
             if joint_owner.get('mailingAddressStreet'):
                 address_parts = [joint_owner['mailingAddressStreet']]
                 if joint_owner.get('mailingAddressCity'):
@@ -1004,7 +1004,7 @@ class DropboxAccountLogger:
                 if joint_owner.get('mailingAddressZip'):
                     address_parts.append(joint_owner['mailingAddressZip'])
                 address = ', '.join(address_parts)
-                self._log(f"📍 Address: {address}", summary_logger, report_logger)
+                self._log(f"📍 Joint Owner Address: {address}", summary_logger, report_logger)
         
         # Processing notes
         notes = application_data.get('notes', [])
@@ -1084,8 +1084,9 @@ class DropboxAccountLogger:
         # Best available information summary
         best_available_info = application_data.get('best_available_info', {})
         if best_available_info:
-            self._log(f"\n🏆 **Best Available Information Summary**", summary_logger, report_logger)
+            self._log(f"\n🏆 **Best Available Dropbox Account Information Summary**", summary_logger, report_logger)
             self._log(f"{'─'*40}", summary_logger, report_logger)
+            self._log(f"\n💡 **What is this?** The most complete account information extracted from all Dropbox application files and Dropbox Client List File for this account. Dropbox Client List File takes precedence for all fields, with Application Files filling in any missing information.", summary_logger, report_logger)
             
             owner = best_available_info.get('owner', {})
             joint_owner = best_available_info.get('jointOwner', {})
@@ -1096,10 +1097,23 @@ class DropboxAccountLogger:
                     self._log(f"👤 Primary Owner: {owner_name}", summary_logger, report_logger)
                 if owner.get('dateOfBirth'):
                     self._log(f"🎂 Primary Owner DOB: {owner['dateOfBirth']}", summary_logger, report_logger)
+                if owner.get('gender'):
+                    self._log(f"♂️♀️ Primary Owner Gender: {owner['gender']}", summary_logger, report_logger)
                 if owner.get('phoneNumber'):
                     self._log(f"📞 Primary Owner Phone: {owner['phoneNumber']}", summary_logger, report_logger)
                 if owner.get('emailAddress'):
                     self._log(f"📧 Primary Owner Email: {owner['emailAddress']}", summary_logger, report_logger)
+                # Build address from components
+                if owner.get('mailingAddressStreet'):
+                    address_parts = [owner['mailingAddressStreet']]
+                    if owner.get('mailingAddressCity'):
+                        address_parts.append(owner['mailingAddressCity'])
+                    if owner.get('mailingAddressState'):
+                        address_parts.append(owner['mailingAddressState'])
+                    if owner.get('mailingAddressZip'):
+                        address_parts.append(owner['mailingAddressZip'])
+                    address = ', '.join(address_parts)
+                    self._log(f"📍 Primary Owner Address: {address}", summary_logger, report_logger)
             
             if joint_owner:
                 joint_owner_name = f"{joint_owner.get('firstName', '')} {joint_owner.get('lastName', '')}".strip()
@@ -1107,10 +1121,23 @@ class DropboxAccountLogger:
                     self._log(f"👥 Joint Owner: {joint_owner_name}", summary_logger, report_logger)
                 if joint_owner.get('dateOfBirth'):
                     self._log(f"🎂 Joint Owner DOB: {joint_owner['dateOfBirth']}", summary_logger, report_logger)
+                if joint_owner.get('gender'):
+                    self._log(f"♂️♀️ Joint Owner Gender: {joint_owner['gender']}", summary_logger, report_logger)
                 if joint_owner.get('phoneNumber'):
                     self._log(f"📞 Joint Owner Phone: {joint_owner['phoneNumber']}", summary_logger, report_logger)
                 if joint_owner.get('emailAddress'):
                     self._log(f"📧 Joint Owner Email: {joint_owner['emailAddress']}", summary_logger, report_logger)
+                # Build address from components
+                if joint_owner.get('mailingAddressStreet'):
+                    address_parts = [joint_owner['mailingAddressStreet']]
+                    if joint_owner.get('mailingAddressCity'):
+                        address_parts.append(joint_owner['mailingAddressCity'])
+                    if joint_owner.get('mailingAddressState'):
+                        address_parts.append(joint_owner['mailingAddressState'])
+                    if joint_owner.get('mailingAddressZip'):
+                        address_parts.append(joint_owner['mailingAddressZip'])
+                    address = ', '.join(address_parts)
+                    self._log(f"📍 Joint Owner Address: {address}", summary_logger, report_logger)
         
         # Processing notes
         notes = application_data.get('notes', [])
@@ -1140,14 +1167,6 @@ class DropboxAccountLogger:
                     for folder in processed_folders:
                         folder_name = folder.split('/')[-1] if '/' in folder else folder
                         self._log(f"   📂 {folder_name}", summary_logger, report_logger)
-                
-                # Files with birthdate
-                files_with_birthdate = app_files_extraction_summary.get('files_with_birthdate', [])
-                self._log(f"🎂 Files with Birthdate: {len(files_with_birthdate)}", summary_logger, report_logger)
-                
-                # Files with name
-                files_with_name = app_files_extraction_summary.get('files_with_name', [])
-                self._log(f"👤 Files with Name: {len(files_with_name)}", summary_logger, report_logger)
                 
                 # Skipped files
                 skipped_files = app_files_extraction_summary.get('skipped_zero_length_files', 0)
@@ -1254,7 +1273,13 @@ class DropboxAccountLogger:
     def _log_statistics_summary(self, dropbox_account_information: Dict[str, Any], summary_logger: Optional[logging.Logger] = None, report_logger: Optional[logging.Logger] = None) -> None:
         """Log the final statistics summary."""
         self._log("[_log_statistics_summary]", summary_logger, report_logger)
-        total_accounts = len(dropbox_account_information.get('accounts', []))
+        accounts = dropbox_account_information.get('accounts', [])
+        total_accounts = len(accounts)
+        
+        # Debug logging to understand the data structure
+        self._log_debug(f"Processing {total_accounts} accounts for statistics", summary_logger, report_logger)
+        for i, account in enumerate(accounts):
+            self._log_debug(f"Account {i+1}: {account.get('account_name', 'Unknown')} - Match: '{account.get('match_status', 'None')}' - DL: {account.get('drivers_license', 'None')}", summary_logger, report_logger)
         
         # Check for meaningful client list data (not just if structure exists)
         client_list_data = dropbox_account_information.get('client_list_data', {})
@@ -1271,16 +1296,30 @@ class DropboxAccountLogger:
             application_data.get('total_files_processed', 0) > 0
         )
         
-        total_matches = sum(1 for account in dropbox_account_information.get('accounts', []) if account.get('match_status') == 'Match found')
-        total_drivers_licenses = sum(1 for account in dropbox_account_information.get('accounts', []) if account.get('drivers_license'))
+        # Count matches more accurately - look for actual "Match found" status
+        total_matches = 0
+        
+        for account in accounts:
+            # Check for matches - look for exact "Match found" status
+            match_status = account.get('match_status', '')
+            if match_status == 'Match found':
+                total_matches += 1
         
         self._log(f"\n📊 **STATISTICS SUMMARY**", summary_logger, report_logger)
         self._log(f"{'─'*60}", summary_logger, report_logger)
-        self._log(f"📁 Total Accounts: {total_accounts}", summary_logger, report_logger)
-        self._log(f"📄 Client List File Data: {'✅ Available' if client_list_data_available else '❌ Not Available'}", summary_logger, report_logger)
-        self._log(f"📄 Application Files Data: {'✅ Available' if application_data_available else '🚫 Not Available'}", summary_logger, report_logger)
+        self._log(f"📁 Total Dropbox Accounts: {total_accounts}", summary_logger, report_logger)
+        
+        # List the accounts
+        if accounts:
+            self._log(f"📋 Dropbox Accounts:", summary_logger, report_logger)
+            for i, account in enumerate(accounts, 1):
+                account_name = account.get('account_name', 'Unknown')
+                source = account.get('source', 'Unknown').replace('_', ' ').title()
+                self._log(f"   {i}. {account_name} ({source})", summary_logger, report_logger)
+        
+        self._log(f"📄 Dropbox Client List File Data: {'✅ Available' if client_list_data else '🚫 Not Available'}", summary_logger, report_logger)
+        self._log(f"📄 Dropbox Application Files Data: {'✅ Available' if application_data else '🚫 Not Available'}", summary_logger, report_logger)
         self._log(f"🔍 Total Matches: {total_matches}", summary_logger, report_logger)
-        self._log(f"🪪 Total Driver's Licenses: {total_drivers_licenses}", summary_logger, report_logger)
 
 
 def log_dropbox_account_information(dropbox_account_information: Dict[str, Any], 

@@ -442,10 +442,10 @@ class AccountAnalyzer:
                 merged_data['data_sources']['application_files'] = True
             
             # Merge fields with proper precedence:
-            # - dropbox_client_list takes precedence for basic contact info (name, phone, address, email)
-            # - dropbox_application_files takes precedence for detailed personal info (birthdate, gender, ssn)
+            # - dropbox_client_list takes precedence for ALL fields
+            # - dropbox_application_files only fills in missing fields from client_list
             
-            # Basic contact info - prefer dropbox_client_list
+            # All fields - prefer dropbox_client_list, fallback to application_files if missing
             if not merged_data['first_name'] or source == 'dropbox_client_list':
                 merged_data['first_name'] = self._get_best_value(merged_data['first_name'], account.get('first_name', ''))
             
@@ -464,14 +464,13 @@ class AccountAnalyzer:
             if not merged_data['email'] or source == 'dropbox_client_list':
                 merged_data['email'] = self._get_best_value(merged_data['email'], account.get('email', ''))
             
-            # Detailed personal info - prefer dropbox_application_files
-            if not merged_data['birthdate'] or source == 'dropbox_application_files':
+            if not merged_data['birthdate'] or source == 'dropbox_client_list':
                 merged_data['birthdate'] = self._get_best_value(merged_data['birthdate'], account.get('birthdate', ''))
             
-            if not merged_data['gender'] or source == 'dropbox_application_files':
+            if not merged_data['gender'] or source == 'dropbox_client_list':
                 merged_data['gender'] = self._get_best_value(merged_data['gender'], account.get('gender', ''))
             
-            if not merged_data['ssn_tax_id'] or source == 'dropbox_application_files':
+            if not merged_data['ssn_tax_id'] or source == 'dropbox_client_list':
                 merged_data['ssn_tax_id'] = self._get_best_value(merged_data['ssn_tax_id'], account.get('ssn_tax_id', ''))
             
             # Merge drivers license if available
@@ -486,14 +485,14 @@ class AccountAnalyzer:
     
     def _get_best_value(self, client_list_value: Any, application_value: Any) -> Any:
         """
-        Get the best available value from two sources, preferring application files
-        for certain fields like birthdate, gender, etc.
+        Get the best available value from two sources, preferring client_list_file
+        for ALL fields, and only using application_files if client_list_file is missing.
         """
-        # Prefer application files for detailed personal information
-        if application_value and str(application_value).strip():
-            return application_value
-        elif client_list_value and str(client_list_value).strip():
+        # Prefer client_list_file for ALL fields
+        if client_list_value and str(client_list_value).strip():
             return client_list_value
+        elif application_value and str(application_value).strip():
+            return application_value
         else:
             return None
     

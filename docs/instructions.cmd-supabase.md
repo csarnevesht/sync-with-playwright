@@ -14,3 +14,10 @@
 
 
 
+dropbox_account_folder
+    dropbox_account_application_files
+          dropbox_account_application_info
+    dropbox_account [source dropbox_client_list]
+    dropbox_account [source dropbox_aplication_files]
+    salesforce_account [owner]
+    salesforce_account [joint_owner]
