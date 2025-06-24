@@ -1128,6 +1128,21 @@ def run_command(args, log_dir):
                                 # Store the comprehensive salesforce_account_information
                                 salesforce_account_search_result['salesforce_account_information'] = salesforce_account_information
                                 
+                                # Store the Salesforce account information in command runner data for analysis
+                                if command_runner:
+                                    command_runner.set_data('salesforce_account_information', salesforce_account_information)
+                                
+                                # Store Salesforce account data in Supabase if available
+                                if command_runner and salesforce_account_information and salesforce_account_information.get('accounts'):
+                                    try:
+                                        success = command_runner._store_salesforce_account_data_in_supabase(salesforce_account_information)
+                                        if success:
+                                            logger.info(f"Successfully stored Salesforce account data in Supabase for: {dropbox_account_folder_name}")
+                                        else:
+                                            logger.warning(f"Failed to store Salesforce account data in Supabase for: {dropbox_account_folder_name}")
+                                    except Exception as e:
+                                        logger.error(f"Error storing Salesforce account data in Supabase for {dropbox_account_folder_name}: {e}")
+                                
                                 # Log the comprehensive Salesforce Account Information using the new utilities
                                 log_salesforce_account_information(salesforce_account_information, dropbox_account_folder_name, report_logger=report_logger, summary_logger=summary_logger)
 

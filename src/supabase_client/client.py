@@ -3,7 +3,9 @@ from typing import Optional, List, Dict, Any
 from supabase import create_client, Client as SupabaseBaseClient
 from .schema import (
     DropboxAccountWithFiles, ApplicationStatus, ApplicationType,
-    DropboxAccountApplicationFile, DropboxAccountApplicationInfo, DropboxAccountClientListInfo
+    DropboxAccountApplicationFile, DropboxAccountApplicationInfo, DropboxAccountClientListInfo,
+    SalesforceAccount, SalesforceHousehold, SalesforceHouseholdMember,
+    DropboxSalesforceMapping, SyncStatus, AccountAnalysis
 )
 from dotenv import load_dotenv
 import logging
@@ -29,6 +31,10 @@ class LocalSupabaseClient:
     
     def table(self, table_name: str):
         return LocalTableClient(self.url, table_name, self.headers)
+    
+    def rpc(self, function_name: str, params: dict):
+        """Execute a stored procedure or function via REST API"""
+        return LocalRPCBuilder(self.url, self.headers, function_name, params)
 
 class LocalTableClient:
     """Custom table client for local development"""
@@ -130,6 +136,31 @@ class LocalDeleteBuilder:
             response.raise_for_status()
             # Return a dummy response object for compatibility
             return type('Response', (), {'data': response.json() if response.text.strip() else []})()
+
+class LocalRPCBuilder:
+    """Custom RPC builder for local development"""
+    def __init__(self, base_url: str, headers: dict, function_name: str, params: dict):
+        self.base_url = base_url
+        self.headers = headers
+        self.function_name = function_name
+        self.params = params
+        self.endpoint = f"{base_url}/rest/v1/rpc/{function_name}"
+    
+    def execute(self):
+        with httpx.Client() as client:
+            response = client.post(
+                self.endpoint,
+                headers=self.headers,
+                json=self.params
+            )
+            response.raise_for_status()
+            
+            # Handle empty response (common with PostgREST)
+            if response.text.strip():
+                return type('Response', (), {'data': response.json()})()
+            else:
+                # Return empty data for successful execution with no response
+                return type('Response', (), {'data': []})()
 
 class SupabaseClient:
     """
@@ -443,7 +474,7 @@ class SupabaseClient:
                 application_files.append(app_file)
             
             # Get client list info for this account
-            client_list_info = self.get_client_list_info_by_folder(folder_name)
+            client_list_info = None  # Client list info table not available in current schema
             
             # Create the account with files
             account = DropboxAccountWithFiles(
@@ -744,9 +775,17 @@ class SupabaseClient:
                 logger.warning("No data returned from client_list_info insert")
                 return None
         except Exception as e:
-            logger.error(f"Error storing client list info: {str(e)}")
-            print(f"[ERROR] Exception in store_client_list_info: {e}")
-            return None
+            # Check if the error is due to the table not existing
+            error_str = str(e).lower()
+            if 'does not exist' in error_str or 'relation' in error_str or '404' in error_str:
+                # Table doesn't exist, which is expected in the current schema
+                logger.debug(f"Client list info table not available, skipping storage for account ID: {dropbox_account_id}")
+                return None
+            else:
+                # Some other error occurred
+                logger.error(f"Error storing client list info: {str(e)}")
+                print(f"[ERROR] Exception in store_client_list_info: {e}")
+                return None
 
     def get_client_list_info_by_folder(self, folder_name: str) -> Optional[DropboxAccountClientListInfo]:
         """Get client list info for a specific folder"""
@@ -792,8 +831,16 @@ class SupabaseClient:
             return client_list_info
             
         except Exception as e:
-            logger.error(f"Error getting client list info by folder: {str(e)}")
-            return None
+            # Check if the error is due to the table not existing
+            error_str = str(e).lower()
+            if 'does not exist' in error_str or 'relation' in error_str or '404' in error_str:
+                # Table doesn't exist, which is expected in the current schema
+                logger.debug(f"Client list info table not available for folder: {folder_name}")
+                return None
+            else:
+                # Some other error occurred
+                logger.error(f"Error getting client list info by folder: {str(e)}")
+                return None
 
     def delete_client_list_info_for_folder(self, folder_name: str) -> bool:
         """Delete client list info for a specific folder"""
@@ -815,4 +862,217 @@ class SupabaseClient:
             
         except Exception as e:
             logger.error(f"Error deleting client list info for folder: {str(e)}")
+            return False
+
+    # Salesforce Storage Methods
+    def store_salesforce_account(self, account: SalesforceAccount) -> Optional[str]:
+        """Store Salesforce account data and return the account ID"""
+        try:
+            account_data = account.model_dump()
+            account_data = self._serialize_dates(account_data)
+            
+            print(f"[DEBUG] Inserting Salesforce account: {account_data}")
+            response = self.client.table('salesforce_accounts').insert(account_data).execute()
+            
+            if response.data and len(response.data) > 0:
+                account_id = response.data[0]['salesforce_account_id']
+                print(f"[DEBUG] Created Salesforce account ID: {account_id}")
+                return account_id
+            else:
+                print(f"[DEBUG] Insert succeeded but no data returned, querying for new record...")
+                new_account_response = self.client.table('salesforce_accounts').select('salesforce_account_id').eq('salesforce_account_id', account.salesforce_account_id).execute()
+                if new_account_response.data and len(new_account_response.data) > 0:
+                    account_id = new_account_response.data[0]['salesforce_account_id']
+                    print(f"[DEBUG] Found newly created Salesforce account ID: {account_id}")
+                    return account_id
+                else:
+                    logger.error(f"Failed to insert Salesforce account: Could not find newly created record")
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"Error storing Salesforce account: {str(e)}")
+            print(f"[ERROR] Exception in store_salesforce_account: {e}")
+            return None
+
+    def store_salesforce_household(self, household: SalesforceHousehold) -> Optional[str]:
+        """Store Salesforce household data and return the household ID"""
+        try:
+            household_data = household.model_dump()
+            household_data = self._serialize_dates(household_data)
+            
+            print(f"[DEBUG] Inserting Salesforce household: {household_data}")
+            response = self.client.table('salesforce_households').insert(household_data).execute()
+            
+            if response.data and len(response.data) > 0:
+                household_id = response.data[0]['salesforce_household_id']
+                print(f"[DEBUG] Created Salesforce household ID: {household_id}")
+                return household_id
+            else:
+                print(f"[DEBUG] Insert succeeded but no data returned, querying for new record...")
+                new_household_response = self.client.table('salesforce_households').select('salesforce_household_id').eq('salesforce_household_id', household.salesforce_household_id).execute()
+                if new_household_response.data and len(new_household_response.data) > 0:
+                    household_id = new_household_response.data[0]['salesforce_household_id']
+                    print(f"[DEBUG] Found newly created Salesforce household ID: {household_id}")
+                    return household_id
+                else:
+                    logger.error(f"Failed to insert Salesforce household: Could not find newly created record")
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"Error storing Salesforce household: {str(e)}")
+            print(f"[ERROR] Exception in store_salesforce_household: {e}")
+            return None
+
+    def store_salesforce_household_member(self, member: SalesforceHouseholdMember) -> Optional[int]:
+        """Store Salesforce household member data and return the member ID"""
+        try:
+            member_data = member.model_dump()
+            member_data = self._serialize_dates(member_data)
+            
+            print(f"[DEBUG] Inserting Salesforce household member: {member_data}")
+            response = self.client.table('salesforce_household_members').insert(member_data).execute()
+            
+            if response.data and len(response.data) > 0:
+                member_id = response.data[0]['id']
+                print(f"[DEBUG] Created Salesforce household member ID: {member_id}")
+                return member_id
+            else:
+                logger.error(f"Failed to insert Salesforce household member: No data returned")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error storing Salesforce household member: {str(e)}")
+            print(f"[ERROR] Exception in store_salesforce_household_member: {e}")
+            return None
+
+    def store_salesforce_accounts_batch(self, accounts: List[SalesforceAccount]) -> List[str]:
+        """Store multiple Salesforce accounts and return their IDs"""
+        stored_ids = []
+        
+        for account in accounts:
+            account_id = self.store_salesforce_account(account)
+            if account_id:
+                stored_ids.append(account_id)
+            else:
+                logger.warning(f"Failed to store Salesforce account: {account.account_name}")
+        
+        return stored_ids
+
+    def store_dropbox_salesforce_mapping(self, mapping: DropboxSalesforceMapping) -> Optional[int]:
+        """Store mapping between Dropbox and Salesforce accounts"""
+        try:
+            mapping_data = mapping.model_dump()
+            mapping_data = self._serialize_dates(mapping_data)
+            
+            print(f"[DEBUG] Inserting Dropbox-Salesforce mapping: {mapping_data}")
+            response = self.client.table('dropbox_salesforce_mapping').insert(mapping_data).execute()
+            
+            if response.data and len(response.data) > 0:
+                mapping_id = response.data[0]['id']
+                print(f"[DEBUG] Created mapping ID: {mapping_id}")
+                return mapping_id
+            else:
+                logger.error(f"Failed to insert mapping: No data returned")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error storing Dropbox-Salesforce mapping: {str(e)}")
+            print(f"[ERROR] Exception in store_dropbox_salesforce_mapping: {e}")
+            return None
+
+    def store_sync_status(self, sync_status: SyncStatus) -> Optional[int]:
+        """Store sync status between Dropbox and Salesforce accounts"""
+        try:
+            sync_data = sync_status.model_dump()
+            sync_data = self._serialize_dates(sync_data)
+            
+            print(f"[DEBUG] Inserting sync status: {sync_data}")
+            response = self.client.table('sync_status').insert(sync_data).execute()
+            
+            if response.data and len(response.data) > 0:
+                sync_id = response.data[0]['id']
+                print(f"[DEBUG] Created sync status ID: {sync_id}")
+                return sync_id
+            else:
+                logger.error(f"Failed to insert sync status: No data returned")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error storing sync status: {str(e)}")
+            print(f"[ERROR] Exception in store_sync_status: {e}")
+            return None
+
+    def store_account_analysis(self, analysis: AccountAnalysis) -> Optional[int]:
+        """Store account analysis data"""
+        try:
+            analysis_data = analysis.model_dump()
+            analysis_data = self._serialize_dates(analysis_data)
+            
+            print(f"[DEBUG] Inserting account analysis: {analysis_data}")
+            response = self.client.table('account_analysis').insert(analysis_data).execute()
+            
+            if response.data and len(response.data) > 0:
+                analysis_id = response.data[0]['id']
+                print(f"[DEBUG] Created account analysis ID: {analysis_id}")
+                return analysis_id
+            else:
+                logger.error(f"Failed to insert account analysis: No data returned")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error storing account analysis: {str(e)}")
+            print(f"[ERROR] Exception in store_account_analysis: {e}")
+            return None
+
+    def get_salesforce_account(self, salesforce_account_id: str) -> Optional[SalesforceAccount]:
+        """Get Salesforce account by ID"""
+        try:
+            response = self.client.table('salesforce_accounts').select('*').eq('salesforce_account_id', salesforce_account_id).execute()
+            
+            if response.data and len(response.data) > 0:
+                account_data = response.data[0]
+                return SalesforceAccount(**account_data)
+            else:
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error getting Salesforce account: {str(e)}")
+            return None
+
+    def get_salesforce_accounts_by_name(self, account_name: str) -> List[SalesforceAccount]:
+        """Get Salesforce accounts by name (partial match)"""
+        try:
+            response = self.client.table('salesforce_accounts').select('*').ilike('account_name', f'%{account_name}%').execute()
+            
+            accounts = []
+            for account_data in response.data:
+                accounts.append(SalesforceAccount(**account_data))
+            
+            return accounts
+            
+        except Exception as e:
+            logger.error(f"Error getting Salesforce accounts by name: {str(e)}")
+            return []
+
+    def update_salesforce_account(self, salesforce_account_id: str, updates: Dict[str, Any]) -> bool:
+        """Update Salesforce account data"""
+        try:
+            updates = self._serialize_dates(updates)
+            response = self.client.table('salesforce_accounts').update(updates).eq('salesforce_account_id', salesforce_account_id).execute()
+            
+            return response.data is not None and len(response.data) > 0
+            
+        except Exception as e:
+            logger.error(f"Error updating Salesforce account: {str(e)}")
+            return False
+
+    def delete_salesforce_account(self, salesforce_account_id: str) -> bool:
+        """Delete Salesforce account"""
+        try:
+            response = self.client.table('salesforce_accounts').delete().eq('salesforce_account_id', salesforce_account_id).execute()
+            
+            return response.data is not None and len(response.data) > 0
+            
+        except Exception as e:
+            logger.error(f"Error deleting Salesforce account: {str(e)}")
             return False 

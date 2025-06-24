@@ -5,7 +5,7 @@ clear && python -m sync.cmd_runner  --dropbox-account-info --commands=extract-dr
 
 
 # Extract info, (force) store in database, analyze
-clear && python -m sync.cmd_runner  --dropbox-accounts --dropbox-account-info --salesforce-accounts --commands=extract-dropbox-account-app-files-info,store-in-supabase,analyze-account-data --continue-on-error --force-store-dropbox-info --dropbox-account-name='Montesino, Maria' --keep
+clear && python -m sync.cmd_runner  --dropbox-accounts --dropbox-account-info --salesforce-accounts --salesforce-account-info --commands=extract-dropbox-account-app-files-info,store-in-supabase,analyze-account-data --continue-on-error --force-store-dropbox-info --dropbox-account-name='Montesino, Maria' --keep
 
 # Extract info, analyze
-clear && python -m sync.cmd_runner  --dropbox-accounts --dropbox-account-info --salesforce-accounts --commands=extract-dropbox-account-app-files-info,store-in-supabase,analyze-account-data --continue-on-error --dropbox-account-name='Montesino, Maria' --keep
+clear && python -m sync.cmd_runner  --dropbox-accounts --dropbox-account-info --salesforce-accounts --salesforce-account-info --commands=extract-dropbox-account-app-files-info,store-in-supabase,analyze-account-data --continue-on-error --dropbox-account-name='Montesino, Maria' --keep

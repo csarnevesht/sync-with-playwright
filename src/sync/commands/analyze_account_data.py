@@ -525,6 +525,10 @@ def _generate_account_details_section(report: AccountAnalysisReport) -> str:
     
     # Salesforce accounts
     if report.salesforce_account_information and report.salesforce_account_information.get('accounts'):
+        details.append("⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡")
+        details.append("⚡ **SALESFORCE ACCOUNT INFORMATION** 📊")
+        details.append("⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡ ⚡")
+        details.append("")
         details.append("**Salesforce Accounts Found:**")
         for i, account in enumerate(report.salesforce_account_information['accounts'], 1):
             details.append(f"{i}. **{account.get('account_name', 'Unknown')}** ({account.get('type', 'Unknown')})")
@@ -538,6 +542,10 @@ def _generate_account_details_section(report: AccountAnalysisReport) -> str:
     
     # Dropbox accounts
     if report.dropbox_account_information and report.dropbox_account_information.get('accounts'):
+        details.append("📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦")
+        details.append("📦 **DROPBOX ACCOUNT INFORMATION** 📊")
+        details.append("📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦")
+        details.append("")
         details.append("**Dropbox Accounts Found:**")
         for i, account in enumerate(report.dropbox_account_information['accounts'], 1):
             details.append(f"{i}. **{account.get('account_name', 'Unknown')}** ({account.get('account_type', 'Unknown')})")
