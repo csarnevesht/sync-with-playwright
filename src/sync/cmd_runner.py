@@ -128,10 +128,8 @@ from dropbox.exceptions import ApiError
 import dropbox
 from typing import List, Union
 
-# Add the src directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-
 from sync.salesforce_client.utils.logging_utils import log_salesforce_account_information
+from src.sync.salesforce_client.salesforce import setup_salesforce_components_if_needed
 
 logger = logging.getLogger()
 
@@ -630,6 +628,8 @@ def initialize_dropbox_client(args):
             logger.error(f"Unexpected error initializing Dropbox client: {str(e)}")
             return None
 
+
+
 def run_command(args, log_dir):
     """
     Run the command based on the provided arguments.
@@ -790,12 +790,12 @@ def run_command(args, log_dir):
             file_manager = None
             view_name="All Clients"
             
-            if args.salesforce_accounts or args.salesforce_account_files:
-                browser, page = get_salesforce_page(p)
-                # Initialize account manager and file manager
-                account_manager = AccountManager(page, debug_mode=True)
-                account_manager.logger.report_logger = report_logger  # Add report logger
-                file_manager = SalesforceFileManager(page, debug_mode=True)
+            # if args.salesforce_accounts or args.salesforce_account_files:
+            #     browser, page = get_salesforce_page(p)
+            #     # Initialize account manager and file manager
+            #     account_manager = AccountManager(page, debug_mode=True)
+            #     account_manager.logger.report_logger = report_logger  # Add report logger
+            #     file_manager = SalesforceFileManager(page, debug_mode=True)
             
             command_runner = None
             
@@ -805,11 +805,11 @@ def run_command(args, log_dir):
                 command_runner = CommandRunner(args, log_dir)
                 command_runner.set_context('dropbox_client', dropbox_client)
                 command_runner.set_context('dropbox_root_folder', dropbox_root_folder)
-                if browser and page:
-                    command_runner.set_context('browser', browser)
-                    command_runner.set_context('page', page)
-                    command_runner.set_context('account_manager', account_manager)
-                    command_runner.set_context('file_manager', file_manager)
+                # if browser and page:
+                #     command_runner.set_context('browser', browser)
+                #     command_runner.set_context('page', page)
+                #     command_runner.set_context('account_manager', account_manager)
+                #     command_runner.set_context('file_manager', file_manager)
                 
             # Dictionary to store results for each folder
             results = {}
@@ -851,7 +851,6 @@ def run_command(args, log_dir):
                 max_attempts = 1
                 current_attempt = 1
                 success = False
-
                 
                 while current_attempt <= max_attempts and not success:
                     try:
@@ -865,14 +864,7 @@ def run_command(args, log_dir):
 
                         if command_runner:
                                 command_runner.set_data('dropbox_account_name_parts', dropbox_account_name_parts)
-                        
-                        # Navigate to Salesforce base URL
-                        if args.salesforce_accounts and account_manager:    
-                            logger.info(f"Navigating to Salesforce")
-                            if not account_manager.navigate_to_salesforce():
-                                log_to_both(logger, report_logger, 'error', "Failed to navigate to Salesforce base URL")
-                                raise Exception("Failed to navigate to Salesforce base URL")
-                            account_manager.refresh_page()
+                    
 
                         # Get Dropbox account info
                         if args.dropbox_account_info:
@@ -918,7 +910,18 @@ def run_command(args, log_dir):
                             if command_runner:
                                 command_runner.set_data('dropbox_account_file_names', dropbox_account_file_names)
                         
-                        if args.salesforce_accounts and account_manager:
+                        if args.salesforce_accounts:
+
+                            account_manager, file_manager = setup_salesforce_components_if_needed(p, account_manager, file_manager, command_runner, report_logger, args)
+
+                            # Navigate to Salesforce base URL
+                            if args.salesforce_accounts and account_manager:    
+                                logger.info(f"Navigating to Salesforce")
+                                if not account_manager.navigate_to_salesforce():
+                                    log_to_both(logger, report_logger, 'error', "Failed to navigate to Salesforce base URL")
+                                    raise Exception("Failed to navigate to Salesforce base URL")
+                                account_manager.refresh_page()
+
                             logger.info('step: Salesforce Search Account')
                             # Perform salesforce account search
                             salesforce_account_search_result = account_manager.salesforce_search_account(dropbox_account_folder_name, view_name, dropbox_account_name_parts=dropbox_account_name_parts)
