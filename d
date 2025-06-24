@@ -35,18 +35,20 @@ show_menu() {
     echo -e "${YELLOW}🏗️  Schema Management:${NC}"
     echo "10) (cs) Create New Schema"
     echo "11) (ct) Create Tables via REST"
-    echo "12) (m) Migrate Table Names"
-    echo "13) (fa) Fix Supabase Auth"
-    echo "14) (rl) Remove Legacy Tables"
+    echo "12) (cd) Create Tables Direct"
+    echo "13) (m) Migrate Table Names"
+    echo "14) (fa) Fix Supabase Auth"
+    echo "15) (rl) Remove Legacy Tables"
+    echo "16) (ts) Test Salesforce Storage"
     echo ""
     echo -e "${YELLOW}📋 Utilities:${NC}"
-    echo "15) (v) View Schema Diagram (HTML)"
-    echo "16) (vv) View Visual Diagram (Text)"
-    echo "17) (rd) Open Database README"
-    echo "18) (gd) Generate Schema Diagram"
-    echo "19) (ud) Update All Diagrams"
-    echo "20) (l) Run Last Command"
-    echo "21) (q) Quit"
+    echo "17) (v) View Schema Diagram (HTML)"
+    echo "18) (vv) View Visual Diagram (Text)"
+    echo "19) (rd) Open Database README"
+    echo "20) (gd) Generate Schema Diagram"
+    echo "21) (ud) Update All Diagrams"
+    echo "22) (l) Run Last Command"
+    echo "23) (q) Quit"
     echo "====================================="
     echo -n "Enter your choice (number or shortcut): "
 }
@@ -307,34 +309,40 @@ while true; do
         11|ct)
             run_script "create_tables_via_rest.py" "Create Tables via REST"
             ;;
-        12|m)
+        12|cd)
+            run_script "create_tables_direct.py" "Create Tables Direct"
+            ;;
+        13|m)
             run_script "migrate_table_names.py" "Migrate Table Names"
             ;;
-        13|fa)
+        14|fa)
             run_script "fix_supabase_auth.py" "Fix Supabase Auth"
             ;;
-        14|rl)
+        15|rl)
             run_script "remove_legacy_tables.py" "Remove Legacy Tables"
             ;;
-        15|v)
+        16|ts)
+            run_script "test_salesforce_storage.py" "Test Salesforce Storage"
+            ;;
+        17|v)
             view_schema_diagram
             ;;
-        16|vv)
+        18|vv)
             view_visual_diagram
             ;;
-        17|rd)
+        19|rd)
             open_database_readme
             ;;
-        18|gd)
+        20|gd)
             run_script "generate_schema_diagram.py" "Generate Schema Diagram"
             ;;
-        19|ud)
+        21|ud)
             run_script "update_all_diagrams.py" "Update All Diagrams"
             ;;
-        20|l)
+        22|l)
             run_last_command
             ;;
-        21|q)
+        23|q)
             echo -e "\n${GREEN}Goodbye!${NC}"
             exit 0
             ;;

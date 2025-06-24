@@ -18,6 +18,19 @@ class ApplicationType(str, Enum):
     SECURITY_BENEFIT = "Security Benefit"
     UNKNOWN = "Unknown"
 
+# Salesforce enums
+class SalesforceAccountType(str, Enum):
+    CONTACT = "Contact"
+    HOUSEHOLD = "Household"
+    HOUSEHOLD_HEAD = "Household_Head"
+    HOUSEHOLD_MEMBER = "Household_Member"
+
+class SalesforceSyncStatus(str, Enum):
+    PENDING = "pending"
+    SYNCED = "synced"
+    FAILED = "failed"
+    NEEDS_UPDATE = "needs_update"
+
 class DropboxAccountApplicationInfo(BaseModel):
     """Model for person information (owner or joint owner)"""
     first_name: Optional[str] = None
@@ -92,6 +105,114 @@ class DropboxAccountWithFiles(BaseModel):
     processed_files: int = 0
     failed_files: int = 0
     processing_timestamp: Optional[datetime] = None
+    
+    model_config = {
+        'json_encoders': {
+            date: lambda v: v.isoformat() if v else None,
+            datetime: lambda v: v.isoformat() if v else None
+        }
+    }
+
+# Salesforce Models
+class SalesforceAccount(BaseModel):
+    """Model for Salesforce account data"""
+    salesforce_account_id: str
+    account_name: Optional[str] = None
+    account_type: SalesforceAccountType = SalesforceAccountType.CONTACT
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
+    birthdate: Optional[date] = None
+    gender: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip_code: Optional[str] = None
+    email: Optional[str] = None
+    ssn_tax_id: Optional[str] = None
+    stage: Optional[str] = None
+    writing_advisor: Optional[str] = None
+    prospecting_status: Optional[str] = None
+    account_record_type: Optional[str] = None
+    
+    model_config = {
+        'json_encoders': {
+            date: lambda v: v.isoformat() if v else None,
+            datetime: lambda v: v.isoformat() if v else None
+        }
+    }
+
+class SalesforceHousehold(BaseModel):
+    """Model for Salesforce household data"""
+    salesforce_household_id: str
+    household_name: Optional[str] = None
+    household_head_id: Optional[str] = None
+    
+    model_config = {
+        'json_encoders': {
+            date: lambda v: v.isoformat() if v else None,
+            datetime: lambda v: v.isoformat() if v else None
+        }
+    }
+
+class SalesforceHouseholdMember(BaseModel):
+    """Model for Salesforce household member data"""
+    household_id: str
+    member_id: str
+    role: Optional[str] = None
+    
+    model_config = {
+        'json_encoders': {
+            date: lambda v: v.isoformat() if v else None,
+            datetime: lambda v: v.isoformat() if v else None
+        }
+    }
+
+class DropboxSalesforceMapping(BaseModel):
+    """Model for mapping between Dropbox and Salesforce accounts"""
+    dropbox_account_id: int
+    salesforce_account_id: str
+    mapping_type: Optional[str] = None  # 'Household_Head', 'Household_Member', 'Direct'
+    confidence_score: Optional[float] = None
+    mapping_rules: Dict[str, Any] = Field(default_factory=dict)
+    
+    model_config = {
+        'json_encoders': {
+            date: lambda v: v.isoformat() if v else None,
+            datetime: lambda v: v.isoformat() if v else None
+        }
+    }
+
+class SyncStatus(BaseModel):
+    """Model for sync status between Dropbox and Salesforce"""
+    dropbox_account_id: int
+    salesforce_account_id: str
+    sync_status: SalesforceSyncStatus = SalesforceSyncStatus.PENDING
+    sync_direction: Optional[str] = None  # 'dropbox_to_salesforce', 'salesforce_to_dropbox', 'bidirectional'
+    last_sync_timestamp: Optional[datetime] = None
+    sync_errors: List[str] = Field(default_factory=list)
+    fields_synced: List[str] = Field(default_factory=list)
+    fields_failed: List[str] = Field(default_factory=list)
+    
+    model_config = {
+        'json_encoders': {
+            date: lambda v: v.isoformat() if v else None,
+            datetime: lambda v: v.isoformat() if v else None
+        }
+    }
+
+class AccountAnalysis(BaseModel):
+    """Model for account analysis data"""
+    dropbox_account_id: int
+    salesforce_account_id: str
+    analysis_type: Optional[str] = None  # 'data_comparison', 'mapping_validation', 'sync_recommendations'
+    analysis_data: Dict[str, Any] = Field(default_factory=dict)
+    recommendations: List[str] = Field(default_factory=list)
+    missing_fields: List[str] = Field(default_factory=list)
+    field_mappings: Dict[str, Any] = Field(default_factory=dict)
+    data_differences: Dict[str, Any] = Field(default_factory=dict)
+    analysis_timestamp: Optional[datetime] = None
     
     model_config = {
         'json_encoders': {

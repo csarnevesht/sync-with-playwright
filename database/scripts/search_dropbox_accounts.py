@@ -16,8 +16,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 from supabase_client import SupabaseClient
 
 def search_dropbox_accounts():
-    """Search for Dropbox accounts by folder name."""
-    print("🔍 Dropbox Account Search")
+    """Search for Dropbox accounts by folder name and show related Salesforce information."""
+    print("🔍 Dropbox & Salesforce Account Search")
     print("=" * 50)
     
     try:
@@ -107,7 +107,7 @@ def search_partial(client):
         traceback.print_exc()
 
 def list_all_accounts(client):
-    """List first 20 accounts."""
+    """List first 20 accounts with Dropbox and Salesforce information."""
     try:
         result = client.client.table('dropbox_accounts').select('*').limit(20).order('folder').execute()
         
@@ -123,7 +123,7 @@ def list_all_accounts(client):
 def show_statistics(client):
     """Show account statistics."""
     try:
-        # Get total count
+        # Get Dropbox statistics
         total_result = client.client.table('dropbox_accounts').select('id', count='exact').execute()
         total_accounts = total_result.count if hasattr(total_result, 'count') else len(total_result.data)
         
@@ -135,18 +135,49 @@ def show_statistics(client):
         processed_result = client.client.table('dropbox_accounts').select('id').gt('processed_files', 0).execute()
         processed_accounts = len(processed_result.data)
         
-        print(f"\n📊 Account Statistics:")
+        print(f"\n📊 Dropbox Account Statistics:")
         print(f"   Total accounts: {total_accounts}")
         print(f"   Accounts with files: {accounts_with_files}")
         print(f"   Accounts with processed files: {processed_accounts}")
         print(f"   Accounts without files: {total_accounts - accounts_with_files}")
         
+        # Get Salesforce statistics
+        sf_total_result = client.client.table('salesforce_accounts').select('id', count='exact').execute()
+        sf_total_accounts = sf_total_result.count if hasattr(sf_total_result, 'count') else len(sf_total_result.data)
+        
+        # Get Salesforce accounts by type
+        sf_contacts_result = client.client.table('salesforce_accounts').select('id').eq('account_type', 'Contact').execute()
+        sf_contacts = len(sf_contacts_result.data)
+        
+        sf_households_result = client.client.table('salesforce_accounts').select('id').eq('account_type', 'Household').execute()
+        sf_households = len(sf_households_result.data)
+        
+        # Get household statistics
+        hh_total_result = client.client.table('salesforce_households').select('id', count='exact').execute()
+        hh_total = hh_total_result.count if hasattr(hh_total_result, 'count') else len(hh_total_result.data)
+        
+        hh_members_result = client.client.table('salesforce_household_members').select('id', count='exact').execute()
+        hh_members = hh_members_result.count if hasattr(hh_members_result, 'count') else len(hh_members_result.data)
+        
+        print(f"\n⚡ Salesforce Account Statistics:")
+        print(f"   Total Salesforce accounts: {sf_total_accounts}")
+        print(f"   Contacts: {sf_contacts}")
+        print(f"   Households: {sf_households}")
+        print(f"   Total households: {hh_total}")
+        print(f"   Household members: {hh_members}")
+        
         # Show some examples
         if total_accounts > 0:
-            print(f"\n📝 Sample account names:")
+            print(f"\n📝 Sample Dropbox account names:")
             sample_result = client.client.table('dropbox_accounts').select('folder').limit(5).execute()
             for i, account in enumerate(sample_result.data, 1):
                 print(f"   {i}. {account['folder']}")
+        
+        if sf_total_accounts > 0:
+            print(f"\n⚡ Sample Salesforce account names:")
+            sf_sample_result = client.client.table('salesforce_accounts').select('account_name,account_type').limit(5).execute()
+            for i, account in enumerate(sf_sample_result.data, 1):
+                print(f"   {i}. {account['account_name']} ({account['account_type']})")
                 
     except Exception as e:
         print(f"❌ Error getting statistics: {e}")
@@ -155,9 +186,87 @@ def display_accounts(client, accounts):
     """Display account information in a formatted way."""
     for i, account in enumerate(accounts, 1):
         print(f"\n{i}. {account['folder']} (ID: {account['id']})")
-        print(f"   📁 Total files: {account.get('total_files', 0)}")
-        print(f"   ✅ Processed files: {account.get('processed_files', 0)}")
-        print(f"   ❌ Failed files: {account.get('failed_files', 0)}")
+        # Show Salesforce account information if available
+        try:
+            # Search for Salesforce accounts by name variations
+            folder_name = account['folder']
+            name_variations = [
+                folder_name,
+                folder_name.replace(', ', ' '),  # "Montesino, Maria" -> "Montesino Maria"
+                folder_name.split(', ')[1] + ' ' + folder_name.split(', ')[0] if ', ' in folder_name else None  # "Montesino, Maria" -> "Maria Montesino"
+            ]
+            name_variations = [name for name in name_variations if name]
+            
+            salesforce_accounts = []
+            for name_var in name_variations:
+                # Search for exact matches first
+                sf_result = client.client.table('salesforce_accounts').select('*').eq('account_name', name_var).execute()
+                if sf_result.data:
+                    salesforce_accounts.extend(sf_result.data)
+                
+                # Search for partial matches using contains (case-insensitive)
+                try:
+                    sf_partial_result = client.client.table('salesforce_accounts').select('*').contains('account_name', [name_var]).execute()
+                    if sf_partial_result.data:
+                        for sf_acc in sf_partial_result.data:
+                            if sf_acc not in salesforce_accounts:
+                                salesforce_accounts.append(sf_acc)
+                except:
+                    # Fallback: get all accounts and filter manually
+                    all_sf_result = client.client.table('salesforce_accounts').select('*').execute()
+                    if all_sf_result.data:
+                        for sf_acc in all_sf_result.data:
+                            if name_var.lower() in sf_acc.get('account_name', '').lower():
+                                if sf_acc not in salesforce_accounts:
+                                    salesforce_accounts.append(sf_acc)
+            
+            if salesforce_accounts:
+                print(f"   ⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡")
+                print(f"   ⚡ **SALESFORCE ACCOUNT INFORMATION** 📊")
+                print(f"   ⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡")
+                for j, sf_account in enumerate(salesforce_accounts, 1):
+                    print(f"      {j}. {sf_account['account_name']} ({sf_account['account_type']})")
+                    print(f"         📧 Email: {sf_account.get('email', 'N/A')}")
+                    print(f"         📞 Phone: {sf_account.get('phone', 'N/A')}")
+                    print(f"         📍 Address: {sf_account.get('address', 'N/A')}")
+                    print(f"         🔒 SSN/Tax ID: {sf_account.get('ssn_tax_id', 'N/A')}")
+                    print(f"         📋 Stage: {sf_account.get('stage', 'N/A')}")
+                    
+                    # Show household information if this is a household
+                    if sf_account['account_type'] == 'Household':
+                        household_result = client.client.table('salesforce_households').select('*').eq('salesforce_household_id', sf_account['salesforce_account_id']).execute()
+                        if household_result.data:
+                            household = household_result.data[0]
+                            print(f"         🏠 Household Head ID: {household.get('household_head_id', 'N/A')}")
+                            
+                            # Show household members
+                            members_result = client.client.table('salesforce_household_members').select('*').eq('household_id', sf_account['salesforce_account_id']).execute()
+                            if members_result.data:
+                                print(f"         👥 Household Members ({len(members_result.data)}):")
+                                for member in members_result.data:
+                                    print(f"            - {member.get('member_id', 'N/A')} ({member.get('role', 'N/A')})")
+                    
+                    # Show relationships if this is a contact
+                    if sf_account['account_type'] == 'Contact':
+                        # Check if this contact is a household head
+                        head_result = client.client.table('salesforce_households').select('*').eq('household_head_id', sf_account['salesforce_account_id']).execute()
+                        if head_result.data:
+                            print(f"         👑 Household Head for: {head_result.data[0].get('household_name', 'N/A')}")
+                        
+                        # Check if this contact is a household member
+                        member_result = client.client.table('salesforce_household_members').select('*').eq('member_id', sf_account['salesforce_account_id']).execute()
+                        if member_result.data:
+                            print(f"         👥 Household Member in: {member_result.data[0].get('household_id', 'N/A')}")
+                    
+                    print(f"         🕒 Created: {sf_account.get('created_at', 'N/A')}")
+                    print(f"         🔄 Updated: {sf_account.get('updated_at', 'N/A')}")
+            else:
+                print(f"   ⚡ Salesforce Accounts: None found")
+                
+        except Exception as e:
+            print(f"   ⚡ Salesforce Accounts: Error retrieving data - {e}")
+            import traceback
+            traceback.print_exc()
         
         # Show person info if available
         if account.get('total_files', 0) > 0:
@@ -166,7 +275,10 @@ def display_accounts(client, accounts):
                 files_result = client.client.table('dropbox_account_application_files').select('*').eq('dropbox_account_id', account['id']).execute()
                 
                 if files_result.data:
-                    print(f"   📄 Application files:")
+                    print(f"   📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦")
+                    print(f"   📦 **DROPBOX ACCOUNT INFORMATION** 📊")
+                    print(f"   📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦")
+                    print(f"   📄 Dropbox Application files:")
                     for file in files_result.data:
                         print(f"      - {file['file_name']} ({file.get('application_type', 'Unknown')})")
                         

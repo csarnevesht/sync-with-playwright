@@ -21,6 +21,7 @@ import time
 from sync.dropbox_client.utils.dropbox_utils import get_renamed_path, list_dropbox_folder_contents
 from sync.dropbox_client.utils.file_utils import log_renamed_file
 from sync.dropbox_client.utils.logging_utils import log_dropbox_app_file_info, log_dropbox_account_app_files_info, log_app_files_notes_summary, log_app_files_processing_summary
+from sync.salesforce_client.utils.logging_utils import log_salesforce_account_information
 from sync.salesforce_client.utils.file_upload import upload_account_file, upload_account_file_with_retries
 
 class CommandRunner:
@@ -730,8 +731,22 @@ class CommandRunner:
                         # Convert Supabase data back to the expected format for compatibility
                         converted_summary_data = self._convert_supabase_data_to_summary_format(account)
                         
-                        # Get the list of files that were processed
-                        files = converted_summary_data.get('all_folder_app_files', {}).get(folder_path, [])
+                        # Dynamically select the folder path from all_folder_app_files
+                        all_folder_app_files = converted_summary_data.get('all_folder_app_files', {})
+                        folder_path = None
+                        if all_folder_app_files:
+                            folder_paths = list(all_folder_app_files.keys())
+                            if len(folder_paths) == 1:
+                                folder_path = folder_paths[0]
+                            else:
+                                # Try to find a folder path containing the account folder name
+                                for path in folder_paths:
+                                    if dropbox_account_folder_name in path:
+                                        folder_path = path
+                                        break
+                                if not folder_path:
+                                    folder_path = folder_paths[0]  # fallback to first
+                        files = all_folder_app_files.get(folder_path, []) if folder_path else []
                         
                         # Aggregate the account info
                         aggregated_info = self._aggregate_account_info_from_app_files(converted_summary_data, files, dropbox_account_folder_name)
@@ -1426,22 +1441,80 @@ class CommandRunner:
             account_info_from_app_files = None
         
         if not account_info_from_app_files:
-            # Set default empty structure if not available
-            account_info_from_app_files = {
-                'total_files_processed': 0,
-                'files_with_complete_info': 0,
-                'files_with_partial_info': 0,
-                'files_with_no_info': 0,
-                'best_available_info': {},
-                'file_details': {},
-                'has_complete_account_info': False,
-                'owner': {},
-                'jointOwner': {},
-                'application_type': 'N/A',
-                'status': 'Not available',
-                'notes': ['Application files data not available']
-            }
-            self.set_data('account_info_from_app_files', account_info_from_app_files)
+            # Try to get application files data from Supabase
+            try:
+                from supabase_client import SupabaseClient
+                supabase_client = SupabaseClient()
+                account = supabase_client.get_application_files_by_folder(dropbox_account_folder_name)
+                
+                if account and account.application_files:
+                    self.logger.info(f"Retrieved {len(account.application_files)} application files from Supabase for analysis")
+                    
+                    # Convert Supabase data to the expected format
+                    converted_summary_data = self._convert_supabase_data_to_summary_format(account)
+                    
+                    # Dynamically select the folder path from all_folder_app_files
+                    all_folder_app_files = converted_summary_data.get('all_folder_app_files', {})
+                    folder_path = None
+                    if all_folder_app_files:
+                        folder_paths = list(all_folder_app_files.keys())
+                        if len(folder_paths) == 1:
+                            folder_path = folder_paths[0]
+                        else:
+                            # Try to find a folder path containing the account folder name
+                            for path in folder_paths:
+                                if dropbox_account_folder_name in path:
+                                    folder_path = path
+                                    break
+                            if not folder_path:
+                                folder_path = folder_paths[0]  # fallback to first
+                    files = all_folder_app_files.get(folder_path, []) if folder_path else []
+                    
+                    # Aggregate the account info
+                    aggregated_info = self._aggregate_account_info_from_app_files(converted_summary_data, files, dropbox_account_folder_name)
+                    
+                    # Store the aggregated info
+                    self.set_data('account_info_from_app_files', aggregated_info)
+                    self.set_data('app_files_extraction_summary', converted_summary_data)
+                    
+                    account_info_from_app_files = aggregated_info
+                    self.logger.info(f"Successfully loaded application files data from Supabase for analysis")
+                else:
+                    # Set default empty structure if no data found in Supabase
+                    account_info_from_app_files = {
+                        'total_files_processed': 0,
+                        'files_with_complete_info': 0,
+                        'files_with_partial_info': 0,
+                        'files_with_no_info': 0,
+                        'best_available_info': {},
+                        'file_details': {},
+                        'has_complete_account_info': False,
+                        'owner': {},
+                        'jointOwner': {},
+                        'application_type': 'N/A',
+                        'status': 'Not available',
+                        'notes': ['Application files data not available']
+                    }
+                    self.set_data('account_info_from_app_files', account_info_from_app_files)
+                    
+            except Exception as e:
+                self.logger.warning(f"Error retrieving application files data from Supabase: {e}")
+                # Set default empty structure if Supabase retrieval fails
+                account_info_from_app_files = {
+                    'total_files_processed': 0,
+                    'files_with_complete_info': 0,
+                    'files_with_partial_info': 0,
+                    'files_with_no_info': 0,
+                    'best_available_info': {},
+                    'file_details': {},
+                    'has_complete_account_info': False,
+                    'owner': {},
+                    'jointOwner': {},
+                    'application_type': 'N/A',
+                    'status': 'Not available',
+                    'notes': ['Application files data not available']
+                }
+                self.set_data('account_info_from_app_files', account_info_from_app_files)
         
         dropbox_account_information['application_data'] = account_info_from_app_files
         
@@ -1502,6 +1575,95 @@ class CommandRunner:
         
         return dropbox_account_information
 
+    def _store_salesforce_account_data_in_supabase(self, salesforce_info: Dict[str, Any]) -> bool:
+        """Store Salesforce account data in Supabase database"""
+        try:
+            from supabase_client import SupabaseClient
+            from supabase_client.schema import SalesforceAccount, SalesforceHousehold, SalesforceHouseholdMember
+            
+            supabase_client = SupabaseClient()
+            
+            if not salesforce_info or not salesforce_info.get('accounts'):
+                self.logger.warning("No Salesforce account data to store")
+                return False
+            
+            stored_accounts = []
+            stored_households = []
+            
+            # Store individual accounts
+            for account_data in salesforce_info.get('accounts', []):
+                try:
+                    # Convert account data to SalesforceAccount model
+                    salesforce_account = SalesforceAccount(
+                        salesforce_account_id=account_data.get('account_name', ''),  # Use account_name as ID for now
+                        account_name=account_data.get('account_name', ''),
+                        account_type=account_data.get('type', 'Contact'),
+                        first_name=account_data.get('first_name', ''),
+                        middle_name=account_data.get('middle_name', ''),
+                        last_name=account_data.get('last_name', ''),
+                        phone=account_data.get('phone', ''),
+                        address=account_data.get('mailing_address', ''),
+                        email=account_data.get('email', ''),
+                        ssn_tax_id=account_data.get('ssn/tax_id', ''),
+                        stage=account_data.get('stage', ''),
+                        # Add other fields as needed
+                    )
+                    
+                    account_id = supabase_client.store_salesforce_account(salesforce_account)
+                    if account_id:
+                        stored_accounts.append(account_id)
+                        self.logger.info(f"Stored Salesforce account: {account_data.get('account_name', '')}")
+                    else:
+                        self.logger.warning(f"Failed to store Salesforce account: {account_data.get('account_name', '')}")
+                        
+                except Exception as e:
+                    self.logger.error(f"Error storing Salesforce account {account_data.get('account_name', '')}: {e}")
+            
+            # Store household information if available
+            if salesforce_info.get('household'):
+                household_data = salesforce_info['household']
+                try:
+                    salesforce_household = SalesforceHousehold(
+                        salesforce_household_id=household_data.get('account_name', ''),
+                        household_name=household_data.get('account_name', ''),
+                        household_head_id=household_data.get('account_name', '')  # Use account_name as head ID for now
+                    )
+                    
+                    household_id = supabase_client.store_salesforce_household(salesforce_household)
+                    if household_id:
+                        stored_households.append(household_id)
+                        self.logger.info(f"Stored Salesforce household: {household_data.get('account_name', '')}")
+                    else:
+                        self.logger.warning(f"Failed to store Salesforce household: {household_data.get('account_name', '')}")
+                        
+                except Exception as e:
+                    self.logger.error(f"Error storing Salesforce household {household_data.get('account_name', '')}: {e}")
+            
+            # Store household members if available
+            for member_data in salesforce_info.get('members', []):
+                try:
+                    salesforce_member = SalesforceHouseholdMember(
+                        household_id=member_data.get('account_name', ''),  # Use account_name as household ID for now
+                        member_id=member_data.get('account_name', ''),
+                        role=member_data.get('role', '')
+                    )
+                    
+                    member_id = supabase_client.store_salesforce_household_member(salesforce_member)
+                    if member_id:
+                        self.logger.info(f"Stored Salesforce household member: {member_data.get('account_name', '')}")
+                    else:
+                        self.logger.warning(f"Failed to store Salesforce household member: {member_data.get('account_name', '')}")
+                        
+                except Exception as e:
+                    self.logger.error(f"Error storing Salesforce household member {member_data.get('account_name', '')}: {e}")
+            
+            self.logger.info(f"Successfully stored {len(stored_accounts)} Salesforce accounts and {len(stored_households)} households")
+            return len(stored_accounts) > 0 or len(stored_households) > 0
+            
+        except Exception as e:
+            self.logger.error(f"Error storing Salesforce account data in Supabase: {e}")
+            return False
+
     def _handle_log_dropbox_account_information(self) -> None:
         """Handle the log-dropbox-account-information command."""
         self.logger.info("[_handle_log_dropbox_account_information] Executing command handler: log-dropbox-account-information")
@@ -1540,6 +1702,19 @@ class CommandRunner:
         log_json_format(dropbox_account_information, self.logger)
 
     def _store_in_supabase(self) -> None:
+        """Store in Supabase database.
+        """
+        self.logger.info("Starting store-in-supabase operation")
+        self.report_logger.info("\n=== STORING DATA IN SUPABASE ===")
+
+        self._store_dropbox_account_info_in_supabase()
+        # self._store_salesforce_account_info_in_supabase()
+
+        self.logger.info("Successfully completed store-in-supabase operation")
+        self.report_logger.info("\nSuccessfully completed store-in-supabase operation") 
+
+
+    def _store_dropbox_account_info_in_supabase(self) -> None:
         """Store application files data in Supabase database.
         This command will store the extracted application files data in Supabase for future retrieval.
         """

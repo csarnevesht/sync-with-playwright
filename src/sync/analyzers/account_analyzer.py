@@ -432,50 +432,24 @@ class AccountAnalyzer:
             })
         
         # Merge data from all accounts, preferring client_list_file for basic info and application_files for detailed personal info
+        for field in ['first_name', 'last_name', 'middle_name', 'phone', 'address', 'email', 'birthdate', 'gender', 'ssn_tax_id']:
+            # Try to get the best value from all sources, preferring client_list_file if present and non-blank
+            best_value = ''
+            for account in accounts:
+                source = account.get('source', '')
+                value = account.get(field, '')
+                if source == 'dropbox_client_list' and value and str(value).strip():
+                    best_value = value
+                    break  # Prefer client list value if present
+                elif not best_value and value and str(value).strip():
+                    best_value = value  # Use application files value if client list is missing/blank
+            merged_data[field] = best_value
+        
+        # Merge drivers license if available
         for account in accounts:
-            source = account.get('source', '')
-            
-            # Update data sources
-            if source == 'dropbox_client_list':
-                merged_data['data_sources']['client_list'] = True
-            elif source == 'dropbox_application_files':
-                merged_data['data_sources']['application_files'] = True
-            
-            # Merge fields with proper precedence:
-            # - dropbox_client_list takes precedence for ALL fields
-            # - dropbox_application_files only fills in missing fields from client_list
-            
-            # All fields - prefer dropbox_client_list, fallback to application_files if missing
-            if not merged_data['first_name'] or source == 'dropbox_client_list':
-                merged_data['first_name'] = self._get_best_value(merged_data['first_name'], account.get('first_name', ''))
-            
-            if not merged_data['last_name'] or source == 'dropbox_client_list':
-                merged_data['last_name'] = self._get_best_value(merged_data['last_name'], account.get('last_name', ''))
-            
-            if not merged_data['middle_name'] or source == 'dropbox_client_list':
-                merged_data['middle_name'] = self._get_best_value(merged_data['middle_name'], account.get('middle_name', ''))
-            
-            if not merged_data['phone'] or source == 'dropbox_client_list':
-                merged_data['phone'] = self._get_best_value(merged_data['phone'], account.get('phone', ''))
-            
-            if not merged_data['address'] or source == 'dropbox_client_list':
-                merged_data['address'] = self._get_best_value(merged_data['address'], account.get('address', ''))
-            
-            if not merged_data['email'] or source == 'dropbox_client_list':
-                merged_data['email'] = self._get_best_value(merged_data['email'], account.get('email', ''))
-            
-            if not merged_data['birthdate'] or source == 'dropbox_client_list':
-                merged_data['birthdate'] = self._get_best_value(merged_data['birthdate'], account.get('birthdate', ''))
-            
-            if not merged_data['gender'] or source == 'dropbox_client_list':
-                merged_data['gender'] = self._get_best_value(merged_data['gender'], account.get('gender', ''))
-            
-            if not merged_data['ssn_tax_id'] or source == 'dropbox_client_list':
-                merged_data['ssn_tax_id'] = self._get_best_value(merged_data['ssn_tax_id'], account.get('ssn_tax_id', ''))
-            
-            # Merge drivers license if available
             if account.get('drivers_license'):
                 merged_data['drivers_license'] = account.get('drivers_license', {})
+                break
         
         if len(accounts) > 1:
             self.logger.debug(f"Merged {len(accounts)} accounts for {account_name}")
