@@ -1,0 +1,89 @@
+🗄️ DATABASE SCHEMA VISUAL DIAGRAM
+==================================
+
+🔵 CORE TABLES (Currently Active)
+=================================
+
+dropbox_accounts (📁)
+    │
+    │ 1:N
+    │
+    ▼
+application_files (📄)
+    │
+    │ N:1 (Owner)
+    │ N:1 (Joint Owner)
+    │
+    ▼
+person_info (👤)
+
+🔗 RELATIONSHIP DETAILS:
+=======================
+
+dropbox_accounts.id ──┐
+                      │
+                      ▼
+application_files.dropbox_account_id
+
+person_info.id ──┐
+                 │
+                 ▼
+application_files.owner_id
+application_files.joint_owner_id
+
+🟡 LEGACY TABLES (May Not Exist)
+=================================
+
+dropbox_accounts (📁) ──┐
+                        │
+                        │ Many:Many
+                        │
+                        ▼
+dropbox_account_applications (🔗)
+                        │
+                        ▼
+applications (📋)
+
+dropbox_accounts (📁) ──┐
+                        │
+                        │ Many:Many
+                        │
+                        ▼
+dropbox_account_household_members (🔗)
+                        │
+                        ▼
+household_members (👥)
+
+📊 CURRENT SYSTEM ARCHITECTURE:
+===============================
+
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  dropbox_accounts │    │ application_files │    │    person_info   │
+│                 │    │                 │    │                 │
+│ • folder        │◄───┤ • dropbox_account_id│    │ • first_name    │
+│ • first_name    │    │ • owner_id      │◄───┤ • last_name      │
+│ • last_name     │    │ • joint_owner_id│    │ • date_of_birth  │
+│ • total_files   │    │ • file_name     │    │ • gender         │
+│ • processed_files│    │ • application_type│    │ • address fields │
+│ • failed_files  │    │ • status        │    │ • phone_number   │
+│ • timestamps    │    │ • extracted_text│    │ • email_address  │
+└─────────────────┘    │ • notes (JSONB) │    └─────────────────┘
+                       │ • timestamps    │
+                       └─────────────────┘
+
+📝 CUSTOM ENUMS:
+================
+
+application_status: [Processed, Failed, Error, Skipped]
+application_type: [Life Insurance, Annuity, EquiTrust Annuity, Security Benefit, Unknown]
+household_role: [Head, Member]
+
+🎯 KEY POINTS:
+==============
+
+✅ Core tables are actively used and contain real data
+✅ Foreign key relationships ensure data integrity
+✅ JSONB field in application_files stores flexible notes
+✅ Timestamps track creation and updates
+✅ Indexes optimize query performance
+⚠️ Legacy tables may not exist in current database 
