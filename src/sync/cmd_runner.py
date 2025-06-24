@@ -492,8 +492,8 @@ def parse_args():
     parser.add_argument('--file-filter',
                       help='Filter files by name pattern (e.g. "*Life*" to only process files containing "Life")',
                       default=None)
-    parser.add_argument('--force-store-supabase', action='store_true', 
-                      help='Force storing data in Supabase even if it already exists (will overwrite existing data)')
+    parser.add_argument('--force-store-dropbox-info', action='store_true', 
+                      help='Force storing Dropbox information even if it already exists (will overwrite existing data)')
     
     return parser.parse_args()
 
