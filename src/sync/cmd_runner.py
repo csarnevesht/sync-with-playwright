@@ -1216,6 +1216,15 @@ def run_command(args, log_dir):
                             if args.salesforce_account_info and 'salesforce_account_information' in salesforce_account_search_result:
                                 command_runner.set_data('salesforce_account_information', salesforce_account_search_result['salesforce_account_information'])
                             
+                            # Initialize dropbox_account_information with default value
+                            dropbox_account_information = {
+                                'names_found': [dropbox_account_folder_name],
+                                'client_list_data': None,
+                                'application_data': None,
+                                'app_files_extraction_summary': None,
+                                'accounts': []
+                            }
+                            
                             # Build and store dropbox_account_information structure if dropbox account info is available
                             if args.dropbox_account_info:
                                 dropbox_account_information = command_runner._build_dropbox_account_information()
