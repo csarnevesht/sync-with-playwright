@@ -63,3 +63,4 @@ lmstudioprocessor_request**
 logs/** 
 logs/.preserved_logs
 .env.backup.*
+logs/** 

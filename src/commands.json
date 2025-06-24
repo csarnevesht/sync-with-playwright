@@ -174,6 +174,10 @@
   {
     "description": "Copy Dropbox account files to Salesforce folder while preserving original modification dates with error continuation",
     "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --commands='copy-dropbox-account-files-preserve-dates' --dropbox-account-name='Account Name' --continue-on-error"
-  }
+  },
+  {
+    "description": "Analyze account data for all accounts in Dropbox and copy file to Salesforce folder",
+    "command": "clear && python -m sync.cmd_runner  --dropbox-account-info --commands=extract-dropbox-account-app-files-info,analyze-account-data,copy-dropbox-account-files-preserve-dates --salesforce-account-info --salesforce-accounts --continue-on-error --kepp"
+  },
 ]
  
