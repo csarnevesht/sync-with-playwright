@@ -61,7 +61,7 @@ class AppFileExtractor:
         self.timing_info = {}
 
 
-    def extract_info(self, folder_path: str, extract_fields: set = None, name_parts: Dict[str, Any] = None, file_filter: str = None, skip_zero_length_if_account_info_exists: bool = False, report_logger: Any = None, dropbox_account_folder_name: str = None, force_store_supabase: bool = False) -> Dict[str, Any]:
+    def extract_info(self, folder_path: str, extract_fields: set = None, name_parts: Dict[str, Any] = None, file_filter: str = None, skip_zero_length_if_account_info_exists: bool = False, report_logger: Any = None, dropbox_account_folder_name: str = None, force_store_dropbox_info: bool = False) -> Dict[str, Any]:
         """Extract information from application files in a Dropbox folder.
         
         Args:
@@ -73,7 +73,7 @@ class AppFileExtractor:
             skip_zero_length_if_account_info_exists: If True, skip processing files with 0 extracted text when account info already exists
             report_logger: Optional report logger instance for additional logging
             dropbox_account_folder_name: Optional account folder name for organizing logs
-            force_store_supabase: If True, skip checking file existence in database
+            force_store_dropbox_info: If True, skip checking file existence in database
             
         Returns:
             Dict containing extracted information
@@ -127,7 +127,7 @@ class AppFileExtractor:
                             
                 summary_data['total_app_files'] += 1
                 app_files.append(file)
-                file_info = self._process_file(file, dropbox_account_folder_name, force_store_supabase)
+                file_info = self._process_file(file, dropbox_account_folder_name, force_store_dropbox_info)
                 if file_info:
                     # Store file info in the summary data
                     summary_data['file_info'][file.path_display] = file_info
@@ -200,11 +200,11 @@ class AppFileExtractor:
             logger.error(f"Error listing folder contents: {str(e)}")
             return []
 
-    def _process_file(self, file: FileMetadata, dropbox_account_folder_name: str = None, force_store_supabase: bool = False) -> Optional[Dict[str, Any]]:
+    def _process_file(self, file: FileMetadata, dropbox_account_folder_name: str = None, force_store_dropbox_info: bool = False) -> Optional[Dict[str, Any]]:
         """Process a single file and extract relevant information using OCR and Qwen model."""
         try:
             # Check if file already exists in database (unless force flag is set)
-            if dropbox_account_folder_name and not force_store_supabase:
+            if dropbox_account_folder_name and not force_store_dropbox_info:
                 try:
                     from supabase_client import SupabaseClient
                     supabase_client = SupabaseClient()
@@ -214,7 +214,7 @@ class AppFileExtractor:
                     
                     if file_exists:
                         logger.info(f"⏭️ File {file.name} already exists in database for folder {dropbox_account_folder_name}")
-                        logger.info(f"   Skipping processing (use --force-store-supabase to reprocess)")
+                        logger.info(f"   Skipping processing (use --force-store-dropbox-info to reprocess)")
                         
                         # Return file info indicating it was skipped
                         file_info = {
@@ -225,7 +225,7 @@ class AppFileExtractor:
                             'notes': [
                                 f"File already exists in database for folder: {dropbox_account_folder_name}",
                                 "Skipped processing to avoid duplication",
-                                "Use --force-store-supabase to reprocess this file"
+                                "Use --force-store-dropbox-info to reprocess this file"
                             ]
                         }
                         return file_info

@@ -80,10 +80,6 @@
     "command": "python -m sync.cmd_runner --commands=extract-dropbox-account-app-files-info --dropbox-accounts --dropbox-account-name='Amaran Martin & Teresita'"
   },
   {
-    "description": "Store extracted account information in Supabase",
-    "command": "python -m sync.cmd_runner --commands=store-in-supabase"
-  },
-  {
     "description": "Search for account information in Supabase",
     "command": "python -m sync.cmd_runner --commands=search-supabase --dropbox-accounts"
   },

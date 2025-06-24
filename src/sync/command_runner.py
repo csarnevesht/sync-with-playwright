@@ -711,7 +711,7 @@ class CommandRunner:
                 supabase_client = SupabaseClient()
                 data_exists = supabase_client.check_application_files_exist(dropbox_account_folder_name)
                 
-                if data_exists and getattr(self.args, 'force_store_supabase', False):
+                if data_exists and getattr(self.args, 'force_store_dropbox_info', False):
                     self.logger.info(f"🔄 Force flag specified - overwriting existing data for folder: {dropbox_account_folder_name}")
                     deleted = supabase_client.delete_application_files_for_folder(dropbox_account_folder_name)
                     if not deleted:
@@ -719,7 +719,7 @@ class CommandRunner:
                     # Continue with normal extraction after deletion
                 elif data_exists:
                     self.logger.info(f"✅ Application files data already exists in Supabase for folder: {dropbox_account_folder_name}")
-                    self.logger.info(f"    Use --force-store-supabase to overwrite.")
+                    self.logger.info(f"    Use --force-store-dropbox-info to overwrite.")
                     self.report_logger.info(f"✅ Application files data already exists in Supabase for folder: {dropbox_account_folder_name}")
                     
                     # Retrieve the stored data
@@ -780,7 +780,7 @@ class CommandRunner:
                 report_logger=self.report_logger,
                 log_dir=self.log_dir,
                 dropbox_account_folder_name=dropbox_account_folder_name,
-                force_store_supabase=getattr(self.args, 'force_store_supabase', False)
+                force_store_dropbox_info=getattr(self.args, 'force_store_dropbox_info', False)
             )
             extract_time = time.time() - extract_start
             self.logger.info(f"Extraction completed in {extract_time:.2f} seconds")
@@ -855,7 +855,7 @@ class CommandRunner:
                             report_logger=self.report_logger,
                             log_dir=self.log_dir,
                             dropbox_account_folder_name=dropbox_account_folder_name,
-                            force_store_supabase=getattr(self.args, 'force_store_supabase', False)
+                            force_store_dropbox_info=getattr(self.args, 'force_store_dropbox_info', False)
                         )
                         
                         if zero_length_summary:
@@ -994,14 +994,14 @@ class CommandRunner:
             supabase_client = SupabaseClient()
             data_exists = supabase_client.check_application_files_exist(folder_name)
             
-            if data_exists and not getattr(self.args, 'force_store_supabase', False):
+            if data_exists and not getattr(self.args, 'force_store_dropbox_info', False):
                 self.logger.info(f"✅ Application files data already exists in Supabase for folder: {folder_name}")
                 self.report_logger.info(f"✅ Application files data already exists in Supabase for folder: {folder_name}")
-                self.logger.info("Use --force-store-supabase to overwrite existing data")
-                self.report_logger.info("Use --force-store-supabase to overwrite existing data")
+                self.logger.info("Use --force-store-dropbox-info to overwrite existing data")
+                self.report_logger.info("Use --force-store-dropbox-info to overwrite existing data")
                 return True  # Consider this a success since data exists
             
-            if data_exists and getattr(self.args, 'force_store_supabase', False):
+            if data_exists and getattr(self.args, 'force_store_dropbox_info', False):
                 self.logger.info(f"🔄 Force flag specified - overwriting existing data for folder: {folder_name}")
                 self.report_logger.info(f"🔄 Force flag specified - overwriting existing data for folder: {folder_name}")
                 
@@ -1117,7 +1117,7 @@ class CommandRunner:
             account_id = supabase_client.store_dropbox_account_with_files(account)
             
             if account_id:
-                action_text = "overwrote" if data_exists and getattr(self.args, 'force_store_supabase', False) else "stored"
+                action_text = "overwrote" if data_exists and getattr(self.args, 'force_store_dropbox_info', False) else "stored"
                 self.logger.info(f"✅ Successfully {action_text} {len(application_files)} application files in Supabase for folder: {folder_name}")
                 self.report_logger.info(f"✅ Successfully {action_text} {len(application_files)} application files in Supabase for folder: {folder_name}")
                 self.logger.info(f"Account ID: {account_id}")
@@ -1560,7 +1560,7 @@ class CommandRunner:
         self.report_logger.info("\n=== STORING APPLICATION FILES DATA IN SUPABASE ===")
         
         # Log force flag status
-        if getattr(self.args, 'force_store_supabase', False):
+        if getattr(self.args, 'force_store_dropbox_info', False):
             self.logger.info("🔄 Force flag is enabled - will overwrite existing data if present")
             self.report_logger.info("🔄 Force flag is enabled - will overwrite existing data if present")
         
@@ -1576,7 +1576,7 @@ class CommandRunner:
                 supabase_client = SupabaseClient()
                 data_exists = supabase_client.check_application_files_exist(dropbox_account_folder_name)
                 
-                if data_exists and getattr(self.args, 'force_store_supabase', False):
+                if data_exists and getattr(self.args, 'force_store_dropbox_info', False):
                     self.logger.info(f"🔄 Force flag specified - overwriting existing data for folder: {dropbox_account_folder_name}")
                     self.report_logger.info(f"🔄 Force flag specified - overwriting existing data for folder: {dropbox_account_folder_name}")
                     deleted = supabase_client.delete_application_files_for_folder(dropbox_account_folder_name)
@@ -1585,9 +1585,9 @@ class CommandRunner:
                         self.report_logger.warning(f"⚠️ Failed to delete existing application files for folder: {dropbox_account_folder_name}. Data may be duplicated.")
                 elif data_exists:
                     self.logger.info(f"✅ Application files data already exists in Supabase for folder: {dropbox_account_folder_name}")
-                    self.logger.info(f"    Use --force-store-supabase to overwrite.")
+                    self.logger.info(f"    Use --force-store-dropbox-info to overwrite.")
                     self.report_logger.info(f"✅ Application files data already exists in Supabase for folder: {dropbox_account_folder_name}")
-                    self.report_logger.info(f"    Use --force-store-supabase to overwrite.")
+                    self.report_logger.info(f"    Use --force-store-dropbox-info to overwrite.")
                     return
                 else:
                     self.logger.info(f"No existing data found in Supabase for folder: {dropbox_account_folder_name}, proceeding with storage")

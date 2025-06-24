@@ -1497,7 +1497,7 @@ class DropboxClient:
             logger.error(f"Error extracting driver's license info: {str(e)}")
             return {}
 
-    def extract_app_files_info(self, folder_path: str, extract_fields: set = None, name_parts: Dict[str, Any] = None, file_filter: str = None, skip_zero_length_if_account_info_exists: bool = False, report_logger: Any = None, log_dir: str = None, dropbox_account_folder_name: str = None, force_store_supabase: bool = False) -> Dict[str, Any]:
+    def extract_app_files_info(self, folder_path: str, extract_fields: set = None, name_parts: Dict[str, Any] = None, file_filter: str = None, skip_zero_length_if_account_info_exists: bool = False, report_logger: Any = None, log_dir: str = None, dropbox_account_folder_name: str = None, force_store_dropbox_info: bool = False) -> Dict[str, Any]:
         """Extract information from application files in a Dropbox folder.
         
         Args:
@@ -1527,7 +1527,7 @@ class DropboxClient:
                 skip_zero_length_if_account_info_exists=skip_zero_length_if_account_info_exists,
                 report_logger=report_logger,
                 dropbox_account_folder_name=dropbox_account_folder_name,
-                force_store_supabase=force_store_supabase
+                force_store_dropbox_info=force_store_dropbox_info
             )
             
             return result
