@@ -12,6 +12,43 @@ from .pages.account_manager import AccountManager
 from .utils.browser import get_salesforce_page
 from .utils.mock_data import get_mock_accounts
 from .utils.file_upload import upload_account_files
+from .pages.file_manager import SalesforceFileManager
+
+def setup_salesforce_components_if_needed(p, account_manager, file_manager, command_runner, report_logger, args):
+    """Setup Salesforce components if needed."""
+    try:
+        if not args.salesforce_accounts:
+            logging.getLogger(__name__).info("Salesforce components not needed")
+            return None, None
+
+        logging.getLogger(__name__).info("Salesforce components needed")
+
+        # Initialize browser and page variables
+        browser = None
+        page = None
+
+        # If no command_runner, just create and return new instances
+        if not account_manager:
+            browser, page = get_salesforce_page(p)
+            account_manager = AccountManager(page, debug_mode=True)
+            account_manager.logger.report_logger = report_logger
+            file_manager = SalesforceFileManager(page, debug_mode=True)
+
+        # If command_runner is available, use its context
+        if command_runner:
+            if browser and page and account_manager and file_manager:
+                command_runner.set_context('browser', browser)
+                command_runner.set_context('page', page)
+                command_runner.set_context('account_manager', account_manager)
+                command_runner.set_context('file_manager', file_manager)
+            # Always return the context objects (now guaranteed to be set)
+            return account_manager, file_manager
+
+        return account_manager, file_manager
+
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Error setting up Salesforce components: {str(e)}")
+        return None, None
 
 class Salesforce:
     """Main class for Salesforce operations."""

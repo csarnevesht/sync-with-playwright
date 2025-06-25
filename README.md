@@ -84,6 +84,43 @@ This project includes a Chrome extension and a Python script to automatically in
    python start_services.py --force
    ```
 
+## Database Management
+
+All database-related files are organized in the `database/` folder for better project structure:
+
+### 📁 Database Folder Organization
+
+- **`database/scripts/`** - Database management scripts (reset, clear, check, etc.)
+- **`database/schema/`** - SQL schema files and table definitions
+- **`database/diagrams/`** - Database schema visualizations and diagrams
+- **`database/utils/`** - Database utilities and documentation
+
+### 🚀 Quick Database Operations
+
+```bash
+# Check current database contents
+python database/scripts/check_supabase_contents.py
+
+# Clear all data (keep schema)
+python database/scripts/clear_database_data.py
+
+# Complete database reset
+python database/scripts/reset_database.py
+
+# View schema diagram
+open database/diagrams/database_schema_diagram.html
+```
+
+### 📊 Database Schema
+
+The database includes these main tables:
+- **dropbox_accounts** - Dropbox account metadata
+- **dropbox_account_application_files** - Extracted application files
+- **dropbox_account_application_info** - Person information from applications
+- **applications** - Application metadata
+
+For detailed database documentation, see `database/README.md`.
+
 ## Starting Services with start_services.py
 
 The project includes a `start_services.py` script that automates the setup and management of Supabase services. This script:

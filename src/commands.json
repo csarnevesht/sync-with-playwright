@@ -80,10 +80,6 @@
     "command": "python -m sync.cmd_runner --commands=extract-dropbox-account-app-files-info --dropbox-accounts --dropbox-account-name='Amaran Martin & Teresita'"
   },
   {
-    "description": "Store extracted account information in Supabase",
-    "command": "python -m sync.cmd_runner --commands=store-in-supabase"
-  },
-  {
     "description": "Search for account information in Supabase",
     "command": "python -m sync.cmd_runner --commands=search-supabase --dropbox-accounts"
   },
@@ -150,6 +146,34 @@
   {
     "description": "Analyze account data for all accounts in Dropbox",
     "command": "clear && python -m sync.cmd_runner  --dropbox-account-info --commands=extract-dropbox-account-app-files-info,analyze-account-data  --salesforce-account-info --salesforce-accounts --continue-on-error --kepp"
+  },
+  {
+    "description": "Copy Dropbox account files to Salesforce folder while preserving original modification dates for a specific account",
+    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --commands='copy-dropbox-account-files-preserve-dates' --dropbox-account-name='Account Name'"
+  },
+  {
+    "description": "Copy Dropbox account files to Salesforce folder while preserving original modification dates for 'Montesino, Maria'",
+    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --commands='copy-dropbox-account-files-preserve-dates' --dropbox-account-name='Montesino, Maria'"
+  },
+  {
+    "description": "Copy Dropbox account files to Salesforce folder while preserving original modification dates for 'Matalon, Dennis'",
+    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --commands='copy-dropbox-account-files-preserve-dates' --dropbox-account-name='Matalon, Dennis'"
+  },
+  {
+    "description": "Copy Dropbox account files to Salesforce folder while preserving original modification dates for multiple accounts from file",
+    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --commands='copy-dropbox-account-files-preserve-dates' --dropbox-accounts-file accounts/fuzzy.txt"
+  },
+  {
+    "description": "Copy Dropbox account files to Salesforce folder while preserving original modification dates for accounts in batches of 5",
+    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --commands='copy-dropbox-account-files-preserve-dates' --account-batch-size 5 --start-from 0"
+  },
+  {
+    "description": "Copy Dropbox account files to Salesforce folder while preserving original modification dates with error continuation",
+    "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --commands='copy-dropbox-account-files-preserve-dates' --dropbox-account-name='Account Name' --continue-on-error"
+  },
+  {
+    "description": "Analyze account data for all accounts in Dropbox and copy file to Salesforce folder",
+    "command": "clear && python -m sync.cmd_runner  --dropbox-account-info --commands=extract-dropbox-account-app-files-info,analyze-account-data,copy-dropbox-account-files-preserve-dates --salesforce-account-info --salesforce-accounts --continue-on-error --kepp"
   }
 ]
  

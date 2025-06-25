@@ -18,6 +18,16 @@ import time
 from datetime import datetime
 from .ocr_utils import extract_name_with_ocr_with_conf, extract_text_with_trocr
 
+# Add the src directory to the Python path for imports
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+
+from supabase_client import SupabaseClient
+from supabase_client.schema import (
+    DropboxAccountApplicationFile, DropboxAccountApplicationInfo, DropboxAccountWithFiles,
+    ApplicationStatus, ApplicationType
+)
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -51,7 +61,7 @@ class AppFileExtractor:
         self.timing_info = {}
 
 
-    def extract_info(self, folder_path: str, extract_fields: set = None, name_parts: Dict[str, Any] = None, file_filter: str = None, skip_zero_length_if_account_info_exists: bool = False, report_logger: Any = None, dropbox_account_folder_name: str = None) -> Dict[str, Any]:
+    def extract_info(self, folder_path: str, extract_fields: set = None, name_parts: Dict[str, Any] = None, file_filter: str = None, skip_zero_length_if_account_info_exists: bool = False, report_logger: Any = None, dropbox_account_folder_name: str = None, force_store_dropbox_info: bool = False) -> Dict[str, Any]:
         """Extract information from application files in a Dropbox folder.
         
         Args:
@@ -63,6 +73,7 @@ class AppFileExtractor:
             skip_zero_length_if_account_info_exists: If True, skip processing files with 0 extracted text when account info already exists
             report_logger: Optional report logger instance for additional logging
             dropbox_account_folder_name: Optional account folder name for organizing logs
+            force_store_dropbox_info: If True, skip checking file existence in database
             
         Returns:
             Dict containing extracted information
@@ -116,7 +127,7 @@ class AppFileExtractor:
                             
                 summary_data['total_app_files'] += 1
                 app_files.append(file)
-                file_info = self._process_file(file, dropbox_account_folder_name)
+                file_info = self._process_file(file, dropbox_account_folder_name, force_store_dropbox_info)
                 if file_info:
                     # Store file info in the summary data
                     summary_data['file_info'][file.path_display] = file_info
@@ -189,9 +200,40 @@ class AppFileExtractor:
             logger.error(f"Error listing folder contents: {str(e)}")
             return []
 
-    def _process_file(self, file: FileMetadata, dropbox_account_folder_name: str = None) -> Optional[Dict[str, Any]]:
+    def _process_file(self, file: FileMetadata, dropbox_account_folder_name: str = None, force_store_dropbox_info: bool = False) -> Optional[Dict[str, Any]]:
         """Process a single file and extract relevant information using OCR and Qwen model."""
         try:
+            # Check if file already exists in database (unless force flag is set)
+            if dropbox_account_folder_name and not force_store_dropbox_info:
+                try:
+                    from supabase_client import SupabaseClient
+                    supabase_client = SupabaseClient()
+                    
+                    # Check if this specific file already exists
+                    file_exists = supabase_client.check_application_file_exists(dropbox_account_folder_name, file.name)
+                    
+                    if file_exists:
+                        logger.info(f"⏭️ File {file.name} already exists in database for folder {dropbox_account_folder_name}")
+                        logger.info(f"   Skipping processing (use --force-store-dropbox-info to reprocess)")
+                        
+                        # Return file info indicating it was skipped
+                        file_info = {
+                            'application_type': self._determine_application_type(file.name),
+                            'status': 'Skipped - Already exists',
+                            'owner': {},
+                            'jointOwner': {},
+                            'notes': [
+                                f"File already exists in database for folder: {dropbox_account_folder_name}",
+                                "Skipped processing to avoid duplication",
+                                "Use --force-store-dropbox-info to reprocess this file"
+                            ]
+                        }
+                        return file_info
+                        
+                except Exception as e:
+                    logger.warning(f"Error checking file existence in database: {e}")
+                    # Continue with processing if database check fails
+            
             logger.info(f"Processing file: {file.name}")
             # Download file to temp location
             with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.name)[1]) as temp_file:
@@ -628,5 +670,137 @@ class AppFileExtractor:
         except Exception as e:
             logger.error(f"Error extracting app files info: {str(e)}")
             return {}
+
+    def _convert_file_info_to_application_file(self, file_info: Dict[str, Any], file_name: str, file_path: str = None) -> DropboxAccountApplicationFile:
+        """Convert file info from LM Studio processor to DropboxAccountApplicationFile model."""
+        
+        app_type_str = file_info.get('application_type', 'Unknown')
+        try:
+            app_type = ApplicationType(app_type_str)
+        except ValueError:
+            app_type = ApplicationType.UNKNOWN
+        
+        status_str = file_info.get('status', 'Processed')
+        try:
+            status = ApplicationStatus(status_str)
+        except ValueError:
+            status = ApplicationStatus.PROCESSED
+        
+        owner_data = file_info.get('owner', {})
+        owner = DropboxAccountApplicationInfo(
+            first_name=owner_data.get('firstName'),
+            last_name=owner_data.get('lastName'),
+            date_of_birth=owner_data.get('dateOfBirth'),
+            gender=owner_data.get('gender'),
+            mailing_address_street=owner_data.get('mailingAddressStreet'),
+            mailing_address_city=owner_data.get('mailingAddressCity'),
+            mailing_address_state=owner_data.get('mailingAddressState'),
+            mailing_address_zip=owner_data.get('mailingAddressZip'),
+            phone_number=owner_data.get('phoneNumber'),
+            email_address=owner_data.get('emailAddress'),
+            ocr_method=owner_data.get('ocrMethod')
+        )
+        
+        joint_owner_data = file_info.get('jointOwner', {})
+        joint_owner = DropboxAccountApplicationInfo(
+            first_name=joint_owner_data.get('firstName'),
+            last_name=joint_owner_data.get('lastName'),
+            date_of_birth=joint_owner_data.get('dateOfBirth'),
+            gender=joint_owner_data.get('gender'),
+            mailing_address_street=joint_owner_data.get('mailingAddressStreet'),
+            mailing_address_city=joint_owner_data.get('mailingAddressCity'),
+            mailing_address_state=joint_owner_data.get('mailingAddressState'),
+            mailing_address_zip=joint_owner_data.get('mailingAddressZip'),
+            phone_number=joint_owner_data.get('phoneNumber'),
+            email_address=joint_owner_data.get('emailAddress'),
+            ocr_method=joint_owner_data.get('ocrMethod')
+        )
+        
+        app_file = DropboxAccountApplicationFile(
+            file_name=file_name,
+            file_path=file_path,
+            application_type=app_type,
+            status=status,
+            owner=owner,
+            joint_owner=joint_owner,
+            notes=file_info.get('notes', []),
+            extracted_text=file_info.get('extracted_text'),
+            processing_timestamp=datetime.now(),
+            ocr_confidence=file_info.get('ocr_confidence'),
+            lm_studio_model_used=file_info.get('lm_studio_model_used', 'qwen2-vl-7b-instruct'),
+            processing_duration_seconds=file_info.get('processing_duration_seconds')
+        )
+        return app_file
+
+    def store_processed_files_in_supabase(self, folder_name: str, file_info_dict: Dict[str, Any]) -> bool:
+        """Store processed application files data in Supabase."""
+        try:
+            # Convert file info to ApplicationFile objects
+            application_files = []
+            for file_path, file_info in file_info_dict.items():
+                file_name = os.path.basename(file_path)
+                app_file = self._convert_file_info_to_application_file(file_info, file_name, file_path)
+                application_files.append(app_file)
+            
+            if not application_files:
+                logger.warning(f"No application files to store for folder: {folder_name}")
+                return False
+            
+            # Create DropboxAccountWithFiles object
+            account = DropboxAccountWithFiles(
+                folder=folder_name,
+                application_files=application_files,
+                total_files=len(application_files),
+                processed_files=sum(1 for f in application_files if f.status == ApplicationStatus.PROCESSED),
+                failed_files=sum(1 for f in application_files if f.status in [ApplicationStatus.FAILED, ApplicationStatus.ERROR]),
+                processing_timestamp=datetime.now()
+            )
+            
+            # Store in Supabase
+            supabase_client = SupabaseClient()
+            account_id = supabase_client.store_dropbox_account_with_files(account)
+            
+            if account_id:
+                logger.info(f"Successfully stored {len(application_files)} application files in Supabase for folder: {folder_name}")
+                logger.info(f"Account ID: {account_id}")
+                return True
+            else:
+                logger.error(f"Failed to store application files in Supabase for folder: {folder_name}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error storing application files in Supabase: {e}")
+            return False
+
+    def extract_and_store_info(self, folder_path: str, folder_name: str = None, extract_fields: set = None, 
+                              name_parts: Dict[str, Any] = None, file_filter: str = None, 
+                              skip_zero_length_if_account_info_exists: bool = False, 
+                              report_logger: Any = None, store_in_supabase: bool = True) -> Dict[str, Any]:
+        """Extract information and optionally store it in Supabase."""
+        
+        # Extract information using the existing method
+        result = self.extract_info(
+            folder_path=folder_path,
+            extract_fields=extract_fields,
+            name_parts=name_parts,
+            file_filter=file_filter,
+            skip_zero_length_if_account_info_exists=skip_zero_length_if_account_info_exists,
+            report_logger=report_logger,
+            dropbox_account_folder_name=folder_name
+        )
+        
+        # Store in Supabase if requested and we have file info
+        if store_in_supabase and result and 'file_info' in result and result['file_info']:
+            if not folder_name:
+                # Extract folder name from path
+                folder_name = os.path.basename(folder_path.rstrip('/'))
+            
+            success = self.store_processed_files_in_supabase(folder_name, result['file_info'])
+            if success:
+                logger.info(f"Application files data stored in Supabase for folder: {folder_name}")
+            else:
+                logger.warning(f"Failed to store application files data in Supabase for folder: {folder_name}")
+        
+        return result
 
     
