@@ -914,8 +914,17 @@ def run_command(args, log_dir):
                                 command_runner.set_data('dropbox_account_file_names', dropbox_account_file_names)
                         
                         # Salesforce accounts and Salesforce account info
+                        default_salesforce_account_information = {
+                            'names_found': [],
+                            'household': None,
+                            'head': None,
+                            'members': [],
+                            'accounts': [],
+                            'not_found_accounts': []
+                        }
+                        salesforce_account_information = None
                         if args.salesforce_accounts:
-                            # Initialize default salesforce_account_information structure
+                            # Always define the default structure and variable before branching
                             default_salesforce_account_information = {
                                 'names_found': [],
                                 'household': None,
@@ -1031,14 +1040,18 @@ def run_command(args, log_dir):
                                 'dropbox_account_search_result': dropbox_account_search_result
                             }
                         else:
-                            # Use the account information from database
-                            logger.info('Using Salesforce account information from database')
-                            salesforce_account_search_result = salesforce_account_information
-                            results[dropbox_account_folder_name] = {
-                                'salesforce_account_search_result': salesforce_account_search_result,
-                                'dropbox_account_search_result': dropbox_account_search_result
+                            # When not processing Salesforce accounts, create a default structure
+                            logger.info("Not processing Salesforce accounts - using default structure")
+                            salesforce_account_search_result = {
+                                "matches": [],
+                                "match_info": {"match_status": "Not processed"},
+                                "view": "--",
+                                "salesforce_account_information": {"names_found": [], "household": None, "head": None, "members": [], "accounts": [], "not_found_accounts": []}
                             }
-
+                            results[dropbox_account_folder_name] = {
+                                "salesforce_account_search_result": salesforce_account_search_result,
+                                "dropbox_account_search_result": dropbox_account_search_result
+                            }
                         logger.debug(f"*** salesforce search result: {salesforce_account_search_result}")
 
                         # --- START: New grouped logging for report.log and analyzer.log ---
