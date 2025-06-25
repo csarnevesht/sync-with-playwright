@@ -109,11 +109,13 @@ def search_partial(client):
 def list_all_accounts(client):
     """List first 20 accounts with Dropbox and Salesforce information."""
     try:
-        result = client.client.table('dropbox_accounts').select('*').limit(20).order('folder').execute()
+        result = client.client.table('dropbox_accounts').select('*').limit(20).execute()
         
         if result.data:
+            # Sort by folder name in Python
+            sorted_data = sorted(result.data, key=lambda x: x['folder'])
             print(f"\n📋 First 20 Dropbox accounts (sorted by folder name):")
-            display_accounts(client, result.data)
+            display_accounts(client, sorted_data)
         else:
             print("❌ No accounts found.")
             
