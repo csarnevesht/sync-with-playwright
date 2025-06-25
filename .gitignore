@@ -68,3 +68,6 @@ logs/**
 
 # Ignore environment files with sensitive data
 env.txt*
+
+# Ignore all .txt files (contain sensitive data)
+*.txt
