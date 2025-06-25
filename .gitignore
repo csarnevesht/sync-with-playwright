@@ -64,3 +64,7 @@ logs/**
 logs/.preserved_logs
 .env.backup.*
 logs/** 
+*.txt
+
+# Ignore environment files with sensitive data
+env.txt*
