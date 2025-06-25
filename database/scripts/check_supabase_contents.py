@@ -28,9 +28,9 @@ def check_supabase_contents():
                 print(f"Found {len(accounts_result.data)} dropbox accounts:")
                 for account in accounts_result.data:
                     print(f"  - {account['folder']} (ID: {account['id']})")
-                    print(f"    Total files: {account.get('total_files', 'N/A')}")
-                    print(f"    Processed files: {account.get('processed_files', 'N/A')}")
-                    print(f"    Failed files: {account.get('failed_files', 'N/A')}")
+                    print(f"    Total account application files: {account.get('total_account_application_files', 'N/A')}")
+                    print(f"    Processed account application files: {account.get('processed_account_application_files', 'N/A')}")
+                    print(f"    Failed account application files: {account.get('failed_account_application_files', 'N/A')}")
                     print(f"    Processing timestamp: {account.get('processing_timestamp', 'N/A')}")
             else:
                 print("No dropbox accounts found")

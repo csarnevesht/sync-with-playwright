@@ -44,11 +44,12 @@ show_menu() {
     echo -e "${YELLOW}📋 Utilities:${NC}"
     echo "17) (v) View Schema Diagram (HTML)"
     echo "18) (vv) View Visual Diagram (Text)"
-    echo "19) (rd) Open Database README"
-    echo "20) (gd) Generate Schema Diagram"
-    echo "21) (ud) Update All Diagrams"
-    echo "22) (l) Run Last Command"
-    echo "23) (q) Quit"
+    echo "19) (oo) View Object-Oriented Diagram"
+    echo "20) (rd) Open Database README"
+    echo "21) (gd) Generate Schema Diagram"
+    echo "22) (ud) Update All Diagrams"
+    echo "23) (l) Run Last Command"
+    echo "24) (q) Quit"
     echo "====================================="
     echo -n "Enter your choice (number or shortcut): "
 }
@@ -269,6 +270,54 @@ show_status() {
     read
 }
 
+# Function to view object-oriented diagram
+view_object_oriented_diagram() {
+    echo -e "\n${YELLOW}Viewing Object-Oriented Database Diagram${NC}"
+    echo "-------------------------------------"
+    
+    local script_path="src/sync/database_visualization.py"
+    
+    if [ ! -f "$script_path" ]; then
+        echo -e "${RED}Error: Object-oriented diagram script not found: $script_path${NC}"
+        echo -n "Press Enter to continue..."
+        read
+        return
+    fi
+    
+    echo -e "${GREEN}Generating object-oriented database diagram...${NC}"
+    echo "-------------------------------------"
+    
+    # Create logs directory if it doesn't exist
+    mkdir -p logs
+    
+    # Build the command
+    local cmd="python3 $script_path 2>&1 | tee logs/object_oriented_diagram.log"
+    
+    # Store the command
+    LAST_COMMAND="$cmd"
+    
+    # Show the command being executed
+    echo -e "${YELLOW}Executing command:${NC} $cmd"
+    echo "-------------------------------------"
+    
+    # Run the script
+    eval $cmd
+    exit_code=$?
+    
+    # Check the exit code
+    if [ $exit_code -eq 0 ]; then
+        echo -e "\n${GREEN}Object-oriented diagram generated successfully!${NC}"
+    else
+        echo -e "\n${RED}Failed to generate object-oriented diagram!${NC}"
+    fi
+    
+    # Show the command again at the end
+    echo -e "\n${YELLOW}Command that was executed:${NC} $cmd"
+    echo "-------------------------------------"
+    echo -n "Press Enter to continue..."
+    read
+}
+
 # Main loop
 while true; do
     show_menu
@@ -330,19 +379,22 @@ while true; do
         18|vv)
             view_visual_diagram
             ;;
-        19|rd)
+        19|oo)
+            view_object_oriented_diagram
+            ;;
+        20|rd)
             open_database_readme
             ;;
-        20|gd)
+        21|gd)
             run_script "generate_schema_diagram.py" "Generate Schema Diagram"
             ;;
-        21|ud)
+        22|ud)
             run_script "update_all_diagrams.py" "Update All Diagrams"
             ;;
-        22|l)
+        23|l)
             run_last_command
             ;;
-        23|q)
+        24|q)
             echo -e "\n${GREEN}Goodbye!${NC}"
             exit 0
             ;;

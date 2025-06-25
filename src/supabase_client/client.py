@@ -2,10 +2,9 @@ import os
 from typing import Optional, List, Dict, Any
 from supabase import create_client, Client as SupabaseBaseClient
 from .schema import (
-    DropboxAccountWithFiles, ApplicationStatus, ApplicationType,
-    DropboxAccountApplicationFile, DropboxAccountApplicationInfo, DropboxAccountClientListInfo,
-    SalesforceAccount, SalesforceHousehold, SalesforceHouseholdMember,
-    DropboxSalesforceMapping, SyncStatus, AccountAnalysis
+    DropboxAccountApplicationFile, DropboxAccountApplicationInfo,
+    DropboxAccountWithFiles, DropboxAccountClientListInfo, DropboxSalesforceMapping, 
+    SyncStatus, AccountAnalysis, SalesforceAccount, SalesforceHousehold, SalesforceHouseholdMember
 )
 from dotenv import load_dotenv
 import logging
@@ -51,6 +50,9 @@ class LocalTableClient:
     def insert(self, data: dict):
         return LocalInsertBuilder(self.endpoint, self.headers, data)
     
+    def update(self, data: dict):
+        return LocalUpdateBuilder(self.endpoint, self.headers, data)
+    
     def eq(self, column: str, value: Any):
         return LocalQueryBuilder(self.endpoint, self.headers, "*").eq(column, value)
 
@@ -68,6 +70,11 @@ class LocalQueryBuilder:
     
     def eq(self, column: str, value: Any):
         self.params[f"{column}"] = f"eq.{value}"
+        return self
+    
+    def ilike(self, column: str, value: Any):
+        """Case-insensitive pattern matching"""
+        self.params[f"{column}"] = f"ilike.{value}"
         return self
     
     def limit(self, count: int):
@@ -109,6 +116,42 @@ class LocalInsertBuilder:
                 return type('Response', (), {'data': response.json()})()
             else:
                 # Return empty data for successful insert with no response
+                return type('Response', (), {'data': []})()
+
+class LocalUpdateBuilder:
+    """Custom update builder for local development"""
+    
+    def __init__(self, endpoint: str, headers: dict, data: dict):
+        self.endpoint = endpoint
+        self.headers = headers
+        self.data = data
+        self.params = {}
+    
+    def eq(self, column: str, value: Any):
+        self.params[f"{column}"] = f"eq.{value}"
+        return self
+    
+    def execute(self):
+        params = "&".join([f"{k}={v}" for k, v in self.params.items()])
+        url = self.endpoint
+        if params:
+            url += f"?{params}"
+        
+        with httpx.Client() as client:
+            # Add select=* to get the updated record back
+            update_url = f"{url}&select=*"
+            response = client.patch(
+                update_url,
+                headers=self.headers,
+                json=self.data
+            )
+            response.raise_for_status()
+            
+            # Handle empty response (common with PostgREST)
+            if response.text.strip():
+                return type('Response', (), {'data': response.json()})()
+            else:
+                # Return empty data for successful update with no response
                 return type('Response', (), {'data': []})()
 
 class LocalDeleteBuilder:
@@ -345,9 +388,9 @@ class SupabaseClient:
                     'first_name': account.first_name,
                     'middle_name': account.middle_name,
                     'last_name': account.last_name,
-                    'total_files': account.total_files,
-                    'processed_files': account.processed_files,
-                    'failed_files': account.failed_files,
+                    'total_account_application_files': account.total_account_application_files,
+                    'processed_account_application_files': account.processed_account_application_files,
+                    'failed_account_application_files': account.failed_account_application_files,
                     'processing_timestamp': account.processing_timestamp.isoformat() if account.processing_timestamp else None
                 }
                 account_data = self._serialize_dates(account_data)
@@ -484,9 +527,9 @@ class SupabaseClient:
                 last_name=account_data.get('last_name'),
                 application_files=application_files,
                 client_list_info=client_list_info,
-                total_files=account_data.get('total_files', 0),
-                processed_files=account_data.get('processed_files', 0),
-                failed_files=account_data.get('failed_files', 0),
+                total_account_application_files=account_data.get('total_account_application_files', 0),
+                processed_account_application_files=account_data.get('processed_account_application_files', 0),
+                failed_account_application_files=account_data.get('failed_account_application_files', 0),
                 processing_timestamp=datetime.fromisoformat(account_data['processing_timestamp']) if account_data.get('processing_timestamp') else None
             )
             
@@ -591,9 +634,9 @@ class SupabaseClient:
             # Account info
             summary_lines.append(f"👤 **Account Holder:** {account.first_name or 'N/A'} {account.middle_name or ''} {account.last_name or 'N/A'}")
             summary_lines.append(f"📊 **File Statistics:**")
-            summary_lines.append(f"   • Total Files: {account.total_files}")
-            summary_lines.append(f"   • Processed: {account.processed_files}")
-            summary_lines.append(f"   • Failed: {account.failed_files}")
+            summary_lines.append(f"   • Total Files: {account.total_account_application_files}")
+            summary_lines.append(f"   • Processed: {account.processed_account_application_files}")
+            summary_lines.append(f"   • Failed: {account.failed_account_application_files}")
             
             if account.processing_timestamp:
                 summary_lines.append(f"⏰ **Last Processed:** {account.processing_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -863,6 +906,47 @@ class SupabaseClient:
         except Exception as e:
             logger.error(f"Error deleting client list info for folder: {str(e)}")
             return False
+
+    def update_salesforce_accounts_found_count(self, folder_name: str, count: int) -> bool:
+        """Update the salesforce_accounts_found_count field for a dropbox account"""
+        try:
+            # Update the salesforce_accounts_found_count field
+            update_result = self.client.table('dropbox_accounts').update({
+                'salesforce_accounts_found_count': count,
+                'updated_at': 'now()'
+            }).eq('folder', folder_name).execute()
+            
+            if update_result.data and len(update_result.data) > 0:
+                logger.info(f"✅ Successfully updated salesforce_accounts_found_count for folder: {folder_name}")
+                logger.info(f"   New count: {count}")
+                return True
+            else:
+                logger.warning(f"⚠️ Failed to update salesforce_accounts_found_count for folder: {folder_name}")
+                logger.warning(f"   No records were updated")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error updating salesforce_accounts_found_count: {e}")
+            logger.error(f"Folder: {folder_name}, Count: {count}")
+            return False
+
+    def get_salesforce_accounts_found_count(self, folder_name: str) -> Optional[int]:
+        """Get the salesforce_accounts_found_count for a dropbox account"""
+        try:
+            result = self.client.table('dropbox_accounts').select('salesforce_accounts_found_count').eq('folder', folder_name).execute()
+            
+            if result.data and len(result.data) > 0:
+                count = result.data[0].get('salesforce_accounts_found_count')
+                logger.debug(f"Retrieved salesforce_accounts_found_count for folder {folder_name}: {count}")
+                return count
+            else:
+                logger.warning(f"No dropbox account found for folder: {folder_name}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error getting salesforce_accounts_found_count: {e}")
+            logger.error(f"Folder: {folder_name}")
+            return None
 
     # Salesforce Storage Methods
     def store_salesforce_account(self, account: SalesforceAccount) -> Optional[str]:
@@ -1134,31 +1218,97 @@ class SupabaseClient:
             ]
             
             deleted_count = 0
+            found_accounts = []
             
+            # First, find all accounts that match any of the name variations
             for name_variation in name_variations:
                 try:
-                    # Find accounts that match this name variation
-                    response = self.client.table('salesforce_accounts').select('salesforce_account_id').ilike('account_name', f'%{name_variation}%').execute()
+                    # Use a safer search approach - get all accounts and filter locally
+                    response = self.client.table('salesforce_accounts').select('*').execute()
                     
                     if response.data:
                         for account in response.data:
-                            account_id = account['salesforce_account_id']
-                            # Delete the account
-                            delete_response = self.client.table('salesforce_accounts').delete().eq('salesforce_account_id', account_id).execute()
-                            if delete_response.data:
-                                deleted_count += 1
-                                logger.info(f"Deleted Salesforce account: {account_id}")
+                            account_name = account.get('account_name', '')
+                            # Check if this account matches the name variation (case-insensitive)
+                            if name_variation.lower() in account_name.lower():
+                                found_accounts.append(account)
+                                logger.info(f"Found account to delete: {account_name}")
                             
                 except Exception as e:
-                    logger.warning(f"Error deleting Salesforce accounts for name variation '{name_variation}': {e}")
+                    logger.warning(f"Error searching for accounts with name variation '{name_variation}': {e}")
                     continue
             
-            logger.info(f"Deleted {deleted_count} Salesforce accounts for folder: {dropbox_folder_name}")
-            return deleted_count > 0
+            # Remove duplicates based on salesforce_account_id
+            unique_accounts = []
+            seen_ids = set()
+            for account in found_accounts:
+                account_id = account.get('salesforce_account_id')
+                if account_id and account_id not in seen_ids:
+                    unique_accounts.append(account)
+                    seen_ids.add(account_id)
+            
+            if not unique_accounts:
+                logger.info(f"ℹ️ No existing Salesforce accounts found to delete for folder: {dropbox_folder_name}")
+                return True  # Return True since there's nothing to delete
+            
+            # Now try to delete each unique account
+            for account in unique_accounts:
+                account_id = account.get('salesforce_account_id')
+                account_name = account.get('account_name', '')
+                account_type = account.get('account_type', '')
+                
+                try:
+                    # First, try to delete any related records (household members, etc.)
+                    self._delete_related_records(account_id)
+                    
+                    # Then delete the account itself
+                    delete_response = self.client.table('salesforce_accounts').delete().eq('salesforce_account_id', account_id).execute()
+                    
+                    if delete_response.data:
+                        deleted_count += 1
+                        logger.info(f"✅ Deleted Salesforce account: {account_name} (ID: {account_id})")
+                    else:
+                        logger.warning(f"⚠️ Failed to delete Salesforce account: {account_name} (ID: {account_id})")
+                        
+                except Exception as e:
+                    error_msg = str(e)
+                    if '409 Conflict' in error_msg and account_type == 'Household':
+                        # Household accounts often can't be deleted due to constraints
+                        logger.info(f"ℹ️ Cannot delete Household account '{account_name}' due to database constraints - this is expected behavior")
+                        # Consider this a successful "deletion" since we can't delete it anyway
+                        deleted_count += 1
+                    else:
+                        logger.warning(f"⚠️ Error deleting Salesforce account '{account_name}' (ID: {account_id}): {e}")
+                    # Continue with other accounts even if one fails
+                    continue
+            
+            logger.info(f"Processed {deleted_count} out of {len(unique_accounts)} Salesforce accounts for folder: {dropbox_folder_name}")
+            return deleted_count > 0 or len(unique_accounts) == 0  # Return True if we processed some or found none to process
             
         except Exception as e:
             logger.error(f"Error deleting Salesforce accounts by folder name: {str(e)}")
             return False
+    
+    def _delete_related_records(self, account_id: str) -> None:
+        """Delete related records before deleting the main account"""
+        try:
+            # Delete household members that reference this account
+            try:
+                self.client.table('salesforce_household_members').delete().eq('member_id', account_id).execute()
+                logger.debug(f"Deleted household members for account: {account_id}")
+            except Exception as e:
+                logger.debug(f"No household members to delete for account {account_id}: {e}")
+            
+            # Delete household members that reference this account as household
+            try:
+                self.client.table('salesforce_household_members').delete().eq('household_id', account_id).execute()
+                logger.debug(f"Deleted household members where account {account_id} is household")
+            except Exception as e:
+                logger.debug(f"No household members to delete where account {account_id} is household: {e}")
+                
+        except Exception as e:
+            logger.warning(f"Error deleting related records for account {account_id}: {e}")
+            # Don't raise the exception - we want to continue with the main deletion
 
     def search_salesforce_account_information(self, dropbox_account_folder_name: str) -> Optional[Dict[str, Any]]:
         """

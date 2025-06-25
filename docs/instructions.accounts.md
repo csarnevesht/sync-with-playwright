@@ -1,9 +1,9 @@
-
 Account Information
-  Dropbox Account Information 'from application files'
-  Dropbox Account Information 'from client list file'
-  Dropbox Best Account Information 
-  Salesforce Account Information 
+  dropbox_account_folder_name
+  dropbox_account_application_info: list[Dropbox Account Information 'from application files']
+  dropbox_account_client_list_info:  Dropbox Account Information 'from client list file'  
+  dropbox_best_account_information: Dropbox Best Account Information 
+  salesforce_account_information: Salesforce Account Information [list]
   
 
 Dropbox Account Information 'from client list file'`
@@ -18,7 +18,13 @@ Dropbox Account Information 'from client list file'`
   Email
 
 Dropbox Account Information 'from application files'
-  Account [Dropbox Account]
+  total_account_application_files
+  processed_account_application_files
+  failed_account_application_files
+  dropbox_accounts_application_files: list[Dopbox Account]
+
+
+  Dropbox Account
     Name
     First Name
     Middle Name
@@ -41,6 +47,7 @@ Dropbox Account Information 'from application files'
 
 
 Salesforce Account Information
+  num_accounts -1 (default, means no salesforce account information was stored)
   Names found [list of Salesforce Account Names]
   Household [Salesforce Account]
   Head [Salesforce Account]

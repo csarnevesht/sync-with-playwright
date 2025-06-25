@@ -25,9 +25,9 @@ CREATE TABLE IF NOT EXISTS dropbox_accounts (
     first_name VARCHAR(100),
     middle_name VARCHAR(100),
     last_name VARCHAR(100),
-    total_files INTEGER DEFAULT 0,
-    processed_files INTEGER DEFAULT 0,
-    failed_files INTEGER DEFAULT 0,
+    total_account_application_files INTEGER DEFAULT 0,
+    processed_account_application_files INTEGER DEFAULT 0,
+    failed_account_application_files INTEGER DEFAULT 0,
     processing_timestamp TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

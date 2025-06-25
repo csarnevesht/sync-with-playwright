@@ -138,14 +138,14 @@ def verify_account_and_files(account_manager: AccountManager, file_manager: Sale
     
     # Check if account exists and store result
     logger.debug(f"Checking if account exists: {full_name} in view: {view_name}")
-    account_exists = account_manager.account_exists(full_name, view_name=view_name)
+    account_exists = account_manager.account_exists_in_view(full_name, view_name=view_name)
     if not account_exists:
         logger.error(f"Account does not exist: {full_name}")
         return False
         
     # Click on the account name to navigate to it
     logger.debug(f"Attempting to click account name: {full_name}")
-    if not account_manager.click_account_name(full_name):
+    if not account_manager.click_account_name_in_view(full_name):
         logger.error(f"Failed to navigate to account view page for: {full_name}")
         return False
         
@@ -242,11 +242,11 @@ def test_account_creation(browser: Browser, page: Page):
                 
                 # Check if account exists
                 logger.debug(f"Checking if account exists: {full_name}")
-                if account_manager.account_exists(full_name, view_name=view_name):
+                if account_manager.account_exists_in_view(full_name, view_name=view_name):
                     logger.info(f"Account exists: {full_name}")
                     # Navigate to account view page
                     logger.debug(f"Navigating to account view page: {full_name}")
-                    if not account_manager.click_account_name(full_name):
+                    if not account_manager.click_account_name_in_view(full_name):
                         logger.error(f"Failed to click account name: {full_name}")
                         continue
                     # Get account ID for file upload

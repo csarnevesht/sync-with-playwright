@@ -43,6 +43,7 @@ class SalesforceRelationshipProcessor:
             Dict containing structured account relationship information
         """
         self.logger.info('Processing Salesforce Account Relationships')
+        self.logger.info(f"Processing {len(salesforce_matches)} accounts: {salesforce_matches}")
         if self.report_logger:
             self.report_logger.info("\n=== SALESFORCE ACCOUNT RELATIONSHIPS ===")
         
@@ -58,22 +59,35 @@ class SalesforceRelationshipProcessor:
         
         # Only process relationships if there are matches
         if not salesforce_matches:
+            self.logger.info("No Salesforce matches to process")
             return salesforce_account_information
         
-        # Keep track of processed relationships to avoid duplicates
+        # Keep track of processed relationships and accounts to avoid duplicates
         processed_relationships = set()
+        processed_accounts = set()
         
         for match in salesforce_matches:
+            # Skip if we've already processed this account
+            if match in processed_accounts:
+                self.logger.info(f"Skipping already processed account: {match}")
+                continue
+                
+            self.logger.info(f"Processing account {len(processed_accounts) + 1}/{len(salesforce_matches)}: {match}")
             self._process_single_account_relationship(
                 match, view_name, salesforce_account_information, 
-                processed_relationships, dropbox_account_folder_name
+                processed_relationships, processed_accounts, dropbox_account_folder_name
             )
+        
+        self.logger.info(f"Completed processing {len(processed_accounts)} accounts")
+        self.logger.info(f"Processed accounts: {list(processed_accounts)}")
+        self.logger.info(f"Processed relationships: {len(processed_relationships)}")
         
         return salesforce_account_information
     
     def _process_single_account_relationship(self, match: str, view_name: str,
                                            salesforce_account_information: Dict,
                                            processed_relationships: Set,
+                                           processed_accounts: Set,
                                            dropbox_account_folder_name: str) -> None:
         """
         Process relationships for a single Salesforce account.
@@ -83,6 +97,7 @@ class SalesforceRelationshipProcessor:
             view_name: Salesforce view name
             salesforce_account_information: Structure to populate with account data
             processed_relationships: Set of already processed relationships
+            processed_accounts: Set of already processed accounts
             dropbox_account_folder_name: Name of the Dropbox account folder
         """
         self.logger.info(f"Processing relationships for account: {match}")
@@ -92,6 +107,8 @@ class SalesforceRelationshipProcessor:
         
         if not (found_account or found_view):
             self._handle_account_not_found(match, salesforce_account_information)
+            # Mark as processed even if not found to avoid retrying
+            processed_accounts.add(match)
             return
         
         # Create account structure
@@ -115,6 +132,9 @@ class SalesforceRelationshipProcessor:
         
         # Add account to accounts list
         salesforce_account_information['accounts'].append(account_data)
+        
+        # Mark this account as processed
+        processed_accounts.add(match)
     
     def _find_and_access_account(self, match: str, view_name: str) -> Tuple[Optional[Dict], Optional[str], bool, Optional[str]]:
         """
@@ -128,28 +148,42 @@ class SalesforceRelationshipProcessor:
         account_info = None
         account_id = None
         
-        # Try to click on the account from search results
-        self.logger.info(f"Clicking account name: {match} in 'Search All'")
-        if self.account_manager.click_account_name(match):
-            self.logger.info(f"Account found: {match}")
-            is_valid, account_id = self.account_manager.verify_account_page_url()
-            if is_valid and account_id:
-                account_info = self.account_manager.get_account_information(account_id)
-                found_account = True
-                if self.report_logger:
-                    self.report_logger.info(f"Account found: {match}")
-                    self.report_logger.info(f"Account ID: {account_id}")
+        # First, try to search for the account using dashboard search
+        self.logger.info(f"Searching for account: {match} in 'Search All'")
+        search_results = self.account_manager.dashboard_search_account(match)
+        
+        if search_results and match in search_results:
+            # Account found in search results, now try to click on it
+            self.logger.info(f"Account found in search results: {match}")
+            if self.account_manager.click_account_name(match):
+                self.logger.info(f"Successfully clicked on account: {match}")
+                is_valid, account_id = self.account_manager.verify_account_page_url()
+                if is_valid and account_id:
+                    account_info = self.account_manager.get_account_information(account_id)
+                    found_account = True
+                    if self.report_logger:
+                        self.report_logger.info(f"Account found: {match}")
+                        self.report_logger.info(f"Account ID: {account_id}")
+            else:
+                self.logger.error(f"Could not click on account: {match} from search results")
         else:
-            self.logger.error(f"Could not navigate to Salesforce account: {match} from 'Search All'")
+            self.logger.error(f"Could not find account: {match} in search results")
         
         # If not found in search, try different views
         if not found_account:
+            self.logger.info(f"Account not found in search results, trying different views")
             found_view = self._try_find_account_in_views(match)
             if found_view:
-                if self.account_manager.click_account_name(match):
-                    is_valid, account_id = self.account_manager.verify_account_page_url()
-                    if is_valid and account_id:
-                        account_info = self.account_manager.get_account_information(account_id)
+                # Try searching in the found view
+                self.logger.info(f"Trying to search for account: {match} in view: {found_view}")
+                search_results = self.account_manager.dashboard_search_account(match)
+                
+                if search_results and match in search_results:
+                    if self.account_manager.click_account_name(match):
+                        is_valid, account_id = self.account_manager.verify_account_page_url()
+                        if is_valid and account_id:
+                            account_info = self.account_manager.get_account_information(account_id)
+                            found_account = True
         
         return account_info, account_id, found_account, found_view
     
@@ -167,12 +201,12 @@ class SalesforceRelationshipProcessor:
         self.logger.info(f"Checking if account exists in appropriate view based on name: {match}")
         
         if match.endswith('Household'):
-            if self.account_manager.account_exists(match, view_name="All Accounts"):
+            if self.account_manager.account_exists_in_view(match, view_name="All Accounts"):
                 return "All Accounts"
         else:
-            if self.account_manager.account_exists(match, view_name="All Clients"):
+            if self.account_manager.account_exists_in_view(match, view_name="All Clients"):
                 return "All Clients"
-            elif self.account_manager.account_exists(match, view_name="All Accounts"):
+            elif self.account_manager.account_exists_in_view(match, view_name="All Accounts"):
                 return "All Accounts"
         
         return None
@@ -259,14 +293,15 @@ class SalesforceRelationshipProcessor:
         
         # Skip if we've already processed this relationship
         if rel_key in processed_relationships:
-            self.logger.info(f"Skipping already processed relationship: {rel['name']}")
+            self.logger.info(f"Skipping already processed relationship: {rel['name']} (role: {rel['role']}, type: {rel['type']})")
             return
         
+        self.logger.info(f"Processing new relationship: {rel['name']} (role: {rel['role']}, type: {rel['type']})")
         self._log_relationship_info(rel)
         
         # Check if account exists and process it
         self.logger.info(f"Checking if account exists: {rel['name']} in view: {view_name}")
-        account_exists = self.account_manager.account_exists(rel['name'], view_name=view_name)
+        account_exists = self.account_manager.account_exists(rel['name'])
         
         if account_exists:
             self._process_existing_relationship(
@@ -304,27 +339,37 @@ class SalesforceRelationshipProcessor:
         """
         self.logger.info(f"Account exists: {rel['name']}")
         
-        # Click on the relationship account
-        if self.account_manager.click_account_name(rel['name']):
-            rel_is_valid, rel_account_id = self.account_manager.verify_account_page_url()
-            if rel_is_valid and rel_account_id:
-                rel_info = self.account_manager.get_account_information(rel_account_id)
-                rel['account_info'] = rel_info
-                
-                # Create relationship account structure
-                rel_account_data = self._create_relationship_account_data(rel, rel_info)
-                
-                # Add to appropriate category
-                self._categorize_relationship_account(rel, rel_account_data, account_data, salesforce_account_information)
-                
-                # Add to relationships list
-                account_data['relationships'].append(rel_account_data)
-                
-                # Mark this relationship as processed
-                processed_relationships.add(rel_key)
-                
-                # Navigate back to original account
-                self.account_manager.navigate_back_to_account_page()
+        # First search for the relationship account
+        self.logger.info(f"Searching for relationship account: {rel['name']}")
+        search_results = self.account_manager.dashboard_search_account(rel['name'])
+        
+        if search_results and rel['name'] in search_results:
+            # Relationship account found in search results, now try to click on it
+            self.logger.info(f"Relationship account found in search results: {rel['name']}")
+            if self.account_manager.click_account_name(rel['name']):
+                rel_is_valid, rel_account_id = self.account_manager.verify_account_page_url()
+                if rel_is_valid and rel_account_id:
+                    rel_info = self.account_manager.get_account_information(rel_account_id)
+                    rel['account_info'] = rel_info
+                    
+                    # Create relationship account structure
+                    rel_account_data = self._create_relationship_account_data(rel, rel_info)
+                    
+                    # Add to appropriate category
+                    self._categorize_relationship_account(rel, rel_account_data, account_data, salesforce_account_information)
+                    
+                    # Add to relationships list
+                    account_data['relationships'].append(rel_account_data)
+                    
+                    # Mark this relationship as processed
+                    processed_relationships.add(rel_key)
+                    
+                    # Navigate back to search results instead of original account
+                    self.account_manager.navigate_back_to_search_results()
+            else:
+                self.logger.error(f"Could not click on relationship account: {rel['name']} from search results")
+        else:
+            self.logger.error(f"Could not find relationship account: {rel['name']} in search results")
     
     def _create_relationship_account_data(self, rel: Dict, rel_info: Dict) -> Dict:
         """

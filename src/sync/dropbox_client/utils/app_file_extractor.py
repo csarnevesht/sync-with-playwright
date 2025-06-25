@@ -209,11 +209,16 @@ class AppFileExtractor:
                     from supabase_client import SupabaseClient
                     supabase_client = SupabaseClient()
                     
+                    logger.info(f"Database check for file {file.name} in folder {dropbox_account_folder_name}:")
+                    logger.info(f"  force_store_dropbox_info: {force_store_dropbox_info}")
+                    
                     # Check if this specific file already exists
                     file_exists = supabase_client.check_application_file_exists(dropbox_account_folder_name, file.name)
                     
+                    logger.info(f"  file_exists_in_database: {file_exists}")
+                    
                     if file_exists:
-                        logger.info(f"⏭️ File {file.name} already exists in database for folder {dropbox_account_folder_name}")
+                        logger.info(f"✅ File {file.name} already exists in database for folder {dropbox_account_folder_name}")
                         logger.info(f"   Skipping processing (use --force-store-dropbox-info to reprocess)")
                         
                         # Return file info indicating it was skipped
@@ -229,10 +234,22 @@ class AppFileExtractor:
                             ]
                         }
                         return file_info
+                    else:
+                        logger.info(f"🔄 File {file.name} not found in database, proceeding with processing")
                         
                 except Exception as e:
                     logger.warning(f"Error checking file existence in database: {e}")
+                    logger.warning(f"   Continuing with processing due to database check failure")
                     # Continue with processing if database check fails
+            elif dropbox_account_folder_name and force_store_dropbox_info:
+                logger.info(f"Database check for file {file.name} in folder {dropbox_account_folder_name}:")
+                logger.info(f"  force_store_dropbox_info: {force_store_dropbox_info}")
+                logger.info(f"  🔄 Force flag is enabled - will overwrite existing file data if present")
+            else:
+                logger.info(f"Database check for file {file.name}:")
+                logger.info(f"  dropbox_account_folder_name: {dropbox_account_folder_name}")
+                logger.info(f"  force_store_dropbox_info: {force_store_dropbox_info}")
+                logger.info(f"  📭 No database check performed (no folder name provided)")
             
             logger.info(f"Processing file: {file.name}")
             # Download file to temp location
@@ -750,9 +767,9 @@ class AppFileExtractor:
             account = DropboxAccountWithFiles(
                 folder=folder_name,
                 application_files=application_files,
-                total_files=len(application_files),
-                processed_files=sum(1 for f in application_files if f.status == ApplicationStatus.PROCESSED),
-                failed_files=sum(1 for f in application_files if f.status in [ApplicationStatus.FAILED, ApplicationStatus.ERROR]),
+                total_account_application_files=len(application_files),
+                processed_account_application_files=sum(1 for f in application_files if f.status == ApplicationStatus.PROCESSED),
+                failed_account_application_files=sum(1 for f in application_files if f.status in [ApplicationStatus.FAILED, ApplicationStatus.ERROR]),
                 processing_timestamp=datetime.now()
             )
             

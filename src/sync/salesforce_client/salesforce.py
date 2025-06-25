@@ -69,10 +69,14 @@ class Salesforce:
             middle_name=middle_name,
             account_info=account_info
         )
-        
-    def account_exists(self, account_name: str, view_name: str = "All Clients") -> bool:
+    
+    def account_exists(self, account_name: str) -> bool:
         """Check if an account exists."""
-        return self.account_manager.account_exists(account_name, view_name)
+        return self.account_manager.account_exists_in_view(account_name)
+        
+    def account_exists_in_view(self, account_name: str, view_name: str = "All Clients") -> bool:
+        """Check if an account exists."""
+        return self.account_manager.account_exists_in_view(account_name, view_name)
         
     def upload_file(self, file_path: Union[str, Path]) -> bool:
         """Upload a file to Salesforce."""

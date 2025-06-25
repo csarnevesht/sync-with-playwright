@@ -708,6 +708,7 @@ class CommandRunner:
             
             # Check if data already exists in Supabase
             try:
+                logger.info(f"*** Checking if data already exists in Supabase for folder: {dropbox_account_folder_name}")
                 from supabase_client import SupabaseClient
                 supabase_client = SupabaseClient()
                 data_exists = supabase_client.check_application_files_exist(dropbox_account_folder_name)
@@ -1122,9 +1123,9 @@ class CommandRunner:
             account = DropboxAccountWithFiles(
                 folder=folder_name,
                 application_files=application_files,
-                total_files=len(application_files),
-                processed_files=sum(1 for f in application_files if f.status == ApplicationStatus.PROCESSED),
-                failed_files=sum(1 for f in application_files if f.status in [ApplicationStatus.FAILED, ApplicationStatus.ERROR]),
+                total_account_application_files=len(application_files),
+                processed_account_application_files=sum(1 for f in application_files if f.status == ApplicationStatus.PROCESSED),
+                failed_account_application_files=sum(1 for f in application_files if f.status in [ApplicationStatus.FAILED, ApplicationStatus.ERROR]),
                 processing_timestamp=datetime.now()
             )
             
@@ -1580,112 +1581,161 @@ class CommandRunner:
         try:
             from supabase_client import SupabaseClient
             from supabase_client.schema import SalesforceAccount, SalesforceHousehold, SalesforceHouseholdMember
+            from datetime import datetime
             
             supabase_client = SupabaseClient()
             
-            if not salesforce_info or not salesforce_info.get('accounts'):
-                self.logger.warning("No Salesforce account data to store")
+            # Get the folder name
+            dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
+            if not dropbox_account_folder_name:
+                self.logger.error("No dropbox_account_folder_name found in command runner data")
                 return False
             
-            # Log force flag status
-            if force:
-                self.logger.info("🔄 Force flag is enabled - will overwrite existing Salesforce data if present")
-                self.report_logger.info("🔄 Force flag is enabled - will overwrite existing Salesforce data if present")
+            # Initialize tracking variables
+            accounts_found_count = -1  # Default to not stored
+            accounts_stored = []
+            search_successful = True
+            error_message = None
             
-            # If force is enabled, delete existing Salesforce accounts for this folder
-            if force:
-                try:
-                    # Get the folder name to identify which accounts to delete
-                    dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
-                    if dropbox_account_folder_name:
-                        # Delete existing Salesforce accounts that match the folder name
-                        self.logger.info(f"🔄 Force flag specified - will overwrite existing Salesforce data for folder: {dropbox_account_folder_name}")
-                        self.report_logger.info(f"🔄 Force flag specified - will overwrite existing Salesforce data for folder: {dropbox_account_folder_name}")
-                        
-                        # Delete existing Salesforce accounts for this folder
-                        deleted = supabase_client.delete_salesforce_accounts_by_folder_name(dropbox_account_folder_name)
-                        if deleted:
-                            self.logger.info(f"✅ Successfully deleted existing Salesforce accounts for folder: {dropbox_account_folder_name}")
-                            self.report_logger.info(f"✅ Successfully deleted existing Salesforce accounts for folder: {dropbox_account_folder_name}")
-                        else:
-                            self.logger.info(f"ℹ️ No existing Salesforce accounts found to delete for folder: {dropbox_account_folder_name}")
-                            self.report_logger.info(f"ℹ️ No existing Salesforce accounts found to delete for folder: {dropbox_account_folder_name}")
-                except Exception as e:
-                    self.logger.warning(f"Error preparing to overwrite existing Salesforce data: {e}")
-                    self.report_logger.warning(f"Error preparing to overwrite existing Salesforce data: {e}")
-            
-            stored_accounts = []
-            stored_households = []
-            
-            # Store individual accounts
-            for account_data in salesforce_info.get('accounts', []):
-                try:
-                    # Convert account data to SalesforceAccount model
-                    salesforce_account = SalesforceAccount(
-                        salesforce_account_id=account_data.get('account_name', ''),  # Use account_name as ID for now
-                        account_name=account_data.get('account_name', ''),
-                        account_type=account_data.get('type', 'Contact'),
-                        first_name=account_data.get('first_name', ''),
-                        middle_name=account_data.get('middle_name', ''),
-                        last_name=account_data.get('last_name', ''),
-                        phone=account_data.get('phone', ''),
-                        address=account_data.get('mailing_address', ''),
-                        email=account_data.get('email', ''),
-                        ssn_tax_id=account_data.get('ssn/tax_id', ''),
-                        stage=account_data.get('stage', ''),
-                        # Add other fields as needed
-                    )
+            try:
+                if not salesforce_info:
+                    self.logger.warning("No Salesforce account data to store")
+                    accounts_found_count = 0  # No accounts found
+                    search_successful = True
+                elif not salesforce_info.get('accounts'):
+                    self.logger.warning("No Salesforce accounts in salesforce_info")
+                    accounts_found_count = 0  # No accounts found
+                    search_successful = True
+                else:
+                    # Log force flag status
+                    if force:
+                        self.logger.info("🔄 Force flag is enabled - will overwrite existing Salesforce data if present")
+                        self.report_logger.info("🔄 Force flag is enabled - will overwrite existing Salesforce data if present")
                     
-                    account_id = supabase_client.store_salesforce_account(salesforce_account)
-                    if account_id:
-                        stored_accounts.append(account_id)
-                        self.logger.info(f"Stored Salesforce account: {account_data.get('account_name', '')}")
-                    else:
-                        self.logger.warning(f"Failed to store Salesforce account: {account_data.get('account_name', '')}")
-                        
-                except Exception as e:
-                    self.logger.error(f"Error storing Salesforce account {account_data.get('account_name', '')}: {e}")
-            
-            # Store household information if available
-            if salesforce_info.get('household'):
-                household_data = salesforce_info['household']
-                try:
-                    salesforce_household = SalesforceHousehold(
-                        salesforce_household_id=household_data.get('account_name', ''),
-                        household_name=household_data.get('account_name', ''),
-                        household_head_id=household_data.get('account_name', '')  # Use account_name as head ID for now
-                    )
+                    # If force is enabled, delete existing Salesforce accounts for this folder
+                    if force:
+                        try:
+                            # Delete existing Salesforce accounts that match the folder name
+                            self.logger.info(f"🔄 Force flag specified - will overwrite existing Salesforce data for folder: {dropbox_account_folder_name}")
+                            self.report_logger.info(f"🔄 Force flag specified - will overwrite existing Salesforce data for folder: {dropbox_account_folder_name}")
+                            
+                            # Delete existing Salesforce accounts for this folder
+                            deleted = supabase_client.delete_salesforce_accounts_by_folder_name(dropbox_account_folder_name)
+                            if deleted:
+                                self.logger.info(f"✅ Successfully deleted existing Salesforce accounts for folder: {dropbox_account_folder_name}")
+                                self.report_logger.info(f"✅ Successfully deleted existing Salesforce accounts for folder: {dropbox_account_folder_name}")
+                            else:
+                                self.logger.info(f"ℹ️ No existing Salesforce accounts found to delete for folder: {dropbox_account_folder_name}")
+                                self.report_logger.info(f"ℹ️ No existing Salesforce accounts found to delete for folder: {dropbox_account_folder_name}")
+                        except Exception as e:
+                            self.logger.warning(f"Error preparing to overwrite existing Salesforce data: {e}")
+                            self.report_logger.warning(f"Error preparing to overwrite existing Salesforce data: {e}")
                     
-                    household_id = supabase_client.store_salesforce_household(salesforce_household)
-                    if household_id:
-                        stored_households.append(household_id)
-                        self.logger.info(f"Stored Salesforce household: {household_data.get('account_name', '')}")
-                    else:
-                        self.logger.warning(f"Failed to store Salesforce household: {household_data.get('account_name', '')}")
-                        
-                except Exception as e:
-                    self.logger.error(f"Error storing Salesforce household {household_data.get('account_name', '')}: {e}")
-            
-            # Store household members if available
-            for member_data in salesforce_info.get('members', []):
-                try:
-                    salesforce_member = SalesforceHouseholdMember(
-                        household_id=member_data.get('account_name', ''),  # Use account_name as household ID for now
-                        member_id=member_data.get('account_name', ''),
-                        role=member_data.get('role', '')
-                    )
+                    stored_accounts = []
+                    stored_households = []
                     
-                    member_id = supabase_client.store_salesforce_household_member(salesforce_member)
-                    if member_id:
-                        self.logger.info(f"Stored Salesforce household member: {member_data.get('account_name', '')}")
-                    else:
-                        self.logger.warning(f"Failed to store Salesforce household member: {member_data.get('account_name', '')}")
-                        
-                except Exception as e:
-                    self.logger.error(f"Error storing Salesforce household member {member_data.get('account_name', '')}: {e}")
+                    # Store individual accounts
+                    for account_data in salesforce_info.get('accounts', []):
+                        try:
+                            # Convert account data to SalesforceAccount model
+                            salesforce_account = SalesforceAccount(
+                                salesforce_account_id=account_data.get('account_name', ''),  # Use account_name as ID for now
+                                account_name=account_data.get('account_name', ''),
+                                account_type=account_data.get('type', 'Contact'),
+                                first_name=account_data.get('first_name', ''),
+                                middle_name=account_data.get('middle_name', ''),
+                                last_name=account_data.get('last_name', ''),
+                                phone=account_data.get('phone', ''),
+                                address=account_data.get('mailing_address', ''),
+                                email=account_data.get('email', ''),
+                                ssn_tax_id=account_data.get('ssn/tax_id', ''),
+                                stage=account_data.get('stage', ''),
+                                # Add other fields as needed
+                            )
+                            
+                            account_id = supabase_client.store_salesforce_account(salesforce_account)
+                            if account_id:
+                                stored_accounts.append(account_id)
+                                accounts_stored.append(account_id)
+                                self.logger.info(f"Stored Salesforce account: {account_data.get('account_name', '')}")
+                            else:
+                                self.logger.warning(f"Failed to store Salesforce account: {account_data.get('account_name', '')}")
+                                
+                        except Exception as e:
+                            self.logger.error(f"Error storing Salesforce account {account_data.get('account_name', '')}: {e}")
+                    
+                    # Store household information if available
+                    if salesforce_info.get('household'):
+                        household_data = salesforce_info['household']
+                        try:
+                            salesforce_household = SalesforceHousehold(
+                                salesforce_household_id=household_data.get('account_name', ''),
+                                household_name=household_data.get('account_name', ''),
+                                household_head_id=household_data.get('account_name', '')  # Use account_name as head ID for now
+                            )
+                            
+                            household_id = supabase_client.store_salesforce_household(salesforce_household)
+                            if household_id:
+                                stored_households.append(household_id)
+                                accounts_stored.append(household_id)
+                                self.logger.info(f"Stored Salesforce household: {household_data.get('account_name', '')}")
+                            else:
+                                self.logger.warning(f"Failed to store Salesforce household: {household_data.get('account_name', '')}")
+                                
+                        except Exception as e:
+                            self.logger.error(f"Error storing Salesforce household {household_data.get('account_name', '')}: {e}")
+                    
+                    # Store household members if available
+                    for member_data in salesforce_info.get('members', []):
+                        try:
+                            salesforce_member = SalesforceHouseholdMember(
+                                household_id=member_data.get('account_name', ''),  # Use account_name as household ID for now
+                                member_id=member_data.get('account_name', ''),
+                                role=member_data.get('role', '')
+                            )
+                            
+                            member_id = supabase_client.store_salesforce_household_member(salesforce_member)
+                            if member_id:
+                                accounts_stored.append(member_id)
+                                self.logger.info(f"Stored Salesforce household member: {member_data.get('account_name', '')}")
+                            else:
+                                self.logger.warning(f"Failed to store Salesforce household member: {member_data.get('account_name', '')}")
+                                
+                        except Exception as e:
+                            self.logger.error(f"Error storing Salesforce household member {member_data.get('account_name', '')}: {e}")
+                    
+                    # Set the accounts found count based on what was actually stored
+                    accounts_found_count = len(stored_accounts) + len(stored_households)
+                    self.logger.info(f"Successfully stored {len(stored_accounts)} Salesforce accounts and {len(stored_households)} households")
+                    
+            except Exception as e:
+                self.logger.error(f"Error during Salesforce data storage: {e}")
+                search_successful = False
+                error_message = str(e)
+                accounts_found_count = -1  # Not stored due to error
             
-            self.logger.info(f"Successfully stored {len(stored_accounts)} Salesforce accounts and {len(stored_households)} households")
-            return len(stored_accounts) > 0 or len(stored_households) > 0
+            # Update the dropbox_accounts table with the salesforce_accounts_found_count
+            try:
+                # Use the dedicated method to update the field
+                update_success = supabase_client.update_salesforce_accounts_found_count(
+                    dropbox_account_folder_name, 
+                    accounts_found_count
+                )
+                
+                if update_success:
+                    self.logger.info(f"✅ Successfully processed Salesforce data for folder: {dropbox_account_folder_name}")
+                    self.logger.info(f"   Status: {'Success' if search_successful else 'Failed'}")
+                    self.logger.info(f"   Accounts found: {accounts_found_count}")
+                    self.logger.info(f"   Accounts stored: {len(accounts_stored)}")
+                else:
+                    self.logger.warning(f"⚠️ Failed to update salesforce_accounts_found_count for folder: {dropbox_account_folder_name}")
+                    self.logger.warning(f"   Data processing may have succeeded but count was not persisted")
+                    
+            except Exception as e:
+                self.logger.error(f"Error updating salesforce_accounts_found_count: {e}")
+                self.logger.error(f"Folder: {dropbox_account_folder_name}, Count: {accounts_found_count}")
+            
+            return search_successful and accounts_found_count >= 0
             
         except Exception as e:
             self.logger.error(f"Error storing Salesforce account data in Supabase: {e}")
@@ -1877,7 +1927,7 @@ class CommandRunner:
                 pass
             
             # Search in Supabase
-            self.logger.info("Searching for account: %s", folder_name)
+            self.logger.info("Searching database for account: %s", folder_name)
             result = supabase_client.generate_search_results_summary(folder_name, search_criteria)
             self.report_logger.info(result)
             

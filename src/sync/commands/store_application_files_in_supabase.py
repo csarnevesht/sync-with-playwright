@@ -280,9 +280,9 @@ def load_application_files_from_logs(log_dir: str, folder_name: str) -> Optional
     account = DropboxAccountWithFiles(
         folder=folder_name,
         application_files=application_files,
-        total_files=len(application_files),
-        processed_files=sum(1 for f in application_files if f.status == ApplicationStatus.PROCESSED),
-        failed_files=sum(1 for f in application_files if f.status in [ApplicationStatus.FAILED, ApplicationStatus.ERROR]),
+        total_account_application_files=len(application_files),
+        processed_account_application_files=sum(1 for f in application_files if f.status == ApplicationStatus.PROCESSED),
+        failed_account_application_files=sum(1 for f in application_files if f.status in [ApplicationStatus.FAILED, ApplicationStatus.ERROR]),
         processing_timestamp=datetime.now()
     )
     

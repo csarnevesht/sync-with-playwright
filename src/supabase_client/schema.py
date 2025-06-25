@@ -101,9 +101,9 @@ class DropboxAccountWithFiles(BaseModel):
     last_name: Optional[str] = None
     application_files: List[DropboxAccountApplicationFile] = Field(default_factory=list)
     client_list_info: Optional[DropboxAccountClientListInfo] = None
-    total_files: int = 0
-    processed_files: int = 0
-    failed_files: int = 0
+    total_account_application_files: int = 0
+    processed_account_application_files: int = 0
+    failed_account_application_files: int = 0
     processing_timestamp: Optional[datetime] = None
     
     model_config = {
@@ -203,16 +203,15 @@ class SyncStatus(BaseModel):
     }
 
 class AccountAnalysis(BaseModel):
-    """Model for account analysis data"""
-    dropbox_account_id: int
-    salesforce_account_id: str
-    analysis_type: Optional[str] = None  # 'data_comparison', 'mapping_validation', 'sync_recommendations'
-    analysis_data: Dict[str, Any] = Field(default_factory=dict)
-    recommendations: List[str] = Field(default_factory=list)
-    missing_fields: List[str] = Field(default_factory=list)
-    field_mappings: Dict[str, Any] = Field(default_factory=dict)
-    data_differences: Dict[str, Any] = Field(default_factory=dict)
-    analysis_timestamp: Optional[datetime] = None
+    """Model for account analysis results"""
+    dropbox_folder_name: str
+    analysis_timestamp: datetime
+    analysis_type: str
+    analysis_result: Dict[str, Any]
+    confidence_score: Optional[float] = None
+    model_used: Optional[str] = None
+    processing_duration: Optional[float] = None
+    created_at: Optional[datetime] = None
     
     model_config = {
         'json_encoders': {
@@ -274,9 +273,9 @@ def create_schema() -> str:
         first_name VARCHAR(100),
         middle_name VARCHAR(100),
         last_name VARCHAR(100),
-        total_files INTEGER DEFAULT 0,
-        processed_files INTEGER DEFAULT 0,
-        failed_files INTEGER DEFAULT 0,
+        total_account_application_files INTEGER DEFAULT 0,
+        processed_account_application_files INTEGER DEFAULT 0,
+        failed_account_application_files INTEGER DEFAULT 0,
         processing_timestamp TIMESTAMP WITH TIME ZONE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

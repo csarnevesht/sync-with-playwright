@@ -80,13 +80,13 @@ def test_account_file_retrieval(browser, page):
         account_name = "Beth Albert"
         
         # Check if account exists and store result
-        account_exists = account_manager.account_exists(account_name, view_name=VIEW_NAME)
+        account_exists = account_manager.account_exists_in_view(account_name, view_name=VIEW_NAME)
         if not account_exists:
             logging.error(f"Account {account_name} does not exist")
             return
         
         # Click on account name to navigate to it
-        if not account_manager.click_account_name(account_name):
+        if not account_manager.click_account_name_in_view(account_name):
             logging.error(f"Failed to navigate to account view page for: {account_name}")
             return
         

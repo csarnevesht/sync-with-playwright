@@ -57,7 +57,7 @@ def test_account_file_upload(browser, page):
         account_name = "John Smith"
         
         # Check if account exists and store result
-        if not account_manager.account_exists(account_name, view_name=VIEW_NAME):
+        if not account_manager.account_exists_in_view(account_name, view_name=VIEW_NAME):
             logging.info(f"Account {account_name} does not exist, creating it...")
             account_manager.create_new_account(
                 first_name=account_name.split(' ')[0],
@@ -67,7 +67,7 @@ def test_account_file_upload(browser, page):
             )
         
         # Click on account name to navigate to it
-        if not account_manager.click_account_name(account_name):
+        if not account_manager.click_account_name_in_view(account_name):
             logging.error(f"Failed to navigate to account view page for: {account_name}")
             return
         

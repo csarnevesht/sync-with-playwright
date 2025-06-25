@@ -62,13 +62,49 @@ def search_exact(client):
         return
     
     try:
+        # Search Dropbox accounts
         result = client.client.table('dropbox_accounts').select('*').eq('folder', folder_name).execute()
         
+        # Search Salesforce accounts
+        sf_result = client.client.table('salesforce_accounts').select('*').eq('account_name', folder_name).execute()
+        
+        # Also search for name variations in Salesforce
+        name_variations = [
+            folder_name.replace(', ', ' '),  # "Montesino, Maria" -> "Montesino Maria"
+            folder_name.split(', ')[1] + ' ' + folder_name.split(', ')[0] if ', ' in folder_name else None  # "Montesino, Maria" -> "Maria Montesino"
+        ]
+        name_variations = [name for name in name_variations if name]
+        
+        additional_sf_accounts = []
+        for name_var in name_variations:
+            var_result = client.client.table('salesforce_accounts').select('*').eq('account_name', name_var).execute()
+            if var_result.data:
+                for sf_acc in var_result.data:
+                    if sf_acc not in sf_result.data:
+                        additional_sf_accounts.append(sf_acc)
+        
+        # Combine all Salesforce results
+        all_sf_accounts = sf_result.data + additional_sf_accounts
+        
+        print(f"\n🔍 Search Results for: '{folder_name}'")
+        print("=" * 60)
+        
+        # Display Dropbox results
         if result.data:
-            print(f"\n✅ Found {len(result.data)} exact match(es):")
+            print(f"\n📁 Dropbox Accounts ({len(result.data)} match(es)):")
             display_accounts(client, result.data)
         else:
-            print(f"\n❌ No exact match found for: '{folder_name}'")
+            print(f"\n📁 Dropbox Accounts: No matches found")
+        
+        # Display Salesforce results
+        if all_sf_accounts:
+            print(f"\n⚡ Salesforce Accounts ({len(all_sf_accounts)} match(es)):")
+            display_salesforce_accounts(client, all_sf_accounts)
+        else:
+            print(f"\n⚡ Salesforce Accounts: No matches found")
+            
+        if not result.data and not all_sf_accounts:
+            print(f"\n💡 No matches found in either Dropbox or Salesforce for: '{folder_name}'")
             print("💡 Try using partial search instead.")
             
     except Exception as e:
@@ -83,23 +119,44 @@ def search_partial(client):
         return
     
     try:
-        # Get all accounts and filter manually since ilike may not be available
         print("🔍 Searching all accounts...")
-        all_result = client.client.table('dropbox_accounts').select('*').execute()
         
+        # Search Dropbox accounts
+        all_result = client.client.table('dropbox_accounts').select('*').execute()
+        dropbox_matches = []
         if all_result.data:
             # Filter results manually for case-insensitive partial matching
-            matches = [account for account in all_result.data 
-                      if search_term.lower() in account.get('folder', '').lower()]
-            
-            if matches:
-                print(f"\n✅ Found {len(matches)} match(es) for '{search_term}':")
-                display_accounts(client, matches)
-            else:
-                print(f"\n❌ No matches found for: '{search_term}'")
-                print(f"💡 Searched through {len(all_result.data)} total accounts.")
+            dropbox_matches = [account for account in all_result.data 
+                              if search_term.lower() in account.get('folder', '').lower()]
+        
+        # Search Salesforce accounts
+        all_sf_result = client.client.table('salesforce_accounts').select('*').execute()
+        salesforce_matches = []
+        if all_sf_result.data:
+            # Filter results manually for case-insensitive partial matching
+            salesforce_matches = [account for account in all_sf_result.data 
+                                 if search_term.lower() in account.get('account_name', '').lower()]
+        
+        print(f"\n🔍 Search Results for: '{search_term}'")
+        print("=" * 60)
+        
+        # Display Dropbox results
+        if dropbox_matches:
+            print(f"\n📁 Dropbox Accounts ({len(dropbox_matches)} match(es)):")
+            display_accounts(client, dropbox_matches)
         else:
-            print("❌ No accounts found in database.")
+            print(f"\n📁 Dropbox Accounts: No matches found")
+        
+        # Display Salesforce results
+        if salesforce_matches:
+            print(f"\n⚡ Salesforce Accounts ({len(salesforce_matches)} match(es)):")
+            display_salesforce_accounts(client, salesforce_matches)
+        else:
+            print(f"\n⚡ Salesforce Accounts: No matches found")
+        
+        if not dropbox_matches and not salesforce_matches:
+            print(f"\n❌ No matches found for: '{search_term}'")
+            print(f"💡 Searched through {len(all_result.data) if all_result.data else 0} Dropbox accounts and {len(all_sf_result.data) if all_sf_result.data else 0} Salesforce accounts.")
             
     except Exception as e:
         print(f"❌ Error searching: {e}")
@@ -130,11 +187,11 @@ def show_statistics(client):
         total_accounts = total_result.count if hasattr(total_result, 'count') else len(total_result.data)
         
         # Get accounts with files
-        with_files_result = client.client.table('dropbox_accounts').select('id').gt('total_files', 0).execute()
+        with_files_result = client.client.table('dropbox_accounts').select('id').gt('total_account_application_files', 0).execute()
         accounts_with_files = len(with_files_result.data)
         
         # Get processed accounts
-        processed_result = client.client.table('dropbox_accounts').select('id').gt('processed_files', 0).execute()
+        processed_result = client.client.table('dropbox_accounts').select('id').gt('processed_account_application_files', 0).execute()
         processed_accounts = len(processed_result.data)
         
         print(f"\n📊 Dropbox Account Statistics:")
@@ -258,7 +315,7 @@ def display_accounts(client, accounts):
                         # Check if this contact is a household member
                         member_result = client.client.table('salesforce_household_members').select('*').eq('member_id', sf_account['salesforce_account_id']).execute()
                         if member_result.data:
-                            print(f"         👥 Household Member in: {member_result.data[0].get('household_id', 'N/A')}")
+                            print(f"         👥 Household Member of: {member_result.data[0].get('household_id', 'N/A')}")
                     
                     print(f"         🕒 Created: {sf_account.get('created_at', 'N/A')}")
                     print(f"         🔄 Updated: {sf_account.get('updated_at', 'N/A')}")
@@ -271,7 +328,7 @@ def display_accounts(client, accounts):
             traceback.print_exc()
         
         # Show person info if available
-        if account.get('total_files', 0) > 0:
+        if account.get('total_account_application_files', 0) > 0:
             try:
                 # Get related application files
                 files_result = client.client.table('dropbox_account_application_files').select('*').eq('dropbox_account_id', account['id']).execute()
@@ -344,6 +401,52 @@ def display_accounts(client, accounts):
                 print(f"   ⚠️  Error getting file details: {e}")
         
         print(f"   🕒 Last processed: {account.get('processing_timestamp', 'Never')}")
+
+def display_salesforce_accounts(client, salesforce_accounts):
+    """Display Salesforce account information in a formatted way."""
+    for i, sf_account in enumerate(salesforce_accounts, 1):
+        print(f"\n{i}. {sf_account['account_name']} (ID: {sf_account['id']})")
+        print(f"   📋 Account Type: {sf_account['account_type']}")
+        print(f"   📧 Email: {sf_account.get('email', 'N/A')}")
+        print(f"   📞 Phone: {sf_account.get('phone', 'N/A')}")
+        print(f"   📍 Address: {sf_account.get('address', 'N/A')}")
+        print(f"   🔒 SSN/Tax ID: {sf_account.get('ssn_tax_id', 'N/A')}")
+        print(f"   📋 Stage: {sf_account.get('stage', 'N/A')}")
+        print(f"   📅 Created: {sf_account.get('created_at', 'N/A')}")
+        
+        # Show household information if this is a household
+        if sf_account['account_type'] == 'Household':
+            try:
+                household_result = client.client.table('salesforce_households').select('*').eq('salesforce_household_id', sf_account['salesforce_account_id']).execute()
+                if household_result.data:
+                    household = household_result.data[0]
+                    print(f"   🏠 Household Head ID: {household.get('household_head_id', 'N/A')}")
+                    
+                    # Show household members
+                    members_result = client.client.table('salesforce_household_members').select('*').eq('household_id', sf_account['salesforce_account_id']).execute()
+                    if members_result.data:
+                        print(f"   👥 Household Members ({len(members_result.data)}):")
+                        for member in members_result.data:
+                            print(f"      - {member.get('member_id', 'N/A')} ({member.get('role', 'N/A')})")
+            except Exception as e:
+                print(f"   ⚠️ Error fetching household data: {e}")
+        
+        # Show relationships if this is a contact
+        if sf_account['account_type'] == 'Contact':
+            try:
+                # Check if this contact is a household head
+                head_result = client.client.table('salesforce_households').select('*').eq('household_head_id', sf_account['salesforce_account_id']).execute()
+                if head_result.data:
+                    print(f"   👑 Household Head for: {head_result.data[0].get('household_name', 'N/A')}")
+                
+                # Check if this contact is a household member
+                member_result = client.client.table('salesforce_household_members').select('*').eq('member_id', sf_account['salesforce_account_id']).execute()
+                if member_result.data:
+                    print(f"   👥 Household Member of: {member_result.data[0].get('household_id', 'N/A')}")
+            except Exception as e:
+                print(f"   ⚠️ Error fetching relationship data: {e}")
+        
+        print()  # Add spacing between accounts
 
 if __name__ == '__main__':
     search_dropbox_accounts() 

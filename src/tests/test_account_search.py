@@ -67,7 +67,7 @@ def test_search_account(browser: Browser, page: Page):
         file_manager = SalesforceFileManager(page, debug_mode=True)
         
         # Check if account exists and get search result
-        account_exists = account_manager.account_exists(account_name, view_name=VIEW_NAME)
+        account_exists = account_manager.account_exists_in_view(account_name, view_name=VIEW_NAME)
         
         # Ensure the account exists (create if not)
         just_created = False
@@ -90,13 +90,13 @@ def test_search_account(browser: Browser, page: Page):
             just_created = True
             
             # Verify account exists after creation
-            account_exists = account_manager.account_exists(account_name, view_name=VIEW_NAME)
+            account_exists = account_manager.account_exists_in_view(account_name, view_name=VIEW_NAME)
             assert account_exists, f"Account {account_name} does not exist after creation"
         else:
             logging.info(f"Account {account_name} already exists")
         
         # Navigate to account page
-        if not account_manager.click_account_name(account_name):
+        if not account_manager.click_account_name_in_view(account_name):
             logging.error(f"Failed to navigate to account view page for: {account_name}")
             return
         

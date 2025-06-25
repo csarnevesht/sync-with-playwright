@@ -108,7 +108,7 @@ def test_account_deletion(browser: Browser, page: Page):
         logging.info(f"Using mock account: {account_name}")
         
         # Check if account exists and store result
-        account_exists = account_manager.account_exists(account_name, view_name=VIEW_NAME)
+        account_exists = account_manager.account_exists_in_view(account_name, view_name=VIEW_NAME)
         
         # Create account if it doesn't exist
         if not account_exists:
@@ -131,13 +131,13 @@ def test_account_deletion(browser: Browser, page: Page):
                 return
                 
             # Verify account exists after creation
-            account_exists = account_manager.account_exists(account_name, view_name=VIEW_NAME)
+            account_exists = account_manager.account_exists_in_view(account_name, view_name=VIEW_NAME)
             assert account_exists, f"Account {account_name} does not exist after creation"
         else:
             logging.info(f"Account exists: {account_name}")
         
         # Click on account name to navigate to it
-        if not account_manager.click_account_name(account_name):
+        if not account_manager.click_account_name_in_view(account_name):
             logging.error(f"Failed to navigate to account view page for: {account_name}")
             return
         
@@ -157,7 +157,7 @@ def test_account_deletion(browser: Browser, page: Page):
         logging.info(f"Successfully deleted account: {account_name}")
         
         # Verify account was deleted
-        if account_manager.account_exists(account_name, view_name=VIEW_NAME):
+        if account_manager.account_exists_in_view(account_name, view_name=VIEW_NAME):
             logging.error(f"Account still exists after deletion: {account_name}")
             return
             

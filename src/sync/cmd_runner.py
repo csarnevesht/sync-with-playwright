@@ -109,29 +109,30 @@ from playwright.sync_api import sync_playwright
 
 import supabase_client
 from sync.utils.name_utils import extract_name_parts
-from src.sync.salesforce_client.pages.account_manager import AccountManager
-from src.sync.salesforce_client.pages.file_manager import SalesforceFileManager
-from src.sync.salesforce_client.utils.browser import get_salesforce_page
-from src.sync.dropbox_client.utils.account_utils import (
+from sync.salesforce_client.pages.account_manager import AccountManager
+from sync.salesforce_client.pages.file_manager import SalesforceFileManager
+from sync.salesforce_client.utils.browser import get_salesforce_page
+from sync.dropbox_client.utils.account_utils import (
     read_accounts_folders,
     read_ignored_folders
 )
-from src.sync.dropbox_client.utils.dropbox_utils import (
+from sync.dropbox_client.utils.dropbox_utils import (
     DropboxClient,
     get_access_token,
     get_folder_metadata,
     get_dropbox_root_folder,
     get_folder_creation_date
 )
-from src.sync.dropbox_client.utils.date_utils import has_date_prefix
-from src.sync.dropbox_client.utils.logging_utils import log_dropbox_account_info, log_icon_legend
+from sync.dropbox_client.utils.date_utils import has_date_prefix
+from sync.dropbox_client.utils.logging_utils import log_dropbox_account_info, log_icon_legend
 from dropbox.exceptions import ApiError
 import dropbox
 from typing import List, Union
 
 from sync.salesforce_client.utils.logging_utils import log_salesforce_account_information
-from src.sync.salesforce_client.salesforce import setup_salesforce_components_if_needed
-from src.sync.salesforce_client.utils.relationship_processor import SalesforceRelationshipProcessor
+from sync.salesforce_client.salesforce import setup_salesforce_components_if_needed
+from sync.salesforce_client.utils.relationship_processor import SalesforceRelationshipProcessor
+from sync.salesforce_client.utils.salesforce_data_manager import SalesforceDataManager
 
 logger = logging.getLogger()
 
@@ -865,6 +866,7 @@ def run_command(args, log_dir):
 
                         if command_runner:
                                 command_runner.set_data('dropbox_account_name_parts', dropbox_account_name_parts)
+                                command_runner.set_data('dropbox_account_folder_name', dropbox_account_folder_name)
                     
 
                         # Get Dropbox account info
@@ -924,148 +926,148 @@ def run_command(args, log_dir):
                             }
                             salesforce_account_information = None
                             
+                            # Check database first (unless force flag is set)
                             if not args.force_store_salesforce_info:
-                                # search for salesforce account information in database
                                 from supabase_client import SupabaseClient
                                 supabase_client = SupabaseClient()
-                                salesforce_account_information = supabase_client.search_salesforce_account_information(dropbox_account_folder_name)
-                                logger.info(f"salesforce_account_information: {salesforce_account_information}")
-                                if salesforce_account_information:
-                                    logger.info(f"Salesforce account information found in database: {salesforce_account_information}")
-                                    # Construct the missing structure that would be created during a live search
-                                    names_found = salesforce_account_information.get('names_found', [])
-                                    accounts = salesforce_account_information.get('accounts', [])
+                                
+                                # Use the new SalesforceDataManager to handle all the complex logic
+                                data_manager = SalesforceDataManager(supabase_client)
+                                database_check_result = data_manager.check_database_for_salesforce_data(dropbox_account_folder_name)
+                                
+                                should_use_database = database_check_result['should_use_database']
+                                should_do_live_search = database_check_result['should_do_live_search']
+                                salesforce_account_information = database_check_result['salesforce_account_information']
+                                
+                                if should_use_database and salesforce_account_information:
+                                    logger.info(f"Salesforce account information found in database for: {dropbox_account_folder_name}")
                                     
-                                    # Create match_info structure
-                                    match_status = "Match found" if names_found else "No match found"
-                                    match_info = {
-                                        'match_status': match_status,
-                                        'total_matches': len(names_found),
-                                        'total_partial_matches': 0,
-                                        'total_no_matches': 0 if names_found else 1
-                                    }
-                                    
-                                    # Create complete salesforce_account_search_result structure
-                                    salesforce_account_search_result = {
-                                        'names_found': names_found,
-                                        'household': salesforce_account_information.get('household'),
-                                        'head': salesforce_account_information.get('head'),
-                                        'members': salesforce_account_information.get('members', []),
-                                        'accounts': accounts,
-                                        'not_found_accounts': salesforce_account_information.get('not_found_accounts', []),
-                                        'match_info': match_info,
-                                        'matches': names_found,  # Use names_found as matches
-                                        'view': 'database',
-                                        'salesforce_account_information': salesforce_account_information
-                                    }
+                                    # Create the complete search result structure
+                                    salesforce_account_search_result = data_manager.create_salesforce_search_result(
+                                        salesforce_account_information, 
+                                        view='database'
+                                    )
                                     
                                     # Set the complete structure in command runner
                                     if command_runner:
                                         command_runner.set_data('salesforce_account_information', salesforce_account_information)
-                                        command_runner.set_data('salesforce_matches', names_found)
+                                        command_runner.set_data('salesforce_matches', salesforce_account_information.get('names_found', []))
                                     
                                     logger.info(f"Using Salesforce account information from database")
+                                elif should_do_live_search:
+                                    logger.info(f"Will perform live Salesforce search for: {dropbox_account_folder_name}")
+                                    salesforce_account_information = None  # Ensure we do live search
                                 else:
-                                    # Set default structure in command runner
-                                    if command_runner:
-                                        command_runner.set_data('salesforce_account_information', default_salesforce_account_information)
+                                    logger.info(f"No Salesforce account information found in database for: {dropbox_account_folder_name}")
                             else:
-                                # Force flag is set - skip database retrieval and set default structure
-                                logger.info("Force flag is set - skipping database retrieval, will perform live search and force overwrite")
-                                if command_runner:
-                                    command_runner.set_data('salesforce_account_information', default_salesforce_account_information)
+                                logger.info("Force flag is set - will perform live search and force overwrite")
                             
-                            # Only navigate to Salesforce and perform search if we don't have account information from database
-                            if not salesforce_account_information:
+                            # Do live search if force flag is set OR no data found in database
+                            if args.force_store_salesforce_info or not salesforce_account_information:
+                                logger.info("Performing live Salesforce search...")
                                 account_manager, file_manager = setup_salesforce_components_if_needed(p, account_manager, file_manager, command_runner, report_logger, args)
 
                                 # Navigate to Salesforce base URL
-                                if args.salesforce_accounts:    
-                                    logger.info(f"Navigating to Salesforce")
-                                    if not account_manager.navigate_to_salesforce():
-                                        log_to_both(logger, report_logger, 'error', "Failed to navigate to Salesforce base URL")
-                                        raise Exception("Failed to navigate to Salesforce base URL")
-                                    account_manager.refresh_page()
+                                logger.info(f"Navigating to Salesforce")
+                                if not account_manager.navigate_to_salesforce():
+                                    log_to_both(logger, report_logger, 'error', "Failed to navigate to Salesforce base URL")
+                                    raise Exception("Failed to navigate to Salesforce base URL")
+                                account_manager.refresh_page()
 
-                                    logger.info('step: Salesforce Search Account')
-                                    # Perform salesforce account search
-                                    salesforce_account_search_result = account_manager.salesforce_search_account(dropbox_account_folder_name, view_name, dropbox_account_name_parts=dropbox_account_name_parts)
-                                    logger.info(f"salesforce_account_search_result: {salesforce_account_search_result}")
-                                else:
-                                    error_msg = f"Error with Salesforece Search Account"
-                                    logger.error(error_msg)
-                                    raise Exception(error_msg)
+                                logger.info('step: Salesforce Search Account')
+                                # Perform salesforce account search
+                                salesforce_account_search_result = account_manager.salesforce_search_account(dropbox_account_folder_name, view_name, dropbox_account_name_parts=dropbox_account_name_parts)
+                                logger.info(f"salesforce_account_search_result: {salesforce_account_search_result}")
 
-                                results[dropbox_account_folder_name] = {
-                                    'salesforce_account_search_result': salesforce_account_search_result,
-                                    'dropbox_account_search_result': dropbox_account_search_result
-                                }
-                            else:
-                                # Use the account information from database
-                                logger.info('Using Salesforce account information from database')
-                                salesforce_account_search_result = salesforce_account_information
-                                results[dropbox_account_folder_name] = {
-                                    'salesforce_account_search_result': salesforce_account_search_result,
-                                    'dropbox_account_search_result': dropbox_account_search_result
-                                }
-
-                            logger.debug(f"*** salesforce search result: {salesforce_account_search_result}")
-
-                            # --- START: New grouped logging for report.log and analyzer.log ---
-                            salesforce_matches = salesforce_account_search_result.get('matches', [])
-                            salesforce_match = salesforce_account_search_result.get('match_info', {}).get('match_status', 'No match found')
-                            salesforce_view = salesforce_account_search_result.get('view', '--')
-                            logger.info(f"after salesforce_search_account salesforce_matches: {salesforce_matches}")
-
-                            # Process salesforce account info and relationships if flag is set
-                            if args.salesforce_account_info:
-
-                                # If we don't have salesforce_account_information (from live search), but we have data from database
-                                if not salesforce_account_information and salesforce_account_search_result:
-                                    # Use the database data as salesforce_account_information
-                                    salesforce_account_information = salesforce_account_search_result
-                                
-                                # if salesforce_account_information is not set or force_store_salesforce_info is set, then process salesforce account relationships
-                                # if force_store_salesforce_info is set, then we will overwrite the salesforce_account_information with the new data
-                                # if force_store_salesforce_info is not set, then we will use the existing salesforce_account_information
-                                if not salesforce_account_information or args.force_store_salesforce_info:
-                                    account_manager, file_manager = setup_salesforce_components_if_needed(p, account_manager, file_manager, command_runner, report_logger, args)
-
+                                # Process salesforce account info and relationships if flag is set
+                                if args.salesforce_account_info:
                                     log_to_both(logger, report_logger, 'info', 'step: Process Salesforce Account Relationships')
                                     report_logger.info("\n=== SALESFORCE ACCOUNT RELATIONSHIPS ===")
-                                    
                                     
                                     # Use the new processor class
                                     relationship_processor = SalesforceRelationshipProcessor(account_manager, report_logger=report_logger)
                                     salesforce_account_information = relationship_processor.process_account_relationships(
-                                        salesforce_matches,
+                                        salesforce_account_search_result.get('matches', []),
                                         dropbox_account_folder_name,
                                         view_name=view_name
                                     )
+                                    
                                     # Store the comprehensive salesforce_account_information
                                     salesforce_account_search_result['salesforce_account_information'] = salesforce_account_information
-                                # Always set the Salesforce account information in command runner data for analysis
-                                if command_runner:
-                                    command_runner.set_data('salesforce_account_information', salesforce_account_information)
-                                # Store Salesforce account data in Supabase if available
-                                if command_runner and salesforce_account_information and salesforce_account_information.get('accounts'):
-                                    try:
-                                        success = command_runner._store_salesforce_account_data_in_supabase(
-                                            salesforce_account_information, 
-                                            force=args.force_store_salesforce_info
-                                        )
-                                        if success:
-                                            logger.info(f"Successfully stored Salesforce account data in Supabase for: {dropbox_account_folder_name}")
-                                        else:
-                                            logger.warning(f"Failed to store Salesforce account data in Supabase for: {dropbox_account_folder_name}")
-                                    except Exception as e:
-                                        logger.error(f"Error storing Salesforce account data in Supabase for {dropbox_account_folder_name}: {e}")
-                                # Log the comprehensive Salesforce Account Information using the new utilities
-                                log_salesforce_account_information(salesforce_account_information, dropbox_account_folder_name, report_logger=report_logger, summary_logger=summary_logger)
+                                    
+                                    # Always set the Salesforce account information in command runner data for analysis
+                                    if command_runner:
+                                        command_runner.set_data('salesforce_account_information', salesforce_account_information)
+                                    
+                                    # Always store Salesforce account data in Supabase (regardless of whether accounts were found)
+                                    if command_runner and salesforce_account_information:
+                                        try:
+                                            success = command_runner._store_salesforce_account_data_in_supabase(
+                                                salesforce_account_information, 
+                                                force=args.force_store_salesforce_info
+                                            )
+                                            if success:
+                                                logger.info(f"Successfully stored Salesforce account data in Supabase for: {dropbox_account_folder_name}")
+                                            else:
+                                                logger.warning(f"Failed to store Salesforce account data in Supabase for: {dropbox_account_folder_name}")
+                                        except Exception as e:
+                                            logger.error(f"Error storing Salesforce account data in Supabase for {dropbox_account_folder_name}: {e}")
+                                    
+                                    # # Log the comprehensive Salesforce Account Information using the new utilities
+                                    # log_salesforce_account_information(salesforce_account_information, dropbox_account_folder_name, report_logger=report_logger, summary_logger=summary_logger)
+                                else:
+                                    # If not processing relationships, ensure we have a default structure
+                                    if command_runner:
+                                        command_runner.set_data('salesforce_account_information', default_salesforce_account_information)
                             else:
-                                # If not processing relationships, ensure we have a default structure
-                                if command_runner:
-                                    command_runner.set_data('salesforce_account_information', default_salesforce_account_information)
+                                # Use database data, but still set up the result structure
+                                salesforce_account_search_result = data_manager.create_salesforce_search_result(
+                                    salesforce_account_information, 
+                                    view='database'
+                                )
+
+                            results[dropbox_account_folder_name] = {
+                                'salesforce_account_search_result': salesforce_account_search_result,
+                                'dropbox_account_search_result': dropbox_account_search_result
+                            }
+                        else:
+                            # Use the account information from database
+                            logger.info('Using Salesforce account information from database')
+                            salesforce_account_search_result = salesforce_account_information
+                            results[dropbox_account_folder_name] = {
+                                'salesforce_account_search_result': salesforce_account_search_result,
+                                'dropbox_account_search_result': dropbox_account_search_result
+                            }
+
+                        logger.debug(f"*** salesforce search result: {salesforce_account_search_result}")
+
+                        # --- START: New grouped logging for report.log and analyzer.log ---
+                        salesforce_matches = salesforce_account_search_result.get('matches', [])
+                        salesforce_match = salesforce_account_search_result.get('match_info', {}).get('match_status', 'No match found')
+                        salesforce_view = salesforce_account_search_result.get('view', '--')
+                        logger.info(f"after salesforce_search_account salesforce_matches: {salesforce_matches}")
+
+                        # Process salesforce account info and relationships if flag is set
+                        if args.salesforce_account_info:
+
+                            # If we don't have salesforce_account_information (from live search), but we have data from database
+                            if not salesforce_account_information and salesforce_account_search_result:
+                                # Use the database data as salesforce_account_information
+                                salesforce_account_information = salesforce_account_search_result
+                            
+                            # Note: Relationship processing and storage is already done earlier in the code
+                            # No need to process or store again here to avoid duplicates
+                            
+                            # Always set the Salesforce account information in command runner data for analysis
+                            if command_runner:
+                                command_runner.set_data('salesforce_account_information', salesforce_account_information)
+                            
+                            # Log the comprehensive Salesforce Account Information using the new utilities
+                            log_salesforce_account_information(salesforce_account_information, dropbox_account_folder_name, report_logger=report_logger, summary_logger=summary_logger)
+                        else:
+                            # If not processing relationships, ensure we have a default structure
+                            if command_runner:
+                                command_runner.set_data('salesforce_account_information', default_salesforce_account_information)
 
                         if args.salesforce_accounts or args.dropbox_account_info or args.dropbox_accounts:
                             # Add to summary results
@@ -1101,9 +1103,7 @@ def run_command(args, log_dir):
                                     'salesforce_account_search_result': salesforce_account_search_result if args.salesforce_accounts else {},
                                     'dropbox_account_search_result': dropbox_account_search_result
                                 }
-                                # CAROLINA HERE
-                                # build_and_log_final_summary_line(result_dict, report_logger, summary_logger, red_logger, args)
-
+                                
                                 # Get Salesforce files if requested and account was found
                                 if args.salesforce_account_files and salesforce_matches and len(salesforce_matches) > 0 and salesforce_matches != "--":
                                     logger.info(f"*** salesforce_matches: {salesforce_matches}")
