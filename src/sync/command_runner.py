@@ -1575,7 +1575,7 @@ class CommandRunner:
         
         return dropbox_account_information
 
-    def _store_salesforce_account_data_in_supabase(self, salesforce_info: Dict[str, Any]) -> bool:
+    def _store_salesforce_account_data_in_supabase(self, salesforce_info: Dict[str, Any], force: bool = False) -> bool:
         """Store Salesforce account data in Supabase database"""
         try:
             from supabase_client import SupabaseClient
@@ -1586,6 +1586,33 @@ class CommandRunner:
             if not salesforce_info or not salesforce_info.get('accounts'):
                 self.logger.warning("No Salesforce account data to store")
                 return False
+            
+            # Log force flag status
+            if force:
+                self.logger.info("🔄 Force flag is enabled - will overwrite existing Salesforce data if present")
+                self.report_logger.info("🔄 Force flag is enabled - will overwrite existing Salesforce data if present")
+            
+            # If force is enabled, delete existing Salesforce accounts for this folder
+            if force:
+                try:
+                    # Get the folder name to identify which accounts to delete
+                    dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
+                    if dropbox_account_folder_name:
+                        # Delete existing Salesforce accounts that match the folder name
+                        self.logger.info(f"🔄 Force flag specified - will overwrite existing Salesforce data for folder: {dropbox_account_folder_name}")
+                        self.report_logger.info(f"🔄 Force flag specified - will overwrite existing Salesforce data for folder: {dropbox_account_folder_name}")
+                        
+                        # Delete existing Salesforce accounts for this folder
+                        deleted = supabase_client.delete_salesforce_accounts_by_folder_name(dropbox_account_folder_name)
+                        if deleted:
+                            self.logger.info(f"✅ Successfully deleted existing Salesforce accounts for folder: {dropbox_account_folder_name}")
+                            self.report_logger.info(f"✅ Successfully deleted existing Salesforce accounts for folder: {dropbox_account_folder_name}")
+                        else:
+                            self.logger.info(f"ℹ️ No existing Salesforce accounts found to delete for folder: {dropbox_account_folder_name}")
+                            self.report_logger.info(f"ℹ️ No existing Salesforce accounts found to delete for folder: {dropbox_account_folder_name}")
+                except Exception as e:
+                    self.logger.warning(f"Error preparing to overwrite existing Salesforce data: {e}")
+                    self.report_logger.warning(f"Error preparing to overwrite existing Salesforce data: {e}")
             
             stored_accounts = []
             stored_households = []

@@ -23,6 +23,10 @@ def setup_salesforce_components_if_needed(p, account_manager, file_manager, comm
 
         logging.getLogger(__name__).info("Salesforce components needed")
 
+        # Initialize browser and page variables
+        browser = None
+        page = None
+
         # If no command_runner, just create and return new instances
         if not account_manager:
             browser, page = get_salesforce_page(p)

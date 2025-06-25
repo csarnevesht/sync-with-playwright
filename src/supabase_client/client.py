@@ -872,22 +872,45 @@ class SupabaseClient:
             account_data = self._serialize_dates(account_data)
             
             print(f"[DEBUG] Inserting Salesforce account: {account_data}")
-            response = self.client.table('salesforce_accounts').insert(account_data).execute()
             
-            if response.data and len(response.data) > 0:
-                account_id = response.data[0]['salesforce_account_id']
-                print(f"[DEBUG] Created Salesforce account ID: {account_id}")
-                return account_id
-            else:
-                print(f"[DEBUG] Insert succeeded but no data returned, querying for new record...")
-                new_account_response = self.client.table('salesforce_accounts').select('salesforce_account_id').eq('salesforce_account_id', account.salesforce_account_id).execute()
-                if new_account_response.data and len(new_account_response.data) > 0:
-                    account_id = new_account_response.data[0]['salesforce_account_id']
-                    print(f"[DEBUG] Found newly created Salesforce account ID: {account_id}")
+            # Try to insert first, if it fails due to conflict, update instead
+            try:
+                response = self.client.table('salesforce_accounts').insert(account_data).execute()
+                
+                if response.data and len(response.data) > 0:
+                    account_id = response.data[0]['salesforce_account_id']
+                    print(f"[DEBUG] Created Salesforce account ID: {account_id}")
                     return account_id
                 else:
-                    logger.error(f"Failed to insert Salesforce account: Could not find newly created record")
-                    return None
+                    print(f"[DEBUG] Insert succeeded but no data returned, querying for new record...")
+                    new_account_response = self.client.table('salesforce_accounts').select('salesforce_account_id').eq('salesforce_account_id', account.salesforce_account_id).execute()
+                    if new_account_response.data and len(new_account_response.data) > 0:
+                        account_id = new_account_response.data[0]['salesforce_account_id']
+                        print(f"[DEBUG] Found newly created Salesforce account ID: {account_id}")
+                        return account_id
+                    else:
+                        logger.error(f"Failed to insert Salesforce account: Could not find newly created record")
+                        return None
+                        
+            except Exception as insert_error:
+                if "409" in str(insert_error) or "Conflict" in str(insert_error):
+                    print(f"[DEBUG] Account already exists, updating instead: {account.salesforce_account_id}")
+                    # Try to update the existing record
+                    try:
+                        update_response = self.client.table('salesforce_accounts').update(account_data).eq('salesforce_account_id', account.salesforce_account_id).execute()
+                        if update_response.data and len(update_response.data) > 0:
+                            account_id = update_response.data[0]['salesforce_account_id']
+                            print(f"[DEBUG] Updated existing Salesforce account ID: {account_id}")
+                            return account_id
+                        else:
+                            print(f"[DEBUG] Update succeeded but no data returned")
+                            return account.salesforce_account_id
+                    except Exception as update_error:
+                        logger.error(f"Error updating existing Salesforce account: {str(update_error)}")
+                        return None
+                else:
+                    # Re-raise if it's not a conflict error
+                    raise insert_error
                     
         except Exception as e:
             logger.error(f"Error storing Salesforce account: {str(e)}")
@@ -901,22 +924,45 @@ class SupabaseClient:
             household_data = self._serialize_dates(household_data)
             
             print(f"[DEBUG] Inserting Salesforce household: {household_data}")
-            response = self.client.table('salesforce_households').insert(household_data).execute()
             
-            if response.data and len(response.data) > 0:
-                household_id = response.data[0]['salesforce_household_id']
-                print(f"[DEBUG] Created Salesforce household ID: {household_id}")
-                return household_id
-            else:
-                print(f"[DEBUG] Insert succeeded but no data returned, querying for new record...")
-                new_household_response = self.client.table('salesforce_households').select('salesforce_household_id').eq('salesforce_household_id', household.salesforce_household_id).execute()
-                if new_household_response.data and len(new_household_response.data) > 0:
-                    household_id = new_household_response.data[0]['salesforce_household_id']
-                    print(f"[DEBUG] Found newly created Salesforce household ID: {household_id}")
+            # Try to insert first, if it fails due to conflict, update instead
+            try:
+                response = self.client.table('salesforce_households').insert(household_data).execute()
+                
+                if response.data and len(response.data) > 0:
+                    household_id = response.data[0]['salesforce_household_id']
+                    print(f"[DEBUG] Created Salesforce household ID: {household_id}")
                     return household_id
                 else:
-                    logger.error(f"Failed to insert Salesforce household: Could not find newly created record")
-                    return None
+                    print(f"[DEBUG] Insert succeeded but no data returned, querying for new record...")
+                    new_household_response = self.client.table('salesforce_households').select('salesforce_household_id').eq('salesforce_household_id', household.salesforce_household_id).execute()
+                    if new_household_response.data and len(new_household_response.data) > 0:
+                        household_id = new_household_response.data[0]['salesforce_household_id']
+                        print(f"[DEBUG] Found newly created Salesforce household ID: {household_id}")
+                        return household_id
+                    else:
+                        logger.error(f"Failed to insert Salesforce household: Could not find newly created record")
+                        return None
+                        
+            except Exception as insert_error:
+                if "409" in str(insert_error) or "Conflict" in str(insert_error):
+                    print(f"[DEBUG] Household already exists, updating instead: {household.salesforce_household_id}")
+                    # Try to update the existing record
+                    try:
+                        update_response = self.client.table('salesforce_households').update(household_data).eq('salesforce_household_id', household.salesforce_household_id).execute()
+                        if update_response.data and len(update_response.data) > 0:
+                            household_id = update_response.data[0]['salesforce_household_id']
+                            print(f"[DEBUG] Updated existing Salesforce household ID: {household_id}")
+                            return household_id
+                        else:
+                            print(f"[DEBUG] Update succeeded but no data returned")
+                            return household.salesforce_household_id
+                    except Exception as update_error:
+                        logger.error(f"Error updating existing Salesforce household: {str(update_error)}")
+                        return None
+                else:
+                    # Re-raise if it's not a conflict error
+                    raise insert_error
                     
         except Exception as e:
             logger.error(f"Error storing Salesforce household: {str(e)}")
@@ -1067,12 +1113,157 @@ class SupabaseClient:
             return False
 
     def delete_salesforce_account(self, salesforce_account_id: str) -> bool:
-        """Delete Salesforce account"""
+        """Delete Salesforce account by ID"""
         try:
             response = self.client.table('salesforce_accounts').delete().eq('salesforce_account_id', salesforce_account_id).execute()
-            
-            return response.data is not None and len(response.data) > 0
+            return response.data is not None
             
         except Exception as e:
             logger.error(f"Error deleting Salesforce account: {str(e)}")
-            return False 
+            return False
+
+    def delete_salesforce_accounts_by_folder_name(self, dropbox_folder_name: str) -> bool:
+        """Delete Salesforce accounts associated with a specific Dropbox folder name"""
+        try:
+            # Generate name variations for searching (similar to search logic)
+            name_variations = [
+                dropbox_folder_name,
+                dropbox_folder_name.replace(', ', ' '),
+                dropbox_folder_name.replace(',', ' '),
+                ' '.join(dropbox_folder_name.split(', ')[::-1])  # Swapped names
+            ]
+            
+            deleted_count = 0
+            
+            for name_variation in name_variations:
+                try:
+                    # Find accounts that match this name variation
+                    response = self.client.table('salesforce_accounts').select('salesforce_account_id').ilike('account_name', f'%{name_variation}%').execute()
+                    
+                    if response.data:
+                        for account in response.data:
+                            account_id = account['salesforce_account_id']
+                            # Delete the account
+                            delete_response = self.client.table('salesforce_accounts').delete().eq('salesforce_account_id', account_id).execute()
+                            if delete_response.data:
+                                deleted_count += 1
+                                logger.info(f"Deleted Salesforce account: {account_id}")
+                            
+                except Exception as e:
+                    logger.warning(f"Error deleting Salesforce accounts for name variation '{name_variation}': {e}")
+                    continue
+            
+            logger.info(f"Deleted {deleted_count} Salesforce accounts for folder: {dropbox_folder_name}")
+            return deleted_count > 0
+            
+        except Exception as e:
+            logger.error(f"Error deleting Salesforce accounts by folder name: {str(e)}")
+            return False
+
+    def search_salesforce_account_information(self, dropbox_account_folder_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Search for Salesforce account information based on Dropbox account folder name.
+        
+        Args:
+            dropbox_account_folder_name: The Dropbox account folder name to search for
+            
+        Returns:
+            Dict containing structured Salesforce account information or None if not found
+        """
+        try:
+            # Generate name variations for searching
+            name_variations = [
+                dropbox_account_folder_name,
+                dropbox_account_folder_name.replace(', ', ' '),  # "Montesino, Maria" -> "Montesino Maria"
+            ]
+            
+            # Add swapped name if it contains a comma
+            if ', ' in dropbox_account_folder_name:
+                parts = dropbox_account_folder_name.split(', ')
+                if len(parts) == 2:
+                    swapped_name = f"{parts[1]} {parts[0]}"  # "Montesino, Maria" -> "Maria Montesino"
+                    name_variations.append(swapped_name)
+            
+            # Remove duplicates and None values
+            name_variations = list(set([name for name in name_variations if name]))
+            
+            logger.info(f"Searching for Salesforce accounts with name variations: {name_variations}")
+            
+            # Search for exact matches first
+            salesforce_accounts = []
+            for name_var in name_variations:
+                try:
+                    # Search for exact matches
+                    sf_result = self.client.table('salesforce_accounts').select('*').eq('account_name', name_var).execute()
+                    if sf_result.data:
+                        salesforce_accounts.extend(sf_result.data)
+                        logger.info(f"Found {len(sf_result.data)} exact match(es) for '{name_var}'")
+                    
+                    # Search for partial matches (case-insensitive)
+                    all_sf_result = self.client.table('salesforce_accounts').select('*').execute()
+                    if all_sf_result.data:
+                        for sf_acc in all_sf_result.data:
+                            if name_var.lower() in sf_acc.get('account_name', '').lower():
+                                if sf_acc not in salesforce_accounts:
+                                    salesforce_accounts.append(sf_acc)
+                                    logger.info(f"Found partial match: '{sf_acc.get('account_name')}' for '{name_var}'")
+                                    
+                except Exception as e:
+                    logger.warning(f"Error searching for '{name_var}': {e}")
+                    continue
+            
+            # Remove duplicates based on salesforce_account_id
+            unique_accounts = []
+            seen_ids = set()
+            for account in salesforce_accounts:
+                account_id = account.get('salesforce_account_id')
+                if account_id and account_id not in seen_ids:
+                    unique_accounts.append(account)
+                    seen_ids.add(account_id)
+            
+            if not unique_accounts:
+                logger.info(f"No Salesforce accounts found for Dropbox folder: {dropbox_account_folder_name}")
+                return None
+            
+            logger.info(f"Found {len(unique_accounts)} unique Salesforce accounts for: {dropbox_account_folder_name}")
+            
+            # Structure the data similar to the salesforce_account_information format
+            structured_data = {
+                'names_found': [acc.get('account_name', '') for acc in unique_accounts],
+                'household': None,
+                'head': None,
+                'members': [],
+                'accounts': [],
+                'not_found_accounts': []
+            }
+            
+            # Process each account
+            for account in unique_accounts:
+                account_data = {
+                    'account_name': account.get('account_name', ''),
+                    'type': account.get('account_type', 'Contact'),
+                    'role': account.get('role', None),
+                    'stage': account.get('stage', ''),
+                    'email': account.get('email', ''),
+                    'phone': account.get('phone', ''),
+                    'mailing_address': account.get('address', ''),
+                    'ssn/tax_id': account.get('ssn_tax_id', ''),
+                    'relationships': []
+                }
+                
+                # Categorize accounts
+                if account.get('account_type') == 'Household':
+                    structured_data['household'] = account_data
+                elif account.get('role') == 'Household Head':
+                    structured_data['head'] = account_data
+                elif account.get('role') == 'Member':
+                    structured_data['members'].append(account_data)
+                
+                # Add to accounts list
+                structured_data['accounts'].append(account_data)
+            
+            return structured_data
+            
+        except Exception as e:
+            logger.error(f"Error searching for Salesforce account information for '{dropbox_account_folder_name}': {e}")
+            return None 
