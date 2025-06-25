@@ -783,6 +783,9 @@ def run_command(args, log_dir):
         log_to_both(logger, report_logger, 'error', "Failed to initialize Dropbox client. Exiting...")
         return
 
+    from supabase_client import SupabaseClient
+    supabase_client = SupabaseClient()
+
     with sync_playwright() as p:
         try:
             # Only initialize Salesforce components if Salesforce flags are set
@@ -792,13 +795,6 @@ def run_command(args, log_dir):
             file_manager = None
             view_name="All Clients"
             
-            # if args.salesforce_accounts or args.salesforce_account_files:
-            #     browser, page = get_salesforce_page(p)
-            #     # Initialize account manager and file manager
-            #     account_manager = AccountManager(page, debug_mode=True)
-            #     account_manager.logger.report_logger = report_logger  # Add report logger
-            #     file_manager = SalesforceFileManager(page, debug_mode=True)
-            
             command_runner = None
             
             # Initialize command runner if commands are specified
@@ -807,11 +803,15 @@ def run_command(args, log_dir):
                 command_runner = CommandRunner(args, log_dir)
                 command_runner.set_context('dropbox_client', dropbox_client)
                 command_runner.set_context('dropbox_root_folder', dropbox_root_folder)
-                # if browser and page:
-                #     command_runner.set_context('browser', browser)
-                #     command_runner.set_context('page', page)
-                #     command_runner.set_context('account_manager', account_manager)
-                #     command_runner.set_context('file_manager', file_manager)
+                
+                # Initialize and set supabase_client in context
+                try:
+                    command_runner.set_context('supabase_client', supabase_client)
+                    logger.info("Supabase client initialized and set in command runner context")
+                except Exception as e:
+                    logger.warning(f"Failed to initialize Supabase client: {e}")
+                    # Continue without supabase_client if initialization fails
+                
                 
             # Dictionary to store results for each folder
             results = {}
@@ -878,9 +878,28 @@ def run_command(args, log_dir):
                             logger.info(f'dropbox_account_search_result: {dropbox_account_search_result}')
                             logger.info(f"Successfully retrieved info for Dropbox account: {dropbox_account_folder_name}")
 
-                            # # Call log_dropbox_account_info for detailed logging if dropbox account info is available
-                            # if dropbox_account_search_result and args.dropbox_account_info:
-                            #     log_dropbox_account_info(dropbox_account_search_result, summary_logger, args, report_logger)
+                            # Store client list data in database if we have account data
+                            client_list_store_success = None
+                            if dropbox_account_search_result and dropbox_account_search_result.get('account_data'):
+                                client_list_store_success = _store_dropbox_client_list_data_in_database(
+                                    dropbox_account_search_result, 
+                                    dropbox_account_folder_name,
+                                    supabase_client
+                                )
+
+                            # Store application files data in database if requested
+                            app_files_store_success = None
+                            if args.dropbox_account_files and dropbox_account_file_names:
+                                # Use the summary data from application files extraction if available
+                                try:
+                                    summary_data = command_runner.get_data('app_files_extraction_summary')
+                                except Exception:
+                                    summary_data = None
+                                if summary_data:
+                                    app_files_store_success = command_runner._store_app_files_data_in_supabase(
+                                        dropbox_account_folder_name,
+                                        summary_data
+                                    )
 
                             # Update FlatFile with account info if found
                             if dropbox_account_search_result.get('account_data'):
@@ -937,8 +956,6 @@ def run_command(args, log_dir):
                             
                             # Check database first (unless force flag is set)
                             if not args.force_store_salesforce_info:
-                                from supabase_client import SupabaseClient
-                                supabase_client = SupabaseClient()
                                 
                                 # Use the new SalesforceDataManager to handle all the complex logic
                                 data_manager = SalesforceDataManager(supabase_client)
@@ -1091,7 +1108,9 @@ def run_command(args, log_dir):
                                 'dropbox_account_search_result': dropbox_account_search_result,
                                 'dropbox_account_file_names': dropbox_account_file_names,
                                 'salesforce_account_file_names': salesforce_account_file_names,
-                                'file_comparison': file_comparison
+                                'file_comparison': file_comparison,
+                                'client_list_store_success': client_list_store_success,
+                                'app_files_store_success': app_files_store_success
                             })
 
                             if args.salesforce_accounts or args.dropbox_account_info:
@@ -1116,7 +1135,7 @@ def run_command(args, log_dir):
                                     'salesforce_account_search_result': salesforce_account_search_result if args.salesforce_accounts else {},
                                     'dropbox_account_search_result': dropbox_account_search_result
                                 }
-                                
+
                                 # Get Salesforce files if requested and account was found
                                 if args.salesforce_account_files and salesforce_matches and len(salesforce_matches) > 0 and salesforce_matches != "--":
                                     logger.info(f"*** salesforce_matches: {salesforce_matches}")
@@ -1668,6 +1687,105 @@ def prepare_flatfile_from_template(template_path, logger, report_logger):
     else:
         log_to_both(logger, report_logger, 'error', f"FlatFile template does not exist: {template_path}")
         return None
+
+def _store_dropbox_client_list_data_in_database(dropbox_account_search_result, dropbox_account_folder_name, supabase_client):
+    """
+    Store client list data in the database for a Dropbox account.
+    
+    Args:
+        dropbox_account_search_result: The result from dropbox_search_account
+        dropbox_account_folder_name: The folder name of the Dropbox account
+        supabase_client: The Supabase client instance to use for database operations
+        command_runner: Optional command runner instance (not used, kept for compatibility)
+    """
+    logger.info(f"Starting database storage for client list data - Account: {dropbox_account_folder_name}")
+    logger.info(f"Input data structure: {list(dropbox_account_search_result.keys()) if dropbox_account_search_result else 'None'}")
+    
+    try:
+        if not supabase_client:
+            logger.error("No Supabase client provided for storing client list data")
+            return False
+        
+        logger.info("Importing required modules for database storage...")
+        from supabase_client.schema import DropboxAccountClientListInfo
+        from datetime import datetime
+        
+        # Extract and log account data
+        account_data = dropbox_account_search_result.get('account_data', {})
+        logger.info(f"Account data extracted - Keys: {list(account_data.keys()) if account_data else 'None'}")
+        logger.info(f"Account name: {account_data.get('name', 'Not found')}")
+        logger.info(f"First name: {account_data.get('first_name', 'Not found')}")
+        logger.info(f"Last name: {account_data.get('last_name', 'Not found')}")
+        
+        search_info = dropbox_account_search_result.get('search_info', {})
+        logger.info(f"Search info extracted - Keys: {list(search_info.keys()) if search_info else 'None'}")
+        
+        match_info = search_info.get('match_info', {})
+        logger.info(f"Match info extracted - Keys: {list(match_info.keys()) if match_info else 'None'}")
+        logger.info(f"Match status: {match_info.get('match_status', 'Not found')}")
+        
+        # Convert birthdate string to date if available
+        birthdate = None
+        if account_data.get('birthdate'):
+            logger.info(f"Processing birthdate: {account_data['birthdate']}")
+            try:
+                birthdate = datetime.strptime(account_data['birthdate'], '%Y-%m-%d').date()
+                logger.info(f"Birthdate successfully converted to: {birthdate}")
+            except Exception as e:
+                logger.warning(f"Failed to convert birthdate '{account_data['birthdate']}': {e}")
+        else:
+            logger.info("No birthdate found in account data")
+        
+        # Log drivers license data
+        drivers_license = dropbox_account_search_result.get('drivers_license', {})
+        logger.info(f"Drivers license data - Keys: {list(drivers_license.keys()) if drivers_license else 'None'}")
+        
+        logger.info("Creating DropboxAccountClientListInfo object...")
+        # Create client list info object
+        client_list_info = DropboxAccountClientListInfo(
+            account_name=account_data.get('name', ''),
+            first_name=account_data.get('first_name', ''),
+            middle_name=account_data.get('middle_name', ''),
+            last_name=account_data.get('last_name', ''),
+            birthdate=birthdate,
+            gender=account_data.get('gender', ''),
+            phone=account_data.get('phone', ''),
+            address=account_data.get('address', ''),
+            city=account_data.get('city', ''),
+            state=account_data.get('state', ''),
+            zip_code=account_data.get('zip', ''),
+            email=account_data.get('email', ''),
+            additional_info=account_data.get('additional_info', ''),
+            match_status=match_info.get('match_status', ''),
+            drivers_license_data=drivers_license,
+            search_info=search_info
+        )
+        logger.info("DropboxAccountClientListInfo object created successfully")
+        
+        # Get the dropbox account ID and store the data
+        logger.info(f"Querying database for dropbox account with folder: {dropbox_account_folder_name}")
+        account_response = supabase_client.client.table('dropbox_accounts').select('id').eq('folder', dropbox_account_folder_name).execute()
+        
+        logger.info(f"Database query result - Data count: {len(account_response.data) if account_response.data else 0}")
+        if account_response.data and len(account_response.data) > 0:
+            account_id = account_response.data[0]['id']
+            logger.info(f"Found dropbox account ID: {account_id}")
+            
+            logger.info("Storing client list info in database...")
+            supabase_client.store_client_list_info(client_list_info, account_id, dropbox_account_folder_name)
+            logger.info(f"Successfully stored client list data for account: {dropbox_account_folder_name} (ID: {account_id})")
+            return True
+        else:
+            logger.warning(f"No dropbox account found in database for folder: {dropbox_account_folder_name}")
+            logger.warning("Client list data storage skipped - no account ID available")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Error storing client list data in database for account {dropbox_account_folder_name}: {e}")
+        logger.error(f"Exception type: {type(e).__name__}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        return False
 
 if __name__ == "__main__":
     args = parse_args()

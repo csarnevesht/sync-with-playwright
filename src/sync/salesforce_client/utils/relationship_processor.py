@@ -364,8 +364,6 @@ class SalesforceRelationshipProcessor:
                     # Mark this relationship as processed
                     processed_relationships.add(rel_key)
                     
-                    # Navigate back to search results instead of original account
-                    self.account_manager.navigate_back_to_search_results()
             else:
                 self.logger.error(f"Could not click on relationship account: {rel['name']} from search results")
         else:

@@ -366,6 +366,7 @@ class SupabaseClient:
 
     def store_dropbox_account_with_files(self, account: DropboxAccountWithFiles, force: bool = False) -> Optional[int]:
         """Store dropbox account and its application files. If account exists, use its ID, or delete and re-insert if force=True."""
+        logger.info(f"Storing in database: dropbox account with files for account: {account.folder}")
         try:
             # First check if the account already exists
             existing_account_response = self.client.table('dropbox_accounts').select('id').eq('folder', account.folder).execute()
@@ -417,7 +418,7 @@ class SupabaseClient:
             # Store client list info if available
             if account.client_list_info:
                 print(f"[DEBUG] Storing client list info for account ID: {account_id}")
-                self.store_client_list_info(account.client_list_info, account_id)
+                self.store_dropbox_client_list_info(account.client_list_info, account_id, account.folder)
 
             # Store each application file
             for app_file in account.application_files:
@@ -781,8 +782,10 @@ class SupabaseClient:
         """Delete person info"""
         return self.client.delete_person_info(person_id)
 
-    def store_client_list_info(self, client_list_info: DropboxAccountClientListInfo, dropbox_account_id: int) -> Optional[int]:
+    def store_dropbox_client_list_info(self, client_list_info: DropboxAccountClientListInfo, dropbox_account_id: int, dropbox_account_folder_name: str = None) -> Optional[int]:
         """Store client list file data and return the client list info ID"""
+        folder_name = dropbox_account_folder_name or f"account_id_{dropbox_account_id}"
+        logger.info(f"Storing in database: dropbox client list data for account: {folder_name}, dropbox_account_id: {dropbox_account_id}")
         try:
             # Prepare client list data
             client_list_data = {
@@ -951,6 +954,7 @@ class SupabaseClient:
     # Salesforce Storage Methods
     def store_salesforce_account(self, account: SalesforceAccount) -> Optional[str]:
         """Store Salesforce account data and return the account ID"""
+        logger.info(f"Storing in database: salesforce account data for account: {account.salesforce_account_id}")
         try:
             account_data = account.model_dump()
             account_data = self._serialize_dates(account_data)

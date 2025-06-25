@@ -72,7 +72,7 @@ def test_client_list_storage():
         
         # Store client list info
         print("\n2. Storing client list info...")
-        client_list_id = client.store_client_list_info(test_client_list_info, account_id)
+        client_list_id = client.store_dropbox_client_list_info(test_client_list_info, account_id)
         if client_list_id:
             print(f"✅ Client list info stored with ID: {client_list_id}")
         else:

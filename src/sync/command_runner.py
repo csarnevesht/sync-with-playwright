@@ -708,7 +708,7 @@ class CommandRunner:
             
             # Check if data already exists in Supabase
             try:
-                logger.info(f"*** Checking if data already exists in Supabase for folder: {dropbox_account_folder_name}")
+                self.logger.info(f"*** Checking if data already exists in Supabase for folder: {dropbox_account_folder_name}")
                 from supabase_client import SupabaseClient
                 supabase_client = SupabaseClient()
                 data_exists = supabase_client.check_application_files_exist(dropbox_account_folder_name)
@@ -1390,50 +1390,8 @@ class CommandRunner:
                 }
                 dropbox_account_information['accounts'].append(client_list_account)
                 
-                # Store client list data in database if we have a Supabase client
-                try:
-                    supabase_client = self.get_context('supabase_client')
-                    if supabase_client and account_data:
-                        from supabase_client.schema import DropboxAccountClientListInfo
-                        from datetime import datetime
-                        
-                        # Convert birthdate string to date if available
-                        birthdate = None
-                        if account_data.get('birthdate'):
-                            try:
-                                birthdate = datetime.strptime(account_data['birthdate'], '%Y-%m-%d').date()
-                            except:
-                                pass
-                        
-                        client_list_info = DropboxAccountClientListInfo(
-                            account_name=account_data.get('name', ''),
-                            first_name=account_data.get('first_name', ''),
-                            middle_name=account_data.get('middle_name', ''),
-                            last_name=account_data.get('last_name', ''),
-                            birthdate=birthdate,
-                            gender=account_data.get('gender', ''),
-                            phone=account_data.get('phone', ''),
-                            address=account_data.get('address', ''),
-                            city=account_data.get('city', ''),
-                            state=account_data.get('state', ''),
-                            zip_code=account_data.get('zip', ''),
-                            email=account_data.get('email', ''),
-                            additional_info=account_data.get('additional_info', ''),
-                            match_status=match_info.get('match_status', ''),
-                            drivers_license_data=client_list_file_data.get('drivers_license', {}),
-                            search_info=search_info
-                        )
-                        
-                        # Get the dropbox account ID
-                        account_response = supabase_client.client.table('dropbox_accounts').select('id').eq('folder', dropbox_account_folder_name).execute()
-                        if account_response.data and len(account_response.data) > 0:
-                            account_id = account_response.data[0]['id']
-                            supabase_client.store_client_list_info(client_list_info, account_id)
-                            self.logger.info(f"Stored client list data for account: {dropbox_account_folder_name}")
-                        else:
-                            self.logger.warning(f"No dropbox account found for folder: {dropbox_account_folder_name}")
-                except Exception as e:
-                    self.logger.warning(f"Could not store client list data in database: {e}")
+                # Note: Client list data storage is now handled immediately after Dropbox search
+                # in the main processing loop, so it's not duplicated here
         
         # Get application files data
         try:
@@ -1880,6 +1838,74 @@ class CommandRunner:
             self.report_logger.error(f"\n{error_msg}")
             if not self.args.continue_on_error:
                 raise
+
+    def _store_client_list_data_in_database(self, dropbox_account_search_result: Dict[str, Any], dropbox_account_folder_name: str) -> bool:
+        """
+        Store client list data in the database for a Dropbox account.
+        Returns True if successful, False otherwise.
+        """
+        self.logger.info(f"Storing in database: dropbox client list data for account: {dropbox_account_folder_name}")
+        try:
+            # Get or create Supabase client
+            try:
+                supabase_client = self.get_context('supabase_client')
+            except KeyError:
+                from supabase_client import SupabaseClient
+                supabase_client = SupabaseClient()
+                self.set_context('supabase_client', supabase_client)
+            
+            if not supabase_client:
+                self.logger.warning("No Supabase client available for storing client list data")
+                return False
+            
+            from supabase_client.schema import DropboxAccountClientListInfo
+            from datetime import datetime
+            
+            account_data = dropbox_account_search_result['account_data']
+            search_info = dropbox_account_search_result.get('search_info', {})
+            match_info = search_info.get('match_info', {})
+            
+            # Convert birthdate string to date if available
+            birthdate = None
+            if account_data.get('birthdate'):
+                try:
+                    birthdate = datetime.strptime(account_data['birthdate'], '%Y-%m-%d').date()
+                except:
+                    pass
+            
+            # Create client list info object
+            client_list_info = DropboxAccountClientListInfo(
+                account_name=account_data.get('name', ''),
+                first_name=account_data.get('first_name', ''),
+                middle_name=account_data.get('middle_name', ''),
+                last_name=account_data.get('last_name', ''),
+                birthdate=birthdate,
+                gender=account_data.get('gender', ''),
+                phone=account_data.get('phone', ''),
+                address=account_data.get('address', ''),
+                city=account_data.get('city', ''),
+                state=account_data.get('state', ''),
+                zip_code=account_data.get('zip', ''),
+                email=account_data.get('email', ''),
+                additional_info=account_data.get('additional_info', ''),
+                match_status=match_info.get('match_status', ''),
+                drivers_license_data=dropbox_account_search_result.get('drivers_license', {}),
+                search_info=search_info
+            )
+            
+            # Get the dropbox account ID and store the data
+            account_response = supabase_client.client.table('dropbox_accounts').select('id').eq('folder', dropbox_account_folder_name).execute()
+            if account_response.data and len(account_response.data) > 0:
+                account_id = account_response.data[0]['id']
+                supabase_client.store_dropbox_client_list_info(client_list_info, account_id, dropbox_account_folder_name)
+                self.logger.info(f"Stored client list data for account: {dropbox_account_folder_name}")
+                return True
+            else:
+                self.logger.warning(f"No dropbox account found for folder: {dropbox_account_folder_name}")
+                return False
+        except Exception as e:
+            self.logger.warning(f"Could not store client list data in database: {e}")
+            return False
 
     def _search_supabase(self) -> None:
         """Search for account information in Supabase database.
