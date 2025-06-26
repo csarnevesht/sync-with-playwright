@@ -163,7 +163,23 @@ def extract_name_parts(name: str, log: bool = False) -> Dict[str, Any]:
             result['expected_salesforce_matches'] = expected_salesforce_matches
             if log:
                 logger.info(f"Applied special case rules: {rules}")
-            # Don't return early, continue with name normalization
+            
+            # If we have valid first and last names from special case, skip normal parsing
+            if result.get('first_name') and result.get('last_name'):
+                if log:
+                    logger.info(f"Special case provided valid names, skipping normal parsing")
+                # Generate normalized names based on special case names
+                normalized_names.extend([
+                    f"{result['last_name']}, {result['first_name']}",
+                    f"{result['last_name']},{result['first_name']}",
+                    f"{result['first_name']} {result['last_name']}"
+                ])
+                result['normalized_names'] = normalized_names
+                result['swapped_names'] = [
+                    f"{result['first_name']} {result['last_name']}",
+                    f"{result['last_name']} {result['first_name']}"
+                ]
+                return result
     # --- END FIX ---
 
     # Check for parentheses for additional info
@@ -194,7 +210,23 @@ def extract_name_parts(name: str, log: bool = False) -> Dict[str, Any]:
                 result['expected_salesforce_matches'] = expected_salesforce_matches
                 if log:
                     logger.info(f"Applied special case rules: {rules}")
-                # Don't return early, continue with name normalization
+                
+                # If we have valid first and last names from special case, skip normal parsing
+                if result.get('first_name') and result.get('last_name'):
+                    if log:
+                        logger.info(f"Special case provided valid names, skipping normal parsing")
+                    # Generate normalized names based on special case names
+                    normalized_names.extend([
+                        f"{result['last_name']}, {result['first_name']}",
+                        f"{result['last_name']},{result['first_name']}",
+                        f"{result['first_name']} {result['last_name']}"
+                    ])
+                    result['normalized_names'] = normalized_names
+                    result['swapped_names'] = [
+                        f"{result['first_name']} {result['last_name']}",
+                        f"{result['last_name']} {result['first_name']}"
+                    ]
+                    return result
 
     # Remove any text in parentheses and clean up
     name = re.sub(r'\([^)]*\)', '', name).strip()

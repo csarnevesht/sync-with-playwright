@@ -18,11 +18,12 @@ import re
 import fnmatch
 import time
 
-from sync.dropbox_client.utils.dropbox_utils import get_renamed_path, list_dropbox_folder_contents, build_dropbox_account_information
+from sync.dropbox_client.utils.dropbox_utils import get_renamed_path, list_dropbox_folder_contents, build_dropbox_account_information, DropboxClient
 from sync.dropbox_client.utils.file_utils import log_renamed_file
 from sync.dropbox_client.utils.logging_utils import log_dropbox_app_file_info, log_dropbox_account_app_files_info, log_app_files_notes_summary, log_app_files_processing_summary
 from sync.salesforce_client.utils.logging_utils import log_salesforce_account_information
 from sync.salesforce_client.utils.file_upload import upload_account_file, upload_account_file_with_retries
+from sync.utils.name_utils import extract_name_parts
 
 class CommandRunner:
     """Handles execution of sync commands between Dropbox and Salesforce."""
@@ -1682,6 +1683,8 @@ class CommandRunner:
             if success:
                 self.logger.info("✅ Successfully completed store-in-supabase operation")
                 self.report_logger.info("\n✅ Successfully completed store-in-supabase operation")
+                # Note: Client list info is already handled in the main pipeline flow in cmd_runner.py
+                # No need to re-extract or re-store it here during force mode
             else:
                 error_msg = "❌ Failed to store application files data in Supabase"
                 self.logger.error(error_msg)
