@@ -375,28 +375,20 @@ class SupabaseClient:
             return None
 
     def store_dropbox_account_with_files(self, account: DropboxAccountWithFiles, force: bool = False, update_existing: bool = True) -> Optional[int]:
-        """Store dropbox account and its application files. 
-        
-        Args:
-            account: The DropboxAccountWithFiles object containing account and file data
-            force: If True, delete existing account and re-insert (overwrites all data)
-            update_existing: If True, update existing account fields instead of only inserting new ones
-        
-        Returns:
-            The account ID if successful, None otherwise
-        """
-        logger.info(f"Store in database: dropbox account with files for account: {account.folder}")
-        logger.info(f"Force mode: {force}, Update existing: {update_existing}")
-        
+        """Store a dropbox account with its application files and client list info"""
         try:
-            # First check if the account already exists using the same approach as search script
-            # Get all accounts and filter manually to avoid issues with special characters in folder names
-            all_accounts_response = self.client.table('dropbox_accounts').select('*').execute()
+            logger.info(f"Store in database: dropbox account with files for account: {account.folder}")
+            logger.info(f"Force mode: {force}, Update existing: {update_existing}")
+            
+            # Check if account already exists
             account_id = None
             account_exists = False
             
+            # Get all dropbox accounts and filter manually to handle special characters
+            all_accounts_response = self.client.table('dropbox_accounts').select('*').execute()
+            
             if all_accounts_response.data:
-                # Filter results manually for exact matching (like the search script does)
+                # Find the account with matching folder name
                 matching_accounts = [acc for acc in all_accounts_response.data 
                                    if acc.get('folder') == account.folder]
                 
@@ -408,14 +400,6 @@ class SupabaseClient:
                     logger.info(f"No existing account found for folder: {account.folder}")
             else:
                 logger.info(f"No accounts found in database")
-            
-            if account_exists and force:
-                logger.info(f"Force flag is set. Deleting account ID: {account_id} and all related files before re-inserting.")
-                self.delete_application_files_for_folder(account.folder)
-                self.delete_client_list_info_for_folder(account.folder)
-                self.client.table('dropbox_accounts').delete().eq('id', account_id).execute()
-                account_id = None
-                account_exists = False
             
             # Prepare account data
             account_data = {
@@ -430,31 +414,73 @@ class SupabaseClient:
             }
             account_data = self._serialize_dates(account_data)
 
-            # Always update if exists, insert if not
-            if account_exists and update_existing:
-                logger.info(f"Updating existing account ID: {account_id} with data: {account_data}")
-                update_response = self.client.table('dropbox_accounts').update(account_data).eq('id', account_id).execute()
-                logger.info(f"Update response: {getattr(update_response, 'data', None)} | Error: {getattr(update_response, 'error', None)}")
-                if not update_response.data:
-                    logger.warning(f"Update succeeded but no data returned for account ID: {account_id}")
-            elif not account_exists:
-                logger.info(f"Inserting new dropbox account: {account_data}")
-                response = self.client.table('dropbox_accounts').insert(account_data).execute()
-                logger.info(f"Insert response: {getattr(response, 'data', None)} | Error: {getattr(response, 'error', None)}")
-                if response.data and len(response.data) > 0:
-                    account_id = response.data[0]['id']
-                    logger.info(f"Created new account ID: {account_id}")
-                else:
-                    logger.info("Insert succeeded but no data returned, querying for new record...")
-                    new_account_response = self.client.table('dropbox_accounts').select('id').eq('folder', account.folder).execute()
-                    if new_account_response.data and len(new_account_response.data) > 0:
-                        account_id = new_account_response.data[0]['id']
-                        logger.info(f"Found newly created account ID: {account_id}")
+            # Use upsert approach for force mode to avoid 409 conflicts
+            if force:
+                logger.info(f"Force mode: Using upsert approach for folder: {account.folder}")
+                try:
+                    # First, try to delete any existing related data (files and client list)
+                    self.delete_application_files_for_folder(account.folder)
+                    self.delete_client_list_info_for_folder(account.folder)
+                    
+                    # Try upsert if available, otherwise fallback to update/insert
+                    table_obj = self.client.table('dropbox_accounts')
+                    if hasattr(table_obj, 'upsert'):
+                        logger.info(f"Upserting dropbox account with force mode: {account_data}")
+                        response = table_obj.upsert(account_data, on_conflict='folder').execute()
+                        logger.info(f"Force upsert response: {getattr(response, 'data', None)} | Error: {getattr(response, 'error', None)}")
                     else:
-                        logger.error(f"Failed to insert dropbox account: Could not find newly created record")
+                        if account_exists:
+                            logger.info(f"Updating existing account ID: {account_id} with data: {account_data}")
+                            response = table_obj.update(account_data).eq('id', account_id).execute()
+                            logger.info(f"Force update response: {getattr(response, 'data', None)} | Error: {getattr(response, 'error', None)}")
+                        else:
+                            logger.info(f"Inserting new dropbox account with force mode: {account_data}")
+                            response = table_obj.insert(account_data).execute()
+                            logger.info(f"Force insert response: {getattr(response, 'data', None)} | Error: {getattr(response, 'error', None)}")
+                    
+                    if response.data and len(response.data) > 0:
+                        account_id = response.data[0]['id']
+                        logger.info(f"Upserted/updated/inserted account ID: {account_id}")
+                    elif hasattr(response, 'error') and response.error:
+                        logger.error(f"Failed to upsert/update/insert dropbox account in force mode: {response.error}")
                         return None
+                    else:
+                        # For updates, empty response data is normal - use the existing account_id
+                        if account_exists:
+                            logger.info(f"Update completed successfully for account ID: {account_id}")
+                        else:
+                            logger.error(f"Failed to upsert/update/insert dropbox account in force mode - no data returned")
+                            return None
+                        
+                except Exception as e:
+                    logger.error(f"Error in force mode upsert fallback: {e}")
+                    return None
             else:
-                logger.info(f"Using existing account ID: {account_id} for folder: {account.folder} (no updates)")
+                # Regular update/insert logic for non-force mode
+                if account_exists and update_existing:
+                    logger.info(f"Updating existing account ID: {account_id} with data: {account_data}")
+                    update_response = self.client.table('dropbox_accounts').update(account_data).eq('id', account_id).execute()
+                    logger.info(f"Update response: {getattr(update_response, 'data', None)} | Error: {getattr(update_response, 'error', None)}")
+                    if not update_response.data:
+                        logger.warning(f"Update succeeded but no data returned for account ID: {account_id}")
+                elif not account_exists:
+                    logger.info(f"Inserting new dropbox account: {account_data}")
+                    response = self.client.table('dropbox_accounts').insert(account_data).execute()
+                    logger.info(f"Insert response: {getattr(response, 'data', None)} | Error: {getattr(response, 'error', None)}")
+                    if response.data and len(response.data) > 0:
+                        account_id = response.data[0]['id']
+                        logger.info(f"Created new account ID: {account_id}")
+                    else:
+                        logger.info("Insert succeeded but no data returned, querying for new record...")
+                        new_account_response = self.client.table('dropbox_accounts').select('id').eq('folder', account.folder).execute()
+                        if new_account_response.data and len(new_account_response.data) > 0:
+                            account_id = new_account_response.data[0]['id']
+                            logger.info(f"Found newly created account ID: {account_id}")
+                        else:
+                            logger.error(f"Failed to insert dropbox account: Could not find newly created record")
+                            return None
+                else:
+                    logger.info(f"Using existing account ID: {account_id} for folder: {account.folder} (no updates)")
 
             # Store client list info if available
             try:
