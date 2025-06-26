@@ -1,18 +1,5 @@
 #!/usr/bin/env python3
 """
-
-import warnings
-
-def deprecated_warning():
-    warnings.warn(
-        "This script is deprecated. Use 'python database/scripts/apply_simplified_schema.py' instead.",
-        DeprecationWarning,
-        stacklevel=2
-    )
-
-# Add deprecation warning
-deprecated_warning()
-
 Script to create the complete account schema with all tables
 """
 
@@ -34,7 +21,7 @@ def create_complete_schema():
         client = SupabaseClient()
         
         # Read the complete schema SQL file
-        schema_file = Path(__file__).parent.parent / 'schema' / 'create_complete_account_simplified_schema.sql'
+        schema_file = Path(__file__).parent.parent / 'schema' / 'create_complete_account_schema.sql'
         
         if not schema_file.exists():
             print(f"❌ Schema file not found: {schema_file}")

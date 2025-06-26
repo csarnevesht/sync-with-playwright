@@ -20,4 +20,7 @@ clear && python -m sync.cmd_runner  --dropbox-accounts --dropbox-account-info --
 clear && python -m sync.cmd_runner  --dropbox-accounts --dropbox-account-info --salesforce-accounts --salesforce-account-info  --continue-on-error --keep --force-store-salesforce-info --dropbox-account-name="Arana, Ada son Luis Arana" 
 
 # Process Dropbox data, store 'Arana, Ada son Luis Arana'
-clear && python -m sync.cmd_runner  --dropbox-accounts --dropbox-account-info --continue-on-error --keep --force-store-dropbox-info --dropbox-account-name="Arana, Ada son Luis Arana" 
+clear && python -m sync.cmd_runner  --dropbox-accounts --dropbox-account-info --continue-on-error --keep --commands=extract-dropbox-account-app-files-info,store-in-supabase,analyze-account-data --dropbox-account-name="Arana, Ada son Luis Arana" 
+
+# store dropbox account info from log app files
+clear && python -m src.sync.commands.process_log_app_files --log-dir logs/2025-06-25_02-26-00  2>&1 | tee logs/process_log_app_files.log

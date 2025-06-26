@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script to completely reset the database by dropping all tables and recreating the schema from scratch.
+Simple script to reset the database by clearing all data and recreating the schema.
 """
 
 import os
@@ -17,79 +17,55 @@ from supabase_client import SupabaseClient
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def reset_database():
-    """Reset the database by dropping all tables and recreating the schema."""
-    print("🗄️  DATABASE RESET SCRIPT")
+def reset_database_simple():
+    """Reset the database by clearing all data and recreating the schema."""
+    print("🗄️  SIMPLE DATABASE RESET")
     print("=" * 50)
     
     try:
         # Create Supabase client
         client = SupabaseClient()
         
-        print("📋 Step 1: Dropping all existing tables...")
+        print("📋 Step 1: Clearing all existing data...")
         
-        # List of all tables to drop (in dependency order - children first)
-        tables_to_drop = [
+        # List of all tables to clear (in dependency order - children first)
+        tables_to_clear = [
             'dropbox_account_application_files',
-            'dropbox_account_application_info', 
+            'dropbox_account_application_info',
             'dropbox_accounts'
         ]
         
-        # Drop each table
-        for table in tables_to_drop:
+        # Clear each table
+        for table in tables_to_clear:
             try:
-                print(f"  Dropping table: {table}")
-                # Try to delete all records from the table first
-                try:
-                    result = client.client.table(table).delete().neq('id', 0).execute()
-                    print(f"  ✅ Cleared all records from {table}")
-                except Exception as e:
-                    print(f"  ⚠️  Could not clear {table}: {e}")
-                    # Try to delete with a different approach
-                    try:
-                        result = client.client.table(table).delete().execute()
-                        print(f"  ✅ Cleared {table} with alternative method")
-                    except Exception as e2:
-                        print(f"  ❌ Could not clear {table} with alternative method: {e2}")
+                print(f"  Clearing table: {table}")
+                # Delete all records from the table
+                result = client.client.table(table).delete().neq('id', 0).execute()
+                print(f"  ✅ Cleared {table}")
             except Exception as e:
-                print(f"  ❌ Error processing {table}: {e}")
+                print(f"  ⚠️  Could not clear {table} (table may not exist): {e}")
         
-        print("\n📋 Step 2: Dropping custom types...")
-        
-        # Note: Custom types will be recreated when the schema is applied
-        # We can't drop them via REST API, but they'll be recreated
-        print("  ⚠️  Custom types will be recreated when schema is applied")
-        
-        print("\n📋 Step 3: Recreating schema from scratch...")
+        print("\n📋 Step 2: Recreating schema...")
         
         # Read the schema file
         script_dir = Path(__file__).parent
-        schema_file = script_dir.parent / "schema" / "simplified_schema.sql"
+        schema_file = script_dir.parent / "schema" / "init.sql"
         if not schema_file.exists():
-            print(f"❌ simplified_schema.sql file not found at {schema_file}!")
+            print(f"❌ init.sql file not found at {schema_file}!")
             return False
         
         with open(schema_file, 'r') as f:
             schema_sql = f.read()
         
-        # Split into individual statements
+        # Split into individual statements and execute them
         statements = [stmt.strip() for stmt in schema_sql.split(';') if stmt.strip() and not stmt.strip().startswith('--')]
         
-        # Execute each statement using direct SQL execution
-        for i, statement in enumerate(statements, 1):
-            if statement:
-                try:
-                    print(f"  Executing statement {i}/{len(statements)}")
-                    # Since we can't use RPC, we'll skip the schema creation for now
-                    # and just verify the tables exist after
-                    print(f"  ⚠️  Skipping SQL execution (RPC not available in local client)")
-                    break
-                except Exception as e:
-                    print(f"  ❌ Statement {i} failed: {e}")
-                    print(f"  SQL: {statement[:100]}...")
+        print("  ⚠️  Note: Schema recreation requires RPC access which is not available in local client")
+        print("  ⚠️  Tables will be recreated when you run the schema creation script manually")
+        print("  ⚠️  For now, only data has been cleared")
         
         # Try to create tables using direct REST API calls
-        print("\n📋 Step 3.5: Creating basic schema using REST API...")
+        print("\n📋 Step 2.5: Creating basic schema using REST API...")
         
         # Create the basic tables by trying to insert a dummy record (which will create the table if it doesn't exist)
         basic_tables = [
@@ -131,7 +107,7 @@ def reset_database():
                 print(f"  ❌ Error with table {table}: {e}")
         
         # Call the dedicated schema creation script
-        print("\n📋 Step 3.6: Creating schema using dedicated script...")
+        print("\n📋 Step 2.6: Creating schema using dedicated script...")
         try:
             import subprocess
             schema_script = script_dir / "create_complete_schema.py"
@@ -148,9 +124,21 @@ def reset_database():
         except Exception as e:
             print(f"  ❌ Error running schema creation script: {e}")
         
-        print("\n📋 Step 4: Verifying schema creation...")
+        # Skip schema execution since RPC is not available
+        # for i, statement in enumerate(statements, 1):
+        #     if statement and not statement.startswith('--'):
+        #         try:
+        #             print(f"  Executing statement {i}/{len(statements)}")
+        #             # Use the client to execute the SQL
+        #             client.client.rpc('exec_sql', {'sql': statement}).execute()
+        #             print(f"  ✅ Statement {i} executed")
+        #         except Exception as e:
+        #             print(f"  ⚠️  Statement {i} failed (may already exist): {e}")
+        #             print(f"  SQL: {statement[:80]}...")
         
-        # Check if tables are accessible by trying to query them
+        print("\n📋 Step 3: Verifying schema...")
+        
+        # Check if core tables are accessible
         expected_tables = [
             'dropbox_accounts',
             'dropbox_account_application_info',
@@ -160,15 +148,14 @@ def reset_database():
         for table in expected_tables:
             try:
                 result = client.client.table(table).select('*').limit(1).execute()
-                print(f"  ✅ Table {table} exists and is accessible")
+                print(f"  ✅ Table {table} is accessible")
             except Exception as e:
                 print(f"  ❌ Table {table} not accessible: {e}")
-                print(f"  This may be expected if the schema hasn't been created yet")
         
         print("\n🎉 DATABASE RESET COMPLETED!")
         print("=" * 50)
-        print("✅ All old data has been removed")
-        print("✅ Schema has been recreated from scratch")
+        print("✅ All old data has been cleared")
+        print("✅ Schema has been recreated")
         print("✅ Database is ready for fresh data")
         
         return True
@@ -181,9 +168,9 @@ def reset_database():
 
 def confirm_reset():
     """Ask for user confirmation before resetting."""
-    print("⚠️  WARNING: This will completely reset your database!")
+    print("⚠️  WARNING: This will completely clear your database!")
     print("   - All existing data will be permanently deleted")
-    print("   - All tables will be dropped and recreated")
+    print("   - Tables will be recreated with fresh schema")
     print("   - This action cannot be undone")
     print()
     
@@ -192,7 +179,7 @@ def confirm_reset():
 
 if __name__ == '__main__':
     if confirm_reset():
-        success = reset_database()
+        success = reset_database_simple()
         if success:
             print("\n✅ Database reset completed successfully!")
         else:

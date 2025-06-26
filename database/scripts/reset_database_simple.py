@@ -49,9 +49,9 @@ def reset_database_simple():
         
         # Read the schema file
         script_dir = Path(__file__).parent
-        schema_file = script_dir.parent / "schema" / "init.sql"
+        schema_file = script_dir.parent / "schema" / "simplified_schema.sql"
         if not schema_file.exists():
-            print(f"❌ init.sql file not found at {schema_file}!")
+            print(f"❌ simplified_schema.sql file not found at {schema_file}!")
             return False
         
         with open(schema_file, 'r') as f:

@@ -1,18 +1,5 @@
 #!/usr/bin/env python3
 """
-
-import warnings
-
-def deprecated_warning():
-    warnings.warn(
-        "This script is deprecated. Use 'python database/scripts/apply_simplified_schema.py' instead.",
-        DeprecationWarning,
-        stacklevel=2
-    )
-
-# Add deprecation warning
-deprecated_warning()
-
 Script to create new tables via REST API calls
 """
 

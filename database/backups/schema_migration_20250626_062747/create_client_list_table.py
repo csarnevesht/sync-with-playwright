@@ -1,18 +1,5 @@
 #!/usr/bin/env python3
 """
-
-import warnings
-
-def deprecated_warning():
-    warnings.warn(
-        "This script is deprecated. Use 'python database/scripts/apply_simplified_schema.py' instead.",
-        DeprecationWarning,
-        stacklevel=2
-    )
-
-# Add deprecation warning
-deprecated_warning()
-
 Script to create the client list table in the database.
 """
 
@@ -34,7 +21,7 @@ def create_client_list_table():
         client = SupabaseClient()
         
         # Read the SQL file
-        sql_file = Path(__file__).parent.parent / "schema" / "simplified_schema.sql"
+        sql_file = Path(__file__).parent.parent / "schema" / "create_client_list_table.sql"
         if not sql_file.exists():
             print(f"❌ SQL file not found: {sql_file}")
             return False

@@ -30,7 +30,7 @@ DROP TYPE IF EXISTS application_type CASCADE;
 
 ## Step 4: Recreate Schema
 
-Copy and paste the entire contents of `simplified_schema.sql` into the SQL editor and execute it.
+Copy and paste the entire contents of `schema.sql` into the SQL editor and execute it.
 
 ## Step 5: Verify
 

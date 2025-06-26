@@ -21,9 +21,9 @@ This folder contains all database-related files, scripts, and utilities for the 
 - **`generate_schema_diagram.py`** - Generate updated schema diagram
 
 ### `/schema/` - Database Schema Files
-- **`simplified_schema.sql`** - Main database schema definition (updated - legacy tables removed)
-- **`simplified_schema.sql`** - SQL to create new tables
-- **`simplified_schema.sql`** - Initial database setup script (updated - legacy tables removed)
+- **`schema.sql`** - Main database schema definition (updated - legacy tables removed)
+- **`create_new_tables.sql`** - SQL to create new tables
+- **`init.sql`** - Initial database setup script (updated - legacy tables removed)
 
 ### `/diagrams/` - Database Visualizations
 - **`database_schema_diagram.html`** - Interactive database schema diagram (updated - legacy tables removed)
@@ -80,7 +80,7 @@ Follow instructions in `database/utils/manual_reset_instructions.md`
 - Check environment variables in `.env` file
 
 ### Schema Issues
-- Review `database/schema/simplified_schema.sql`
+- Review `database/schema/schema.sql`
 - Check `database/diagrams/database_schema_diagram.html`
 
 ### Data Issues
@@ -90,7 +90,7 @@ Follow instructions in `database/utils/manual_reset_instructions.md`
 
 ## 📊 Database Schema
 
-The main schema is defined in `database/schema/simplified_schema.sql` and includes:
+The main schema is defined in `database/schema/schema.sql` and includes:
 
 ### **Core Tables:**
 - **dropbox_accounts** - Dropbox account metadata and folder information
