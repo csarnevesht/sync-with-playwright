@@ -531,14 +531,25 @@ class SupabaseClient:
     def get_application_files_by_folder(self, folder_name: str) -> Optional[DropboxAccountWithFiles]:
         """Get all application files for a specific folder"""
         try:
-            # First get the dropbox account
-            account_response = self.client.table('dropbox_accounts').select('*').eq('folder', folder_name).execute()
+            # Get all dropbox accounts and filter manually to handle special characters
+            all_accounts_response = self.client.table('dropbox_accounts').select('*').execute()
             
-            if not account_response.data or len(account_response.data) == 0:
+            if not all_accounts_response.data:
+                logger.warning(f"No dropbox accounts found")
+                return None
+            
+            # Find the account with matching folder name
+            matching_account = None
+            for account in all_accounts_response.data:
+                if account['folder'] == folder_name:
+                    matching_account = account
+                    break
+            
+            if not matching_account:
                 logger.warning(f"No dropbox account found for folder: {folder_name}")
                 return None
             
-            account_data = account_response.data[0]
+            account_data = matching_account
             
             # Get application files for this account
             files_response = self.client.table('dropbox_account_application_files').select('*').eq('dropbox_account_id', account_data['id']).execute()
@@ -640,13 +651,23 @@ class SupabaseClient:
     def check_application_file_exists(self, folder_name: str, file_name: str) -> bool:
         """Check if a specific application file already exists for a folder"""
         try:
-            # Get the dropbox account
-            account_response = self.client.table('dropbox_accounts').select('id').eq('folder', folder_name).execute()
+            # Get all dropbox accounts and filter manually to handle special characters
+            all_accounts_response = self.client.table('dropbox_accounts').select('*').execute()
             
-            if not account_response.data or len(account_response.data) == 0:
+            if not all_accounts_response.data:
                 return False
             
-            account_id = account_response.data[0]['id']
+            # Find the account with matching folder name
+            matching_account = None
+            for account in all_accounts_response.data:
+                if account['folder'] == folder_name:
+                    matching_account = account
+                    break
+            
+            if not matching_account:
+                return False
+            
+            account_id = matching_account['id']
             
             # Check if the specific file exists
             files_response = self.client.table('dropbox_account_application_files').select('id').eq('dropbox_account_id', account_id).eq('file_name', file_name).execute()
@@ -660,13 +681,23 @@ class SupabaseClient:
     def check_application_files_exist(self, folder_name: str) -> bool:
         """Check if application files exist for a folder"""
         try:
-            # Get the dropbox account
-            account_response = self.client.table('dropbox_accounts').select('id').eq('folder', folder_name).execute()
+            # Get all dropbox accounts and filter manually to handle special characters
+            all_accounts_response = self.client.table('dropbox_accounts').select('*').execute()
             
-            if not account_response.data or len(account_response.data) == 0:
+            if not all_accounts_response.data:
                 return False
             
-            account_id = account_response.data[0]['id']
+            # Find the account with matching folder name
+            matching_account = None
+            for account in all_accounts_response.data:
+                if account['folder'] == folder_name:
+                    matching_account = account
+                    break
+            
+            if not matching_account:
+                return False
+            
+            account_id = matching_account['id']
             
             # Check if there are any application files
             files_response = self.client.table('dropbox_account_application_files').select('id').eq('dropbox_account_id', account_id).execute()
@@ -680,14 +711,25 @@ class SupabaseClient:
     def delete_application_files_for_folder(self, folder_name: str) -> bool:
         """Delete all application files for a specific folder"""
         try:
-            # Get the dropbox account
-            account_response = self.client.table('dropbox_accounts').select('id').eq('folder', folder_name).execute()
+            # Get all dropbox accounts and filter manually to handle special characters
+            all_accounts_response = self.client.table('dropbox_accounts').select('*').execute()
             
-            if not account_response.data or len(account_response.data) == 0:
+            if not all_accounts_response.data:
+                logger.warning(f"No dropbox accounts found")
+                return False
+            
+            # Find the account with matching folder name
+            matching_account = None
+            for account in all_accounts_response.data:
+                if account['folder'] == folder_name:
+                    matching_account = account
+                    break
+            
+            if not matching_account:
                 logger.warning(f"No dropbox account found for folder: {folder_name}")
                 return False
             
-            account_id = account_response.data[0]['id']
+            account_id = matching_account['id']
             
             # Get all application files for this account to find person IDs
             files_response = self.client.table('dropbox_account_application_files').select('owner_id,joint_owner_id').eq('dropbox_account_id', account_id).execute()
@@ -949,14 +991,25 @@ class SupabaseClient:
     def get_client_list_info_by_folder(self, folder_name: str) -> Optional[DropboxAccountClientListInfo]:
         """Get client list info for a specific folder"""
         try:
-            # First get the dropbox account
-            account_response = self.client.table('dropbox_accounts').select('id').eq('folder', folder_name).execute()
+            # Get all dropbox accounts and filter manually to handle special characters
+            all_accounts_response = self.client.table('dropbox_accounts').select('*').execute()
             
-            if not account_response.data or len(account_response.data) == 0:
+            if not all_accounts_response.data:
+                logger.warning(f"No dropbox accounts found")
+                return None
+            
+            # Find the account with matching folder name
+            matching_account = None
+            for account in all_accounts_response.data:
+                if account['folder'] == folder_name:
+                    matching_account = account
+                    break
+            
+            if not matching_account:
                 logger.warning(f"No dropbox account found for folder: {folder_name}")
                 return None
             
-            account_id = account_response.data[0]['id']
+            account_id = matching_account['id']
             
             # Get client list info for this account
             client_list_response = self.client.table('dropbox_account_client_list_info').select('*').eq('dropbox_account_id', account_id).execute()
@@ -1004,14 +1057,25 @@ class SupabaseClient:
     def delete_client_list_info_for_folder(self, folder_name: str) -> bool:
         """Delete client list info for a specific folder"""
         try:
-            # Get the dropbox account
-            account_response = self.client.table('dropbox_accounts').select('id').eq('folder', folder_name).execute()
+            # Get all dropbox accounts and filter manually to handle special characters
+            all_accounts_response = self.client.table('dropbox_accounts').select('*').execute()
             
-            if not account_response.data or len(account_response.data) == 0:
+            if not all_accounts_response.data:
+                logger.warning(f"No dropbox accounts found")
+                return False
+            
+            # Find the account with matching folder name
+            matching_account = None
+            for account in all_accounts_response.data:
+                if account['folder'] == folder_name:
+                    matching_account = account
+                    break
+            
+            if not matching_account:
                 logger.warning(f"No dropbox account found for folder: {folder_name}")
                 return False
             
-            account_id = account_response.data[0]['id']
+            account_id = matching_account['id']
             
             # Delete client list info
             self.client.table('dropbox_account_client_list_info').delete().eq('dropbox_account_id', account_id).execute()
@@ -1026,11 +1090,31 @@ class SupabaseClient:
     def update_salesforce_accounts_found_count(self, folder_name: str, count: int) -> bool:
         """Update the salesforce_accounts_found_count field for a dropbox account"""
         try:
+            # Get all dropbox accounts and filter manually to handle special characters
+            all_accounts_response = self.client.table('dropbox_accounts').select('*').execute()
+            
+            if not all_accounts_response.data:
+                logger.warning(f"No dropbox accounts found")
+                return False
+            
+            # Find the account with matching folder name
+            matching_account = None
+            for account in all_accounts_response.data:
+                if account['folder'] == folder_name:
+                    matching_account = account
+                    break
+            
+            if not matching_account:
+                logger.warning(f"No dropbox account found for folder: {folder_name}")
+                return False
+            
+            account_id = matching_account['id']
+            
             # Update the salesforce_accounts_found_count field
             update_result = self.client.table('dropbox_accounts').update({
                 'salesforce_accounts_found_count': count,
                 'updated_at': 'now()'
-            }).eq('folder', folder_name).execute()
+            }).eq('id', account_id).execute()
             
             if update_result.data and len(update_result.data) > 0:
                 logger.info(f"✅ Successfully updated salesforce_accounts_found_count for folder: {folder_name}")
@@ -1049,15 +1133,27 @@ class SupabaseClient:
     def get_salesforce_accounts_found_count(self, folder_name: str) -> Optional[int]:
         """Get the salesforce_accounts_found_count for a dropbox account"""
         try:
-            result = self.client.table('dropbox_accounts').select('salesforce_accounts_found_count').eq('folder', folder_name).execute()
+            # Get all dropbox accounts and filter manually to handle special characters
+            all_accounts_response = self.client.table('dropbox_accounts').select('*').execute()
             
-            if result.data and len(result.data) > 0:
-                count = result.data[0].get('salesforce_accounts_found_count')
-                logger.debug(f"Retrieved salesforce_accounts_found_count for folder {folder_name}: {count}")
-                return count
-            else:
+            if not all_accounts_response.data:
+                logger.warning(f"No dropbox accounts found")
+                return None
+            
+            # Find the account with matching folder name
+            matching_account = None
+            for account in all_accounts_response.data:
+                if account['folder'] == folder_name:
+                    matching_account = account
+                    break
+            
+            if not matching_account:
                 logger.warning(f"No dropbox account found for folder: {folder_name}")
                 return None
+            
+            count = matching_account.get('salesforce_accounts_found_count')
+            logger.debug(f"Retrieved salesforce_accounts_found_count for folder {folder_name}: {count}")
+            return count
                 
         except Exception as e:
             logger.error(f"Error getting salesforce_accounts_found_count: {e}")
