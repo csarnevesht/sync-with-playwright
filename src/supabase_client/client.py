@@ -2,7 +2,7 @@ import os
 from typing import Optional, List, Dict, Any
 from supabase import create_client, Client as SupabaseBaseClient
 from .schema import (
-    ApplicationStatus, DropboxAccountApplicationFile, DropboxAccountApplicationInfo,
+    ApplicationStatus, ApplicationType, DropboxAccountApplicationFile, DropboxAccountApplicationInfo,
     DropboxAccountWithFiles, DropboxAccountClientListInfo, DropboxAccountBestInfo, DropboxSalesforceMapping, 
     SyncStatus, AccountAnalysis, SalesforceAccount, SalesforceHousehold, SalesforceHouseholdMember
 )
@@ -322,8 +322,9 @@ class SupabaseClient:
             print(f"[ERROR] Exception in store_person_info: {e}")
             return None
 
-    def store_application_file(self, app_file: DropboxAccountApplicationFile, dropbox_account_id: int) -> Optional[int]:
+    def store_application_file(self, app_file: DropboxAccountApplicationFile, dropbox_account_id: int, folder_name: str = None) -> Optional[int]:
         """Store application file data and return the file ID"""
+        folder_info = f" in folder '{folder_name}'" if folder_name else ""
         try:
             # First store owner info if present
             owner_id = None
@@ -350,18 +351,27 @@ class SupabaseClient:
                 'dropbox_account_id': dropbox_account_id
             }
             file_data = self._serialize_dates(file_data)
-            print(f"[DEBUG] Inserting application file: {file_data}")
+            
             # Insert into the database
             response = self.client.table('dropbox_account_application_files').insert(file_data).execute()
-            print(f"[DEBUG] Insert response: {getattr(response, 'data', None)} | Error: {getattr(response, 'error', None)}")
+            
             if response.data and len(response.data) > 0:
                 return response.data[0]['id']
             else:
-                logger.warning("No data returned from application_files insert")
-                return None
+                # Insert succeeded but no data returned (common with local Supabase/PostgREST)
+                # Query for the newly created record to get its ID
+                logger.info(f"Insert succeeded but no data returned for file {app_file.file_name}{folder_info}, querying for new record...")
+                new_file_response = self.client.table('dropbox_account_application_files').select('id').eq('file_name', app_file.file_name).eq('dropbox_account_id', dropbox_account_id).limit(1).execute()
+                
+                if new_file_response.data and len(new_file_response.data) > 0:
+                    file_id = new_file_response.data[0]['id']
+                    logger.info(f"Found newly created application file with ID: {file_id}")
+                    return file_id
+                else:
+                    logger.warning(f"No data returned from application_files insert for file {app_file.file_name}{folder_info}")
+                    return None
         except Exception as e:
-            logger.error(f"Error storing application file: {str(e)}")
-            print(f"[ERROR] Exception in store_application_file: {e}")
+            logger.error(f"Error storing application file {app_file.file_name}{folder_info}: {str(e)}")
             return None
 
     def store_dropbox_account_with_files(self, account: DropboxAccountWithFiles, force: bool = False, update_existing: bool = True) -> Optional[int]:
@@ -457,11 +467,11 @@ class SupabaseClient:
             # Store each application file
             for app_file in account.application_files:
                 logger.info(f"Storing application file: {app_file.file_name} for account ID: {account_id}")
-                file_id = self.store_application_file(app_file, account_id)
+                file_id = self.store_application_file(app_file, account_id, account.folder)
                 if file_id:
                     logger.info(f"Successfully stored application file with ID: {file_id}")
                 else:
-                    logger.warning(f"Failed to store application file: {app_file.file_name}")
+                    logger.warning(f"Failed to store application file: {app_file.file_name} in folder '{account.folder}'")
             
             # Get client list info for this account
             client_list_info = self.get_client_list_info_by_folder(account.folder)
