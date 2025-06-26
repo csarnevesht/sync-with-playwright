@@ -611,14 +611,23 @@ class BaseProcessor(ABC):
                         name_part = re.sub(r'[mf]$', '', name_part, flags=re.IGNORECASE)
                         
                         # Split by multiple spaces (which were underscores in original)
+                        # If that doesn't work, try splitting by single space if we have a clear first/last name pattern
                         name_parts = re.split(r'\s{2,}', name_part)
                         if len(name_parts) >= 2:
                             first_name = re.sub(r'\s+', '', name_parts[0])  # Remove spaces between letters
                             last_name = re.sub(r'\s+', '', name_parts[1])   # Remove spaces between letters
                             name_part = f"{first_name} {last_name}"
                         else:
-                            # If no clear separation, just remove all spaces
-                            name_part = re.sub(r'\s+', '', name_part)
+                            # If no clear separation by multiple spaces, try to find a pattern like "A m p a r o C a l a ta y u d"
+                            # Look for a sequence of letters with spaces, then a single space, then "C" (start of last name)
+                            name_match = re.search(r'([A-Za-z\s]+)\sC([A-Za-z\s]+)', name_part)
+                            if name_match:
+                                first_part = re.sub(r'\s+', '', name_match.group(1))
+                                last_part = 'C' + re.sub(r'\s+', '', name_match.group(2))
+                                name_part = f"{first_part} {last_part}"
+                            else:
+                                # If no clear separation, just remove all spaces
+                                name_part = re.sub(r'\s+', '', name_part)
                         
                         # Only return if we have a reasonable name length
                         if len(name_part) >= 3:
