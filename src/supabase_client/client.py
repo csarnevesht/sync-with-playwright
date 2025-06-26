@@ -389,25 +389,34 @@ class SupabaseClient:
         logger.info(f"Force mode: {force}, Update existing: {update_existing}")
         
         try:
-            # First check if the account already exists
-            existing_account_response = self.client.table('dropbox_accounts').select('id').eq('folder', account.folder).execute()
+            # First check if the account already exists using the same approach as search script
+            # Get all accounts and filter manually to avoid issues with special characters in folder names
+            all_accounts_response = self.client.table('dropbox_accounts').select('*').execute()
             account_id = None
-            account_exists = existing_account_response.data and len(existing_account_response.data) > 0
+            account_exists = False
             
-            if account_exists:
-                account_id = existing_account_response.data[0]['id']
-                logger.info(f"Existing account found for folder: {account.folder}, ID: {account_id}")
+            if all_accounts_response.data:
+                # Filter results manually for exact matching (like the search script does)
+                matching_accounts = [acc for acc in all_accounts_response.data 
+                                   if acc.get('folder') == account.folder]
                 
-                if force:
-                    logger.info(f"Force flag is set. Deleting account ID: {account_id} and all related files before re-inserting.")
-                    self.delete_application_files_for_folder(account.folder)
-                    self.delete_client_list_info_for_folder(account.folder)
-                    self.client.table('dropbox_accounts').delete().eq('id', account_id).execute()
-                    account_id = None
-                    account_exists = False
+                if matching_accounts:
+                    account_id = matching_accounts[0]['id']
+                    account_exists = True
+                    logger.info(f"Existing account found for folder: {account.folder}, ID: {account_id}")
+                else:
+                    logger.info(f"No existing account found for folder: {account.folder}")
             else:
-                logger.info(f"No existing account found for folder: {account.folder}")
-
+                logger.info(f"No accounts found in database")
+            
+            if account_exists and force:
+                logger.info(f"Force flag is set. Deleting account ID: {account_id} and all related files before re-inserting.")
+                self.delete_application_files_for_folder(account.folder)
+                self.delete_client_list_info_for_folder(account.folder)
+                self.client.table('dropbox_accounts').delete().eq('id', account_id).execute()
+                account_id = None
+                account_exists = False
+            
             # Prepare account data
             account_data = {
                 'folder': account.folder,
@@ -448,27 +457,42 @@ class SupabaseClient:
                 logger.info(f"Using existing account ID: {account_id} for folder: {account.folder} (no updates)")
 
             # Store client list info if available
-            if account.client_list_info:
-                logger.info(f"Storing client list info for account ID: {account_id}")
-                client_list_id = self.store_dropbox_client_list_info(account.client_list_info, account_id, account.folder)
-                if client_list_id:
-                    logger.info(f"Successfully stored client list info with ID: {client_list_id}")
+            try:
+                if account.client_list_info:
+                    logger.info(f"Storing client list info for account ID: {account_id}")
+                    client_list_id = self.store_dropbox_client_list_info(account.client_list_info, account_id, account.folder)
+                    if client_list_id:
+                        logger.info(f"Successfully stored client list info with ID: {client_list_id}")
+                    else:
+                        logger.warning(f"Failed to store client list info for account ID: {account_id}")
                 else:
-                    logger.warning(f"Failed to store client list info for account ID: {account_id}")
-            else:
-                logger.info("No client list info available to store")
+                    logger.info("No client list info available to store")
+            except Exception as e:
+                logger.error(f"Exception in store_dropbox_client_list_info: {e}")
+                import traceback; logger.error(traceback.format_exc())
+                return None
 
             # Store each application file
-            for app_file in account.application_files:
-                logger.info(f"Storing application file: {app_file.file_name} for account ID: {account_id}")
-                file_id = self.store_application_file(app_file, account_id, account.folder)
-                if file_id:
-                    logger.info(f"Successfully stored application file with ID: {file_id}")
-                else:
-                    logger.warning(f"Failed to store application file: {app_file.file_name} in folder '{account.folder}'")
+            try:
+                for app_file in account.application_files:
+                    logger.info(f"Storing application file: {app_file.file_name} for account ID: {account_id}")
+                    file_id = self.store_application_file(app_file, account_id, account.folder)
+                    if file_id:
+                        logger.info(f"Successfully stored application file with ID: {file_id}")
+                    else:
+                        logger.warning(f"Failed to store application file: {app_file.file_name} in folder '{account.folder}'")
+            except Exception as e:
+                logger.error(f"Exception in store_application_file: {e}")
+                import traceback; logger.error(traceback.format_exc())
+                return None
             
             # Get client list info for this account
-            client_list_info = self.get_client_list_info_by_folder(account.folder)
+            try:
+                client_list_info = self.get_client_list_info_by_folder(account.folder)
+            except Exception as e:
+                logger.error(f"Exception in get_client_list_info_by_folder: {e}")
+                import traceback; logger.error(traceback.format_exc())
+                return None
             
             # Create the account with files
             account = DropboxAccountWithFiles(
@@ -485,13 +509,18 @@ class SupabaseClient:
             )
             
             # Calculate and store the best account information
-            logger.info(f"Calculating and storing best account info for account ID: {account_id}")
-            best_info_id = self.calculate_and_store_best_account_info(account_id, account.folder)
-            if best_info_id:
-                logger.info(f"Successfully stored best account info with ID: {best_info_id}")
-            else:
-                logger.warning(f"Failed to store best account info for account ID: {account_id}")
-            
+            try:
+                logger.info(f"Calculating and storing best account info for account ID: {account_id}")
+                best_info_id = self.calculate_and_store_best_account_info(account_id, account.folder)
+                if best_info_id:
+                    logger.info(f"Successfully stored best account info with ID: {best_info_id}")
+                else:
+                    logger.warning(f"Failed to store best account info for account ID: {account_id}")
+            except Exception as e:
+                logger.error(f"Exception in calculate_and_store_best_account_info: {e}")
+                import traceback; logger.error(traceback.format_exc())
+                return None
+
             return account_id
             
         except Exception as e:
