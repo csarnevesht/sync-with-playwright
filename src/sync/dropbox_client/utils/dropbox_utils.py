@@ -2422,3 +2422,417 @@ def refresh_access_token() -> str:
         logger.error(f"   Error type: {type(e).__name__}")
         logger.info("=== END REFRESH_ACCESS_TOKEN DEBUGGING ===")
         raise
+
+def build_dropbox_account_information(
+    dropbox_account_folder_name: str,
+    dropbox_account_info: Dict[str, Any] = None,
+    account_info_from_app_files: Dict[str, Any] = None,
+    app_files_extraction_summary: Dict[str, Any] = None,
+    logger: Any = None
+) -> Dict[str, Any]:
+    """
+    Build the dropbox account information structure from search results and other data sources.
+    
+    Args:
+        dropbox_account_folder_name: The name of the Dropbox account folder
+        dropbox_account_info: The result from dropbox search account (client list data)
+        account_info_from_app_files: Information extracted from application files
+        app_files_extraction_summary: Summary data from app file extraction
+        logger: Logger instance for logging (optional)
+        
+    Returns:
+        Dict containing the complete dropbox account information structure
+    """
+    if logger is None:
+        import logging
+        logger = logging.getLogger(__name__)
+    
+    # Initialize the structure
+    dropbox_account_information = {
+        'names_found': [dropbox_account_folder_name],
+        'client_list_data': None,
+        'application_data': None,
+        'accounts': []
+    }
+    
+    # Get client list file data
+    client_list_file_data = dropbox_account_info
+    
+    if client_list_file_data:
+        dropbox_account_information['client_list_data'] = client_list_file_data
+        # Create account object from client list file data
+        account_data = client_list_file_data.get('account_data', {})
+        search_info = client_list_file_data.get('search_info', {})
+        match_info = search_info.get('match_info', {})
+        if account_data:
+            # Add the actual name found in client list file to names_found
+            client_list_name = account_data.get('name', '')
+            if client_list_name and client_list_name not in dropbox_account_information['names_found']:
+                dropbox_account_information['names_found'].append(client_list_name)
+            
+            client_list_account = {
+                'account_name': dropbox_account_folder_name,
+                'source': 'dropbox_client_list',
+                'account_type': 'Primary',
+                'first_name': account_data.get('first_name', ''),
+                'middle_name': account_data.get('middle_name', ''),
+                'last_name': account_data.get('last_name', ''),
+                'birthdate': account_data.get('birthdate', ''),
+                'gender': account_data.get('gender', ''),
+                'phone': account_data.get('phone', ''),
+                'address': account_data.get('address', ''),
+                'email': account_data.get('email', ''),
+                'additional_info': account_data.get('additional_info', ''),
+                'match_status': match_info.get('match_status', ''),
+                'drivers_license': client_list_file_data.get('drivers_license')
+            }
+            dropbox_account_information['accounts'].append(client_list_account)
+    
+    # Get application files data
+    if not account_info_from_app_files:
+        # Try to get application files data from Supabase
+        try:
+            from supabase_client import SupabaseClient
+            supabase_client = SupabaseClient()
+            account = supabase_client.get_application_files_by_folder(dropbox_account_folder_name)
+            
+            if account and account.application_files:
+                logger.info(f"Retrieved {len(account.application_files)} application files from Supabase for analysis")
+                
+                # Convert Supabase data to the expected format
+                converted_summary_data = _convert_supabase_data_to_summary_format(account)
+                
+                # Dynamically select the folder path from all_folder_app_files
+                all_folder_app_files = converted_summary_data.get('all_folder_app_files', {})
+                folder_path = None
+                if all_folder_app_files:
+                    folder_paths = list(all_folder_app_files.keys())
+                    if len(folder_paths) == 1:
+                        folder_path = folder_paths[0]
+                    else:
+                        # Try to find a folder path containing the account folder name
+                        for path in folder_paths:
+                            if dropbox_account_folder_name in path:
+                                folder_path = path
+                                break
+                        if not folder_path:
+                            folder_path = folder_paths[0]  # fallback to first
+                files = all_folder_app_files.get(folder_path, []) if folder_path else []
+                
+                # Aggregate the account info
+                aggregated_info = _aggregate_account_info_from_app_files(converted_summary_data, files, dropbox_account_folder_name)
+                
+                account_info_from_app_files = aggregated_info
+                app_files_extraction_summary = converted_summary_data
+                logger.info(f"Successfully loaded application files data from Supabase for analysis")
+            else:
+                # Set default empty structure if no data found in Supabase
+                account_info_from_app_files = {
+                    'total_files_processed': 0,
+                    'files_with_complete_info': 0,
+                    'files_with_partial_info': 0,
+                    'files_with_no_info': 0,
+                    'best_available_info': {},
+                    'file_details': {},
+                    'has_complete_account_info': False,
+                    'owner': {},
+                    'jointOwner': {},
+                    'application_type': 'N/A',
+                    'status': 'Not available',
+                    'notes': ['Application files data not available']
+                }
+                
+        except Exception as e:
+            logger.warning(f"Error retrieving application files data from Supabase: {e}")
+            # Set default empty structure if Supabase retrieval fails
+            account_info_from_app_files = {
+                'total_files_processed': 0,
+                'files_with_complete_info': 0,
+                'files_with_partial_info': 0,
+                'files_with_no_info': 0,
+                'best_available_info': {},
+                'file_details': {},
+                'has_complete_account_info': False,
+                'owner': {},
+                'jointOwner': {},
+                'application_type': 'N/A',
+                'status': 'Not available',
+                'notes': ['Application files data not available']
+            }
+    
+    dropbox_account_information['application_data'] = account_info_from_app_files
+    
+    # Get app files extraction summary data
+    dropbox_account_information['app_files_extraction_summary'] = app_files_extraction_summary
+    
+    # Create account objects from application files data
+    best_available_info = account_info_from_app_files.get('best_available_info', {})
+    owner = best_available_info.get('owner', {})
+    joint_owner = best_available_info.get('jointOwner', {})
+    
+    logger.debug(f"Application files owner data: {owner}")
+    logger.debug(f"Owner firstName: {owner.get('firstName', '')}")
+    logger.debug(f"Owner lastName: {owner.get('lastName', '')}")
+    logger.debug(f"Owner condition check: {owner and (owner.get('firstName') or owner.get('lastName'))}")
+    
+    # Create account object for owner if we have data
+    if owner and (owner.get('firstName') or owner.get('lastName')):
+        app_files_account = {
+            'account_name': dropbox_account_folder_name,
+            'source': 'dropbox_application_files',
+            'account_type': 'Primary',
+            'first_name': owner.get('firstName', ''),
+            'middle_name': owner.get('middleName', ''),
+            'last_name': owner.get('lastName', ''),
+            'birthdate': owner.get('dateOfBirth', ''),
+            'gender': owner.get('gender', ''),
+            'phone': owner.get('phoneNumber', ''),
+            'address': owner.get('mailingAddressStreet', ''),
+            'email': owner.get('emailAddress', ''),
+            'additional_info': '',
+            'match_status': 'Extracted from application files'
+        }
+        dropbox_account_information['accounts'].append(app_files_account)
+    
+    # Create account object for joint owner if we have data
+    if joint_owner and (joint_owner.get('firstName') or joint_owner.get('lastName')):
+        joint_app_files_account = {
+            'account_name': dropbox_account_folder_name,
+            'source': 'dropbox_application_files',
+            'account_type': 'Joint',
+            'first_name': joint_owner.get('firstName', ''),
+            'middle_name': joint_owner.get('middleName', ''),
+            'last_name': joint_owner.get('lastName', ''),
+            'birthdate': joint_owner.get('dateOfBirth', ''),
+            'gender': joint_owner.get('gender', ''),
+            'phone': joint_owner.get('phoneNumber', ''),
+            'address': joint_owner.get('mailingAddressStreet', ''),
+            'email': joint_owner.get('emailAddress', ''),
+            'additional_info': '',
+            'match_status': 'Extracted from application files'
+        }
+        dropbox_account_information['accounts'].append(joint_app_files_account)
+    
+    return dropbox_account_information
+
+
+def _convert_supabase_data_to_summary_format(account) -> Dict[str, Any]:
+    """Convert Supabase data back to the expected summary format for compatibility."""
+    try:
+        from datetime import datetime
+        
+        summary_data = {
+            'total_app_files': len(account.application_files),
+            'processed_folders': set(),
+            'files_with_birthdate': set(),
+            'file_birthdates': {},
+            'file_sexes': {},
+            'file_info': {},
+            'all_folder_app_files': {},
+            'files_with_name': []
+        }
+        
+        # Convert application files back to the expected format
+        for app_file in account.application_files:
+            # Convert back to the original file_info format
+            file_info = {
+                'application_type': app_file.application_type.value,
+                'status': app_file.status.value,
+                'owner': {
+                    'firstName': app_file.owner.first_name,
+                    'lastName': app_file.owner.last_name,
+                    'dateOfBirth': app_file.owner.date_of_birth,
+                    'gender': app_file.owner.gender,
+                    'mailingAddressStreet': app_file.owner.mailing_address_street,
+                    'mailingAddressCity': app_file.owner.mailing_address_city,
+                    'mailingAddressState': app_file.owner.mailing_address_state,
+                    'mailingAddressZip': app_file.owner.mailing_address_zip,
+                    'phoneNumber': app_file.owner.phone_number,
+                    'emailAddress': app_file.owner.email_address,
+                    'ocrMethod': app_file.owner.ocr_method
+                },
+                'jointOwner': {
+                    'firstName': app_file.joint_owner.first_name,
+                    'lastName': app_file.joint_owner.last_name,
+                    'dateOfBirth': app_file.joint_owner.date_of_birth,
+                    'gender': app_file.joint_owner.gender,
+                    'mailingAddressStreet': app_file.joint_owner.mailing_address_street,
+                    'mailingAddressCity': app_file.joint_owner.mailing_address_city,
+                    'mailingAddressState': app_file.joint_owner.mailing_address_state,
+                    'mailingAddressZip': app_file.joint_owner.mailing_address_zip,
+                    'phoneNumber': app_file.joint_owner.phone_number,
+                    'emailAddress': app_file.joint_owner.email_address,
+                    'ocrMethod': app_file.joint_owner.ocr_method
+                },
+                'notes': app_file.notes,
+                'extracted_text': app_file.extracted_text,
+                'ocr_confidence': app_file.ocr_confidence,
+                'lm_studio_model_used': app_file.lm_studio_model_used,
+                'processing_duration_seconds': app_file.processing_duration_seconds
+            }
+            
+            # Use file_path as key, fallback to file_name if no path
+            file_key = app_file.file_path or f"/{app_file.file_name}"
+            summary_data['file_info'][file_key] = file_info
+            
+            # Add to files with name if owner has name
+            if app_file.owner.first_name or app_file.owner.last_name:
+                summary_data['files_with_name'].append(file_key)
+            
+            # Add to files with birthdate if owner has birthdate
+            if app_file.owner.date_of_birth:
+                summary_data['files_with_birthdate'].add(file_key)
+                summary_data['file_birthdates'][file_key] = app_file.owner.date_of_birth
+            
+            # Add to file sexes if owner has gender
+            if app_file.owner.gender:
+                summary_data['file_sexes'][file_key] = app_file.owner.gender
+        
+        # Create a mock file list for compatibility
+        # This is a simplified approach - in practice you might want to store the actual file metadata
+        from dropbox.files import FileMetadata
+        mock_files = []
+        for app_file in account.application_files:
+            # Create a minimal FileMetadata object
+            mock_file = FileMetadata(
+                name=app_file.file_name,
+                path_display=app_file.file_path or f"/{app_file.file_name}",
+                path_lower=app_file.file_path.lower() if app_file.file_path else f"/{app_file.file_name.lower()}",
+                id="mock_id",
+                client_modified=datetime.now(),
+                server_modified=datetime.now(),
+                rev="123456789abcdef",  # Must be hexadecimal string
+                size=0
+            )
+            mock_files.append(mock_file)
+        
+        # Add to all_folder_app_files (use a default path)
+        summary_data['all_folder_app_files']['/mock/path'] = mock_files
+        
+        return summary_data
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error converting Supabase data to summary format: {e}")
+        return {}
+
+
+def _aggregate_account_info_from_app_files(summary_data: Dict[str, Any], files: List, dropbox_account_folder_name: str) -> Dict[str, Any]:
+    """Aggregate account information from multiple app files into a single structure."""
+    aggregated_info = {
+        'total_files_processed': len(files),
+        'files_with_complete_info': 0,
+        'files_with_partial_info': 0,
+        'files_with_no_info': 0,
+        'best_available_info': {},
+        'file_details': {},
+        'has_complete_account_info': False
+    }
+    
+    if not summary_data or 'file_info' not in summary_data:
+        aggregated_info['files_with_no_info'] = len(files)
+        return aggregated_info
+    
+    file_info = summary_data['file_info']
+    best_info = {}
+    best_completeness_score = 0
+    
+    # Process each file's information
+    for file_path, info in file_info.items():
+        if not info:
+            aggregated_info['files_with_no_info'] += 1
+            continue
+        
+        # Calculate completeness score for this file
+        completeness_score = 0
+        has_owner_info = False
+        has_joint_owner_info = False
+        
+        # Check for owner information
+        if info.get('owner'):
+            owner_data = info['owner']
+            owner_fields = [
+                'firstName', 'lastName', 'dateOfBirth', 'gender',
+                'mailingAddressStreet', 'mailingAddressCity',
+                'mailingAddressState', 'mailingAddressZip',
+                'phoneNumber', 'emailAddress'
+            ]
+            owner_score = sum(1 for field in owner_fields if owner_data.get(field))
+            if owner_score >= 4:  # At least 4 fields including name and DOB
+                has_owner_info = True
+                completeness_score += owner_score
+        
+        # Check for joint owner information
+        if info.get('jointOwner'):
+            joint_owner_data = info['jointOwner']
+            joint_owner_fields = [
+                'firstName', 'lastName', 'dateOfBirth', 'gender',
+                'mailingAddressStreet', 'mailingAddressCity',
+                'mailingAddressState', 'mailingAddressZip',
+                'phoneNumber', 'emailAddress'
+            ]
+            joint_owner_score = sum(1 for field in joint_owner_fields if joint_owner_data.get(field))
+            if joint_owner_score >= 4:  # At least 4 fields including name and DOB
+                has_joint_owner_info = True
+                completeness_score += joint_owner_score
+        
+        # Update file details
+        aggregated_info['file_details'][file_path] = {
+            'has_owner_info': has_owner_info,
+            'has_joint_owner_info': has_joint_owner_info,
+            'completeness_score': completeness_score,
+            'info': info
+        }
+        
+        # Update best available info if this file has better information
+        if completeness_score > best_completeness_score:
+            best_completeness_score = completeness_score
+            best_info = info.copy()
+        
+        # Update statistics
+        if has_owner_info or has_joint_owner_info:
+            if completeness_score >= 8:  # High completeness
+                aggregated_info['files_with_complete_info'] += 1
+            else:
+                aggregated_info['files_with_partial_info'] += 1
+        else:
+            aggregated_info['files_with_no_info'] += 1
+    
+    # Store the best available info
+    aggregated_info['best_available_info'] = best_info
+    aggregated_info['has_complete_account_info'] = best_completeness_score >= 8
+    
+    return aggregated_info
+
+
+def construct_dropbox_path(account_folder: str, root_folder: str) -> Optional[str]:
+    """
+    Construct and validate a Dropbox folder from the root folder and account folder.
+    
+    Args:
+        account_folder (str): The account folder path to append to root folder
+        root_folder (str): The root folder path
+            
+    Returns:
+        Optional[str]: The cleaned and validated Dropbox folder, or None if invalid
+    """
+    try:
+        clean_account_folder = account_folder.strip()
+        if not clean_account_folder:
+            logging.error("Account folder cannot be empty")
+            return None
+            
+        full_path = os.path.join(root_folder, clean_account_folder)
+        clean_path = clean_dropbox_folder_name(full_path)
+        
+        if not clean_path:
+            logging.error(f"Invalid path constructed: {full_path}")
+            return None
+            
+        logging.debug(f"Constructed Dropbox folder: {clean_path}")
+        return clean_path
+        
+    except Exception as e:
+        logging.error(f"Error constructing Dropbox folder: {str(e)}")
+        return None

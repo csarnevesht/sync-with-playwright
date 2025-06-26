@@ -117,13 +117,16 @@ from sync.dropbox_client.utils.account_utils import (
     read_ignored_folders
 )
 from sync.dropbox_client.utils.dropbox_utils import (
-    DropboxClient,
-    get_access_token,
-    get_folder_metadata,
+    get_renamed_path,
+    list_dropbox_folder_contents,
+    build_dropbox_account_information,
+    get_folder_creation_date,
     get_dropbox_root_folder,
-    get_folder_creation_date
+    get_access_token,
+    DropboxClient
 )
 from sync.dropbox_client.utils.date_utils import has_date_prefix
+from sync.utils.date_utils import convert_date
 from sync.dropbox_client.utils.logging_utils import log_dropbox_account_info, log_icon_legend
 from dropbox.exceptions import ApiError
 import dropbox
@@ -262,13 +265,10 @@ def clean_old_log_folders(max_folders=1):
     log_folders = []
     for folder in log_dir.iterdir():
         if folder.is_dir():
-            try:
-                # Try to parse the folder name as a timestamp
-                datetime.strptime(folder.name, '%Y-%m-%d_%H-%M-%S')
+            # Try to parse the folder name as a timestamp
+            from sync.utils.date_utils import parse_datetime_string
+            if parse_datetime_string(folder.name, '%Y-%m-%d_%H-%M-%S'):
                 log_folders.append(folder)
-            except ValueError:
-                # Skip folders that don't match the timestamp format
-                continue
     
     # Sort folders by name (which is timestamp) in descending order
     log_folders.sort(reverse=True)
@@ -1196,14 +1196,28 @@ def run_command(args, log_dir):
                             
                             # Build and store dropbox_account_information structure if dropbox account info is available
                             if args.dropbox_account_info:
-                                dropbox_account_information = command_runner._build_dropbox_account_information()
+                                from sync.dropbox_client.utils.dropbox_utils import build_dropbox_account_information
+                                dropbox_account_information = build_dropbox_account_information(
+                                    dropbox_account_folder_name=dropbox_account_folder_name,
+                                    dropbox_account_info=dropbox_account_search_result,
+                                    account_info_from_app_files=result_dict.get('account_info_from_app_files'),
+                                    app_files_extraction_summary=result_dict.get('app_files_extraction_summary'),
+                                    logger=logger
+                                )
                                 command_runner.set_data('dropbox_account_information', dropbox_account_information)
                             
                             command_runner.execute_commands()
                             
                             # Rebuild dropbox_account_information after commands execute to include any new data
                             if args.dropbox_account_info:
-                                dropbox_account_information = command_runner._build_dropbox_account_information()
+                                from sync.dropbox_client.utils.dropbox_utils import build_dropbox_account_information
+                                dropbox_account_information = build_dropbox_account_information(
+                                    dropbox_account_folder_name=dropbox_account_folder_name,
+                                    dropbox_account_info=dropbox_account_search_result,
+                                    account_info_from_app_files=result_dict.get('account_info_from_app_files'),
+                                    app_files_extraction_summary=result_dict.get('app_files_extraction_summary'),
+                                    logger=logger
+                                )
                                 command_runner.set_data('dropbox_account_information', dropbox_account_information)
                             # Ensure result_dict has up-to-date application files info
                             result_dict['account_info_from_app_files'] = dropbox_account_information.get('application_data', {})
@@ -1691,14 +1705,14 @@ def prepare_flatfile_from_template(template_path, logger, report_logger):
 def _store_dropbox_client_list_data_in_database(dropbox_account_search_result, dropbox_account_folder_name, supabase_client):
     """
     Store client list data in the database for a Dropbox account.
+    This function now uses the store_dropbox_client_list_data_from_search_result convenience method.
     
     Args:
         dropbox_account_search_result: The result from dropbox_search_account
         dropbox_account_folder_name: The folder name of the Dropbox account
         supabase_client: The Supabase client instance to use for database operations
-        command_runner: Optional command runner instance (not used, kept for compatibility)
     """
-    logger.info(f"Starting database storage for client list data - Account: {dropbox_account_folder_name}")
+    logger.info(f"Store in Database: Starting database storage for client list data - Account: {dropbox_account_folder_name}")
     logger.info(f"Input data structure: {list(dropbox_account_search_result.keys()) if dropbox_account_search_result else 'None'}")
     
     try:
@@ -1706,78 +1720,20 @@ def _store_dropbox_client_list_data_in_database(dropbox_account_search_result, d
             logger.error("No Supabase client provided for storing client list data")
             return False
         
-        logger.info("Importing required modules for database storage...")
-        from supabase_client.schema import DropboxAccountClientListInfo
-        from datetime import datetime
-        
-        # Extract and log account data
-        account_data = dropbox_account_search_result.get('account_data', {})
-        logger.info(f"Account data extracted - Keys: {list(account_data.keys()) if account_data else 'None'}")
-        logger.info(f"Account name: {account_data.get('name', 'Not found')}")
-        logger.info(f"First name: {account_data.get('first_name', 'Not found')}")
-        logger.info(f"Last name: {account_data.get('last_name', 'Not found')}")
-        
-        search_info = dropbox_account_search_result.get('search_info', {})
-        logger.info(f"Search info extracted - Keys: {list(search_info.keys()) if search_info else 'None'}")
-        
-        match_info = search_info.get('match_info', {})
-        logger.info(f"Match info extracted - Keys: {list(match_info.keys()) if match_info else 'None'}")
-        logger.info(f"Match status: {match_info.get('match_status', 'Not found')}")
-        
-        # Convert birthdate string to date if available
-        birthdate = None
-        if account_data.get('birthdate'):
-            logger.info(f"Processing birthdate: {account_data['birthdate']}")
-            try:
-                birthdate = datetime.strptime(account_data['birthdate'], '%Y-%m-%d').date()
-                logger.info(f"Birthdate successfully converted to: {birthdate}")
-            except Exception as e:
-                logger.warning(f"Failed to convert birthdate '{account_data['birthdate']}': {e}")
-        else:
-            logger.info("No birthdate found in account data")
-        
-        # Log drivers license data
-        drivers_license = dropbox_account_search_result.get('drivers_license', {})
-        logger.info(f"Drivers license data - Keys: {list(drivers_license.keys()) if drivers_license else 'None'}")
-        
-        logger.info("Creating DropboxAccountClientListInfo object...")
-        # Create client list info object
-        client_list_info = DropboxAccountClientListInfo(
-            account_name=account_data.get('name', ''),
-            first_name=account_data.get('first_name', ''),
-            middle_name=account_data.get('middle_name', ''),
-            last_name=account_data.get('last_name', ''),
-            birthdate=birthdate,
-            gender=account_data.get('gender', ''),
-            phone=account_data.get('phone', ''),
-            address=account_data.get('address', ''),
-            city=account_data.get('city', ''),
-            state=account_data.get('state', ''),
-            zip_code=account_data.get('zip', ''),
-            email=account_data.get('email', ''),
-            additional_info=account_data.get('additional_info', ''),
-            match_status=match_info.get('match_status', ''),
-            drivers_license_data=drivers_license,
-            search_info=search_info
+        # Use the convenience method that handles everything in one step
+        logger.info("Storing client list data using store_dropbox_client_list_data_from_search_result...")
+        account_id = supabase_client.store_dropbox_client_list_data_from_search_result(
+            dropbox_account_search_result=dropbox_account_search_result,
+            folder_name=dropbox_account_folder_name,
+            force=False,  # Don't force delete existing data
+            update_existing=True  # Update existing account if it exists
         )
-        logger.info("DropboxAccountClientListInfo object created successfully")
         
-        # Get the dropbox account ID and store the data
-        logger.info(f"Querying database for dropbox account with folder: {dropbox_account_folder_name}")
-        account_response = supabase_client.client.table('dropbox_accounts').select('id').eq('folder', dropbox_account_folder_name).execute()
-        
-        logger.info(f"Database query result - Data count: {len(account_response.data) if account_response.data else 0}")
-        if account_response.data and len(account_response.data) > 0:
-            account_id = account_response.data[0]['id']
-            logger.info(f"Found dropbox account ID: {account_id}")
-            
-            logger.info("Storing client list info in database...")
-            supabase_client.store_client_list_info(client_list_info, account_id, dropbox_account_folder_name)
+        if account_id:
             logger.info(f"Successfully stored client list data for account: {dropbox_account_folder_name} (ID: {account_id})")
             return True
         else:
-            logger.warning(f"No dropbox account found in database for folder: {dropbox_account_folder_name}")
-            logger.warning("Client list data storage skipped - no account ID available")
+            logger.error(f"Failed to store client list data for account: {dropbox_account_folder_name}")
             return False
             
     except Exception as e:

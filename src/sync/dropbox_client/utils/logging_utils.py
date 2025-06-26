@@ -1206,11 +1206,29 @@ class DropboxAccountLogger:
         self._log("[_log_single_account]", summary_logger, report_logger)
         self._log(f"\n{'─'*60}", summary_logger, report_logger)
         source_icon = "📄" if account['source'] == 'client_list_file' else "📄"
-        self._log(f"{source_icon} **Account {account_number}: {account['account_name']} ({account['source'].replace('_', ' ').title()})**", summary_logger, report_logger)
+        
+        # Format source for the header
+        source = account.get('source', 'Unknown')
+        if source == 'dropbox_client_list':
+            header_source = 'dropbox_client_list'
+        elif source == 'dropbox_application_files':
+            header_source = 'dropbox_application_files'
+        else:
+            header_source = source.replace('_', ' ').title()
+        
+        self._log(f"{source_icon} **Account {account_number}: {account['account_name']} ({header_source})**", summary_logger, report_logger)
         self._log(f"{'─'*60}", summary_logger, report_logger)
         
-        # Account source and type
-        self._log(f"👤 Source: {account['source']}", summary_logger, report_logger)
+        # Account source and type - format source properly
+        source = account.get('source', 'Unknown')
+        if source == 'dropbox_client_list':
+            formatted_source = 'dropbox_client_list'
+        elif source == 'dropbox_application_files':
+            formatted_source = 'dropbox_application_files'
+        else:
+            formatted_source = source.replace('_', ' ').title()
+        
+        self._log(f"👤 Source: {formatted_source}", summary_logger, report_logger)
         self._log(f"👤 Account Type: {account['account_type']}", summary_logger, report_logger)
         
         # Log account details

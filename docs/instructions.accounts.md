@@ -1,12 +1,12 @@
-Account Information
+DropboxAccount (Dropbox Account Folder Information)
   dropbox_account_folder_name
-  dropbox_account_application_info: list[Dropbox Account Information 'from application files']
-  dropbox_account_client_list_info:  Dropbox Account Information 'from client list file'  
-  dropbox_best_account_information: Dropbox Best Account Information 
+  application_files: list[DropboxAccountApplicationFile]
+  client_list_info:  list[DropboxAccountClientListInfo] 
+  best_info: DropboxAccountBestInfo
   salesforce_account_information: Salesforce Account Information [list]
   
 
-Dropbox Account Information 'from client list file'`
+DropboxAccountClientList 
   Account Name
   First Name
   Middle Name
@@ -17,43 +17,27 @@ Dropbox Account Information 'from client list file'`
   Address
   Email
 
-Dropbox Account Information 'from application files'
+DropboxAccountFromApplicationFiles
   total_account_application_files
   processed_account_application_files
   failed_account_application_files
-  dropbox_accounts_application_files: list[Dopbox Account]
+  dropbox_accounts_application_files: list[DopboxAccountApplicationFile]
 
 
-  Dropbox Account
-    Name
-    First Name
-    Middle Name
-    Last Name
-    Birthdate
-    Gender
-    Phone
-    Address
-    Email
-  Joint Account [Dropbox Account]
-    Name
-    First Name
-    Middle Name
-    Last Name
-    Birthdate
-    Gender
-    Phone
-    Address
-    Email
+DropboxAccountApplicationFile
+   owner: DropboxAccountApplicationInfo
+   joint_owner: DropboxAccountApplicationInfo
+   dropbox_account: DropboxAccount
 
 
 Salesforce Account Information
   num_accounts -1 (default, means no salesforce account information was stored)
   Names found [list of Salesforce Account Names]
   Household [Salesforce Account]
-  Head [Salesforce Account]
-  Members [Salesforce Account]
+  Head [SalesforceAccount]
+  Members [SalesforceAccount]
 
-  Salesforce Account
+  SalesforceAccount
     account_name
     type [Contact]
     role [Household Head, Member]

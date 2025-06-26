@@ -18,7 +18,7 @@ import re
 import fnmatch
 import time
 
-from sync.dropbox_client.utils.dropbox_utils import get_renamed_path, list_dropbox_folder_contents
+from sync.dropbox_client.utils.dropbox_utils import get_renamed_path, list_dropbox_folder_contents, build_dropbox_account_information
 from sync.dropbox_client.utils.file_utils import log_renamed_file
 from sync.dropbox_client.utils.logging_utils import log_dropbox_app_file_info, log_dropbox_account_app_files_info, log_app_files_notes_summary, log_app_files_processing_summary
 from sync.salesforce_client.utils.logging_utils import log_salesforce_account_information
@@ -996,6 +996,7 @@ class CommandRunner:
 
     def _store_app_files_data_in_supabase(self, folder_name: str, summary_data: Dict[str, Any]) -> bool:
         """Store application files data in Supabase."""
+        logger.info(f"Store in Database: Starting database storage for application files data - Account: {folder_name}")
         try:
             from supabase_client import SupabaseClient
             from supabase_client.schema import DropboxAccountApplicationFile, DropboxAccountApplicationInfo, DropboxAccountWithFiles, ApplicationStatus, ApplicationType
@@ -1342,200 +1343,9 @@ class CommandRunner:
         
         return aggregated_info
 
-    def _build_dropbox_account_information(self) -> Dict[str, Any]:
-        """Build the dropbox account information structure"""
-        dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
-        
-        # Initialize the structure
-        dropbox_account_information = {
-            'names_found': [dropbox_account_folder_name],
-            'client_list_data': None,
-            'application_data': None,
-            'accounts': []
-        }
-        
-        # Get client list file data
-        try:
-            client_list_file_data = self.get_data('dropbox_account_info')
-        except KeyError:
-            client_list_file_data = None
-        
-        if client_list_file_data:
-            dropbox_account_information['client_list_data'] = client_list_file_data
-            # Create account object from client list file data
-            account_data = client_list_file_data.get('account_data', {})
-            search_info = client_list_file_data.get('search_info', {})
-            match_info = search_info.get('match_info', {})
-            if account_data:
-                # Add the actual name found in client list file to names_found
-                client_list_name = account_data.get('name', '')
-                if client_list_name and client_list_name not in dropbox_account_information['names_found']:
-                    dropbox_account_information['names_found'].append(client_list_name)
-                
-                client_list_account = {
-                    'account_name': dropbox_account_folder_name,
-                    'source': 'dropbox_client_list',
-                    'account_type': 'Primary',
-                    'first_name': account_data.get('first_name', ''),
-                    'middle_name': account_data.get('middle_name', ''),
-                    'last_name': account_data.get('last_name', ''),
-                    'birthdate': account_data.get('birthdate', ''),
-                    'gender': account_data.get('gender', ''),
-                    'phone': account_data.get('phone', ''),
-                    'address': account_data.get('address', ''),
-                    'email': account_data.get('email', ''),
-                    'additional_info': account_data.get('additional_info', ''),
-                    'match_status': match_info.get('match_status', ''),
-                    'drivers_license': client_list_file_data.get('drivers_license')
-                }
-                dropbox_account_information['accounts'].append(client_list_account)
-                
-                # Note: Client list data storage is now handled immediately after Dropbox search
-                # in the main processing loop, so it's not duplicated here
-        
-        # Get application files data
-        try:
-            account_info_from_app_files = self.get_data('account_info_from_app_files')
-        except KeyError:
-            account_info_from_app_files = None
-        
-        if not account_info_from_app_files:
-            # Try to get application files data from Supabase
-            try:
-                from supabase_client import SupabaseClient
-                supabase_client = SupabaseClient()
-                account = supabase_client.get_application_files_by_folder(dropbox_account_folder_name)
-                
-                if account and account.application_files:
-                    self.logger.info(f"Retrieved {len(account.application_files)} application files from Supabase for analysis")
-                    
-                    # Convert Supabase data to the expected format
-                    converted_summary_data = self._convert_supabase_data_to_summary_format(account)
-                    
-                    # Dynamically select the folder path from all_folder_app_files
-                    all_folder_app_files = converted_summary_data.get('all_folder_app_files', {})
-                    folder_path = None
-                    if all_folder_app_files:
-                        folder_paths = list(all_folder_app_files.keys())
-                        if len(folder_paths) == 1:
-                            folder_path = folder_paths[0]
-                        else:
-                            # Try to find a folder path containing the account folder name
-                            for path in folder_paths:
-                                if dropbox_account_folder_name in path:
-                                    folder_path = path
-                                    break
-                            if not folder_path:
-                                folder_path = folder_paths[0]  # fallback to first
-                    files = all_folder_app_files.get(folder_path, []) if folder_path else []
-                    
-                    # Aggregate the account info
-                    aggregated_info = self._aggregate_account_info_from_app_files(converted_summary_data, files, dropbox_account_folder_name)
-                    
-                    # Store the aggregated info
-                    self.set_data('account_info_from_app_files', aggregated_info)
-                    self.set_data('app_files_extraction_summary', converted_summary_data)
-                    
-                    account_info_from_app_files = aggregated_info
-                    self.logger.info(f"Successfully loaded application files data from Supabase for analysis")
-                else:
-                    # Set default empty structure if no data found in Supabase
-                    account_info_from_app_files = {
-                        'total_files_processed': 0,
-                        'files_with_complete_info': 0,
-                        'files_with_partial_info': 0,
-                        'files_with_no_info': 0,
-                        'best_available_info': {},
-                        'file_details': {},
-                        'has_complete_account_info': False,
-                        'owner': {},
-                        'jointOwner': {},
-                        'application_type': 'N/A',
-                        'status': 'Not available',
-                        'notes': ['Application files data not available']
-                    }
-                    self.set_data('account_info_from_app_files', account_info_from_app_files)
-                    
-            except Exception as e:
-                self.logger.warning(f"Error retrieving application files data from Supabase: {e}")
-                # Set default empty structure if Supabase retrieval fails
-                account_info_from_app_files = {
-                    'total_files_processed': 0,
-                    'files_with_complete_info': 0,
-                    'files_with_partial_info': 0,
-                    'files_with_no_info': 0,
-                    'best_available_info': {},
-                    'file_details': {},
-                    'has_complete_account_info': False,
-                    'owner': {},
-                    'jointOwner': {},
-                    'application_type': 'N/A',
-                    'status': 'Not available',
-                    'notes': ['Application files data not available']
-                }
-                self.set_data('account_info_from_app_files', account_info_from_app_files)
-        
-        dropbox_account_information['application_data'] = account_info_from_app_files
-        
-        # Get app files extraction summary data
-        try:
-            app_files_extraction_summary = self.get_data('app_files_extraction_summary')
-        except KeyError:
-            app_files_extraction_summary = None
-        dropbox_account_information['app_files_extraction_summary'] = app_files_extraction_summary
-        
-        # Create account objects from application files data
-        best_available_info = account_info_from_app_files.get('best_available_info', {})
-        owner = best_available_info.get('owner', {})
-        joint_owner = best_available_info.get('jointOwner', {})
-        
-        self.logger.debug(f"Application files owner data: {owner}")
-        self.logger.debug(f"Owner firstName: {owner.get('firstName', '')}")
-        self.logger.debug(f"Owner lastName: {owner.get('lastName', '')}")
-        self.logger.debug(f"Owner condition check: {owner and (owner.get('firstName') or owner.get('lastName'))}")
-        
-        # Create account object for owner if we have data
-        if owner and (owner.get('firstName') or owner.get('lastName')):
-            app_files_account = {
-                'account_name': dropbox_account_folder_name,
-                'source': 'dropbox_application_files',
-                'account_type': 'Primary',
-                'first_name': owner.get('firstName', ''),
-                'middle_name': owner.get('middleName', ''),
-                'last_name': owner.get('lastName', ''),
-                'birthdate': owner.get('dateOfBirth', ''),
-                'gender': owner.get('gender', ''),
-                'phone': owner.get('phoneNumber', ''),
-                'address': owner.get('mailingAddressStreet', ''),
-                'email': owner.get('emailAddress', ''),
-                'additional_info': '',
-                'match_status': 'Extracted from application files'
-            }
-            dropbox_account_information['accounts'].append(app_files_account)
-        
-        # Create account object for joint owner if we have data
-        if joint_owner and (joint_owner.get('firstName') or joint_owner.get('lastName')):
-            joint_app_files_account = {
-                'account_name': dropbox_account_folder_name,
-                'source': 'dropbox_application_files',
-                'account_type': 'Joint',
-                'first_name': joint_owner.get('firstName', ''),
-                'middle_name': joint_owner.get('middleName', ''),
-                'last_name': joint_owner.get('lastName', ''),
-                'birthdate': joint_owner.get('dateOfBirth', ''),
-                'gender': joint_owner.get('gender', ''),
-                'phone': joint_owner.get('phoneNumber', ''),
-                'address': joint_owner.get('mailingAddressStreet', ''),
-                'email': joint_owner.get('emailAddress', ''),
-                'additional_info': '',
-                'match_status': 'Extracted from application files'
-            }
-            dropbox_account_information['accounts'].append(joint_app_files_account)
-        
-        return dropbox_account_information
-
     def _store_salesforce_account_data_in_supabase(self, salesforce_info: Dict[str, Any], force: bool = False) -> bool:
         """Store Salesforce account data in Supabase database"""
+        self.logger.info(f"Store in Database: Starting database storage for Salesforce account data - Account: {dropbox_account_folder_name}")
         try:
             from supabase_client import SupabaseClient
             from supabase_client.schema import SalesforceAccount, SalesforceHousehold, SalesforceHouseholdMember
@@ -1703,14 +1513,33 @@ class CommandRunner:
         """Handle the log-dropbox-account-information command."""
         self.logger.info("[_handle_log_dropbox_account_information] Executing command handler: log-dropbox-account-information")
         
-        # Build the dropbox account information structure
-        dropbox_account_information = self._build_dropbox_account_information()
+        # Get data with defaults for missing keys
+        dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
+        dropbox_account_info = self.get_data('dropbox_account_info')
+        
+        # Handle missing account_info_from_app_files gracefully
+        try:
+            account_info_from_app_files = self.get_data('account_info_from_app_files')
+        except KeyError:
+            account_info_from_app_files = None
+            
+        # Handle missing app_files_extraction_summary gracefully
+        try:
+            app_files_extraction_summary = self.get_data('app_files_extraction_summary')
+        except KeyError:
+            app_files_extraction_summary = None
+        
+        # Build the dropbox account information structure using the new function
+        dropbox_account_information = build_dropbox_account_information(
+            dropbox_account_folder_name=dropbox_account_folder_name,
+            dropbox_account_info=dropbox_account_info,
+            account_info_from_app_files=account_info_from_app_files,
+            app_files_extraction_summary=app_files_extraction_summary,
+            logger=self.logger
+        )
         
         # Store it in the command runner data
         self.set_data('dropbox_account_information', dropbox_account_information)
-        
-        # Get the account folder name
-        dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
         
         # Log the information using the new logging utilities
         from sync.dropbox_client.utils.logging_utils import log_dropbox_account_information
@@ -1726,8 +1555,30 @@ class CommandRunner:
         """Handle the log-dropbox-account-information-json command."""
         self.logger.info("Executing command handler: log-dropbox-account-information-json")
         
-        # Build the dropbox account information structure
-        dropbox_account_information = self._build_dropbox_account_information()
+        # Get data with defaults for missing keys
+        dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
+        dropbox_account_info = self.get_data('dropbox_account_info')
+        
+        # Handle missing account_info_from_app_files gracefully
+        try:
+            account_info_from_app_files = self.get_data('account_info_from_app_files')
+        except KeyError:
+            account_info_from_app_files = None
+            
+        # Handle missing app_files_extraction_summary gracefully
+        try:
+            app_files_extraction_summary = self.get_data('app_files_extraction_summary')
+        except KeyError:
+            app_files_extraction_summary = None
+        
+        # Build the dropbox account information structure using the new function
+        dropbox_account_information = build_dropbox_account_information(
+            dropbox_account_folder_name=dropbox_account_folder_name,
+            dropbox_account_info=dropbox_account_info,
+            account_info_from_app_files=account_info_from_app_files,
+            app_files_extraction_summary=app_files_extraction_summary,
+            logger=self.logger
+        )
         
         # Store it in the command runner data
         self.set_data('dropbox_account_information', dropbox_account_information)
@@ -1753,7 +1604,7 @@ class CommandRunner:
         """Store application files data in Supabase database.
         This command will store the extracted application files data in Supabase for future retrieval.
         """
-        self.logger.info("Starting store-in-supabase operation")
+        self.logger.info("Store in Database: Starting store-in-supabase operation")
         self.report_logger.info("\n=== STORING APPLICATION FILES DATA IN SUPABASE ===")
         
         # Log force flag status
@@ -1838,74 +1689,6 @@ class CommandRunner:
             self.report_logger.error(f"\n{error_msg}")
             if not self.args.continue_on_error:
                 raise
-
-    def _store_client_list_data_in_database(self, dropbox_account_search_result: Dict[str, Any], dropbox_account_folder_name: str) -> bool:
-        """
-        Store client list data in the database for a Dropbox account.
-        Returns True if successful, False otherwise.
-        """
-        self.logger.info(f"Storing in database: dropbox client list data for account: {dropbox_account_folder_name}")
-        try:
-            # Get or create Supabase client
-            try:
-                supabase_client = self.get_context('supabase_client')
-            except KeyError:
-                from supabase_client import SupabaseClient
-                supabase_client = SupabaseClient()
-                self.set_context('supabase_client', supabase_client)
-            
-            if not supabase_client:
-                self.logger.warning("No Supabase client available for storing client list data")
-                return False
-            
-            from supabase_client.schema import DropboxAccountClientListInfo
-            from datetime import datetime
-            
-            account_data = dropbox_account_search_result['account_data']
-            search_info = dropbox_account_search_result.get('search_info', {})
-            match_info = search_info.get('match_info', {})
-            
-            # Convert birthdate string to date if available
-            birthdate = None
-            if account_data.get('birthdate'):
-                try:
-                    birthdate = datetime.strptime(account_data['birthdate'], '%Y-%m-%d').date()
-                except:
-                    pass
-            
-            # Create client list info object
-            client_list_info = DropboxAccountClientListInfo(
-                account_name=account_data.get('name', ''),
-                first_name=account_data.get('first_name', ''),
-                middle_name=account_data.get('middle_name', ''),
-                last_name=account_data.get('last_name', ''),
-                birthdate=birthdate,
-                gender=account_data.get('gender', ''),
-                phone=account_data.get('phone', ''),
-                address=account_data.get('address', ''),
-                city=account_data.get('city', ''),
-                state=account_data.get('state', ''),
-                zip_code=account_data.get('zip', ''),
-                email=account_data.get('email', ''),
-                additional_info=account_data.get('additional_info', ''),
-                match_status=match_info.get('match_status', ''),
-                drivers_license_data=dropbox_account_search_result.get('drivers_license', {}),
-                search_info=search_info
-            )
-            
-            # Get the dropbox account ID and store the data
-            account_response = supabase_client.client.table('dropbox_accounts').select('id').eq('folder', dropbox_account_folder_name).execute()
-            if account_response.data and len(account_response.data) > 0:
-                account_id = account_response.data[0]['id']
-                supabase_client.store_dropbox_client_list_info(client_list_info, account_id, dropbox_account_folder_name)
-                self.logger.info(f"Stored client list data for account: {dropbox_account_folder_name}")
-                return True
-            else:
-                self.logger.warning(f"No dropbox account found for folder: {dropbox_account_folder_name}")
-                return False
-        except Exception as e:
-            self.logger.warning(f"Could not store client list data in database: {e}")
-            return False
 
     def _search_supabase(self) -> None:
         """Search for account information in Supabase database.
@@ -2031,7 +1814,37 @@ class CommandRunner:
         
         # Rebuild dropbox account information to ensure it includes latest application files data
         self.logger.debug("Rebuilding dropbox account information for analysis")
-        dropbox_account_information = self._build_dropbox_account_information()
+        from sync.dropbox_client.utils.dropbox_utils import build_dropbox_account_information
+        
+        # Get the required data
+        dropbox_account_folder_name = self.get_data('dropbox_account_folder_name')
+        dropbox_account_info = None
+        account_info_from_app_files = None
+        app_files_extraction_summary = None
+        
+        try:
+            dropbox_account_info = self.get_data('dropbox_account_info')
+        except KeyError:
+            pass
+        
+        try:
+            account_info_from_app_files = self.get_data('account_info_from_app_files')
+        except KeyError:
+            pass
+        
+        try:
+            app_files_extraction_summary = self.get_data('app_files_extraction_summary')
+        except KeyError:
+            pass
+        
+        dropbox_account_information = build_dropbox_account_information(
+            dropbox_account_folder_name=dropbox_account_folder_name,
+            dropbox_account_info=dropbox_account_info,
+            account_info_from_app_files=account_info_from_app_files,
+            app_files_extraction_summary=app_files_extraction_summary,
+            logger=self.logger
+        )
+        
         self.set_data('dropbox_account_information', dropbox_account_information)
         
         # Import and run the analysis using the proper function that includes logging
@@ -2045,7 +1858,7 @@ class CommandRunner:
         else:
             error_msg = f"Analysis failed: {result.get('message', 'Unknown error')}"
             self.logger.error(error_msg)
-            raise Exception(error_msg) 
+            raise Exception(error_msg)
 
     def _create_account_report_file(self, dropbox_account_folder_name: str, aggregated_info: Dict[str, Any], summary_data: Dict[str, Any]) -> None:
         """Create a report file for the extracted account information.

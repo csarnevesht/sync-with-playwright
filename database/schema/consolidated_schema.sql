@@ -349,4 +349,4 @@ COMMENT ON TABLE salesforce_households IS 'Stores Salesforce household relations
 COMMENT ON TABLE salesforce_household_members IS 'Stores many-to-many relationship between households and members';
 COMMENT ON TABLE dropbox_salesforce_mapping IS 'Links Dropbox accounts to Salesforce accounts';
 COMMENT ON TABLE sync_status IS 'Tracks synchronization between Dropbox and Salesforce';
-COMMENT ON TABLE account_analysis IS 'Stores analysis results comparing Dropbox and Salesforce data'; 
+COMMENT ON TABLE account_analysis IS 'Stores analysis results comparing Dropbox and Salesforce data';

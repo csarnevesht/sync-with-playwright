@@ -2,8 +2,8 @@ import os
 from typing import Optional, List, Dict, Any
 from supabase import create_client, Client as SupabaseBaseClient
 from .schema import (
-    DropboxAccountApplicationFile, DropboxAccountApplicationInfo,
-    DropboxAccountWithFiles, DropboxAccountClientListInfo, DropboxSalesforceMapping, 
+    ApplicationStatus, DropboxAccountApplicationFile, DropboxAccountApplicationInfo,
+    DropboxAccountWithFiles, DropboxAccountClientListInfo, DropboxAccountBestInfo, DropboxSalesforceMapping, 
     SyncStatus, AccountAnalysis, SalesforceAccount, SalesforceHousehold, SalesforceHouseholdMember
 )
 from dotenv import load_dotenv
@@ -87,7 +87,7 @@ class LocalQueryBuilder:
         if params:
             url += f"&{params}"
         
-        with httpx.Client() as client:
+        with httpx.Client(timeout=30.0) as client:
             response = client.get(url, headers=self.headers)
             response.raise_for_status()
             return type('Response', (), {'data': response.json()})()
@@ -101,7 +101,7 @@ class LocalInsertBuilder:
         self.data = data
     
     def execute(self):
-        with httpx.Client() as client:
+        with httpx.Client(timeout=30.0) as client:
             # Add select=* to get the inserted record back
             insert_url = f"{self.endpoint}?select=*"
             response = client.post(
@@ -137,7 +137,7 @@ class LocalUpdateBuilder:
         if params:
             url += f"?{params}"
         
-        with httpx.Client() as client:
+        with httpx.Client(timeout=30.0) as client:
             # Add select=* to get the updated record back
             update_url = f"{url}&select=*"
             response = client.patch(
@@ -174,7 +174,7 @@ class LocalDeleteBuilder:
         url = self.endpoint
         if params:
             url += f"?{params}"
-        with httpx.Client() as client:
+        with httpx.Client(timeout=30.0) as client:
             response = client.delete(url, headers=self.headers)
             response.raise_for_status()
             # Return a dummy response object for compatibility
@@ -190,7 +190,7 @@ class LocalRPCBuilder:
         self.endpoint = f"{base_url}/rest/v1/rpc/{function_name}"
     
     def execute(self):
-        with httpx.Client() as client:
+        with httpx.Client(timeout=30.0) as client:
             response = client.post(
                 self.endpoint,
                 headers=self.headers,
@@ -364,71 +364,135 @@ class SupabaseClient:
             print(f"[ERROR] Exception in store_application_file: {e}")
             return None
 
-    def store_dropbox_account_with_files(self, account: DropboxAccountWithFiles, force: bool = False) -> Optional[int]:
-        """Store dropbox account and its application files. If account exists, use its ID, or delete and re-insert if force=True."""
-        logger.info(f"Storing in database: dropbox account with files for account: {account.folder}")
+    def store_dropbox_account_with_files(self, account: DropboxAccountWithFiles, force: bool = False, update_existing: bool = True) -> Optional[int]:
+        """Store dropbox account and its application files. 
+        
+        Args:
+            account: The DropboxAccountWithFiles object containing account and file data
+            force: If True, delete existing account and re-insert (overwrites all data)
+            update_existing: If True, update existing account fields instead of only inserting new ones
+            
+        Returns:
+            The account ID if successful, None otherwise
+        """
+        logger.info(f"Store in database: dropbox account with files for account: {account.folder}")
+        logger.info(f"Force mode: {force}, Update existing: {update_existing}")
+        
         try:
             # First check if the account already exists
             existing_account_response = self.client.table('dropbox_accounts').select('id').eq('folder', account.folder).execute()
             account_id = None
-            if existing_account_response.data and len(existing_account_response.data) > 0:
+            account_exists = existing_account_response.data and len(existing_account_response.data) > 0
+            
+            if account_exists:
                 account_id = existing_account_response.data[0]['id']
-                print(f"[DEBUG] Existing account found for folder: {account.folder}, ID: {account_id}")
+                logger.info(f"Existing account found for folder: {account.folder}, ID: {account_id}")
+                
                 if force:
-                    print(f"[DEBUG] Force flag is set. Deleting account ID: {account_id} and all related files before re-inserting.")
+                    logger.info(f"Force flag is set. Deleting account ID: {account_id} and all related files before re-inserting.")
                     self.delete_application_files_for_folder(account.folder)
+                    self.delete_client_list_info_for_folder(account.folder)
                     self.client.table('dropbox_accounts').delete().eq('id', account_id).execute()
                     account_id = None
+                    account_exists = False
             else:
-                print(f"[DEBUG] No existing account found for folder: {account.folder}")
+                logger.info(f"No existing account found for folder: {account.folder}")
 
-            # Insert new account if needed
+            # Prepare account data
+            account_data = {
+                'folder': account.folder,
+                'first_name': account.first_name,
+                'middle_name': account.middle_name,
+                'last_name': account.last_name,
+                'total_account_application_files': account.total_account_application_files,
+                'processed_account_application_files': account.processed_account_application_files,
+                'failed_account_application_files': account.failed_account_application_files,
+                'processing_timestamp': account.processing_timestamp.isoformat() if account.processing_timestamp else None
+            }
+            account_data = self._serialize_dates(account_data)
+
+            # Insert new account or update existing one
             if account_id is None:
-                account_data = {
-                    'folder': account.folder,
-                    'first_name': account.first_name,
-                    'middle_name': account.middle_name,
-                    'last_name': account.last_name,
-                    'total_account_application_files': account.total_account_application_files,
-                    'processed_account_application_files': account.processed_account_application_files,
-                    'failed_account_application_files': account.failed_account_application_files,
-                    'processing_timestamp': account.processing_timestamp.isoformat() if account.processing_timestamp else None
-                }
-                account_data = self._serialize_dates(account_data)
-                print(f"[DEBUG] Inserting dropbox account: {account_data}")
+                # Insert new account
+                logger.info(f"Inserting new dropbox account: {account_data}")
                 response = self.client.table('dropbox_accounts').insert(account_data).execute()
-                print(f"[DEBUG] Insert response: {getattr(response, 'data', None)} | Error: {getattr(response, 'error', None)}")
+                logger.info(f"Insert response: {getattr(response, 'data', None)} | Error: {getattr(response, 'error', None)}")
+                
                 if response.data and len(response.data) > 0:
                     account_id = response.data[0]['id']
-                    print(f"[DEBUG] Created new account ID: {account_id}")
+                    logger.info(f"Created new account ID: {account_id}")
                 else:
                     # Insert succeeded but no data returned (common with local Supabase)
                     # Query for the newly created record to get its ID
-                    print(f"[DEBUG] Insert succeeded but no data returned, querying for new record...")
+                    logger.info("Insert succeeded but no data returned, querying for new record...")
                     new_account_response = self.client.table('dropbox_accounts').select('id').eq('folder', account.folder).execute()
                     if new_account_response.data and len(new_account_response.data) > 0:
                         account_id = new_account_response.data[0]['id']
-                        print(f"[DEBUG] Found newly created account ID: {account_id}")
+                        logger.info(f"Found newly created account ID: {account_id}")
                     else:
                         logger.error(f"Failed to insert dropbox account: Could not find newly created record")
                         return None
+            elif update_existing:
+                # Update existing account
+                logger.info(f"Updating existing account ID: {account_id} with data: {account_data}")
+                update_response = self.client.table('dropbox_accounts').update(account_data).eq('id', account_id).execute()
+                logger.info(f"Update response: {getattr(update_response, 'data', None)} | Error: {getattr(update_response, 'error', None)}")
+                
+                if not update_response.data:
+                    logger.warning(f"Update succeeded but no data returned for account ID: {account_id}")
             else:
-                print(f"[DEBUG] Using existing account ID: {account_id} for folder: {account.folder}")
+                logger.info(f"Using existing account ID: {account_id} for folder: {account.folder} (no updates)")
 
             # Store client list info if available
             if account.client_list_info:
-                print(f"[DEBUG] Storing client list info for account ID: {account_id}")
-                self.store_dropbox_client_list_info(account.client_list_info, account_id, account.folder)
+                logger.info(f"Storing client list info for account ID: {account_id}")
+                client_list_id = self.store_dropbox_client_list_info(account.client_list_info, account_id, account.folder)
+                if client_list_id:
+                    logger.info(f"Successfully stored client list info with ID: {client_list_id}")
+                else:
+                    logger.warning(f"Failed to store client list info for account ID: {account_id}")
+            else:
+                logger.info("No client list info available to store")
 
             # Store each application file
             for app_file in account.application_files:
-                print(f"[DEBUG] Storing application file: {app_file.file_name} for account ID: {account_id}")
-                print(f"[DEBUG] Application file data: {app_file}")
-                self.store_application_file(app_file, account_id)
+                logger.info(f"Storing application file: {app_file.file_name} for account ID: {account_id}")
+                file_id = self.store_application_file(app_file, account_id)
+                if file_id:
+                    logger.info(f"Successfully stored application file with ID: {file_id}")
+                else:
+                    logger.warning(f"Failed to store application file: {app_file.file_name}")
+            
+            # Get client list info for this account
+            client_list_info = self.get_client_list_info_by_folder(account.folder)
+            
+            # Create the account with files
+            account = DropboxAccountWithFiles(
+                folder=account_data['folder'],
+                first_name=account_data.get('first_name'),
+                middle_name=account_data.get('middle_name'),
+                last_name=account_data.get('last_name'),
+                application_files=account.application_files,
+                client_list_info=client_list_info,
+                total_account_application_files=account_data.get('total_account_application_files', 0),
+                processed_account_application_files=account_data.get('processed_account_application_files', 0),
+                failed_account_application_files=account_data.get('failed_account_application_files', 0),
+                processing_timestamp=datetime.fromisoformat(account_data['processing_timestamp']) if account_data.get('processing_timestamp') else None
+            )
+            
+            # Calculate and store the best account information
+            logger.info(f"Calculating and storing best account info for account ID: {account_id}")
+            best_info_id = self.calculate_and_store_best_account_info(account_id, account.folder)
+            if best_info_id:
+                logger.info(f"Successfully stored best account info with ID: {best_info_id}")
+            else:
+                logger.warning(f"Failed to store best account info for account ID: {account_id}")
+            
             return account_id
+            
         except Exception as e:
             logger.error(f"Error storing dropbox account with files: {str(e)}")
-            print(f"[ERROR] Exception in store_dropbox_account_with_files: {e}")
+            logger.error(f"Exception in store_dropbox_account_with_files: {e}")
             return None
 
     def get_application_files_by_folder(self, folder_name: str) -> Optional[DropboxAccountWithFiles]:
@@ -518,7 +582,7 @@ class SupabaseClient:
                 application_files.append(app_file)
             
             # Get client list info for this account
-            client_list_info = None  # Client list info table not available in current schema
+            client_list_info = self.get_client_list_info_by_folder(folder_name)
             
             # Create the account with files
             account = DropboxAccountWithFiles(
@@ -785,8 +849,13 @@ class SupabaseClient:
     def store_dropbox_client_list_info(self, client_list_info: DropboxAccountClientListInfo, dropbox_account_id: int, dropbox_account_folder_name: str = None) -> Optional[int]:
         """Store client list file data and return the client list info ID"""
         folder_name = dropbox_account_folder_name or f"account_id_{dropbox_account_id}"
-        logger.info(f"Storing in database: dropbox client list data for account: {folder_name}, dropbox_account_id: {dropbox_account_id}")
+        logger.info(f"Store in Database: dropbox client list data for account: {folder_name}, dropbox_account_id: {dropbox_account_id}")
         try:
+            # First, delete any existing client list info for this account to avoid duplicates
+            logger.info(f"Deleting existing client list info for account ID: {dropbox_account_id}")
+            delete_response = self.client.table('dropbox_account_client_list_info').delete().eq('dropbox_account_id', dropbox_account_id).execute()
+            logger.info(f"Deleted {len(delete_response.data) if delete_response.data else 0} existing records")
+            
             # Prepare client list data
             client_list_data = {
                 'dropbox_account_id': dropbox_account_id,
@@ -816,10 +885,21 @@ class SupabaseClient:
             print(f"[DEBUG] Insert response: {getattr(response, 'data', None)} | Error: {getattr(response, 'error', None)}")
             
             if response.data and len(response.data) > 0:
-                return response.data[0]['id']
+                client_list_id = response.data[0]['id']
+                logger.info(f"Successfully stored client list info with ID: {client_list_id}")
+                return client_list_id
             else:
-                logger.warning("No data returned from client_list_info insert")
-                return None
+                # If no data returned but no error, try to query for the newly created record
+                logger.warning("No data returned from client_list_info insert, querying for new record...")
+                query_response = self.client.table('dropbox_account_client_list_info').select('id').eq('dropbox_account_id', dropbox_account_id).limit(1).execute()
+                
+                if query_response.data and len(query_response.data) > 0:
+                    client_list_id = query_response.data[0]['id']
+                    logger.info(f"Found newly created client list info with ID: {client_list_id}")
+                    return client_list_id
+                else:
+                    logger.error("Failed to find newly created client list info record")
+                    return None
         except Exception as e:
             # Check if the error is due to the table not existing
             error_str = str(e).lower()
@@ -954,7 +1034,7 @@ class SupabaseClient:
     # Salesforce Storage Methods
     def store_salesforce_account(self, account: SalesforceAccount) -> Optional[str]:
         """Store Salesforce account data and return the account ID"""
-        logger.info(f"Storing in database: salesforce account data for account: {account.salesforce_account_id}")
+        logger.info(f"Store in Database: salesforce account data for account: {account.salesforce_account_id}")
         try:
             account_data = account.model_dump()
             account_data = self._serialize_dates(account_data)
@@ -976,9 +1056,6 @@ class SupabaseClient:
                         account_id = new_account_response.data[0]['salesforce_account_id']
                         print(f"[DEBUG] Found newly created Salesforce account ID: {account_id}")
                         return account_id
-                    else:
-                        logger.error(f"Failed to insert Salesforce account: Could not find newly created record")
-                        return None
                         
             except Exception as insert_error:
                 if "409" in str(insert_error) or "Conflict" in str(insert_error):
@@ -1420,4 +1497,354 @@ class SupabaseClient:
             
         except Exception as e:
             logger.error(f"Error searching for Salesforce account information for '{dropbox_account_folder_name}': {e}")
+            return None
+
+    def store_client_list_data_only(self, folder_name: str, client_list_info: DropboxAccountClientListInfo, 
+                                   force: bool = False, update_existing: bool = True) -> Optional[int]:
+        """Store only client list data for a dropbox account.
+        
+        This is a convenience method that creates a DropboxAccountWithFiles object with only
+        client list data and no application files, then stores it using store_dropbox_account_with_files.
+        
+        Args:
+            folder_name: The folder name for the account
+            client_list_info: The client list information
+            force: If True, delete existing account and re-insert (overwrites all data)
+            update_existing: If True, update existing account fields instead of only inserting new ones
+            
+        Returns:
+            The account ID if successful, None otherwise
+        """
+        logger.info(f"Store in Database: Storing client list data only for account: {folder_name}")
+        
+        # Create DropboxAccountWithFiles object with only client list data
+        account = self.create_dropbox_account_with_files_from_client_list(
+            folder_name=folder_name,
+            client_list_info=client_list_info,
+            application_files=[]  # No application files
+        )
+        
+        # Store using the main method
+        return self.store_dropbox_account_with_files(
+            account=account,
+            force=force,
+            update_existing=update_existing
+        )
+
+    def create_dropbox_account_with_files_from_client_list(self, folder_name: str, client_list_info: DropboxAccountClientListInfo, 
+                                                          application_files: List[DropboxAccountApplicationFile] = None) -> DropboxAccountWithFiles:
+        """Create a DropboxAccountWithFiles object from client list data.
+        
+        Args:
+            folder_name: The folder name for the account
+            client_list_info: The client list information
+            application_files: Optional list of application files (defaults to empty list)
+            
+        Returns:
+            DropboxAccountWithFiles object ready for storage
+        """
+        if application_files is None:
+            application_files = []
+            
+        # Create the account object
+        account = DropboxAccountWithFiles(
+            folder=folder_name,
+            first_name=client_list_info.first_name,
+            middle_name=client_list_info.middle_name,
+            last_name=client_list_info.last_name,
+            application_files=application_files,
+            client_list_info=client_list_info,
+            total_account_application_files=len(application_files),
+            processed_account_application_files=len([f for f in application_files if f.status == ApplicationStatus.PROCESSED]),
+            failed_account_application_files=len([f for f in application_files if f.status in [ApplicationStatus.FAILED, ApplicationStatus.ERROR]]),
+            processing_timestamp=datetime.now()
+        )
+        
+        return account
+
+    def create_dropbox_account_client_list_info_from_dropbox_account_search_result(self, dropbox_account_search_result: Dict[str, Any]) -> DropboxAccountClientListInfo:
+        """Create a DropboxAccountClientListInfo object from dropbox account search results.
+        
+        Args:
+            dropbox_account_search_result: The result from dropbox_search_account containing account data
+            
+        Returns:
+            DropboxAccountClientListInfo object ready for storage
+        """
+        from sync.utils.date_utils import convert_date
+        
+        # Extract account data
+        account_data = dropbox_account_search_result.get('account_data', {})
+        search_info = dropbox_account_search_result.get('search_info', {})
+        match_info = search_info.get('match_info', {})
+        drivers_license = dropbox_account_search_result.get('drivers_license', {})
+        
+        # Convert birthdate string to date if available
+        birthdate = convert_date(account_data.get('birthdate'))
+        
+        # Create client list info object
+        client_list_info = DropboxAccountClientListInfo(
+            account_name=account_data.get('name', ''),
+            first_name=account_data.get('first_name', ''),
+            middle_name=account_data.get('middle_name', ''),
+            last_name=account_data.get('last_name', ''),
+            birthdate=birthdate,
+            gender=account_data.get('gender', ''),
+            phone=account_data.get('phone', ''),
+            address=account_data.get('address', ''),
+            city=account_data.get('city', ''),
+            state=account_data.get('state', ''),
+            zip_code=account_data.get('zip', ''),
+            email=account_data.get('email', ''),
+            additional_info=account_data.get('additional_info', ''),
+            match_status=match_info.get('match_status', ''),
+            drivers_license_data=drivers_license,
+            search_info=search_info
+        )
+        
+        return client_list_info
+
+    def store_dropbox_client_list_data_from_search_result(self, dropbox_account_search_result: Dict[str, Any], 
+                                                         folder_name: str, force: bool = False, 
+                                                         update_existing: bool = True) -> Optional[int]:
+        """Store dropbox client list data from search results in one step.
+        
+        This is a convenience method that creates a DropboxAccountClientListInfo object from search results
+        and stores it using store_client_list_data_only.
+        
+        Args:
+            dropbox_account_search_result: The result from dropbox_search_account containing account data
+            folder_name: The folder name for the account
+            force: If True, delete existing account and re-insert (overwrites all data)
+            update_existing: If True, update existing account fields instead of only inserting new ones
+            
+        Returns:
+            The account ID if successful, None otherwise
+        """
+        logger.info(f"Store in Database: Storing dropbox client list data from search result for account: {folder_name}")
+        
+        # Create client list info object from search result
+        client_list_info = self.create_dropbox_account_client_list_info_from_dropbox_account_search_result(
+            dropbox_account_search_result
+        )
+        
+        # Store using the existing method
+        return self.store_client_list_data_only(
+            folder_name=folder_name,
+            client_list_info=client_list_info,
+            force=force,
+            update_existing=update_existing
+        )
+
+    def store_dropbox_account_best_info(self, best_info: DropboxAccountBestInfo, dropbox_account_id: int, dropbox_account_folder_name: str = None) -> Optional[int]:
+        """Store the best available account information from all Dropbox sources.
+        
+        Args:
+            best_info: The DropboxAccountBestInfo object containing merged data
+            dropbox_account_id: The ID of the dropbox account
+            dropbox_account_folder_name: Optional folder name for logging
+            
+        Returns:
+            The best info ID if successful, None otherwise
+        """
+        folder_name = dropbox_account_folder_name or f"account_id_{dropbox_account_id}"
+        logger.info(f"Store in Database: dropbox best account info for account: {folder_name}, dropbox_account_id: {dropbox_account_id}")
+        
+        try:
+            # First, delete any existing best info for this account to avoid duplicates
+            logger.info(f"Deleting existing best info for account ID: {dropbox_account_id}")
+            delete_response = self.client.table('dropbox_account_best_info').delete().eq('dropbox_account_id', dropbox_account_id).execute()
+            logger.info(f"Deleted {len(delete_response.data) if delete_response.data else 0} existing records")
+            
+            # Prepare best info data
+            best_info_data = {
+                'dropbox_account_id': dropbox_account_id,
+                'account_name': best_info.account_name,
+                'first_name': best_info.first_name,
+                'middle_name': best_info.middle_name,
+                'last_name': best_info.last_name,
+                'birthdate': best_info.birthdate.isoformat() if best_info.birthdate else None,
+                'gender': best_info.gender,
+                'phone': best_info.phone,
+                'address': best_info.address,
+                'city': best_info.city,
+                'state': best_info.state,
+                'zip_code': best_info.zip_code,
+                'email': best_info.email,
+                'additional_info': best_info.additional_info,
+                'ssn_tax_id': best_info.ssn_tax_id,
+                'data_sources': best_info.data_sources,
+                'field_precedence': best_info.field_precedence,
+                'confidence_score': best_info.confidence_score
+            }
+            
+            best_info_data = self._serialize_dates(best_info_data)
+            logger.info(f"Inserting best info: {best_info_data}")
+            
+            # Insert into the database
+            response = self.client.table('dropbox_account_best_info').insert(best_info_data).execute()
+            
+            if response.data and len(response.data) > 0:
+                best_info_id = response.data[0]['id']
+                logger.info(f"Successfully stored best info with ID: {best_info_id}")
+                return best_info_id
+            else:
+                # If no data returned but no error, try to query for the newly created record
+                logger.warning("No data returned from best info insert, querying for new record...")
+                query_response = self.client.table('dropbox_account_best_info').select('id').eq('dropbox_account_id', dropbox_account_id).limit(1).execute()
+                
+                if query_response.data and len(query_response.data) > 0:
+                    best_info_id = query_response.data[0]['id']
+                    logger.info(f"Found newly created best info with ID: {best_info_id}")
+                    return best_info_id
+                else:
+                    logger.error("Failed to find newly created best info record")
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"Failed to store best info for account ID: {dropbox_account_id}. Error: {e}")
             return None 
+
+    def calculate_and_store_best_account_info(self, dropbox_account_id: int, folder_name: str) -> Optional[int]:
+        """Calculate the best account information from all available sources and store it.
+        
+        This method merges data from both client list and application files sources
+        to create the most complete and accurate account information.
+        
+        Args:
+            dropbox_account_id: The ID of the dropbox account
+            folder_name: The folder name for the account
+            
+        Returns:
+            The best info ID if successful, None otherwise
+        """
+        logger.info(f"Calculating and storing best account info for account: {folder_name}, ID: {dropbox_account_id}")
+        
+        try:
+            # Get client list info
+            client_list_info = self.get_client_list_info_by_folder(folder_name)
+            
+            # Get application files info
+            app_files_info = self.get_application_files_by_folder(folder_name)
+            
+            # Create best info object
+            best_info = DropboxAccountBestInfo()
+            best_info.account_name = folder_name
+            
+            # Track which sources contributed data
+            data_sources = {}
+            field_precedence = {}
+            
+            # Merge data from client list (preferred source)
+            if client_list_info:
+                logger.info(f"Found client list info for {folder_name}")
+                data_sources['client_list'] = True
+                
+                # Copy client list data to best info
+                best_info.first_name = client_list_info.first_name
+                best_info.middle_name = client_list_info.middle_name
+                best_info.last_name = client_list_info.last_name
+                best_info.birthdate = client_list_info.birthdate
+                best_info.gender = client_list_info.gender
+                best_info.phone = client_list_info.phone
+                best_info.address = client_list_info.address
+                best_info.city = client_list_info.city
+                best_info.state = client_list_info.state
+                best_info.zip_code = client_list_info.zip_code
+                best_info.email = client_list_info.email
+                best_info.additional_info = client_list_info.additional_info
+                
+                # Mark fields as coming from client list
+                for field in ['first_name', 'middle_name', 'last_name', 'birthdate', 'gender', 
+                             'phone', 'address', 'city', 'state', 'zip_code', 'email', 'additional_info']:
+                    if getattr(client_list_info, field):
+                        field_precedence[field] = 'client_list'
+            else:
+                data_sources['client_list'] = False
+            
+            # Merge data from application files (fallback source)
+            if app_files_info and app_files_info.application_files:
+                logger.info(f"Found application files info for {folder_name}")
+                data_sources['application_files'] = True
+                
+                # Get the best available info from application files
+                best_app_file = None
+                best_completeness = 0
+                
+                for app_file in app_files_info.application_files:
+                    # Calculate completeness score for this file
+                    completeness = 0
+                    if app_file.owner.first_name or app_file.owner.last_name:
+                        completeness += 2
+                    if app_file.owner.date_of_birth:
+                        completeness += 1
+                    if app_file.owner.phone_number:
+                        completeness += 1
+                    if app_file.owner.email_address:
+                        completeness += 1
+                    if app_file.owner.mailing_address_street:
+                        completeness += 1
+                    
+                    if completeness > best_completeness:
+                        best_completeness = completeness
+                        best_app_file = app_file
+                
+                # Use application files data for fields not already filled by client list
+                if best_app_file and best_app_file.owner:
+                    owner = best_app_file.owner
+                    
+                    if not best_info.first_name and owner.first_name:
+                        best_info.first_name = owner.first_name
+                        field_precedence['first_name'] = 'application_files'
+                    
+                    if not best_info.last_name and owner.last_name:
+                        best_info.last_name = owner.last_name
+                        field_precedence['last_name'] = 'application_files'
+                    
+                    if not best_info.birthdate and owner.date_of_birth:
+                        best_info.birthdate = owner.date_of_birth
+                        field_precedence['birthdate'] = 'application_files'
+                    
+                    if not best_info.phone and owner.phone_number:
+                        best_info.phone = owner.phone_number
+                        field_precedence['phone'] = 'application_files'
+                    
+                    if not best_info.email and owner.email_address:
+                        best_info.email = owner.email_address
+                        field_precedence['email'] = 'application_files'
+                    
+                    if not best_info.address and owner.mailing_address_street:
+                        best_info.address = owner.mailing_address_street
+                        field_precedence['address'] = 'application_files'
+                    
+                    if not best_info.city and owner.mailing_address_city:
+                        best_info.city = owner.mailing_address_city
+                        field_precedence['city'] = 'application_files'
+                    
+                    if not best_info.state and owner.mailing_address_state:
+                        best_info.state = owner.mailing_address_state
+                        field_precedence['state'] = 'application_files'
+                    
+                    if not best_info.zip_code and owner.mailing_address_zip:
+                        best_info.zip_code = owner.mailing_address_zip
+                        field_precedence['zip_code'] = 'application_files'
+            else:
+                data_sources['application_files'] = False
+            
+            # Calculate confidence score based on data completeness
+            filled_fields = sum(1 for field in ['first_name', 'last_name', 'birthdate', 'phone', 'email', 'address'] 
+                              if getattr(best_info, field))
+            confidence_score = min(1.0, filled_fields / 6.0)  # Max 6 fields, score 0-1
+            
+            best_info.data_sources = data_sources
+            best_info.field_precedence = field_precedence
+            best_info.confidence_score = confidence_score
+            
+            logger.info(f"Calculated best info for {folder_name}: confidence={confidence_score}, sources={data_sources}")
+            
+            # Store the best info
+            return self.store_dropbox_account_best_info(best_info, dropbox_account_id, folder_name)
+            
+        except Exception as e:
+            logger.error(f"Failed to calculate and store best account info for {folder_name}. Error: {e}")
+            return None

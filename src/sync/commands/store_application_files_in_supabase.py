@@ -27,14 +27,18 @@ else:
 
 from supabase_client import SupabaseClient
 from supabase_client.schema import (
-    DropboxAccountApplicationFile, DropboxAccountApplicationInfo, DropboxAccountWithFiles,
-    ApplicationStatus, ApplicationType
+    DropboxAccountWithFiles,
+    DropboxAccountApplicationFile,
+    DropboxAccountApplicationInfo,
+    ApplicationStatus,
+    ApplicationType
 )
+from sync.utils.date_utils import convert_date
 
 logger = logging.getLogger(__name__)
 
 def convert_file_info_to_application_file(file_info: Dict[str, Any], file_name: str, file_path: str = None) -> DropboxAccountApplicationFile:
-    """Convert file info from LM Studio processor to DropboxAccountApplicationFile model."""
+    """Convert file info dictionary to DropboxAccountApplicationFile object."""
     
     # Convert application type
     app_type_str = file_info.get('application_type', 'Unknown')
@@ -49,24 +53,6 @@ def convert_file_info_to_application_file(file_info: Dict[str, Any], file_name: 
         status = ApplicationStatus(status_str)
     except ValueError:
         status = ApplicationStatus.PROCESSED
-    
-    # Helper function to convert date format
-    def convert_date(date_str):
-        if not date_str:
-            return None
-        try:
-            # Handle MM/DD/YYYY format
-            if '/' in date_str:
-                date_obj = datetime.strptime(date_str, '%m/%d/%Y')
-                return date_obj.date()
-            # Handle YYYY-MM-DD format
-            elif '-' in date_str:
-                date_obj = datetime.strptime(date_str, '%Y-%m-%d')
-                return date_obj.date()
-            else:
-                return None
-        except ValueError:
-            return None
     
     # Convert owner data
     owner_data = file_info.get('owner', {})

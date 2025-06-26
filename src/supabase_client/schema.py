@@ -71,6 +71,33 @@ class DropboxAccountClientListInfo(BaseModel):
         }
     }
 
+class DropboxAccountBestInfo(BaseModel):
+    """Model for the best available information from all Dropbox sources"""
+    account_name: Optional[str] = None
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
+    birthdate: Optional[date] = None
+    gender: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip_code: Optional[str] = None
+    email: Optional[str] = None
+    additional_info: Optional[str] = None
+    ssn_tax_id: Optional[str] = None
+    data_sources: Dict[str, Any] = Field(default_factory=dict)
+    field_precedence: Dict[str, Any] = Field(default_factory=dict)
+    confidence_score: Optional[float] = None
+    
+    model_config = {
+        'json_encoders': {
+            date: lambda v: v.isoformat() if v else None,
+            datetime: lambda v: v.isoformat() if v else None
+        }
+    }
+
 class DropboxAccountApplicationFile(BaseModel):
     """Model for application file data extracted by LM Studio processor"""
     file_name: str
