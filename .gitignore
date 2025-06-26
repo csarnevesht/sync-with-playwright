@@ -71,3 +71,4 @@ env.txt*
 
 # Ignore all .txt files (contain sensitive data)
 *.txt
+supabase/docker/volumes/db/data/
