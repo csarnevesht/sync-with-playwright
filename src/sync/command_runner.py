@@ -813,11 +813,17 @@ class CommandRunner:
                 folder_path_key = folder_path
                 files = summary_data.get('all_folder_app_files', {}).get(folder_path_key, [])
                 
-                # Log if no application files were found
-                no_files_msg = f"  🚫 No application files found for {folder_path}"
-                self.logger.info(no_files_msg)
-                self.report_logger.info(no_files_msg)
-                self.summary_logger.info(no_files_msg)
+                # Only log if no application files were found
+                if not files:
+                    no_files_msg = f"  🚫 No application files found for {folder_path}"
+                    self.logger.info(no_files_msg)
+                    self.report_logger.info(no_files_msg)
+                    self.summary_logger.info(no_files_msg)
+                else:
+                    files_found_msg = f"  ✅ Found {len(files)} application files for {folder_path}"
+                    self.logger.info(files_found_msg)
+                    self.report_logger.info(files_found_msg)
+                    self.summary_logger.info(files_found_msg)
                 
                 # Aggregate the account info
                 aggregated_info = self._aggregate_account_info_from_app_files(summary_data, files, dropbox_account_folder_name)
@@ -996,7 +1002,7 @@ class CommandRunner:
 
     def _store_app_files_data_in_supabase(self, folder_name: str, summary_data: Dict[str, Any]) -> bool:
         """Store application files data in Supabase."""
-        logger.info(f"Store in Database: Starting database storage for application files data - Account: {folder_name}")
+        self.logger.info(f"Store in Database: Starting database storage for application files data - Account: {folder_name}")
         try:
             from supabase_client import SupabaseClient
             from supabase_client.schema import DropboxAccountApplicationFile, DropboxAccountApplicationInfo, DropboxAccountWithFiles, ApplicationStatus, ApplicationType
@@ -1030,19 +1036,19 @@ class CommandRunner:
                         account_id = account_result.data[0]['id']
                         
                         # Delete existing application files
-                        delete_result = supabase_client.client.table('application_files').delete().eq('dropbox_account_id', account_id).execute()
+                        delete_result = supabase_client.client.table('dropbox_account_application_files').delete().eq('dropbox_account_id', account_id).execute()
                         self.logger.info(f"Deleted {len(delete_result.data) if delete_result.data else 0} existing application files")
                         
                         # Also delete orphaned person records (those not referenced by any application files)
                         # This is a simple approach - in production you might want more sophisticated cleanup
-                        person_result = supabase_client.client.table('person_info').select('id').execute()
+                        person_result = supabase_client.client.table('dropbox_account_application_info').select('id').execute()
                         if person_result.data:
                             person_ids = [p['id'] for p in person_result.data]
                             # Delete person records that are not referenced by any application files
                             for person_id in person_ids:
-                                ref_check = supabase_client.client.table('application_files').select('id').or_(f'owner_id.eq.{person_id}', f'joint_owner_id.eq.{person_id}').execute()
+                                ref_check = supabase_client.client.table('dropbox_account_application_files').select('id').or_(f'owner_id.eq.{person_id}', f'joint_owner_id.eq.{person_id}').execute()
                                 if not ref_check.data:
-                                    supabase_client.client.table('person_info').delete().eq('id', person_id).execute()
+                                    supabase_client.client.table('dropbox_account_application_info').delete().eq('id', person_id).execute()
                         
                 except Exception as e:
                     self.logger.warning(f"Error cleaning up existing data: {e}")
