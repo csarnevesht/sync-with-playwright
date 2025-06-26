@@ -399,8 +399,13 @@ def display_accounts(client, accounts):
         
         # Check if client list info exists
         try:
-            client_list_result = client.client.table('dropbox_account_client_list_info').select('*').eq('dropbox_account_id', account['id']).execute()
-            has_client_list = bool(client_list_result.data)
+            # Get all client list info and filter manually to handle special characters
+            all_client_list_result = client.client.table('dropbox_account_client_list_info').select('*').execute()
+            client_list_result = None
+            if all_client_list_result.data:
+                # Filter manually by dropbox_account_id
+                client_list_result = type('obj', (object,), {'data': [item for item in all_client_list_result.data if item.get('dropbox_account_id') == account['id']]})()
+            has_client_list = bool(client_list_result.data if client_list_result else [])
         except:
             pass
         
@@ -412,7 +417,6 @@ def display_accounts(client, accounts):
         print(f"   📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦")
         print(f"   📦 **DROPBOX ACCOUNT INFORMATION** 📊")
         print(f"   📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦")
-        print(f"   📊 Total Application Files: {total_files}")
         
         # Show client list info if available
         if has_client_list:
@@ -437,10 +441,15 @@ def display_accounts(client, accounts):
         else:
             print(f"   📄 **Source: dropbox_client_list** - No client list info found")
         
+        # Add separator line
+        print(f"   " + "*" * 50)
+        
         # Always check for application files, regardless of total count
+        actual_file_count = 0
         try:
             # Get related application files
             files_result = client.client.table('dropbox_account_application_files').select('*').eq('dropbox_account_id', account['id']).execute()
+            actual_file_count = len(files_result.data) if files_result.data else 0
             
             if files_result.data:
                 print(f"   📄 **Source: dropbox_application_files** ({len(files_result.data)} files found)")
@@ -517,6 +526,12 @@ def display_accounts(client, accounts):
             traceback.print_exc()
         
         print(f"   🕒 Last processed: {account.get('processing_timestamp', 'Never')}")
+        
+        # Add separator line
+        print(f"   " + "*" * 50)
+        
+        # Move Total Application Files to the end - use actual count from files query
+        print(f"   📊 Total Application Files: {actual_file_count}")
 
 def display_salesforce_accounts(client, salesforce_accounts):
     """Display Salesforce account information in a formatted way."""
