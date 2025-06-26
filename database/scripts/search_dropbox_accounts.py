@@ -405,104 +405,116 @@ def display_accounts(client, accounts):
             pass
         
         # Check if application files exist
-        has_application_files = account.get('total_account_application_files', 0) > 0
+        total_files = account.get('total_account_application_files', 0)
+        has_application_files = total_files > 0
         
-        # Show Dropbox account information if either exists
-        if has_client_list or has_application_files:
-            print(f"   📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦")
-            print(f"   📦 **DROPBOX ACCOUNT INFORMATION** 📊")
-            print(f"   📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦")
+        # Always show Dropbox account information section
+        print(f"   📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦")
+        print(f"   📦 **DROPBOX ACCOUNT INFORMATION** 📊")
+        print(f"   📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦")
+        print(f"   📊 Total Application Files: {total_files}")
+        
+        # Show client list info if available
+        if has_client_list:
+            print(f"   📄 **Source: dropbox_client_list**")
+            for client_list_info in client_list_result.data:
+                print(f"   👤 Account Name: {client_list_info.get('account_name', 'N/A')}")
+                print(f"   👤 First Name: {client_list_info.get('first_name', 'N/A')}")
+                print(f"   👤 Middle Name: {client_list_info.get('middle_name', 'N/A')}")
+                print(f"   👤 Last Name: {client_list_info.get('last_name', 'N/A')}")
+                print(f"   🎂 Birthdate: {client_list_info.get('birthdate', 'N/A')}")
+                print(f"   ♂️♀️ Gender: {client_list_info.get('gender', 'N/A')}")
+                print(f"   📞 Phone: {client_list_info.get('phone', 'N/A')}")
+                print(f"   📍 Address: {client_list_info.get('address', 'N/A')}")
+                print(f"   📍 City: {client_list_info.get('city', 'N/A')}")
+                print(f"   📍 State: {client_list_info.get('state', 'N/A')}")
+                print(f"   📍 ZIP: {client_list_info.get('zip_code', 'N/A')}")
+                print(f"   📧 Email: {client_list_info.get('email', 'N/A')}")
+                print(f"   ℹ️ Additional Info: {client_list_info.get('additional_info', 'N/A')}")
+                print(f"   ✅ Match Status: {client_list_info.get('match_status', 'N/A')}")
+                print(f"   🕒 Created: {client_list_info.get('created_at', 'N/A')}")
+                print(f"   🔄 Updated: {client_list_info.get('updated_at', 'N/A')}")
+        else:
+            print(f"   📄 **Source: dropbox_client_list** - No client list info found")
+        
+        # Always check for application files, regardless of total count
+        try:
+            # Get related application files
+            files_result = client.client.table('dropbox_account_application_files').select('*').eq('dropbox_account_id', account['id']).execute()
             
-            # Show client list info if available
-            if has_client_list:
-                print(f"   📄 **Source: dropbox_client_list**")
-                for client_list_info in client_list_result.data:
-                    print(f"   👤 Account Name: {client_list_info.get('account_name', 'N/A')}")
-                    print(f"   👤 First Name: {client_list_info.get('first_name', 'N/A')}")
-                    print(f"   👤 Middle Name: {client_list_info.get('middle_name', 'N/A')}")
-                    print(f"   👤 Last Name: {client_list_info.get('last_name', 'N/A')}")
-                    print(f"   🎂 Birthdate: {client_list_info.get('birthdate', 'N/A')}")
-                    print(f"   ♂️♀️ Gender: {client_list_info.get('gender', 'N/A')}")
-                    print(f"   📞 Phone: {client_list_info.get('phone', 'N/A')}")
-                    print(f"   📍 Address: {client_list_info.get('address', 'N/A')}")
-                    print(f"   📍 City: {client_list_info.get('city', 'N/A')}")
-                    print(f"   📍 State: {client_list_info.get('state', 'N/A')}")
-                    print(f"   📍 ZIP: {client_list_info.get('zip_code', 'N/A')}")
-                    print(f"   📧 Email: {client_list_info.get('email', 'N/A')}")
-                    print(f"   ℹ️ Additional Info: {client_list_info.get('additional_info', 'N/A')}")
-                    print(f"   ✅ Match Status: {client_list_info.get('match_status', 'N/A')}")
-                    print(f"   🕒 Created: {client_list_info.get('created_at', 'N/A')}")
-                    print(f"   🔄 Updated: {client_list_info.get('updated_at', 'N/A')}")
-            
-            # Show application files info if available
-            if has_application_files:
-                try:
-                    # Get related application files
-                    files_result = client.client.table('dropbox_account_application_files').select('*').eq('dropbox_account_id', account['id']).execute()
+            if files_result.data:
+                print(f"   📄 **Source: dropbox_application_files** ({len(files_result.data)} files found)")
+                for file in files_result.data:
+                    print(f"      - {file['file_name']} ({file.get('application_type', 'Unknown')})")
                     
-                    if files_result.data:
-                        print(f"   📄 **Source: dropbox_application_files**")
-                        for file in files_result.data:
-                            print(f"      - {file['file_name']} ({file.get('application_type', 'Unknown')})")
-                            
-                            # Show detailed owner info if available
-                            if file.get('owner_id'):
-                                owner_result = client.client.table('dropbox_account_application_info').select('*').eq('id', file['owner_id']).execute()
-                                if owner_result.data:
-                                    owner = owner_result.data[0]
-                                    print(f"        👤 Owner Details:")
-                                    print(f"          Name: {owner.get('first_name', '')} {owner.get('last_name', '')}".strip())
-                                    print(f"          Birthdate: {owner.get('date_of_birth', 'N/A')}")
-                                    print(f"          Gender: {owner.get('gender', 'N/A')}")
-                                    print(f"          Phone: {owner.get('phone_number', 'N/A')}")
-                                    print(f"          Email: {owner.get('email_address', 'N/A')}")
-                                    print(f"          Address: {owner.get('mailing_address_street', 'N/A')}")
-                                    if owner.get('mailing_address_city') or owner.get('mailing_address_state') or owner.get('mailing_address_zip'):
-                                        address_parts = []
-                                        if owner.get('mailing_address_city'):
-                                            address_parts.append(owner['mailing_address_city'])
-                                        if owner.get('mailing_address_state'):
-                                            address_parts.append(owner['mailing_address_state'])
-                                        if owner.get('mailing_address_zip'):
-                                            address_parts.append(owner['mailing_address_zip'])
-                                        print(f"          City/State/Zip: {', '.join(address_parts)}")
-                                    print(f"          OCR Method: {owner.get('ocr_method', 'N/A')}")
-                            
-                            # Show detailed joint owner info if available
-                            if file.get('joint_owner_id'):
-                                joint_result = client.client.table('dropbox_account_application_info').select('*').eq('id', file['joint_owner_id']).execute()
-                                if joint_result.data:
-                                    joint = joint_result.data[0]
-                                    print(f"        👥 Joint Owner Details:")
-                                    print(f"          Name: {joint.get('first_name', '')} {joint.get('last_name', '')}".strip())
-                                    print(f"          Birthdate: {joint.get('date_of_birth', 'N/A')}")
-                                    print(f"          Gender: {joint.get('gender', 'N/A')}")
-                                    print(f"          Phone: {joint.get('phone_number', 'N/A')}")
-                                    print(f"          Email: {joint.get('email_address', 'N/A')}")
-                                    print(f"          Address: {joint.get('mailing_address_street', 'N/A')}")
-                                    if joint.get('mailing_address_city') or joint.get('mailing_address_state') or joint.get('mailing_address_zip'):
-                                        address_parts = []
-                                        if joint.get('mailing_address_city'):
-                                            address_parts.append(joint['mailing_address_city'])
-                                        if joint.get('mailing_address_state'):
-                                            address_parts.append(joint['mailing_address_state'])
-                                        if joint.get('mailing_address_zip'):
-                                            address_parts.append(joint['mailing_address_zip'])
-                                        print(f"          City/State/Zip: {', '.join(address_parts)}")
-                                    print(f"          OCR Method: {joint.get('ocr_method', 'N/A')}")
-                            
-                            # Show file processing details
-                            if file.get('processing_timestamp'):
-                                print(f"        📅 Processed: {file['processing_timestamp']}")
-                            if file.get('ocr_confidence'):
-                                print(f"        🎯 OCR Confidence: {file['ocr_confidence']}%")
-                            if file.get('lm_studio_model_used'):
-                                print(f"        🤖 Model Used: {file['lm_studio_model_used']}")
-                            if file.get('processing_duration_seconds'):
-                                print(f"        ⏱️  Processing Time: {file['processing_duration_seconds']} seconds")
+                    # Show detailed owner info if available
+                    if file.get('owner_id'):
+                        owner_result = client.client.table('dropbox_account_application_info').select('*').eq('id', file['owner_id']).execute()
+                        if owner_result.data:
+                            owner = owner_result.data[0]
+                            print(f"        👤 Owner Details:")
+                            first_name = owner.get('first_name', '') or ''
+                            last_name = owner.get('last_name', '') or ''
+                            full_name = f"{first_name} {last_name}".strip()
+                            print(f"          Name: {full_name}")
+                            print(f"          Birthdate: {owner.get('date_of_birth', 'N/A')}")
+                            print(f"          Gender: {owner.get('gender', 'N/A')}")
+                            print(f"          Phone: {owner.get('phone_number', 'N/A')}")
+                            print(f"          Email: {owner.get('email_address', 'N/A')}")
+                            print(f"          Address: {owner.get('mailing_address_street', 'N/A')}")
+                            if owner.get('mailing_address_city') or owner.get('mailing_address_state') or owner.get('mailing_address_zip'):
+                                address_parts = []
+                                if owner.get('mailing_address_city'):
+                                    address_parts.append(owner['mailing_address_city'])
+                                if owner.get('mailing_address_state'):
+                                    address_parts.append(owner['mailing_address_state'])
+                                if owner.get('mailing_address_zip'):
+                                    address_parts.append(owner['mailing_address_zip'])
+                                print(f"          City/State/Zip: {', '.join(address_parts)}")
+                            print(f"          OCR Method: {owner.get('ocr_method', 'N/A')}")
                     
-                except Exception as e:
-                    print(f"   ⚠️  Error getting file details: {e}")
+                    # Show detailed joint owner info if available
+                    if file.get('joint_owner_id'):
+                        joint_result = client.client.table('dropbox_account_application_info').select('*').eq('id', file['joint_owner_id']).execute()
+                        if joint_result.data:
+                            joint = joint_result.data[0]
+                            print(f"        👥 Joint Owner Details:")
+                            first_name = joint.get('first_name', '') or ''
+                            last_name = joint.get('last_name', '') or ''
+                            full_name = f"{first_name} {last_name}".strip()
+                            print(f"          Name: {full_name}")
+                            print(f"          Birthdate: {joint.get('date_of_birth', 'N/A')}")
+                            print(f"          Gender: {joint.get('gender', 'N/A')}")
+                            print(f"          Phone: {joint.get('phone_number', 'N/A')}")
+                            print(f"          Email: {joint.get('email_address', 'N/A')}")
+                            print(f"          Address: {joint.get('mailing_address_street', 'N/A')}")
+                            if joint.get('mailing_address_city') or joint.get('mailing_address_state') or joint.get('mailing_address_zip'):
+                                address_parts = []
+                                if joint.get('mailing_address_city'):
+                                    address_parts.append(joint['mailing_address_city'])
+                                if joint.get('mailing_address_state'):
+                                    address_parts.append(joint['mailing_address_state'])
+                                if joint.get('mailing_address_zip'):
+                                    address_parts.append(joint['mailing_address_zip'])
+                                print(f"          City/State/Zip: {', '.join(address_parts)}")
+                            print(f"          OCR Method: {joint.get('ocr_method', 'N/A')}")
+                    
+                    # Show file processing details
+                    if file.get('processing_timestamp'):
+                        print(f"        📅 Processed: {file['processing_timestamp']}")
+                    if file.get('ocr_confidence'):
+                        print(f"        🎯 OCR Confidence: {file['ocr_confidence']}%")
+                    if file.get('lm_studio_model_used'):
+                        print(f"        🤖 Model Used: {file['lm_studio_model_used']}")
+                    if file.get('processing_duration_seconds'):
+                        print(f"        ⏱️  Processing Time: {file['processing_duration_seconds']} seconds")
+            else:
+                print(f"   📄 **Source: dropbox_application_files** - No application files found in database")
+                
+        except Exception as e:
+            print(f"   ⚠️  Error getting file details: {e}")
+            import traceback
+            traceback.print_exc()
         
         print(f"   🕒 Last processed: {account.get('processing_timestamp', 'Never')}")
 
