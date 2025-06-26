@@ -367,8 +367,12 @@ class BaseProcessor(ABC):
 
     def _clean_ocr_text(self, text: str) -> str:
         """Common OCR text cleaning."""
-        text = re.sub(r'[^\w\s.,;:!?@#$%^&*()\-_=+\[\]{}|\\/"\'<>]', '', text)
-        text = re.sub(r'\s+', ' ', text)
+        # Remove non-printable characters except underscores and line breaks
+        text = re.sub(r'[^\w\s.,;:!?@#$%^&*()\-_=+\[\]{}|\\/"\'<>\n\r]', '', text)
+        # Normalize line endings
+        text = text.replace('\r\n', '\n').replace('\r', '\n')
+        # Remove trailing whitespace on each line
+        text = '\n'.join(line.rstrip() for line in text.splitlines())
         return text.strip()
 
     def _extract_owner_info_regex(self, text: str) -> Dict[str, Any]:
@@ -547,12 +551,15 @@ class BaseProcessor(ABC):
             
             # Clean the OCR text to improve extraction accuracy
             cleaned_text = self._clean_ocr_text(text)
-            cleaned_text = self._clean_name_lines(cleaned_text)
+            
+            # Log the cleaned name for debugging, but don't replace the full text
+            cleaned_name_text = self._clean_name_lines(cleaned_text)
+            self.logger.info(f"Cleaned name text: {cleaned_name_text}")
             
             self.logger.info(f"Original text length: {len(text)} characters")
             self.logger.info(f"Cleaned text length: {len(cleaned_text)} characters")
             
-            # Extract owner information first
+            # Extract owner information first - use the full cleaned text, not just the name
             owner_info = self._process_owner(cleaned_text, filename, dropbox_folder_name)
             
             # Check if this is a joint application based on filename
@@ -635,7 +642,13 @@ class BaseProcessor(ABC):
                 processor_type = "qwen"
             elif "Ollama" in self.__class__.__name__:
                 processor_type = "ollama"
-            owner_prompt = self.prompt_creator.create_owner_extraction_prompt(text, processor_type, filename, dropbox_folder_name)
+
+            # Add only the owner name as a hint (get the second "Name:" line which should be the actual owner)
+            cleaned_name_lines = self._clean_name_lines(text).splitlines()
+            name_lines = [line for line in cleaned_name_lines if line.strip().startswith("Name:")]
+            cleaned_name_hint = name_lines[1] if len(name_lines) > 1 else name_lines[0] if name_lines else None
+            hint = f"[HINT] Cleaned Name: {cleaned_name_hint}\n\n" if cleaned_name_hint else ""
+            owner_prompt = hint + self.prompt_creator.create_owner_extraction_prompt(text, processor_type, filename, dropbox_folder_name)
             self.logger.info(f"owner_prompt: {owner_prompt}")
             
             # Write the prompt to file
@@ -714,7 +727,13 @@ class BaseProcessor(ABC):
                 processor_type = "qwen"
             elif "Ollama" in self.__class__.__name__:
                 processor_type = "ollama"
-            joint_owner_prompt = self.prompt_creator.create_joint_owner_extraction_prompt(text, processor_type, filename, dropbox_folder_name)
+
+            # Add only the joint owner name as a hint (get the last "Name:" line which should be the joint owner)
+            cleaned_name_lines = self._clean_name_lines(text).splitlines()
+            name_lines = [line for line in cleaned_name_lines if line.strip().startswith("Name:")]
+            cleaned_name_hint = name_lines[-1] if name_lines else None
+            hint = f"[HINT] Cleaned Name: {cleaned_name_hint}\n\n" if cleaned_name_hint else ""
+            joint_owner_prompt = hint + self.prompt_creator.create_joint_owner_extraction_prompt(text, processor_type, filename, dropbox_folder_name)
             self.logger.info(f"joint_owner_prompt: {joint_owner_prompt}")
             
             # Write the prompt to file
