@@ -602,6 +602,17 @@ class BaseProcessor(ABC):
                         name_part = name_match.group(1).strip()
                         # Remove trailing 'm' or 'f' that might be from gender indicators
                         name_part = re.sub(r'[mf]$', '', name_part, flags=re.IGNORECASE)
+                        
+                        # Split by multiple spaces (which were underscores in original)
+                        name_parts = re.split(r'\s{2,}', name_part)
+                        if len(name_parts) >= 2:
+                            first_name = re.sub(r'\s+', '', name_parts[0])  # Remove spaces between letters
+                            last_name = re.sub(r'\s+', '', name_parts[1])   # Remove spaces between letters
+                            name_part = f"{first_name} {last_name}"
+                        else:
+                            # If no clear separation, just remove all spaces
+                            name_part = re.sub(r'\s+', '', name_part)
+                        
                         # Only return if we have a reasonable name length
                         if len(name_part) >= 3:
                             return f"Name: {name_part}"
