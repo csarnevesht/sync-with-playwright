@@ -582,8 +582,9 @@ class BaseProcessor(ABC):
         def clean_line(line):
             # Look for lines that contain name-related patterns
             if re.search(r'Name|Owner|Annuitant', line, re.IGNORECASE):
-                # Remove underscores and clean up spacing
-                cleaned = re.sub(r'_+', ' ', line)  # Replace multiple underscores with single space
+                # First replace __ with space, then _ with nothing
+                cleaned = re.sub(r'__+', ' ', line)  # Replace multiple underscores with single space
+                cleaned = re.sub(r'_', '', cleaned)  # Remove single underscores
                 cleaned = re.sub(r'\s+', ' ', cleaned)  # Normalize spaces
                 cleaned = cleaned.strip()
                 
@@ -599,8 +600,6 @@ class BaseProcessor(ABC):
                     name_match = re.search(pattern, cleaned, re.IGNORECASE)
                     if name_match:
                         name_part = name_match.group(1).strip()
-                        # Remove extra spaces between letters (OCR artifact)
-                        name_part = re.sub(r'\s+', '', name_part)
                         # Remove trailing 'm' or 'f' that might be from gender indicators
                         name_part = re.sub(r'[mf]$', '', name_part, flags=re.IGNORECASE)
                         # Only return if we have a reasonable name length
