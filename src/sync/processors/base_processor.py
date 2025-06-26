@@ -589,13 +589,23 @@ class BaseProcessor(ABC):
                 
                 # Try to extract actual names from the cleaned line
                 # Look for patterns like "Name of Contract Owner A m p a r o C a l a t a y u d"
-                name_match = re.search(r'(?:Name|Owner|Annuitant).*?([A-Za-z\s]+?)(?:\s*Male|\s*Female|\s*$)', cleaned, re.IGNORECASE)
-                if name_match:
-                    name_part = name_match.group(1).strip()
-                    # Remove extra spaces between letters (OCR artifact)
-                    name_part = re.sub(r'\s+', '', name_part)
-                    # Replace the original line with the cleaned name
-                    return f"Name: {name_part}"
+                # More specific pattern to avoid capturing extra text
+                name_patterns = [
+                    r'(?:Name of Contract Owner|Name of Owner|Name of Annuitant)\s+([A-Za-z\s]+?)(?:\s+Male|\s+Female|\s*$)',
+                    r'(?:Name|Owner|Annuitant).*?([A-Za-z\s]{2,20})(?:\s+Male|\s+Female|\s*$)',
+                ]
+                
+                for pattern in name_patterns:
+                    name_match = re.search(pattern, cleaned, re.IGNORECASE)
+                    if name_match:
+                        name_part = name_match.group(1).strip()
+                        # Remove extra spaces between letters (OCR artifact)
+                        name_part = re.sub(r'\s+', '', name_part)
+                        # Remove trailing 'm' or 'f' that might be from gender indicators
+                        name_part = re.sub(r'[mf]$', '', name_part, flags=re.IGNORECASE)
+                        # Only return if we have a reasonable name length
+                        if len(name_part) >= 3:
+                            return f"Name: {name_part}"
                 
                 return cleaned
             return line
