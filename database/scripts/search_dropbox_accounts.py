@@ -30,9 +30,10 @@ def search_dropbox_accounts():
             print("2. (p) Search by partial folder name")
             print("3. (l) List all accounts (first 20)")
             print("4. (s) Show account statistics")
-            print("5. (q) Exit")
+            print("5. (n) List accounts without client list info")
+            print("6. (q) Exit")
             
-            choice = input("\nEnter your choice (1-5 or shortcut): ").strip().lower()
+            choice = input("\nEnter your choice (1-6 or shortcut): ").strip().lower()
             
             if choice in ['1', 'e']:
                 search_exact(client)
@@ -42,7 +43,9 @@ def search_dropbox_accounts():
                 list_all_accounts(client)
             elif choice in ['4', 's']:
                 show_statistics(client)
-            elif choice in ['5', 'q']:
+            elif choice in ['5', 'n']:
+                list_accounts_without_client_list(client)
+            elif choice in ['6', 'q']:
                 print("👋 Goodbye!")
                 break
             else:
@@ -182,17 +185,20 @@ def list_all_accounts(client):
 def show_statistics(client):
     """Show account statistics."""
     try:
-        # Get Dropbox statistics
-        total_result = client.client.table('dropbox_accounts').select('id', count='exact').execute()
-        total_accounts = total_result.count if hasattr(total_result, 'count') else len(total_result.data)
+        # Get Dropbox statistics - get all records and count manually for local client compatibility
+        total_result = client.client.table('dropbox_accounts').select('*').execute()
+        total_accounts = len(total_result.data) if total_result.data else 0
         
         # Get accounts with files
-        with_files_result = client.client.table('dropbox_accounts').select('id').gt('total_account_application_files', 0).execute()
-        accounts_with_files = len(with_files_result.data)
+        with_files_result = client.client.table('dropbox_accounts').select('*').execute()
+        accounts_with_files = 0
+        if with_files_result.data:
+            accounts_with_files = len([acc for acc in with_files_result.data if acc.get('total_account_application_files', 0) > 0])
         
         # Get processed accounts
-        processed_result = client.client.table('dropbox_accounts').select('id').gt('processed_account_application_files', 0).execute()
-        processed_accounts = len(processed_result.data)
+        processed_accounts = 0
+        if with_files_result.data:
+            processed_accounts = len([acc for acc in with_files_result.data if acc.get('processed_account_application_files', 0) > 0])
         
         print(f"\n📊 Dropbox Account Statistics:")
         print(f"   Total accounts: {total_accounts}")
@@ -200,23 +206,23 @@ def show_statistics(client):
         print(f"   Accounts with processed files: {processed_accounts}")
         print(f"   Accounts without files: {total_accounts - accounts_with_files}")
         
-        # Get Salesforce statistics
-        sf_total_result = client.client.table('salesforce_accounts').select('id', count='exact').execute()
-        sf_total_accounts = sf_total_result.count if hasattr(sf_total_result, 'count') else len(sf_total_result.data)
+        # Get Salesforce statistics - get all records and count manually
+        sf_total_result = client.client.table('salesforce_accounts').select('*').execute()
+        sf_total_accounts = len(sf_total_result.data) if sf_total_result.data else 0
         
         # Get Salesforce accounts by type
-        sf_contacts_result = client.client.table('salesforce_accounts').select('id').eq('account_type', 'Contact').execute()
-        sf_contacts = len(sf_contacts_result.data)
-        
-        sf_households_result = client.client.table('salesforce_accounts').select('id').eq('account_type', 'Household').execute()
-        sf_households = len(sf_households_result.data)
+        sf_contacts = 0
+        sf_households = 0
+        if sf_total_result.data:
+            sf_contacts = len([acc for acc in sf_total_result.data if acc.get('account_type') == 'Contact'])
+            sf_households = len([acc for acc in sf_total_result.data if acc.get('account_type') == 'Household'])
         
         # Get household statistics
-        hh_total_result = client.client.table('salesforce_households').select('id', count='exact').execute()
-        hh_total = hh_total_result.count if hasattr(hh_total_result, 'count') else len(hh_total_result.data)
+        hh_total_result = client.client.table('salesforce_households').select('*').execute()
+        hh_total = len(hh_total_result.data) if hh_total_result.data else 0
         
-        hh_members_result = client.client.table('salesforce_household_members').select('id', count='exact').execute()
-        hh_members = hh_members_result.count if hasattr(hh_members_result, 'count') else len(hh_members_result.data)
+        hh_members_result = client.client.table('salesforce_household_members').select('*').execute()
+        hh_members = len(hh_members_result.data) if hh_members_result.data else 0
         
         print(f"\n⚡ Salesforce Account Statistics:")
         print(f"   Total Salesforce accounts: {sf_total_accounts}")
@@ -228,18 +234,78 @@ def show_statistics(client):
         # Show some examples
         if total_accounts > 0:
             print(f"\n📝 Sample Dropbox account names:")
-            sample_result = client.client.table('dropbox_accounts').select('folder').limit(5).execute()
-            for i, account in enumerate(sample_result.data, 1):
-                print(f"   {i}. {account['folder']}")
+            sample_result = client.client.table('dropbox_accounts').select('folder').execute()
+            if sample_result.data:
+                for i, account in enumerate(sample_result.data[:5], 1):  # Limit to 5
+                    print(f"   {i}. {account['folder']}")
         
         if sf_total_accounts > 0:
             print(f"\n⚡ Sample Salesforce account names:")
-            sf_sample_result = client.client.table('salesforce_accounts').select('account_name,account_type').limit(5).execute()
-            for i, account in enumerate(sf_sample_result.data, 1):
-                print(f"   {i}. {account['account_name']} ({account['account_type']})")
+            sf_sample_result = client.client.table('salesforce_accounts').select('account_name,account_type').execute()
+            if sf_sample_result.data:
+                for i, account in enumerate(sf_sample_result.data[:5], 1):  # Limit to 5
+                    print(f"   {i}. {account['account_name']} ({account['account_type']})")
                 
     except Exception as e:
         print(f"❌ Error getting statistics: {e}")
+        import traceback
+        traceback.print_exc()
+
+def list_accounts_without_client_list(client):
+    """List all accounts that don't have client list file info."""
+    try:
+        print("\n🔍 Finding accounts without client list info...")
+        
+        # Get all dropbox accounts
+        all_result = client.client.table('dropbox_accounts').select('*').execute()
+        
+        if not all_result.data:
+            print("❌ No accounts found.")
+            return
+        
+        # Get all client list info
+        client_list_result = client.client.table('dropbox_account_client_list_info').select('*').execute()
+        client_list_account_ids = set()
+        
+        if client_list_result.data:
+            client_list_account_ids = {info['dropbox_account_id'] for info in client_list_result.data}
+        
+        # Find accounts without client list info
+        accounts_without_client_list = []
+        for account in all_result.data:
+            if account['id'] not in client_list_account_ids:
+                accounts_without_client_list.append(account)
+        
+        print(f"\n📋 Accounts without client list info ({len(accounts_without_client_list)} found):")
+        print("=" * 60)
+        
+        if accounts_without_client_list:
+            # Sort by folder name
+            sorted_accounts = sorted(accounts_without_client_list, key=lambda x: x['folder'])
+            
+            for i, account in enumerate(sorted_accounts, 1):
+                folder_name = account['folder']
+                account_id = account['id']
+                total_files = account.get('total_account_application_files', 0)
+                processed_files = account.get('processed_account_application_files', 0)
+                
+                print(f"{i}. {folder_name} (ID: {account_id})")
+                print(f"   📁 Files: {total_files} total, {processed_files} processed")
+                
+                # Check if they have application files
+                if total_files > 0:
+                    print(f"   ✅ Has application files")
+                else:
+                    print(f"   ❌ No application files")
+                
+                print()
+        else:
+            print("✅ All accounts have client list info!")
+            
+    except Exception as e:
+        print(f"❌ Error listing accounts without client list: {e}")
+        import traceback
+        traceback.print_exc()
 
 def display_accounts(client, accounts):
     """Display account information in a formatted way."""
