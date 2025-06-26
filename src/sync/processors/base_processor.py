@@ -544,8 +544,16 @@ class BaseProcessor(ABC):
         """Process text to extract both owner and joint owner information."""
         try:
             self.logger.info(f"_process_text: Processing text to extract owner and joint owner information")
+            
+            # Clean the OCR text to improve extraction accuracy
+            cleaned_text = self._clean_ocr_text(text)
+            cleaned_text = self._clean_name_lines(cleaned_text)
+            
+            self.logger.info(f"Original text length: {len(text)} characters")
+            self.logger.info(f"Cleaned text length: {len(cleaned_text)} characters")
+            
             # Extract owner information first
-            owner_info = self._process_owner(text, filename, dropbox_folder_name)
+            owner_info = self._process_owner(cleaned_text, filename, dropbox_folder_name)
             
             # Check if this is a joint application based on filename
             is_joint_application = filename and 'joint' in filename.lower()
@@ -557,7 +565,7 @@ class BaseProcessor(ABC):
             
             # For joint applications, always include both owner and jointOwner
             if is_joint_application:
-                joint_owner_info = self._process_joint_owner(text, filename, dropbox_folder_name)
+                joint_owner_info = self._process_joint_owner(cleaned_text, filename, dropbox_folder_name)
                 result["jointOwner"] = joint_owner_info
             
             return result
@@ -570,14 +578,28 @@ class BaseProcessor(ABC):
             }
 
     def _clean_name_lines(self, text):
+        """Clean OCR artifacts from name lines to improve extraction."""
         def clean_line(line):
-            if re.search(r'Name[:/]', line):
-                # Convert __ to space, _ to nothing, then clean up extra spaces
-                cleaned = re.sub(r'__+', ' ', line)
-                cleaned = re.sub(r'_', '', cleaned)
-                cleaned = re.sub(r'\s+', ' ', cleaned)
-                return cleaned.strip()
+            # Look for lines that contain name-related patterns
+            if re.search(r'Name|Owner|Annuitant', line, re.IGNORECASE):
+                # Remove underscores and clean up spacing
+                cleaned = re.sub(r'_+', ' ', line)  # Replace multiple underscores with single space
+                cleaned = re.sub(r'\s+', ' ', cleaned)  # Normalize spaces
+                cleaned = cleaned.strip()
+                
+                # Try to extract actual names from the cleaned line
+                # Look for patterns like "Name of Contract Owner A m p a r o C a l a t a y u d"
+                name_match = re.search(r'(?:Name|Owner|Annuitant).*?([A-Za-z\s]+?)(?:\s*Male|\s*Female|\s*$)', cleaned, re.IGNORECASE)
+                if name_match:
+                    name_part = name_match.group(1).strip()
+                    # Remove extra spaces between letters (OCR artifact)
+                    name_part = re.sub(r'\s+', '', name_part)
+                    # Replace the original line with the cleaned name
+                    return f"Name: {name_part}"
+                
+                return cleaned
             return line
+        
         return '\n'.join(clean_line(line) for line in text.splitlines())
 
     def _process_owner(self, text: str, filename: str = None, dropbox_folder_name: str = None) -> Dict[str, Any]:
