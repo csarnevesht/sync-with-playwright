@@ -381,7 +381,7 @@ class SupabaseClient:
             account: The DropboxAccountWithFiles object containing account and file data
             force: If True, delete existing account and re-insert (overwrites all data)
             update_existing: If True, update existing account fields instead of only inserting new ones
-            
+        
         Returns:
             The account ID if successful, None otherwise
         """
@@ -421,19 +421,21 @@ class SupabaseClient:
             }
             account_data = self._serialize_dates(account_data)
 
-            # Insert new account or update existing one
-            if account_id is None:
-                # Insert new account
+            # Always update if exists, insert if not
+            if account_exists and update_existing:
+                logger.info(f"Updating existing account ID: {account_id} with data: {account_data}")
+                update_response = self.client.table('dropbox_accounts').update(account_data).eq('id', account_id).execute()
+                logger.info(f"Update response: {getattr(update_response, 'data', None)} | Error: {getattr(update_response, 'error', None)}")
+                if not update_response.data:
+                    logger.warning(f"Update succeeded but no data returned for account ID: {account_id}")
+            elif not account_exists:
                 logger.info(f"Inserting new dropbox account: {account_data}")
                 response = self.client.table('dropbox_accounts').insert(account_data).execute()
                 logger.info(f"Insert response: {getattr(response, 'data', None)} | Error: {getattr(response, 'error', None)}")
-                
                 if response.data and len(response.data) > 0:
                     account_id = response.data[0]['id']
                     logger.info(f"Created new account ID: {account_id}")
                 else:
-                    # Insert succeeded but no data returned (common with local Supabase)
-                    # Query for the newly created record to get its ID
                     logger.info("Insert succeeded but no data returned, querying for new record...")
                     new_account_response = self.client.table('dropbox_accounts').select('id').eq('folder', account.folder).execute()
                     if new_account_response.data and len(new_account_response.data) > 0:
@@ -442,14 +444,6 @@ class SupabaseClient:
                     else:
                         logger.error(f"Failed to insert dropbox account: Could not find newly created record")
                         return None
-            elif update_existing:
-                # Update existing account
-                logger.info(f"Updating existing account ID: {account_id} with data: {account_data}")
-                update_response = self.client.table('dropbox_accounts').update(account_data).eq('id', account_id).execute()
-                logger.info(f"Update response: {getattr(update_response, 'data', None)} | Error: {getattr(update_response, 'error', None)}")
-                
-                if not update_response.data:
-                    logger.warning(f"Update succeeded but no data returned for account ID: {account_id}")
             else:
                 logger.info(f"Using existing account ID: {account_id} for folder: {account.folder} (no updates)")
 
