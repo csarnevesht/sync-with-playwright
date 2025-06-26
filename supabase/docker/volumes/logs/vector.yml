@@ -1,0 +1,116 @@
+api:
+  address: 0.0.0.0:9001
+  enabled: true
+sinks:
+  file_sink:
+    encoding:
+      codec: text
+    inputs:
+    - project_logs
+    path: /tmp/vector-dummy.log
+    type: file
+sources:
+  docker_host:
+    exclude_containers:
+    - supabase-vector
+    type: docker_logs
+transforms:
+  auth_logs:
+    inputs:
+    - router.auth
+    source: "parsed, err = parse_json(.event_message)\nif err == null {\n    .metadata.timestamp\
+      \ = parsed.time\n    .metadata = merge!(.metadata, parsed)\n}"
+    type: remap
+  db_logs:
+    inputs:
+    - router.db
+    source: ".metadata.host = \"db-default\"\n.metadata.parsed.timestamp = .timestamp\n\
+      \nparsed, err = parse_regex(.event_message, r'.*(?P<level>INFO|NOTICE|WARNING|ERROR|LOG|FATAL|PANIC?):.*',\
+      \ numeric_groups: true)\n\nif err != null || parsed == null {\n  .metadata.parsed.error_severity\
+      \ = \"info\"\n}\nif parsed != null {\n .metadata.parsed.error_severity = parsed.level\n\
+      }\nif .metadata.parsed.error_severity == \"info\" {\n    .metadata.parsed.error_severity\
+      \ = \"log\"\n}\n.metadata.parsed.error_severity = upcase!(.metadata.parsed.error_severity)"
+    type: remap
+  kong_err:
+    inputs:
+    - router.kong
+    source: ".metadata.request.method = \"GET\"\n.metadata.response.status_code =\
+      \ 200\nparsed, err = parse_nginx_log(.event_message, \"error\")\nif err == null\
+      \ {\n    .timestamp = parsed.timestamp\n    .severity = parsed.severity\n  \
+      \  .metadata.request.host = parsed.host\n    .metadata.request.headers.cf_connecting_ip\
+      \ = parsed.client\n    url, err = split(parsed.request, \" \")\n    if err ==\
+      \ null {\n        .metadata.request.method = url[0]\n        .metadata.request.path\
+      \ = url[1]\n        .metadata.request.protocol = url[2]\n    }\n}\nif err !=\
+      \ null {\n  abort\n}"
+    type: remap
+  kong_logs:
+    inputs:
+    - router.kong
+    source: "req, err = parse_nginx_log(.event_message, \"combined\")\nif err == null\
+      \ {\n    .timestamp = req.timestamp\n    .metadata.request.headers.referer =\
+      \ req.referer\n    .metadata.request.headers.user_agent = req.agent\n    .metadata.request.headers.cf_connecting_ip\
+      \ = req.client\n    .metadata.request.method = req.method\n    .metadata.request.path\
+      \ = req.path\n    .metadata.request.protocol = req.protocol\n    .metadata.response.status_code\
+      \ = req.status\n}\nif err != null {\n  abort\n}"
+    type: remap
+  project_logs:
+    inputs:
+    - docker_host
+    source: '.project = "default"
+
+      .event_message = del(.message)
+
+      .appname = del(.container_name)
+
+      del(.container_created_at)
+
+      del(.container_id)
+
+      del(.source_type)
+
+      del(.stream)
+
+      del(.label)
+
+      del(.image)
+
+      del(.host)
+
+      del(.stream)'
+    type: remap
+  realtime_logs:
+    inputs:
+    - router.realtime
+    source: ".metadata.project = del(.project)\n.metadata.external_id = .metadata.project\n\
+      parsed, err = parse_regex(.event_message, r'^(?P<time>\\d+:\\d+:\\d+\\.\\d+)\
+      \ \\[(?P<level>\\w+)\\] (?P<msg>.*)$')\nif err == null {\n    .event_message\
+      \ = parsed.msg\n    .metadata.level = parsed.level\n}"
+    type: remap
+  rest_logs:
+    inputs:
+    - router.rest
+    source: "parsed, err = parse_regex(.event_message, r'^(?P<time>.*): (?P<msg>.*)$')\n\
+      if err == null {\n    .event_message = parsed.msg\n    .timestamp = to_timestamp!(parsed.time)\n\
+      \    .metadata.host = .project\n}"
+    type: remap
+  router:
+    inputs:
+    - project_logs
+    route:
+      auth: .appname == "supabase-auth"
+      db: .appname == "supabase-db"
+      functions: .appname == "supabase-functions"
+      kong: .appname == "supabase-kong"
+      realtime: .appname == "supabase-realtime"
+      rest: .appname == "supabase-rest"
+      storage: .appname == "supabase-storage"
+    type: route
+  storage_logs:
+    inputs:
+    - router.storage
+    source: ".metadata.project = del(.project)\n.metadata.tenantId = .metadata.project\n\
+      parsed, err = parse_json(.event_message)\nif err == null {\n    .event_message\
+      \ = parsed.msg\n    .metadata.level = parsed.level\n    .metadata.timestamp\
+      \ = parsed.time\n    .metadata.context[0].host = parsed.hostname\n    .metadata.context[0].pid\
+      \ = parsed.pid\n}"
+    type: remap
