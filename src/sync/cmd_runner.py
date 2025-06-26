@@ -848,6 +848,8 @@ def run_command(args, log_dir):
                 file_comparison = None
                 dropbox_account_search_result = {}
                 salesforce_account_search_result = {}
+                client_list_store_success = None
+                app_files_store_success = None
                 
                 # Add retry mechanism with 1 attempts
                 max_attempts = 1
