@@ -599,7 +599,11 @@ class BaseProcessor(ABC):
                 # Look for patterns like "Name of Contract Owner A m p a r o C a l a t a y u d"
                 # More specific pattern to avoid capturing extra text
                 name_patterns = [
+                    # Pattern for "Name: M ARIA CAMPOS Sex: Male" - extract only the name part
+                    r'Name:\s*([A-Za-z\s]+?)(?:\s+Sex:|\s+Gender:|\s*$)',
+                    # Pattern for "Name of Contract Owner A m p a r o C a l a t a y u d"
                     r'(?:Name of Contract Owner|Name of Owner|Name of Annuitant)\s+([A-Za-z\s]+?)(?:\s+Male|\s+Female|\s*$)',
+                    # More general pattern but avoid capturing gender
                     r'(?:Name|Owner|Annuitant).*?([A-Za-z\s]{2,20})(?:\s+Male|\s+Female|\s*$)',
                 ]
                 
@@ -629,8 +633,8 @@ class BaseProcessor(ABC):
                                 # If no clear separation, just remove all spaces
                                 name_part = re.sub(r'\s+', '', name_part)
                         
-                        # Only return if we have a reasonable name length
-                        if len(name_part) >= 3:
+                        # Only return if we have a reasonable name length and it's not just "Male" or "Female"
+                        if len(name_part) >= 3 and name_part.lower() not in ['male', 'female']:
                             return f"Name: {name_part}"
                 
                 return cleaned
