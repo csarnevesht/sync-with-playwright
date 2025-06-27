@@ -1,4 +1,4 @@
-DropboxAccount (Dropbox Account Folder Information)
+DropboxAccountWithFiles (Dropbox Account Folder Information)
   dropbox_account_folder_name
   application_files: list[DropboxAccountApplicationFile]
   client_list_info:  list[DropboxAccountClientListInfo] 

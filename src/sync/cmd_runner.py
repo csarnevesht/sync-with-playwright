@@ -211,11 +211,14 @@ def format_args_for_logging(args):
     # Format the arguments
     formatted_args = []
     for key, value in arg_dict.items():
+        # Convert underscores back to hyphens for command line format
+        cmd_key = key.replace('_', '-')
+        
         if isinstance(value, bool):
             if value:  # Only include True boolean flags
-                formatted_args.append(f"--{key}")
+                formatted_args.append(f"--{cmd_key}")
         else:
-            formatted_args.append(f"--{key}={value}")
+            formatted_args.append(f"--{cmd_key}={value}")
     
     return " ".join(formatted_args)
 

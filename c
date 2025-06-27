@@ -19,7 +19,8 @@ show_menu() {
     echo "3) (ld) List Commands with Description"
     echo "4) (l) Run Last Command"
     echo "5) (r) Run Command"
-    echo "6) (q) Quit"
+    echo "6) (e) Extract and Store Dropbox Data for Account"
+    echo "7) (q) Quit"
     echo "====================================="
     echo -n "Enter your choice (number or shortcut): "
 }
@@ -206,6 +207,55 @@ else:
     fi
 }
 
+# Function to extract and store Dropbox data for account
+extract_dropbox_data() {
+    echo -e "\n${YELLOW}Extract and Store Dropbox Data for Account${NC}"
+    echo "-------------------------------------"
+    
+    # Prompt for Dropbox account folder name
+    echo -n "Enter Dropbox account folder name: "
+    read dropbox_account_folder_name
+    
+    # Prompt for file filter with default value
+    echo -n "Enter file filter [default '*']: "
+    read file_filter
+    
+    # Use default value if empty
+    if [ -z "$file_filter" ]; then
+        file_filter="*"
+    fi
+    
+    echo -e "\n${YELLOW}Running Dropbox extraction and analysis...${NC}"
+    echo "-------------------------------------"
+    
+    # Run the main extraction command
+    clear && python -m sync.cmd_runner --dropbox-accounts --dropbox-account-info --continue-on-error --commands=extract-dropbox-account-app-files-info,store-in-supabase,analyze-account-data --dropbox-account-name="$dropbox_account_folder_name" --force-store-dropbox-info --file-filter "$file_filter"
+    
+    exit_code=$?
+    
+    if [ $exit_code -eq 0 ]; then
+        echo -e "\n${GREEN}Dropbox extraction completed successfully!${NC}"
+        echo -e "\n${YELLOW}Running database search...${NC}"
+        
+        # Run the database search command
+        echo -e "1\n$dropbox_account_folder_name\n6" | python3 database/scripts/search_dropbox_accounts.py
+        
+        search_exit_code=$?
+        
+        if [ $search_exit_code -eq 0 ]; then
+            echo -e "\n${GREEN}Database search completed successfully!${NC}"
+        else
+            echo -e "\n${RED}Database search failed!${NC}"
+        fi
+    else
+        echo -e "\n${RED}Dropbox extraction failed!${NC}"
+    fi
+    
+    echo "-------------------------------------"
+    echo -n "Press Enter to continue..."
+    read
+}
+
 # Main loop
 while true; do
     show_menu
@@ -236,7 +286,10 @@ while true; do
         5|r)
             run_command
             ;;
-        6|q)
+        6|e)
+            extract_dropbox_data
+            ;;
+        7|q)
             echo -e "\n${GREEN}Goodbye!${NC}"
             exit 0
             ;;

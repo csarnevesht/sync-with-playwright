@@ -1,0 +1,35 @@
+#!/usr/bin/expect -f
+
+# Expect script to automate search_dropbox_accounts.py
+# Usage: expect automate_search.exp [search_type] [search_term]
+
+set timeout 30
+
+# Get command line arguments
+set search_type [lindex $argv 0]
+set search_term [lindex $argv 1]
+
+# Default values if not provided
+if {$search_type == ""} { set search_type "1" }
+if {$search_term == ""} { set search_term "Montesino, Maria" }
+
+# Start the Python script
+spawn python3 database/scripts/search_dropbox_accounts.py
+
+# Wait for the menu and select search type
+expect "Enter your choice"
+send "$search_type\r"
+
+# Wait for search prompt and enter search term
+expect "Enter exact folder name to search:"
+send "$search_term\r"
+
+# Wait for results to display, then exit
+expect "Search options:"
+send "6\r"
+
+# Wait for goodbye message
+expect "Goodbye!"
+
+# Close the script
+expect eof 

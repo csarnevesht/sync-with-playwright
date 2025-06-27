@@ -1001,6 +1001,47 @@ class CommandRunner:
         self.logger.info(f"=== APP FILES EXTRACTION COMPLETED IN {total_time:.2f} SECONDS ===")
         self.report_logger.info(f"=== APP FILES EXTRACTION COMPLETED IN {total_time:.2f} SECONDS ===")
 
+    def _clean_date_value(self, date_value):
+        """Clean up date values from AI model responses.
+        
+        Args:
+            date_value: The date value from the AI model
+            
+        Returns:
+            date or None: Cleaned date value or None if invalid
+        """
+        from datetime import date, datetime
+        
+        if not date_value:
+            return None
+        
+        # Convert string "null" to None
+        if isinstance(date_value, str) and date_value.lower() == "null":
+            return None
+        
+        # If it's already a date object, return it
+        if isinstance(date_value, date):
+            return date_value
+        
+        # If it's a datetime object, extract the date
+        if isinstance(date_value, datetime):
+            return date_value.date()
+        
+        # Try to parse string date values
+        if isinstance(date_value, str):
+            try:
+                # Try to parse YYYY-MM-DD format
+                if len(date_value) >= 8 and '-' in date_value:
+                    return datetime.strptime(date_value, '%Y-%m-%d').date()
+                # Try to parse MM/DD/YYYY format
+                elif '/' in date_value:
+                    return datetime.strptime(date_value, '%m/%d/%Y').date()
+            except ValueError:
+                # If parsing fails, return None
+                return None
+        
+        return None
+
     def _store_app_files_data_in_supabase(self, folder_name: str, summary_data: Dict[str, Any]) -> bool:
         """Store application files data in Supabase."""
         self.logger.info(f"Store in Database: Starting database storage for application files data - Account: {folder_name}")
@@ -1079,7 +1120,7 @@ class CommandRunner:
                 owner = DropboxAccountApplicationInfo(
                     first_name=owner_data.get('firstName'),
                     last_name=owner_data.get('lastName'),
-                    date_of_birth=owner_data.get('dateOfBirth'),
+                    date_of_birth=self._clean_date_value(owner_data.get('dateOfBirth')),
                     gender=owner_data.get('gender'),
                     mailing_address_street=owner_data.get('mailingAddressStreet'),
                     mailing_address_city=owner_data.get('mailingAddressCity'),
@@ -1095,7 +1136,7 @@ class CommandRunner:
                 joint_owner = DropboxAccountApplicationInfo(
                     first_name=joint_owner_data.get('firstName'),
                     last_name=joint_owner_data.get('lastName'),
-                    date_of_birth=joint_owner_data.get('dateOfBirth'),
+                    date_of_birth=self._clean_date_value(joint_owner_data.get('dateOfBirth')),
                     gender=joint_owner_data.get('gender'),
                     mailing_address_street=joint_owner_data.get('mailingAddressStreet'),
                     mailing_address_city=joint_owner_data.get('mailingAddressCity'),
