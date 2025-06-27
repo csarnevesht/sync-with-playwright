@@ -177,7 +177,7 @@
   },
   {
     "description": "Analyze account data for all accounts in Dropbox and copy file to Salesforce folder",
-    "command": "clear && python -m sync.cmd_runner  --dropbox-account-info --commands=extract-dropbox-account-app-files-info,analyze-account-data,copy-dropbox-account-files-preserve-dates --salesforce-account-info --salesforce-accounts --continue-on-error --kepp"
+    "command": "clear && python -m sync.cmd_runner  --dropbox-account-info --commands=extract-dropbox-account-app-files-info,analyze-account-data --salesforce-account-info --salesforce-accounts --continue-on-error --kepp"
   }
 ]
  
