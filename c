@@ -6,6 +6,12 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Activate virtual environment if it exists
+if [ -d "venv" ]; then
+    source venv/bin/activate
+    echo -e "${GREEN}Virtual environment activated${NC}"
+fi
+
 # Set PYTHONPATH to include the src directory
 export PYTHONPATH="$(pwd)/src:$PYTHONPATH"
 
@@ -19,8 +25,14 @@ show_menu() {
     echo "3) (ld) List Commands with Description"
     echo "4) (l) Run Last Command"
     echo "5) (r) Run Command"
-    echo "6) (e) Extract and Store Dropbox Data for Account"
-    echo "7) (q) Quit"
+    echo "6) (pg) Ping Dropbox and Salesforce"
+    echo "7) (br) Start Browser with Salesforce"
+    echo "8) (db) List Dropbox Accounts Only"
+    echo "9) (cp) Copy Dropbox Account Folders to Salesforce (Preserve Dates)"
+    echo "10) (an) Analyze Salesforce Account Data for All Dropbox Accounts"
+    echo "11) (e) Extract and Store Dropbox Data for Account"
+    echo "12) (h) Help - Show Python Script for Command"
+    echo "13) (q) Quit"
     echo "====================================="
     echo -n "Enter your choice (number or shortcut): "
 }
@@ -35,7 +47,7 @@ add_command() {
     read command
     
     # Add the command to commands.json
-    python3 -c "
+    python -c "
 import json
 import os
 
@@ -64,7 +76,7 @@ with open(commands_file, 'w') as f:
 list_commands() {
     echo -e "\n${YELLOW}Saved Commands${NC}"
     echo "-------------------------------------"
-    python3 -c "
+    python -c "
 import json
 import os
 
@@ -86,7 +98,7 @@ else:
 list_commands_with_description() {
     echo -e "\n${YELLOW}Saved Commands with Description${NC}"
     echo "-------------------------------------"
-    python3 -c "
+    python -c "
 import json
 import os
 
@@ -112,7 +124,7 @@ run_last_command() {
     echo "-------------------------------------"
     
     # Get the last command from commands.json
-    cmd=$(python3 -c "
+    cmd=$(python -c "
 import json
 import os
 import sys
@@ -164,18 +176,21 @@ run_command() {
     fi
     
     # Get the command from commands.json
-    cmd=$(python3 -c "
+    cmd=$(python -c "
 import json
 import os
 import sys
 
+cmd_num = '$cmd_num'
 commands_file = 'src/commands.json'
 if os.path.exists(commands_file):
     with open(commands_file, 'r') as f:
         commands = json.load(f)
     try:
-        cmd = commands[int('$cmd_num') - 1]['command']
-        print(cmd)
+        cmd = commands[int(cmd_num) - 1]['command']
+        desc = commands[int(cmd_num) - 1]['description']
+        print(f'Command {cmd_num}: {desc}')
+        print(f'Python Script: {cmd}')
     except (IndexError, ValueError):
         print('Invalid command number', file=sys.stderr)
         sys.exit(1)
@@ -256,6 +271,197 @@ extract_dropbox_data() {
     read
 }
 
+# Function to list Dropbox accounts only
+list_dropbox_accounts_only() {
+    echo -e "\n${YELLOW}Listing Dropbox Accounts Only${NC}"
+    echo "-------------------------------------"
+    
+    echo -e "\n${YELLOW}Running Dropbox accounts listing...${NC}"
+    echo "-------------------------------------"
+    
+    # Run the command to list Dropbox accounts only
+    python -m sync.cmd_runner --dropbox-accounts-only
+    
+    exit_code=$?
+    
+    if [ $exit_code -eq 0 ]; then
+        echo -e "\n${GREEN}Dropbox accounts listing completed successfully!${NC}"
+    else
+        echo -e "\n${RED}Dropbox accounts listing failed!${NC}"
+    fi
+    
+    echo "-------------------------------------"
+    echo -n "Press Enter to continue..."
+    read
+}
+
+# Function to copy Dropbox account folders to Salesforce accounts folder with preserved dates
+copy_dropbox_account_folders() {
+    echo -e "\n${YELLOW}Copy Dropbox Account Folders to Salesforce (Preserve Dates)${NC}"
+    echo "-------------------------------------"
+    
+    echo -e "\n${YELLOW}Running Dropbox account folder copying with preserved dates...${NC}"
+    echo "-------------------------------------"
+    
+    # Run the command to copy Dropbox account folders to Salesforce accounts folder with preserved dates
+    clear && python -m sync.cmd_runner --dropbox-accounts --commands=copy-dropbox-account-files-preserve-dates --continue-on-error --keep
+    
+    exit_code=$?
+    
+    if [ $exit_code -eq 0 ]; then
+        echo -e "\n${GREEN}Dropbox account folder copying completed successfully!${NC}"
+    else
+        echo -e "\n${RED}Dropbox account folder copying failed!${NC}"
+    fi
+    
+    echo "-------------------------------------"
+    echo -n "Press Enter to continue..."
+    read
+}
+
+# Function to start browser with Salesforce
+start_browser_with_salesforce() {
+    echo -e "\n${YELLOW}Start Browser with Salesforce${NC}"
+    echo "-------------------------------------"
+    
+    echo -e "\n${YELLOW}Starting browser with Salesforce...${NC}"
+    echo "-------------------------------------"
+    
+    # Run the command to start browser with Salesforce
+    python -m cmd_start
+    
+    exit_code=$?
+    
+    if [ $exit_code -eq 0 ]; then
+        echo -e "\n${GREEN}Browser started successfully!${NC}"
+    else
+        echo -e "\n${RED}Browser start failed!${NC}"
+    fi
+    
+    echo "-------------------------------------"
+    echo -n "Press Enter to continue..."
+    read
+}
+
+# Function to analyze Salesforce account data for all Dropbox accounts
+analyze_salesforce_account_data() {
+    echo -e "\n${YELLOW}Analyze Salesforce Account Data for All Dropbox Accounts${NC}"
+    echo "-------------------------------------"
+    
+    echo -e "\n${YELLOW}Running Salesforce account data analysis for all Dropbox accounts...${NC}"
+    echo "-------------------------------------"
+    
+    # Run the command to analyze Salesforce account data for all Dropbox accounts
+    clear && python -m sync.cmd_runner --dropbox-accounts --dropbox-account-info --commands=extract-dropbox-account-app-files-info,analyze-account-data --salesforce-account-info --salesforce-accounts --continue-on-error --keep
+    
+    exit_code=$?
+    
+    if [ $exit_code -eq 0 ]; then
+        echo -e "\n${GREEN}Salesforce account data analysis completed successfully!${NC}"
+    else
+        echo -e "\n${RED}Salesforce account data analysis failed!${NC}"
+    fi
+    
+    echo "-------------------------------------"
+    echo -n "Press Enter to continue..."
+    read
+}
+
+# Function to ping Dropbox and Salesforce
+ping_dropbox_salesforce() {
+    echo -e "\n${YELLOW}Ping Dropbox and Salesforce${NC}"
+    echo "-------------------------------------"
+    
+    echo -e "\n${YELLOW}Running ping commands...${NC}"
+    echo "-------------------------------------"
+    
+    # Run the command to ping Dropbox and Salesforce
+    python -m sync.cmd_ping
+    
+    exit_code=$?
+    
+    if [ $exit_code -eq 0 ]; then
+        echo -e "\n${GREEN}Ping commands completed successfully!${NC}"
+    else
+        echo -e "\n${RED}Ping commands failed!${NC}"
+    fi
+    
+    echo "-------------------------------------"
+    echo -n "Press Enter to continue..."
+    read
+}
+
+# Function to show help for a specific command
+show_command_help() {
+    local cmd_input="$1"
+    
+    # If no argument provided, prompt for command number or shortcut
+    if [ -z "$cmd_input" ]; then
+        echo -e "\n${YELLOW}Help - Show Python Script for Command${NC}"
+        echo "-------------------------------------"
+        echo -n "Enter command number or shortcut: "
+        read cmd_input
+    fi
+    
+    # Get the command from commands.json
+    cmd=$(python -c "
+import json
+import os
+import sys
+
+cmd_input = '$cmd_input'
+commands_file = 'src/commands.json'
+
+# Define shortcut mappings
+shortcuts = {
+    'a': 1, 'ls': 2, 'ld': 3, 'l': 4, 'r': 5, 'pg': 6, 'br': 7, 'db': 8, 'cp': 9, 'an': 10, 'e': 11, 'h': 12, 'q': 13
+}
+
+if os.path.exists(commands_file):
+    with open(commands_file, 'r') as f:
+        commands = json.load(f)
+    
+    # Try to convert input to command number
+    try:
+        # If it's a number, use it directly
+        if cmd_input.isdigit():
+            cmd_num = int(cmd_input)
+        # If it's a shortcut, look it up
+        elif cmd_input in shortcuts:
+            cmd_num = shortcuts[cmd_input]
+        else:
+            print(f'Invalid command number or shortcut: {cmd_input}', file=sys.stderr)
+            sys.exit(1)
+        
+        # Get the command and description
+        cmd = commands[cmd_num - 1]['command']
+        desc = commands[cmd_num - 1]['description']
+        print(f'Command {cmd_num} ({cmd_input}): {desc}')
+        print(f'Python Script: {cmd}')
+    except (IndexError, ValueError, KeyError):
+        print(f'Invalid command number or shortcut: {cmd_input}', file=sys.stderr)
+        sys.exit(1)
+else:
+    print('No commands saved yet.', file=sys.stderr)
+    sys.exit(1)
+")
+    
+    if [ $? -eq 0 ]; then
+        echo -e "\n${GREEN}Command Help:${NC}"
+        echo "-------------------------------------"
+        echo -e "$cmd"
+        echo "-------------------------------------"
+    else
+        echo -e "\n${RED}Error: Invalid command number or shortcut${NC}"
+    fi
+    
+    # Only show the "Press Enter to continue" prompt if we're in interactive mode
+    if [ -z "$1" ]; then
+        echo -n "Press Enter to continue..."
+        read
+    fi
+}
+
 # Main loop
 while true; do
     show_menu
@@ -264,10 +470,19 @@ while true; do
     # Convert choice to lowercase
     choice=$(echo "$choice" | tr '[:upper:]' '[:lower:]')
     
-    # If choice is 'r' or '5' and an argument was provided, run the command
-    if [[ $choice =~ ^[5r]$ ]] && [ ! -z "$arg" ]; then
-        run_command "$arg"
-        continue
+    # Check for commands with arguments first
+    if [ ! -z "$arg" ]; then
+        # If choice is 'r' or '5' and an argument was provided, run the command
+        if [[ $choice =~ ^(5|r)$ ]]; then
+            run_command "$arg"
+            continue
+        fi
+        
+        # If choice is 'h' or '12' and an argument was provided, show help for that command
+        if [[ $choice =~ ^(12|h)$ ]]; then
+            show_command_help "$arg"
+            continue
+        fi
     fi
     
     case $choice in
@@ -286,10 +501,28 @@ while true; do
         5|r)
             run_command
             ;;
-        6|e)
+        6|pg)
+            ping_dropbox_salesforce
+            ;;
+        7|br)
+            start_browser_with_salesforce
+            ;;
+        8|db)
+            list_dropbox_accounts_only
+            ;;
+        9|cp)
+            copy_dropbox_account_folders
+            ;;
+        10|an)
+            analyze_salesforce_account_data
+            ;;
+        11|e)
             extract_dropbox_data
             ;;
-        7|q)
+        12|h)
+            show_command_help
+            ;;
+        13|q)
             echo -e "\n${GREEN}Goodbye!${NC}"
             exit 0
             ;;
