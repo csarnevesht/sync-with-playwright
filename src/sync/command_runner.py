@@ -233,7 +233,8 @@ class CommandRunner:
             'log-dropbox-account-information': self._handle_log_dropbox_account_information,
             'log-dropbox-account-information-json': self._handle_log_dropbox_account_information_json,
             'analyze-account-data': self._handle_analyze_account_data,
-            'copy-dropbox-account-files-preserve-dates': self._copy_dropbox_account_files_preserve_dates
+            'copy-dropbox-account-files-preserve-dates': self._copy_dropbox_account_files_preserve_dates,
+            'copy-dropbox-account-files-preserve-date': self._copy_dropbox_account_files_preserve_dates  # Alias for singular version
         }
         
         if command not in command_map:
@@ -292,12 +293,11 @@ class CommandRunner:
                 self.logger.info(f"Folder already exists in Salesforce folder: {dest_path}")
                 self.report_logger.info(f"\nFolder already exists in Salesforce folder: {dest_path}")
                 
-                # response = input(f"\nDo you want to delete the existing Dropbox folder at {dest_path}? (y/N): ").strip().lower()
-                # if response != 'y':
-                #     self.logger.info("Operation cancelled by user")
-                #     self.report_logger.info("\nOperation cancelled by user")
-                #     return
-                return
+                response = input(f"\nDo you want to delete the existing Dropbox folder at {dest_path}? (y/N): ").strip().lower()
+                if response != 'y':
+                    self.logger.info("Operation cancelled by user")
+                    self.report_logger.info("\nOperation cancelled by user")
+                    return
                 
                 # Delete existing folder
                 self.logger.info(f"Deleting existing folder: {dest_path}")
@@ -1683,8 +1683,49 @@ class CommandRunner:
             if success:
                 self.logger.info("✅ Successfully completed store-in-supabase operation")
                 self.report_logger.info("\n✅ Successfully completed store-in-supabase operation")
-                # Note: Client list info is already handled in the main pipeline flow in cmd_runner.py
-                # No need to re-extract or re-store it here during force mode
+                # --- NEW: Re-store client list info after force mode ---
+                if getattr(self.args, 'force_store_dropbox_info', False):
+                    # Try to get client list info from the data that was stored during the first command
+                    client_list_info = self._data.get('dropbox_account_search_result')
+                    if client_list_info:
+                        self.logger.info("🔄 Re-storing client list info after force mode deletion...")
+                        from supabase_client import SupabaseClient
+                        supabase_client = SupabaseClient()
+                        result = _store_dropbox_client_list_data_in_database(client_list_info, dropbox_account_folder_name, supabase_client)
+                        if result:
+                            self.logger.info("✅ Successfully re-stored client list info after force mode.")
+                        else:
+                            self.logger.warning("⚠️ Failed to re-store client list info after force mode.")
+                    else:
+                        # If client list info is not in self._data, try to re-extract it from the holiday file
+                        self.logger.info("🔄 Client list info not in memory, re-extracting from holiday file...")
+                        try:
+                            from sync.dropbox_client.utils.dropbox_utils import DropboxClient
+                            # Get Dropbox token from environment
+                            import os
+                            token = os.getenv('DROPBOX_TOKEN')
+                            dropbox_client = DropboxClient(token)
+                            # Re-extract name parts and search for client list info
+                            name_parts = extract_name_parts(dropbox_account_folder_name, log=True)
+                            client_list_info = dropbox_client.dropbox_search_account(
+                                dropbox_account_folder_name, 
+                                name_parts, 
+                                self.get_context('holiday_file_path'),
+                                self.get_context('holiday_file_sheets')
+                            )
+                            
+                            if client_list_info and client_list_info.get('search_info', {}).get('status') == 'found':
+                                from supabase_client import SupabaseClient
+                                supabase_client = SupabaseClient()
+                                result = _store_dropbox_client_list_data_in_database(client_list_info, dropbox_account_folder_name, supabase_client)
+                                if result:
+                                    self.logger.info("✅ Successfully re-extracted and re-stored client list info after force mode.")
+                                else:
+                                    self.logger.warning("⚠️ Failed to re-store re-extracted client list info after force mode.")
+                            else:
+                                self.logger.warning("⚠️ Could not re-extract client list info from holiday file.")
+                        except Exception as e:
+                            self.logger.warning(f"⚠️ Error re-extracting client list info: {e}")
             else:
                 error_msg = "❌ Failed to store application files data in Supabase"
                 self.logger.error(error_msg)
@@ -2151,6 +2192,30 @@ class CommandRunner:
             self.logger.error(error_msg)
             self.summary_logger.error(error_msg) 
 
+    def _create_backup_folder_hierarchy(self, dropbox_client, base_path: str, folder_path: str) -> None:
+        """Create a folder hierarchy in Dropbox, creating parent folders as needed.
+        
+        Args:
+            dropbox_client: The Dropbox client instance
+            base_path: The base path to start from
+            folder_path: The full folder path to create
+        """
+        # Split the path into components
+        path_parts = folder_path.replace(base_path, '').strip('/').split('/')
+        current_path = base_path
+        
+        for part in path_parts:
+            if part:  # Skip empty parts
+                current_path = f"{current_path}/{part}".replace('//', '/')
+                try:
+                    dropbox_client.dbx.files_create_folder_v2(current_path)
+                    self.logger.info(f"Created folder: {current_path}")
+                except dropbox.exceptions.ApiError as e:
+                    if not e.error.is_path() or not e.error.get_path().is_conflict():
+                        # Re-raise if it's not a "folder already exists" error
+                        raise
+                    self.logger.info(f"Folder already exists: {current_path}")
+
     def _copy_dropbox_account_files_preserve_dates(self) -> None:
         """Copy files in Dropbox account folder to another location while preserving original modification dates."""
         self.logger.info("Starting copy-dropbox-account-files-preserve-dates operation")
@@ -2189,20 +2254,70 @@ class CommandRunner:
             # Check if destination folder already exists
             try:
                 dropbox_client.dbx.files_get_metadata(dest_path)
-                # Folder exists, prompt for deletion
+                # Folder exists, create backup and prompt for confirmation
                 self.logger.info(f"Destination folder already exists: {dest_path}")
                 self.report_logger.info(f"\nDestination folder already exists: {dest_path}")
                 
-                response = input(f"\nDo you want to delete the existing folder at {dest_path}? (y/N): ").strip().lower()
-                if response != 'y':
-                    self.logger.info("Operation cancelled by user")
-                    self.report_logger.info("\nOperation cancelled by user")
-                    return
+                # Create backup folder structure with timestamp
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                backup_base_path = f"/{dropbox_salesforce_folder}/backups/{timestamp}"
+                backup_base_path = backup_base_path.replace('//', '/')
+                backup_path = f"{backup_base_path}/{dropbox_account_folder_name}"
+                backup_path = backup_path.replace('//', '/')
                 
-                # Delete existing folder
-                self.logger.info(f"Deleting existing folder: {dest_path}")
-                self.report_logger.info(f"\nDeleting existing folder: {dest_path}")
-                dropbox_client.dbx.files_delete_v2(dest_path)
+                self.logger.info(f"Creating backup folder structure: {backup_path}")
+                self.report_logger.info(f"\nCreating backup folder structure: {backup_path}")
+                
+                # Create only the timestamp folder (not the account-specific folder)
+                self._create_backup_folder_hierarchy(dropbox_client, dropbox_salesforce_folder, backup_base_path)
+                
+                # Move existing folder to backup location (this will create the account folder automatically)
+                self.logger.info(f"Moving existing folder to backup: {dest_path} -> {backup_path}")
+                self.report_logger.info(f"\nMoving existing folder to backup: {dest_path} -> {backup_path}")
+                
+                try:
+                    dropbox_client.dbx.files_move_v2(
+                        from_path=dest_path,
+                        to_path=backup_path,
+                        allow_shared_folder=True,
+                        allow_ownership_transfer=True
+                    )
+                    
+                    self.logger.info(f"Successfully backed up existing folder to: {backup_path}")
+                    self.report_logger.info(f"\nSuccessfully backed up existing folder to: {backup_path}")
+                    
+                except dropbox.exceptions.ApiError as e:
+                    error_msg = f"Failed to move folder to backup: {str(e)}"
+                    self.logger.error(error_msg)
+                    self.report_logger.error(f"\n{error_msg}")
+                    
+                    # Check if it's a write conflict error (409 error)
+                    if "WriteConflictError" in str(e) or "conflict" in str(e).lower():
+                        # Handle write conflict by deleting the conflicting backup folder and retrying
+                        self.logger.info(f"Backup folder conflict detected, deleting existing backup: {backup_path}")
+                        try:
+                            dropbox_client.dbx.files_delete_v2(backup_path)
+                            self.logger.info(f"Deleted conflicting backup folder: {backup_path}")
+                            
+                            # Retry the move operation
+                            dropbox_client.dbx.files_move_v2(
+                                from_path=dest_path,
+                                to_path=backup_path,
+                                allow_shared_folder=True,
+                                allow_ownership_transfer=True
+                            )
+                            
+                            self.logger.info(f"Successfully backed up existing folder to: {backup_path} (after conflict resolution)")
+                            self.report_logger.info(f"\nSuccessfully backed up existing folder to: {backup_path} (after conflict resolution)")
+                            
+                        except Exception as retry_error:
+                            error_msg = f"Failed to resolve backup conflict: {str(retry_error)}"
+                            self.logger.error(error_msg)
+                            self.report_logger.error(f"\n{error_msg}")
+                            raise
+                    else:
+                        # For other errors, just re-raise
+                        raise
                 
             except dropbox.exceptions.ApiError as e:
                 if not e.error.is_path() or not e.error.get_path().is_not_found():
