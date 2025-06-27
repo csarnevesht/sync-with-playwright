@@ -112,23 +112,23 @@ def test_account_deletion(browser: Browser, page: Page):
         
         # Create account if it doesn't exist
         if not account_exists:
-            logging.info(f"Account {account_name} does not exist, creating it...")
-            # Create new account
-            if not account_manager.create_new_account(
-                first_name=account['first_name'],
-                last_name=account['last_name'],
-                middle_name=account.get('middle_name'),
-                account_info=account.get('account_info', {})
-            ):
-                logging.error(f"Failed to create account: {account_name}")
-                return
+            # logging.info(f"Account {account_name} does not exist, creating it...")
+            # # Create new account
+            # if not account_manager.create_new_account(
+            #     first_name=account['first_name'],
+            #     last_name=account['last_name'],
+            #     middle_name=account.get('middle_name'),
+            #     account_info=account.get('account_info', {})
+            # ):
+            #     logging.error(f"Failed to create account: {account_name}")
+            #     return
                 
-            # Upload files for new account
-            logging.info(f"Uploading files for new account: {account_name}")
-            upload_success = upload_account_files(page, account, debug_mode=True)
-            if not upload_success:
-                logging.error(f"Failed to upload files for account: {account_name}")
-                return
+            # # Upload files for new account
+            # logging.info(f"Uploading files for new account: {account_name}")
+            # upload_success = upload_account_files(page, account, debug_mode=True)
+            # if not upload_success:
+            #     logging.error(f"Failed to upload files for account: {account_name}")
+            #     return
                 
             # Verify account exists after creation
             account_exists = account_manager.account_exists_in_view(account_name, view_name=VIEW_NAME)

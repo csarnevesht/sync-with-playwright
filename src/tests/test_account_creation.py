@@ -282,7 +282,7 @@ def test_account_creation(browser: Browser, page: Page):
                         logger.error(f"Could not get account ID for {full_name}")
                         continue
                     # Upload files for new account
-                    logger.info(f"Uploading files for new account: {full_name}")
+                    logger.debug(f"Uploading files for new account: {full_name}")
                     logger.debug(f"Account files to upload: {account.get('files', [])}")
                     upload_success = upload_account_files(page, account, debug_mode=True)
                     if not upload_success:

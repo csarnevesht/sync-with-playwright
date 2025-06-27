@@ -35,7 +35,7 @@ def configure_logging(debug_mode: bool):
     console_handler.setLevel(logging.DEBUG if debug_mode else logging.INFO)
     
     # Create file handler
-    log_file = os.path.join(project_root, 'sync.log')
+    log_file = os.path.join(project_root, '../logs/test_sync.log')
     file_handler = logging.FileHandler(log_file, mode='w')
     file_handler.setLevel(logging.DEBUG)  # Always log debug to file
     
@@ -148,7 +148,7 @@ def main():
     logger = configure_logging(args.debug)
     
     # Import test modules after logging is configured
-    from src.config import SALESFORCE_URL
+    from config import SALESFORCE_URL
     from sync.salesforce_client import Salesforce
     from sync.salesforce_client.utils.browser import get_salesforce_page
     

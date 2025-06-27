@@ -1045,6 +1045,42 @@ class AccountManager(BasePage):
             self.log_helper.log(self.logger, 'info', "Error screenshot saved as save-button-error.png")
             raise Exception("Could not click Save button")
             
+    def click_cancel_button(self) -> bool:
+        """Click the Cancel button."""
+        self.log_helper.log(self.logger, 'info', "Clicking Cancel button...")
+        try:
+            # First try to find and click the visible Cancel button directly
+            cancel_button = self.page.locator('button:has-text("Cancel")').first
+            if cancel_button and cancel_button.is_visible():
+                cancel_button.scroll_into_view_if_needed()
+                self.page.wait_for_timeout(500)
+                cancel_button.click()
+                self.log_helper.log(self.logger, 'info', "Successfully clicked visible Cancel button")
+                return True
+
+            # If no visible Cancel button found, try finding it through all buttons
+            cancel_buttons = self.page.locator('button').all()
+            for idx, button in enumerate(cancel_buttons):
+                try:
+                    text = button.text_content()
+                    visible = button.is_visible()
+                    enabled = button.is_enabled()
+                    if text and text.strip() == "Cancel" and enabled:
+                        if visible:
+                            button.scroll_into_view_if_needed()
+                            self.page.wait_for_timeout(500)
+                            button.click()
+                            self.log_helper.log(self.logger, 'info', "Successfully clicked visible Cancel button")
+                            return True
+                except Exception:
+                    continue
+
+            raise Exception("Could not find an enabled Cancel button to click")
+        except Exception as e:
+            self.log_helper.log(self.logger, 'error', f"Error clicking Cancel button: {str(e)}")
+            self.page.screenshot(path="cancel-button-error.png")
+            self.log_helper.log(self.logger, 'info', "Error screenshot saved as cancel-button-error.png")
+            raise Exception("Could not click Cancel button")
 
     def click_next_button(self) -> bool:    
         """Click the Next button."""
@@ -1140,12 +1176,20 @@ class AccountManager(BasePage):
                     
             # Click Save button
             self.log_helper.log(self.logger, 'info', "Step 8: Attempting to click Save button...")
-            # if not self._click_element('ACCOUNT', 'save_button'):
-            #     self.logger.error("Could not find or click Save button")
-            #     self._take_screenshot("save-button-error")
-            #     sys.exit(1)
-            # self.logger.info("Successfully clicked Save button")
             self.click_save_button()
+            self.log_helper.log(self.logger, 'info', "Successfully clicked Save button")
+
+            try:
+                self.click_cancel_button()
+            except Exception as e:
+                self.log_helper.log(self.logger, 'error', f"Error clicking Cancel button: {str(e)}")
+                self._take_screenshot("cancel-button-error")
+                sys.exit(1)
+            self.log_helper.log(self.logger, 'info', "Successfully clicked Cancel button")
+
+            # self.log_helper.log(self.logger, 'info', "Step 8.5: Refreshing page...")      
+            # self.refresh_page()
+            # self.log_helper.log(self.logger, 'info', "Successfully refreshed page")
                 
             # Wait for save confirmation with increased timeout
             self.log_helper.log(self.logger, 'info', "Step 9: Waiting for save confirmation...")
