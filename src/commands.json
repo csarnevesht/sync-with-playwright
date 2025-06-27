@@ -8,6 +8,10 @@
     "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files"
   },
   {
+    "description": "Copy dropbox account folders to Salesforce folder - preserve dates",
+    "command": "clear && python -m sync.cmd_runner --dropbox-accounts --commands=copy-dropbox-account-files-preserve-dates --continue-on-error --keep"
+  },
+  {
     "description": "prefix dropbox account 'Montesino, Maria' [account found in dropbox Client List File] and store it in Dropbox Salesforce folder",
     "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --salesforce-accounts --salesforce-account-files --commands='prefix-dropbox-account-files' --dropbox-account-name='Montesino, Maria'"
   },

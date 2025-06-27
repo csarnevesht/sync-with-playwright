@@ -2233,29 +2233,126 @@ class CommandRunner:
             self.logger.error(error_msg)
             self.summary_logger.error(error_msg) 
 
-    def _create_backup_folder_hierarchy(self, dropbox_client, base_path: str, folder_path: str) -> None:
-        """Create a folder hierarchy in Dropbox, creating parent folders as needed.
+    def _resolve_dropbox_path(self, dropbox_client, path: str) -> str:
+        """Resolve a Dropbox path that may contain relative components like '..'.
         
         Args:
             dropbox_client: The Dropbox client instance
-            base_path: The base path to start from
+            path: The path to resolve
+            
+        Returns:
+            str: The resolved absolute path
+        """
+        try:
+            # If path doesn't contain '..', return as is
+            if '..' not in path:
+                return path
+            
+            # Split the path and resolve '..' components
+            parts = path.split('/')
+            resolved_parts = []
+            
+            for part in parts:
+                if part == '..':
+                    # Remove the last part (go up one level)
+                    if resolved_parts:
+                        resolved_parts.pop()
+                elif part and part != '.':
+                    # Add normal path component
+                    resolved_parts.append(part)
+            
+            # Reconstruct the path
+            resolved_path = '/' + '/'.join(resolved_parts)
+            self.logger.info(f"Resolved path '{path}' to '{resolved_path}'")
+            return resolved_path
+            
+        except Exception as e:
+            self.logger.error(f"Error resolving path '{path}': {str(e)}")
+            return path
+
+    def _ensure_backup_folder_exists(self, dropbox_client, backup_base_path: str) -> bool:
+        """Ensure the backup folder exists, creating it if necessary.
+        
+        Args:
+            dropbox_client: The Dropbox client instance
+            backup_base_path: The backup folder path to ensure exists
+            
+        Returns:
+            bool: True if backup folder exists or was created successfully, False otherwise
+        """
+        try:
+            # Check if backup folder already exists
+            try:
+                dropbox_client.dbx.files_get_metadata(backup_base_path)
+                self.logger.info(f"Backup folder already exists: {backup_base_path}")
+                return True
+            except dropbox.exceptions.ApiError as e:
+                # If folder doesn't exist, create the entire hierarchy
+                if hasattr(e.error, 'is_path') and e.error.is_path():
+                    path_error = e.error.get_path()
+                    if hasattr(path_error, 'is_not_found') and path_error.is_not_found():
+                        # Folder doesn't exist, create the entire path hierarchy
+                        self.logger.info(f"Creating backup folder hierarchy: {backup_base_path}")
+                        self._create_backup_folder_hierarchy(dropbox_client, "/", backup_base_path)
+                        return True
+                    else:
+                        # Other path error
+                        self.logger.error(f"Error checking backup folder: {str(e)}")
+                        return False
+                else:
+                    # Other API error
+                    self.logger.error(f"Error checking backup folder: {str(e)}")
+                    return False
+        except Exception as e:
+            self.logger.error(f"Error ensuring backup folder exists: {str(e)}")
+            return False
+
+    def _create_backup_folder_hierarchy(self, dropbox_client, base_path: str, folder_path: str) -> None:
+        """Create a folder hierarchy in Dropbox, creating parent folders as needed (like mkdir -p).
+        
+        Args:
+            dropbox_client: The Dropbox client instance
+            base_path: The base path to start from (usually "/")
             folder_path: The full folder path to create
         """
-        # Split the path into components
-        path_parts = folder_path.replace(base_path, '').strip('/').split('/')
-        current_path = base_path
+        # Split the path into components, handling the full path
+        if folder_path.startswith('/'):
+            # Remove leading slash and split
+            path_parts = folder_path[1:].split('/')
+        else:
+            path_parts = folder_path.split('/')
+        
+        current_path = ""
         
         for part in path_parts:
             if part:  # Skip empty parts
-                current_path = f"{current_path}/{part}".replace('//', '/')
+                if current_path == "":
+                    current_path = f"/{part}"
+                else:
+                    current_path = f"{current_path}/{part}"
+                
                 try:
                     dropbox_client.dbx.files_create_folder_v2(current_path)
                     self.logger.info(f"Created folder: {current_path}")
                 except dropbox.exceptions.ApiError as e:
-                    if not e.error.is_path() or not e.error.get_path().is_conflict():
-                        # Re-raise if it's not a "folder already exists" error
+                    # Check if it's a conflict error (folder already exists)
+                    if hasattr(e.error, 'is_path') and e.error.is_path():
+                        path_error = e.error.get_path()
+                        if hasattr(path_error, 'is_conflict') and path_error.is_conflict():
+                            self.logger.info(f"Folder already exists: {current_path}")
+                        else:
+                            # Re-raise if it's not a "folder already exists" error
+                            raise
+                    else:
+                        # Re-raise if it's not a path-related error
                         raise
-                    self.logger.info(f"Folder already exists: {current_path}")
+                except Exception as e:
+                    # Handle other types of errors (like WriteError)
+                    if "conflict" in str(e).lower() or "already exists" in str(e).lower():
+                        self.logger.info(f"Folder already exists: {current_path}")
+                    else:
+                        self.logger.error(f"Error creating folder {current_path}: {str(e)}")
+                        raise
 
     def _copy_dropbox_account_files_preserve_dates(self) -> None:
         """Copy files in Dropbox account folder to another location while preserving original modification dates."""
@@ -2301,7 +2398,8 @@ class CommandRunner:
                 
                 # Create backup folder structure with timestamp
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                backup_base_path = f"/{dropbox_salesforce_folder}/backups/{timestamp}"
+                parent_backup_folder = self._resolve_dropbox_path(dropbox_client, f"/{dropbox_salesforce_folder}/../backups")
+                backup_base_path = f"{parent_backup_folder}/{timestamp}"
                 backup_base_path = backup_base_path.replace('//', '/')
                 backup_path = f"{backup_base_path}/{dropbox_account_folder_name}"
                 backup_path = backup_path.replace('//', '/')
@@ -2309,23 +2407,56 @@ class CommandRunner:
                 self.logger.info(f"Creating backup folder structure: {backup_path}")
                 self.report_logger.info(f"\nCreating backup folder structure: {backup_path}")
                 
-                # Create only the timestamp folder (not the account-specific folder)
-                self._create_backup_folder_hierarchy(dropbox_client, dropbox_salesforce_folder, backup_base_path)
+                # Resolve the relative path to get the actual backup folder path
+                resolved_backup_base_path = self._resolve_dropbox_path(dropbox_client, backup_base_path)
+                self.logger.info(f"Resolved backup path: {resolved_backup_base_path}")
+                
+                # Check if the parent backup folder exists
+                self.logger.info(f"Checking parent backup folder: {parent_backup_folder}")
+                
+                try:
+                    dropbox_client.dbx.files_get_metadata(parent_backup_folder)
+                    self.logger.info(f"Parent backup folder exists: {parent_backup_folder}")
+                except dropbox.exceptions.ApiError as e:
+                    if hasattr(e.error, 'is_path') and e.error.is_path():
+                        path_error = e.error.get_path()
+                        if hasattr(path_error, 'is_not_found') and path_error.is_not_found():
+                            self.logger.info(f"Parent backup folder does not exist, creating: {parent_backup_folder}")
+                            # Create the parent backup folder first
+                            self._create_backup_folder_hierarchy(dropbox_client, "/", parent_backup_folder)
+                        else:
+                            error_msg = f"Error checking parent backup folder: {str(e)}"
+                            self.logger.error(error_msg)
+                            self.report_logger.error(f"\n{error_msg}")
+                            return
+                    else:
+                        error_msg = f"Error checking parent backup folder: {str(e)}"
+                        self.logger.error(error_msg)
+                        self.report_logger.error(f"\n{error_msg}")
+                        return
+                
+                # Ensure backup folder exists before trying to move files
+                if not self._ensure_backup_folder_exists(dropbox_client, resolved_backup_base_path):
+                    error_msg = f"Failed to create backup folder: {resolved_backup_base_path}"
+                    self.logger.error(error_msg)
+                    self.report_logger.error(f"\n{error_msg}")
+                    return
                 
                 # Move existing folder to backup location (this will create the account folder automatically)
-                self.logger.info(f"Moving existing folder to backup: {dest_path} -> {backup_path}")
-                self.report_logger.info(f"\nMoving existing folder to backup: {dest_path} -> {backup_path}")
+                resolved_backup_path = f"{resolved_backup_base_path}/{dropbox_account_folder_name}"
+                self.logger.info(f"Moving existing folder to backup: {dest_path} -> {resolved_backup_path}")
+                self.report_logger.info(f"\nMoving existing folder to backup: {dest_path} -> {resolved_backup_path}")
                 
                 try:
                     dropbox_client.dbx.files_move_v2(
                         from_path=dest_path,
-                        to_path=backup_path,
+                        to_path=resolved_backup_path,
                         allow_shared_folder=True,
                         allow_ownership_transfer=True
                     )
                     
-                    self.logger.info(f"Successfully backed up existing folder to: {backup_path}")
-                    self.report_logger.info(f"\nSuccessfully backed up existing folder to: {backup_path}")
+                    self.logger.info(f"Successfully backed up existing folder to: {resolved_backup_path}")
+                    self.report_logger.info(f"\nSuccessfully backed up existing folder to: {resolved_backup_path}")
                     
                 except dropbox.exceptions.ApiError as e:
                     error_msg = f"Failed to move folder to backup: {str(e)}"
@@ -2335,21 +2466,21 @@ class CommandRunner:
                     # Check if it's a write conflict error (409 error)
                     if "WriteConflictError" in str(e) or "conflict" in str(e).lower():
                         # Handle write conflict by deleting the conflicting backup folder and retrying
-                        self.logger.info(f"Backup folder conflict detected, deleting existing backup: {backup_path}")
+                        self.logger.info(f"Backup folder conflict detected, deleting existing backup: {resolved_backup_path}")
                         try:
-                            dropbox_client.dbx.files_delete_v2(backup_path)
-                            self.logger.info(f"Deleted conflicting backup folder: {backup_path}")
+                            dropbox_client.dbx.files_delete_v2(resolved_backup_path)
+                            self.logger.info(f"Deleted conflicting backup folder: {resolved_backup_path}")
                             
                             # Retry the move operation
                             dropbox_client.dbx.files_move_v2(
                                 from_path=dest_path,
-                                to_path=backup_path,
+                                to_path=resolved_backup_path,
                                 allow_shared_folder=True,
                                 allow_ownership_transfer=True
                             )
                             
-                            self.logger.info(f"Successfully backed up existing folder to: {backup_path} (after conflict resolution)")
-                            self.report_logger.info(f"\nSuccessfully backed up existing folder to: {backup_path} (after conflict resolution)")
+                            self.logger.info(f"Successfully backed up existing folder to: {resolved_backup_path} (after conflict resolution)")
+                            self.report_logger.info(f"\nSuccessfully backed up existing folder to: {resolved_backup_path} (after conflict resolution)")
                             
                         except Exception as retry_error:
                             error_msg = f"Failed to resolve backup conflict: {str(retry_error)}"
