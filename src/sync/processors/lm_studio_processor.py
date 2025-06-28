@@ -378,7 +378,7 @@ class LMStudioProcessor(BaseProcessor):
             # Log request data for debugging
             self.logger.info(f"Request data being sent to LM Studio:")
             self.logger.info(f"URL: {self.base_url}/chat/completions")
-            self.logger.info(f"Request data: {json.dumps(request_data, indent=2)}")
+            # self.logger.info(f"Request data: {json.dumps(request_data, indent=2)}")
 
             response = requests.post(
                 f"{self.base_url}/chat/completions",

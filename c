@@ -31,8 +31,9 @@ show_menu() {
     echo "9) (cp) Copy Dropbox Account Folders to Salesforce (Preserve Dates)"
     echo "10) (an) Analyze Salesforce Account Data for All Dropbox Accounts"
     echo "11) (e) Extract and Store Dropbox Data for Account"
-    echo "12) (h) Help - Show Python Script for Command"
-    echo "13) (q) Quit"
+    echo "12) (ch) Check Processing Dropbox Account Folder in Logs Directory"
+    echo "13) (h) Help - Show Python Script for Command"
+    echo "14) (q) Quit"
     echo "====================================="
     echo -n "Enter your choice (number or shortcut): "
 }
@@ -414,7 +415,15 @@ commands_file = 'src/commands.json'
 
 # Define shortcut mappings
 shortcuts = {
-    'a': 1, 'ls': 2, 'ld': 3, 'l': 4, 'r': 5, 'pg': 6, 'br': 7, 'db': 8, 'cp': 9, 'an': 10, 'e': 11, 'h': 12, 'q': 13
+    'a': 1, 'ls': 2, 'ld': 3, 'l': 4, 'r': 5, 'pg': 6, 'br': 7, 'db': 8, 'cp': 9, 'an': 10, 'e': 11, 'h': 13, 'ch': 12, 'q': 14
+}
+
+# Define built-in commands that aren't in commands.json
+builtin_commands = {
+    12: {
+        'description': 'Check Processing Dropbox Account Folder in Logs Directory',
+        'command': 'Interactive script to browse log directories and check analyzer.log for Dropbox account folder processing status'
+    }
 }
 
 if os.path.exists(commands_file):
@@ -433,11 +442,18 @@ if os.path.exists(commands_file):
             print(f'Invalid command number or shortcut: {cmd_input}', file=sys.stderr)
             sys.exit(1)
         
-        # Get the command and description
-        cmd = commands[cmd_num - 1]['command']
-        desc = commands[cmd_num - 1]['description']
-        print(f'Command {cmd_num} ({cmd_input}): {desc}')
-        print(f'Python Script: {cmd}')
+        # Check if it's a built-in command
+        if cmd_num in builtin_commands:
+            cmd = builtin_commands[cmd_num]['command']
+            desc = builtin_commands[cmd_num]['description']
+            print(f'Command {cmd_num} ({cmd_input}): {desc}')
+            print(f'Description: {cmd}')
+        else:
+            # Get the command and description from commands.json
+            cmd = commands[cmd_num - 1]['command']
+            desc = commands[cmd_num - 1]['description']
+            print(f'Command {cmd_num} ({cmd_input}): {desc}')
+            print(f'Python Script: {cmd}')
     except (IndexError, ValueError, KeyError):
         print(f'Invalid command number or shortcut: {cmd_input}', file=sys.stderr)
         sys.exit(1)
@@ -462,6 +478,110 @@ else:
     fi
 }
 
+# Function to check processing status of Dropbox account folder in logs directory
+check_processing_status() {
+    echo -e "\n${YELLOW}Check Processing Dropbox Account Folder in Logs Directory${NC}"
+    echo "-------------------------------------"
+    
+    # Check if logs directory exists
+    if [ ! -d "logs" ]; then
+        echo -e "\n${RED}Error: 'logs' directory not found${NC}"
+        echo "-------------------------------------"
+        echo -n "Press Enter to continue..."
+        read
+        return
+    fi
+    
+    # Get list of log directories
+    log_dirs=($(ls -1t logs/ | head -20))  # Get last 20 directories, sorted by time
+    
+    if [ ${#log_dirs[@]} -eq 0 ]; then
+        echo -e "\n${RED}No log directories found in 'logs' folder${NC}"
+        echo "-------------------------------------"
+        echo -n "Press Enter to continue..."
+        read
+        return
+    fi
+    
+    echo -e "\n${YELLOW}Available Log Directories:${NC}"
+    echo "-------------------------------------"
+    
+    # Display directories with numbers
+    for i in "${!log_dirs[@]}"; do
+        dir="${log_dirs[$i]}"
+        full_path="logs/$dir"
+        
+        # Check if analyzer.log exists
+        if [ -f "$full_path/analyzer.log" ]; then
+            log_indicator="📄"
+        else
+            log_indicator="❌"
+        fi
+        
+        # Get creation time
+        creation_time=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" "$full_path" 2>/dev/null || date -r "$full_path" "+%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "Unknown")
+        
+        echo "$((i+1)). $log_indicator $dir ($creation_time)"
+    done
+    
+    echo "-------------------------------------"
+    echo -n "Enter directory number to check (or 'q' to quit): "
+    read selection
+    
+    if [ "$selection" = "q" ] || [ "$selection" = "Q" ]; then
+        return
+    fi
+    
+    # Validate selection
+    if ! [[ "$selection" =~ ^[0-9]+$ ]] || [ "$selection" -lt 1 ] || [ "$selection" -gt ${#log_dirs[@]} ]; then
+        echo -e "\n${RED}Invalid selection. Please enter a number between 1 and ${#log_dirs[@]}.${NC}"
+        echo "-------------------------------------"
+        echo -n "Press Enter to continue..."
+        read
+        return
+    fi
+    
+    selected_dir="${log_dirs[$((selection-1))]}"
+    analyzer_log="logs/$selected_dir/analyzer.log"
+    
+    echo -e "\n${GREEN}Selected: $selected_dir${NC}"
+    echo "-------------------------------------"
+    
+    # Check if analyzer.log exists
+    if [ ! -f "$analyzer_log" ]; then
+        echo -e "\n${RED}Error: analyzer.log not found in $selected_dir${NC}"
+        echo "-------------------------------------"
+        echo -n "Press Enter to continue..."
+        read
+        return
+    fi
+    
+    echo -e "\n${YELLOW}Searching for 'Processing Dropbox account folder' entries...${NC}"
+    echo "-------------------------------------"
+    
+    # Search for processing entries
+    processing_entries=$(grep -n "Processing Dropbox account folder" "$analyzer_log" 2>/dev/null)
+    
+    if [ -z "$processing_entries" ]; then
+        echo -e "\n${YELLOW}No 'Processing Dropbox account folder' entries found in analyzer.log${NC}"
+    else
+        echo -e "\n${GREEN}Found processing entries:${NC}"
+        echo "-------------------------------------"
+        echo "$processing_entries" | while IFS= read -r line; do
+            echo "$line"
+        done
+    fi
+    
+    # Also show recent log entries for context
+    echo -e "\n${YELLOW}Recent log entries (last 10 lines):${NC}"
+    echo "-------------------------------------"
+    tail -10 "$analyzer_log" 2>/dev/null || echo "Could not read analyzer.log"
+    
+    echo "-------------------------------------"
+    echo -n "Press Enter to continue..."
+    read
+}
+
 # Main loop
 while true; do
     show_menu
@@ -478,8 +598,8 @@ while true; do
             continue
         fi
         
-        # If choice is 'h' or '12' and an argument was provided, show help for that command
-        if [[ $choice =~ ^(12|h)$ ]]; then
+        # If choice is 'h' or '13' and an argument was provided, show help for that command
+        if [[ $choice =~ ^(13|h)$ ]]; then
             show_command_help "$arg"
             continue
         fi
@@ -519,10 +639,13 @@ while true; do
         11|e)
             extract_dropbox_data
             ;;
-        12|h)
+        12|ch)
+            check_processing_status
+            ;;
+        13|h)
             show_command_help
             ;;
-        13|q)
+        14|q)
             echo -e "\n${GREEN}Goodbye!${NC}"
             exit 0
             ;;

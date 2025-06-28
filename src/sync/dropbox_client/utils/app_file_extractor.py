@@ -203,6 +203,7 @@ class AppFileExtractor:
     def _process_file(self, file: FileMetadata, dropbox_account_folder_name: str = None, force_store_dropbox_info: bool = False) -> Optional[Dict[str, Any]]:
         """Process a single file and extract relevant information using OCR and Qwen model."""
         try:
+            logger.info(f"_process_file force_store_dropbox_info: {force_store_dropbox_info}")
             # Check if file already exists in database (unless force flag is set)
             if dropbox_account_folder_name and not force_store_dropbox_info:
                 try:

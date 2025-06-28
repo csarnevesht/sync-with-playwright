@@ -8,7 +8,7 @@
     "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files"
   },
   {
-    "description": "Copy dropbox account folders to Salesforce folder - preserve dates",
+    "description": "Copy Dropbox Account Folders to Dropbox Salesforce Accounts folder - preserve dates",
     "command": "clear && python -m sync.cmd_runner --dropbox-accounts --commands=copy-dropbox-account-files-preserve-dates --continue-on-error --keep"
   },
   {
@@ -76,7 +76,7 @@
     "command": "python -m sync.cmd_ping"
   },
   {
-    "description": "start browser with salesforce and dropbox",
+    "description": "start browser with salesforce",
     "command": "python -m cmd_start"
   },
   {
@@ -176,8 +176,12 @@
     "command": "python -m sync.cmd_runner --dropbox-accounts --dropbox-account-files --commands='copy-dropbox-account-files-preserve-dates' --dropbox-account-name='Account Name' --continue-on-error"
   },
   {
-    "description": "Analyze account data for all accounts in Dropbox and copy file to Salesforce folder",
-    "command": "clear && python -m sync.cmd_runner  --dropbox-account-info --commands=extract-dropbox-account-app-files-info,analyze-account-data --salesforce-account-info --salesforce-accounts --continue-on-error --kepp"
+    "description": "Analyze Salesforce account data for all Dropbox Accounts",
+    "command": "clear && python -m sync.cmd_runner  --dropbox-accounts  --dropbox-account-info --commands=extract-dropbox-account-app-files-info,analyze-account-data --salesforce-account-info --salesforce-accounts --continue-on-error --keep"
+  },
+  {
+    "description": "Extract Salesforce and Dopbox Account Information, store in Supabase and analyze all account data for all Dropbox Accounts",
+    "command": "clear && python -m sync.cmd_runner  --dropbox-accounts  --dropbox-account-info --commands=extract-dropbox-account-app-files-info,store-in-supabase,analyze-account-data --salesforce-account-info --salesforce-accounts --force-store-dropbox-info --continue-on-error --keep"
   }
 ]
  

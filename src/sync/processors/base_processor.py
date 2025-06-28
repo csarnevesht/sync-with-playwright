@@ -258,9 +258,9 @@ class BaseProcessor(ABC):
             ]
 
             self.logger.info(f"Checking for cover sheet and application patterns")
-            self.logger.info(f"================================================")
-            self.logger.info(f"Text sample (first 5000 chars): {text[:5000]}")
-            self.logger.info(f"================================================")
+            # self.logger.info(f"================================================")
+            # self.logger.info(f"Text sample (first 5000 chars): {text[:5000]}")
+            # self.logger.info(f"================================================")
             
             # Check if text contains both cover sheet and application sections
             has_cover_sheet = False
@@ -662,7 +662,7 @@ class BaseProcessor(ABC):
             cleaned_name_hint = name_lines[1] if len(name_lines) > 1 else name_lines[0] if name_lines else None
             hint = f"[HINT] Cleaned Name: {cleaned_name_hint}\n\n" if cleaned_name_hint else ""
             owner_prompt = hint + self.prompt_creator.create_owner_extraction_prompt(text, processor_type, filename, dropbox_folder_name)
-            self.logger.info(f"owner_prompt: {owner_prompt}")
+            # self.logger.info(f"owner_prompt: {owner_prompt}")
             
             # Write the prompt to file
             self.prompt_creator._write_prompt_to_file(
@@ -747,7 +747,7 @@ class BaseProcessor(ABC):
             cleaned_name_hint = name_lines[-1] if name_lines else None
             hint = f"[HINT] Cleaned Name: {cleaned_name_hint}\n\n" if cleaned_name_hint else ""
             joint_owner_prompt = hint + self.prompt_creator.create_joint_owner_extraction_prompt(text, processor_type, filename, dropbox_folder_name)
-            self.logger.info(f"joint_owner_prompt: {joint_owner_prompt}")
+            # self.logger.info(f"joint_owner_prompt: {joint_owner_prompt}")
             
             # Write the prompt to file
             self.prompt_creator._write_prompt_to_file(

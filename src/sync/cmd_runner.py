@@ -1224,23 +1224,25 @@ def run_command(args, log_dir):
                                     logger=logger
                                 )
                                 command_runner.set_data('dropbox_account_information', dropbox_account_information)
-                            # Ensure result_dict has up-to-date application files info
-                            result_dict['account_info_from_app_files'] = dropbox_account_information.get('application_data', {})
-                            
-                            # Update the summary_results list with the latest data
-                            for summary in summary_results:
-                                if summary['dropbox_name'] == dropbox_account_folder_name:
-                                    summary['account_info_from_app_files'] = dropbox_account_information.get('application_data', {})
-                                    break
+                                
+                                # Ensure result_dict has up-to-date application files info
+                                if 'result_dict' in locals():
+                                    result_dict['account_info_from_app_files'] = dropbox_account_information.get('application_data', {})
+                                
+                                # Update the summary_results list with the latest data
+                                for summary in summary_results:
+                                    if summary['dropbox_name'] == dropbox_account_folder_name:
+                                        summary['account_info_from_app_files'] = dropbox_account_information.get('application_data', {})
+                                        break
 
-                            from sync.dropbox_client.utils.logging_utils import log_dropbox_account_information
-                            log_dropbox_account_information(
-                                dropbox_account_information,
-                                dropbox_account_folder_name,
-                                logger,
-                                summary_logger,
-                                report_logger
-                            )
+                                from sync.dropbox_client.utils.logging_utils import log_dropbox_account_information
+                                log_dropbox_account_information(
+                                    dropbox_account_information,
+                                    dropbox_account_folder_name,
+                                    logger,
+                                    summary_logger,
+                                    report_logger
+                                )
                         
                         # Compare files if both Dropbox and Salesforce files are available
                         file_comparison = None
