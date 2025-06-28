@@ -409,7 +409,7 @@ class AppFileExtractor:
                                 ocr_method = 'TrOCR'
                                 break
             
-            logger.info(f"process extracted_text: {extracted_text}")
+            # logger.info(f"process extracted_text: {extracted_text}")
             
             # Use the provided dropbox_account_folder_name for logging organization
             processor_data = processor.process_text(extracted_text, file.name, dropbox_account_folder_name)
