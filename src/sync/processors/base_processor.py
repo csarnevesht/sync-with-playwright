@@ -554,7 +554,7 @@ class BaseProcessor(ABC):
             
             # Log the cleaned name for debugging, but don't replace the full text
             cleaned_name_text = self._clean_name_lines(cleaned_text)
-            self.logger.info(f"Cleaned name text: {cleaned_name_text}")
+            # self.logger.info(f"Cleaned name text: {cleaned_name_text}")
             
             self.logger.info(f"Original text length: {len(text)} characters")
             self.logger.info(f"Cleaned text length: {len(cleaned_text)} characters")

@@ -353,7 +353,7 @@ analyze_salesforce_account_data() {
     echo "-------------------------------------"
     
     # Run the command to analyze Salesforce account data for all Dropbox accounts
-    clear && python -m sync.cmd_runner --dropbox-accounts --dropbox-account-info --commands=extract-dropbox-account-app-files-info,analyze-account-data --salesforce-account-info --salesforce-accounts --continue-on-error --keep
+    clear && python -m sync.cmd_runner --dropbox-accounts --dropbox-account-info --commands=extract-dropbox-account-app-files-info,analyze-account-data,store-in-supabase --salesforce-account-info --salesforce-accounts --continue-on-error --keep
     
     exit_code=$?
     
